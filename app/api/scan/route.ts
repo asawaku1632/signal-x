@@ -94,6 +94,33 @@ async function detectRealBullishEngulfing(symbol: string) {
     return false;
   }
 }
+async function detectHighBreak(
+  symbol: string,
+  days = 20
+) {
+  try {
+    const history = await getHistory(symbol, days + 10);
+
+    if (history.length < days) return false;
+
+    const recent = history.slice(-days);
+
+    const today = recent[recent.length - 1];
+
+    const todayClose = Number(today.close);
+
+    const pastHigh = Math.max(
+      ...recent
+        .slice(0, -1)
+        .map((item: any) => Number(item.high))
+    );
+
+    return todayClose > pastHigh;
+  } catch (error) {
+    console.error("高値更新取得エラー:", symbol, error);
+    return false;
+  }
+}
 
 function detectPatterns(
   price: number,
@@ -224,10 +251,12 @@ export async function GET() {
         const realBullishEngulfing = await detectRealBullishEngulfing(
           stock.symbol
         );
+        const realHighBreak = await detectHighBreak(stock.symbol, 20);
 
         const patterns = detectPatterns(price, previousClose, volumeRatio, rsi);
 
         patterns.bullishEngulfing = realBullishEngulfing;
+        patterns.highBreak = realHighBreak;
 
         const score = calculateScore(rsi, volumeRatio, changePercent, patterns);
         const reason = generateReason(
