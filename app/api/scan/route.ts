@@ -36,13 +36,17 @@ function calculateRSI(closes: number[], period = 14) {
   return Number(rsi.toFixed(1));
 }
 
+async function getHistory(symbol: string, days = 40) {
+  return yahooFinance.historical(symbol, {
+    period1: new Date(Date.now() - 1000 * 60 * 60 * 24 * days),
+    period2: new Date(),
+    interval: "1d",
+  });
+}
+
 async function getRealRSI(symbol: string) {
   try {
-    const history = await yahooFinance.historical(symbol, {
-      period1: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40),
-      period2: new Date(),
-      interval: "1d",
-    });
+    const history = await getHistory(symbol, 40);
 
     const closes = history
       .map((item: any) => Number(item.close))
@@ -52,6 +56,42 @@ async function getRealRSI(symbol: string) {
   } catch (error) {
     console.error("RSI取得エラー:", symbol, error);
     return 50;
+  }
+}
+
+async function detectRealBullishEngulfing(symbol: string) {
+  try {
+    const history = await getHistory(symbol, 10);
+
+    if (history.length < 2) return false;
+
+    const yesterday = history[history.length - 2];
+    const today = history[history.length - 1];
+
+    const yesterdayOpen = Number(yesterday.open);
+    const yesterdayClose = Number(yesterday.close);
+    const todayOpen = Number(today.open);
+    const todayClose = Number(today.close);
+
+    if (
+      !Number.isFinite(yesterdayOpen) ||
+      !Number.isFinite(yesterdayClose) ||
+      !Number.isFinite(todayOpen) ||
+      !Number.isFinite(todayClose)
+    ) {
+      return false;
+    }
+
+    const yesterdayBear = yesterdayClose < yesterdayOpen;
+    const todayBull = todayClose > todayOpen;
+
+    const engulfing =
+      todayOpen < yesterdayClose && todayClose > yesterdayOpen;
+
+    return yesterdayBear && todayBull && engulfing;
+  } catch (error) {
+    console.error("包み線取得エラー:", symbol, error);
+    return false;
   }
 }
 
@@ -78,7 +118,6 @@ function detectPatterns(
   const changePercent =
     previousClose > 0 ? ((price - previousClose) / previousClose) * 100 : 0;
 
-  if (rsi >= 55 && changePercent >= 1.5) patterns.bullishEngulfing = true;
   if (changePercent >= 3) patterns.rapidRise = true;
   if (changePercent <= -3) patterns.rapidDrop = true;
   if (rsi >= 45 && rsi <= 60 && changePercent > 0) patterns.rebound = true;
@@ -108,7 +147,7 @@ function calculateScore(
   score += Math.min(volumeRatio * 5, 15);
   score += Math.min(changePercent * 3, 20);
 
-  if (patterns.bullishEngulfing) score += 10;
+  if (patterns.bullishEngulfing) score += 15;
   if (patterns.rapidRise) score += 12;
   if (patterns.rebound) score += 8;
   if (patterns.lowerWickBounce) score += 10;
@@ -161,8 +200,14 @@ export async function GET() {
             : 0;
 
         const rsi = await getRealRSI(stock.symbol);
+        const realBullishEngulfing = await detectRealBullishEngulfing(
+          stock.symbol
+        );
 
         const patterns = detectPatterns(price, previousClose, volumeRatio, rsi);
+
+        patterns.bullishEngulfing = realBullishEngulfing;
+
         const score = calculateScore(rsi, volumeRatio, changePercent, patterns);
         const reason = generateReason(patterns);
 
