@@ -12,8 +12,47 @@ const STOCKS = [
   { code: "9984", symbol: "9984.T", name: "ソフトバンクG" },
 ];
 
-function randomBetween(min: number, max: number) {
-  return Number((Math.random() * (max - min) + min).toFixed(1));
+function calculateRSI(closes: number[], period = 14) {
+  if (closes.length <= period) return 50;
+
+  let gains = 0;
+  let losses = 0;
+
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+
+    if (diff > 0) gains += diff;
+    if (diff < 0) losses += Math.abs(diff);
+  }
+
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+
+  if (avgLoss === 0) return 100;
+
+  const rs = avgGain / avgLoss;
+  const rsi = 100 - 100 / (1 + rs);
+
+  return Number(rsi.toFixed(1));
+}
+
+async function getRealRSI(symbol: string) {
+  try {
+    const history = await yahooFinance.historical(symbol, {
+      period1: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40),
+      period2: new Date(),
+      interval: "1d",
+    });
+
+    const closes = history
+      .map((item: any) => Number(item.close))
+      .filter((price) => Number.isFinite(price) && price > 0);
+
+    return calculateRSI(closes, 14);
+  } catch (error) {
+    console.error("RSI取得エラー:", symbol, error);
+    return 50;
+  }
 }
 
 function detectPatterns(
@@ -49,6 +88,7 @@ function detectPatterns(
   if (changePercent >= 4) patterns.highBreak = true;
   if (rsi >= 60 && volumeRatio >= 1.2) patterns.goldenCross = true;
   if (rsi <= 35 && changePercent < 0) patterns.deadCross = true;
+
   if (rsi >= 55 && changePercent >= 1 && volumeRatio >= 1) {
     patterns.trendFollow = true;
   }
@@ -120,7 +160,8 @@ export async function GET() {
             ? Number((((price - previousClose) / previousClose) * 100).toFixed(2))
             : 0;
 
-        const rsi = randomBetween(35, 75);
+        const rsi = await getRealRSI(stock.symbol);
+
         const patterns = detectPatterns(price, previousClose, volumeRatio, rsi);
         const score = calculateScore(rsi, volumeRatio, changePercent, patterns);
         const reason = generateReason(patterns);
