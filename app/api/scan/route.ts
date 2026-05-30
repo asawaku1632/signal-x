@@ -151,7 +151,12 @@ function calculateScore(
   if (patterns.rapidRise) score += 12;
   if (patterns.rebound) score += 8;
   if (patterns.lowerWickBounce) score += 10;
-  if (patterns.volumeBreakout) score += 10;
+
+  // 出来高強化
+  if (volumeRatio >= 5) score += 18;
+  else if (volumeRatio >= 3) score += 14;
+  else if (volumeRatio >= 1.5) score += 8;
+
   if (patterns.highBreak) score += 12;
   if (patterns.goldenCross) score += 10;
   if (patterns.trendFollow) score += 10;
@@ -163,14 +168,28 @@ function calculateScore(
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function generateReason(patterns: ReturnType<typeof detectPatterns>) {
+
+function getVolumeSignal(volumeRatio: number) {
+  if (volumeRatio >= 5) return "異常出来高";
+  if (volumeRatio >= 3) return "出来高爆発";
+  if (volumeRatio >= 1.5) return "出来高増加";
+  return "";
+}
+
+function generateReason(
+  patterns: ReturnType<typeof detectPatterns>,
+  volumeRatio: number
+) {
   const reasons: string[] = [];
 
   if (patterns.bullishEngulfing) reasons.push("包み線");
   if (patterns.rapidRise) reasons.push("急騰");
   if (patterns.rebound) reasons.push("反発");
   if (patterns.lowerWickBounce) reasons.push("下ヒゲ反発");
-  if (patterns.volumeBreakout) reasons.push("出来高急増");
+
+  const volumeSignal = getVolumeSignal(volumeRatio);
+  if (volumeSignal) reasons.push(volumeSignal);
+
   if (patterns.highBreak) reasons.push("高値更新");
   if (patterns.goldenCross) reasons.push("GC接近");
   if (patterns.trendFollow) reasons.push("トレンド継続");
@@ -178,7 +197,9 @@ function generateReason(patterns: ReturnType<typeof detectPatterns>) {
   if (patterns.deadCross) reasons.push("DC警戒");
   if (patterns.rapidDrop) reasons.push("急落警戒");
 
-  return reasons.length === 0 ? "目立つシグナルなし" : reasons.join(" / ");
+  return reasons.length === 0
+    ? "目立つシグナルなし"
+    : reasons.join(" / ");
 }
 
 export async function GET() {
@@ -209,7 +230,10 @@ export async function GET() {
         patterns.bullishEngulfing = realBullishEngulfing;
 
         const score = calculateScore(rsi, volumeRatio, changePercent, patterns);
-        const reason = generateReason(patterns);
+        const reason = generateReason(
+  patterns,
+  volumeRatio
+);
 
         return {
           code: stock.code,
