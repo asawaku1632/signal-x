@@ -150,9 +150,10 @@ function detectPatterns(
   if (rsi >= 45 && rsi <= 60 && changePercent > 0) patterns.rebound = true;
   if (rsi <= 45 && changePercent > 0.5) patterns.lowerWickBounce = true;
   if (rsi >= 70 && changePercent < 0.5) patterns.upperWickWarning = true;
-  if (volumeRatio >= 2) patterns.volumeBreakout = true;
+ if (volumeRatio >= 1.5) patterns.volumeBreakout = true;
   if (changePercent >= 4) patterns.highBreak = true;
-  if (rsi >= 60 && volumeRatio >= 1.2) patterns.goldenCross = true;
+  if (rsi >= 55 && volumeRatio >= 1.1)
+  patterns.goldenCross = true;
   if (rsi <= 35 && changePercent < 0) patterns.deadCross = true;
 
   if (rsi >= 55 && changePercent >= 1 && volumeRatio >= 1) {
