@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 type Stock = {
   code: string;
   name: string;
+  price?: number;
   score: number;
   rsi?: number;
   volumeRatio?: number;
@@ -13,24 +14,64 @@ type Stock = {
 const COOLDOWN_MINUTES = 30;
 
 declare global {
-  var signalxLastAlerts:
-    | Record<string, number>
-    | undefined;
+  var signalxLastAlerts: Record<string, number> | undefined;
+}
+
+function isMarketOpen() {
+  const now = new Date();
+  const japanTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
+  );
+
+  const day = japanTime.getDay();
+  const hour = japanTime.getHours();
+  const minute = japanTime.getMinutes();
+  const totalMinutes = hour * 60 + minute;
+
+  const open = 9 * 60;
+  const close = 15 * 60 + 30;
+
+  return day >= 1 && day <= 5 && totalMinutes >= open && totalMinutes <= close;
 }
 
 function judge(score: number) {
+  if (score >= 95) return "大本命🔥";
   if (score >= 85) return "激熱🔥";
   if (score >= 70) return "本命🔥";
   return "監視";
 }
 
+function getTradePlan(stock: Stock) {
+  const price = stock.price;
+
+  if (!price) {
+    return {
+      entry: "-",
+      target: "-",
+      lossCut: "-",
+    };
+  }
+
+  return {
+    entry: `${price}円付近`,
+    target: `${Math.round(price * 1.03)}円`,
+    lossCut: `${Math.round(price * 0.98)}円`,
+  };
+}
+
 function marketComment(stocks: Stock[]) {
-  if (stocks.length >= 5) {
-    return "今日は強いシグナルが複数出ています。無理せず上位だけ監視。";
+  const maxScore = Math.max(...stocks.map((s) => s.score));
+
+  if (stocks.length >= 5 && maxScore >= 95) {
+    return "かなり強い日です。ただし上位だけに絞って、飛び乗り注意。";
+  }
+
+  if (stocks.length >= 3) {
+    return "激熱候補が複数あります。無理せず上位銘柄だけ監視。";
   }
 
   if (stocks.length >= 1) {
-    return "激熱候補あり。焦らず条件確認。";
+    return "激熱候補あり。条件確認して慎重に判断。";
   }
 
   return "今は大本命なし。無理に触らない。";
@@ -45,6 +86,14 @@ export async function GET() {
         { success: false, error: "LINE token is missing" },
         { status: 500 }
       );
+    }
+
+    if (!isMarketOpen()) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "市場時間外のため通知停止",
+      });
     }
 
     const baseUrl =
@@ -101,11 +150,17 @@ export async function GET() {
 
     const rankingText = notifyStocks
       .map((stock, index) => {
+        const plan = getTradePlan(stock);
+
         return (
           `${index + 1}位 ${stock.name} (${stock.code})\n` +
           `AI POWER: ${stock.score}\n` +
           `判定: ${judge(stock.score)}\n` +
-          `理由: ${stock.reason || "シグナル理由なし"}\n` +
+          `理由: ${stock.reason || "シグナル理由なし"}\n\n` +
+          `現在値: ${stock.price ?? "-"}円\n` +
+          `買い候補: ${plan.entry}\n` +
+          `利確目安: ${plan.target}\n` +
+          `損切り目安: ${plan.lossCut}\n\n` +
           `RSI: ${stock.rsi ?? "-"} / 出来高: ${stock.volumeRatio ?? "-"}x / 変化率: ${stock.changePercent ?? "-"}%\n` +
           `${baseUrl}/analysis/${stock.code}`
         );
@@ -119,7 +174,8 @@ export async function GET() {
       `${marketComment(notifyStocks)}\n\n` +
       `【激熱TOP${notifyStocks.length}】\n\n` +
       `${rankingText}\n\n` +
-      `※同じ銘柄は${COOLDOWN_MINUTES}分以内は再通知しません。`;
+      `※同じ銘柄は${COOLDOWN_MINUTES}分以内は再通知しません。\n` +
+      `※利確・損切りは目安です。最終判断は慎重に。`;
 
     const res = await fetch(
       "https://api.line.me/v2/bot/message/broadcast",
