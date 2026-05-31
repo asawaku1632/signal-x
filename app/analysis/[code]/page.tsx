@@ -2,6 +2,7 @@
 
 import { getAiDecision } from "@/app/lib/aiDecision";
 import { getAiFinalJudge } from "@/app/lib/aiFinalJudge";
+import { getAiWinRate } from "@/app/lib/aiWinRate";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -77,6 +78,14 @@ export default function AnalysisPage() {
     learningBonus: signal.learningBonus,
     reason: signal.reason,
   });
+
+  const winRate = getAiWinRate({
+  score: signal.score,
+  rsi: signal.rsi,
+  volumeRatio: signal.volumeRatio,
+  changePercent: signal.changePercent,
+  learningBonus: signal.learningBonus,
+});
 
   return (
     <main className="min-h-screen bg-black text-white flex justify-center p-4">
@@ -196,15 +205,17 @@ export default function AnalysisPage() {
       <p className="text-[10px] text-gray-500">30分後勝率</p>
 
       <p className="text-3xl font-black text-green-400">
-        {Math.min(signal.score, 95)}%
-      </p>
+     {winRate.win30}%
+     </p>
+
+
     </div>
 
     <div className="rounded-2xl bg-zinc-900 p-3">
       <p className="text-[10px] text-gray-500">1時間後勝率</p>
 
       <p className="text-3xl font-black text-cyan-400">
-        {Math.max(signal.score - 5, 40)}%
+       {winRate.win60}%
       </p>
     </div>
   </div>
