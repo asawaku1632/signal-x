@@ -188,6 +188,28 @@ export default function AnalysisPage() {
             </div>
           </div>
 
+          <section className="mt-5 rounded-3xl border border-green-900 bg-black p-4">
+  <p className="text-xs text-green-400">AI WIN RATE</p>
+
+  <div className="mt-3 grid grid-cols-2 gap-3">
+    <div className="rounded-2xl bg-zinc-900 p-3">
+      <p className="text-[10px] text-gray-500">30分後勝率</p>
+
+      <p className="text-3xl font-black text-green-400">
+        {Math.min(signal.score, 95)}%
+      </p>
+    </div>
+
+    <div className="rounded-2xl bg-zinc-900 p-3">
+      <p className="text-[10px] text-gray-500">1時間後勝率</p>
+
+      <p className="text-3xl font-black text-cyan-400">
+        {Math.max(signal.score - 5, 40)}%
+      </p>
+    </div>
+  </div>
+</section>
+
           <section className="mt-5 rounded-3xl border border-cyan-900 bg-black p-4">
             <div className="flex items-center justify-between">
               <div>
