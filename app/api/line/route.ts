@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 
-type Stock = {
+ type Stock = {
   code: string;
   name: string;
   price?: number;
-  score: number;
+  score?: number;
+  aiPower?: number;
   rsi?: number;
   volumeRatio?: number;
   changePercent?: number;
   reason?: string;
+  finalJudge?: string;
+  takeProfit?: number;
+  stopLoss?: number;
 };
+
+
 
 const COOLDOWN_MINUTES = 30;
 
@@ -43,6 +49,11 @@ function judge(score: number) {
 
 function getTradePlan(stock: Stock) {
   const price = stock.price;
+  console.log(
+  "LINE PRICE",
+  stock.code,
+  stock.price
+);
 
   if (!price) {
     return {
@@ -107,16 +118,22 @@ export async function GET() {
     const scanJson = await scanRes.json();
     const stocks: Stock[] = scanJson.stocks || [];
 
-    const hotStocks = stocks
-      .filter((stock) => stock.score >= 85)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+   const hotStocks = stocks
+  .filter(
+    (stock) =>
+      (stock.score ?? 0) >= 85 &&
+      stock.finalJudge === "買え"
+  )
+  .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  .slice(0, 5);
+      console.log("HOT STOCKS", hotStocks);
 
     if (hotStocks.length === 0) {
       return NextResponse.json({
         success: true,
         skipped: true,
-        reason: "AI POWER 85以上なし",
+        reason: "AI POWER 85以上かつ買え判定なし",
+
       });
     }
 
@@ -125,6 +142,8 @@ export async function GET() {
     }
 
     const now = Date.now();
+
+    console.log("HOT STOCKS", hotStocks);
 
     const notifyStocks = hotStocks.filter((stock) => {
       const last = globalThis.signalxLastAlerts?.[stock.code];
@@ -135,6 +154,16 @@ export async function GET() {
 
       return diffMinutes >= COOLDOWN_MINUTES;
     });
+
+    console.log(
+  "NOTIFY STOCKS",
+  notifyStocks.map((s) => ({
+    code: s.code,
+    price: s.price,
+    takeProfit: s.takeProfit,
+    stopLoss: s.stopLoss,
+  }))
+);
 
     if (notifyStocks.length === 0) {
       return NextResponse.json({
@@ -157,10 +186,11 @@ export async function GET() {
           `AI POWER: ${stock.score}\n` +
           `判定: ${judge(stock.score)}\n` +
           `理由: ${stock.reason || "シグナル理由なし"}\n\n` +
-          `現在値: ${stock.price ?? "-"}円\n` +
-          `買い候補: ${plan.entry}\n` +
-          `利確目安: ${plan.target}\n` +
-          `損切り目安: ${plan.lossCut}\n\n` +
+        `通知時価格: ${stock.price ?? "-"}円\n` +
+　　　　`AI判断: ${stock.finalJudge ?? "監視"}\n` +
+`買い候補: ${plan.entry}\n` +
+`🎯 利確: ${stock.takeProfit ?? plan.target}円\n` +
+`🛡 損切: ${stock.stopLoss ?? plan.lossCut}円\n\n` +
           `RSI: ${stock.rsi ?? "-"} / 出来高: ${stock.volumeRatio ?? "-"}x / 変化率: ${stock.changePercent ?? "-"}%\n` +
           `${baseUrl}/analysis/${stock.code}`
         );

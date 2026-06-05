@@ -1,23 +1,17 @@
-type RunResult = {
-  changes: number;
-  lastInsertRowid: number;
-};
+import Database from "better-sqlite3";
 
-type Statement = {
-  run: (..._args: unknown[]) => RunResult;
-  all: (..._args: unknown[]) => unknown[];
-  get: (..._args: unknown[]) => unknown | null;
-};
+const db = new Database("signalx.db");
 
-export const db = {
-  prepare: (_sql: string): Statement => ({
-    run: (..._args: unknown[]) => ({
-      changes: 0,
-      lastInsertRowid: 0,
-    }),
-    all: (..._args: unknown[]) => [],
-    get: (..._args: unknown[]) => null,
-  }),
-};
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS learning_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT,
+    score INTEGER,
+    reason TEXT,
+    entryPrice REAL,
+    result TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
 
 export default db;
