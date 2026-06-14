@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1781340929823-7203",
+    "notificationId": "1780567658335-7203",
+    "code": "7203",
+    "name": "トヨタ",
+    "notifiedAt": "2026-06-04T10:07:38.335Z",
+    "entryPrice": 2911.5,
+    "price1h": 2775.5,
+    "closePrice": 2775.5,
+    "nextClosePrice": 2775.5,
+    "takeProfit": 2984,
+    "stopLoss": 2824,
+    "result": "LOSE",
+    "checkedAt": "2026-06-13T09:37:28.361Z"
+  },
+  {
+    "id": "1781340929815-8306",
+    "notificationId": "1781339915995-8306",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "notifiedAt": "2026-06-13T08:38:35.995Z",
+    "entryPrice": 3162,
+    "price1h": 3162,
+    "closePrice": 3162,
+    "nextClosePrice": null,
+    "takeProfit": 3257,
+    "stopLoss": 3099,
+    "result": "HOLD",
+    "checkedAt": "2026-06-13T09:37:28.354Z"
+  }
+]

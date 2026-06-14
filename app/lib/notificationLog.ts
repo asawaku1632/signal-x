@@ -11,6 +11,9 @@ export type NotificationLog = {
   judge: string;
   takeProfit: number;
   stopLoss: number;
+
+  profitNotified?: boolean;
+  stopLossNotified?: boolean;
 };
 
 const filePath = path.join(process.cwd(), "data", "notification-logs.json");
@@ -33,13 +36,18 @@ export async function getNotificationLogs(): Promise<NotificationLog[]> {
 }
 
 export async function saveNotificationLog(
-  log: Omit<NotificationLog, "id" | "notifiedAt">
+  log: Omit<
+    NotificationLog,
+    "id" | "notifiedAt" | "profitNotified" | "stopLossNotified"
+  >
 ) {
   const logs = await getNotificationLogs();
 
   const newLog: NotificationLog = {
     id: `${Date.now()}-${log.code}`,
     notifiedAt: new Date().toISOString(),
+    profitNotified: false,
+    stopLossNotified: false,
     ...log,
   };
 
@@ -48,4 +56,19 @@ export async function saveNotificationLog(
   await fs.writeFile(filePath, JSON.stringify(logs, null, 2), "utf-8");
 
   return newLog;
+}
+
+export async function updateNotificationLog(
+  id: string,
+  updates: Partial<NotificationLog>
+) {
+  const logs = await getNotificationLogs();
+
+  const updatedLogs = logs.map((log) =>
+    log.id === id ? { ...log, ...updates } : log
+  );
+
+  await fs.writeFile(filePath, JSON.stringify(updatedLogs, null, 2), "utf-8");
+
+  return updatedLogs.find((log) => log.id === id);
 }

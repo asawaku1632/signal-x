@@ -14,4 +14,25 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    code TEXT,
+    name TEXT,
+
+    price REAL,
+
+    score INTEGER,
+
+    judge TEXT,
+
+    takeProfit REAL,
+
+    stopLoss REAL,
+
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
 export default db;

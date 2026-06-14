@@ -1,5 +1,83 @@
 [
   {
+    "id": "1781353186799-8306",
+    "notifiedAt": "2026-06-13T12:19:46.799Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067,
+    "profitNotified": true
+  },
+  {
+    "id": "1781351787833-8306",
+    "notifiedAt": "2026-06-13T11:56:27.833Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067
+  },
+  {
+    "id": "1781351502925-8306",
+    "notifiedAt": "2026-06-13T11:51:42.925Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067
+  },
+  {
+    "id": "1781351318075-8306",
+    "notifiedAt": "2026-06-13T11:48:38.075Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067
+  },
+  {
+    "id": "1781351281597-8306",
+    "notifiedAt": "2026-06-13T11:48:01.597Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067
+  },
+  {
+    "id": "1781350872619-8306",
+    "notifiedAt": "2026-06-13T11:41:12.619Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟢 強い",
+    "takeProfit": 3241,
+    "stopLoss": 3067
+  },
+  {
+    "id": "1781339915995-8306",
+    "notifiedAt": "2026-06-13T08:38:35.995Z",
+    "code": "8306",
+    "name": "三菱UFJ",
+    "price": 3162,
+    "aiPower": 79,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 3257,
+    "stopLoss": 3099
+  },
+  {
     "id": "1780567658335-7203",
     "notifiedAt": "2026-06-04T10:07:38.335Z",
     "code": "7203",
@@ -8,6 +86,7 @@
     "aiPower": 79,
     "judge": "無理に入るな",
     "takeProfit": 2984,
-    "stopLoss": 2824
+    "stopLoss": 2824,
+    "stopLossNotified": true
   }
 ]
