@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/line",
-      "schedule": "0 0 * * *"
+      "schedule": "10 0 * * 1-5"
+    },
+    {
+      "path": "/api/check-profit",
+      "schedule": "*/5 0-6 * * 1-5"
     }
   ]
 }

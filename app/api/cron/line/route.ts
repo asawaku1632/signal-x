@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { saveNotificationLog } from "@/app/lib/notificationLog";
+
 type Stock = {
   code: string;
   name: string;
@@ -37,24 +39,21 @@ async function sendLine(message: string) {
     };
   }
 
-  const res = await fetch(
-    "https://api.line.me/v2/bot/message/broadcast",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            type: "text",
-            text: message,
-          },
-        ],
-      }),
-    }
-  );
+  const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      messages: [
+        {
+          type: "text",
+          text: message,
+        },
+      ],
+    }),
+  });
 
   const text = await res.text();
 
@@ -65,14 +64,26 @@ async function sendLine(message: string) {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-   const baseUrl = "http://localhost:3000";
-const publicUrl = "https://signal-x-ppjg.vercel.app";
+    const url = new URL(req.url);
+    const baseUrl = url.origin;
+    const publicUrl = "https://signal-x-ppjg.vercel.app";
 
     const res = await fetch(`${baseUrl}/api/ranking`, {
       cache: "no-store",
     });
+
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ranking api failed",
+          status: res.status,
+        },
+        { status: 500 }
+      );
+    }
 
     const json = await res.json();
     const ranking: Stock[] = json.ranking || [];
@@ -88,10 +99,8 @@ const publicUrl = "https://signal-x-ppjg.vercel.app";
     const top = ranking[0];
     const score = aiScore(top);
     const price = top.price ?? 0;
-    const takeProfit =
-      top.takeProfit ?? Math.round(price * 1.03);
-    const stopLoss =
-      top.stopLoss ?? Math.round(price * 0.98);
+    const takeProfit = top.takeProfit ?? Math.round(price * 1.03);
+    const stopLoss = top.stopLoss ?? Math.round(price * 0.98);
     const requiredMoney = price * 100;
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
@@ -131,24 +140,38 @@ const publicUrl = "https://signal-x-ppjg.vercel.app";
 
     const line = await sendLine(message);
 
+    let savedLog = null;
+
+    if (line.ok) {
+      savedLog = await saveNotificationLog({
+        code: top.code,
+        name: top.name,
+        price,
+        aiPower: score,
+        judge: tradeDecision(score),
+        takeProfit,
+        stopLoss,
+      });
+    }
+
     return NextResponse.json({
       success: line.ok,
       status: line.status,
       response: line.text,
       top,
+      savedLog,
       rankingCount: ranking.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
 
     return NextResponse.json(
       {
         success: false,
         error: "cron line ranking failed",
+        message: error?.message || String(error),
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
