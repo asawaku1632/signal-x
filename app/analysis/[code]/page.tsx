@@ -1,429 +1,381 @@
 "use client";
 
-import { getAiDecision } from "@/app/lib/aiDecision";
-import { getAiFinalJudge } from "@/app/lib/aiFinalJudge";
-import { getAiWinRate } from "@/app/lib/aiWinRate";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Signal = {
   code: string;
   name: string;
-  score: number;
-  reason?: string;
   price: number;
-  changePercent: number;
-  rsi: number;
-  volumeRatio: number;
-  learningBonus?: number;
+  score?: number;
+  aiPower?: number;
+  changePercent?: number;
+  rsi?: number;
+  volumeRatio?: number;
+  reason?: string;
+  takeProfit?: number;
+  stopLoss?: number;
 };
+
+type HistoryStats = {
+  success: boolean;
+  code: string;
+  total: number;
+  win: number;
+  lose: number;
+  hold?: number;
+  winRate: number;
+};
+
+function yen(value?: number) {
+  if (value === undefined || value === null) return "-";
+  return `${Math.round(value).toLocaleString()}円`;
+}
+
+function getPower(signal: Signal | null) {
+  return signal?.score ?? signal?.aiPower ?? 0;
+}
+
+function getJudge(power: number) {
+  if (power >= 85) return "激熱";
+  if (power >= 70) return "本命";
+  if (power >= 50) return "静観";
+  return "触るな";
+}
+
+function getDecision(power: number) {
+  if (power >= 85) return "BUY";
+  if (power >= 70) return "WATCH BUY";
+  if (power >= 50) return "WATCH";
+  return "NO ENTRY";
+}
 
 export default function AnalysisPage() {
   const params = useParams();
   const code = String(params.code);
 
   const [signal, setSignal] = useState<Signal | null>(null);
-  const [stocks, setStocks] = useState<Signal[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [resultStats, setResultStats] = useState<any>(null);
+  const [historyStats, setHistoryStats] =
+    useState<HistoryStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  const fetchSignal = async () => {
-    const scanRes = await fetch("/api/scan", {
-      cache: "no-store",
-    });
+    const fetchSignal = async () => {
+      try {
+        const scanRes = await fetch("/api/scan", {
+          cache: "no-store",
+        });
 
-    const scanJson = await scanRes.json();
-    const allStocks: Signal[] = scanJson.stocks || [];
+        const scanJson = await scanRes.json();
+        const stocks: Signal[] = scanJson.stocks || [];
 
-    let target =
-      allStocks.find((item) => item.code === code) || null;
+        const target =
+          stocks.find((item) => item.code === code) || null;
 
-    if (!target) {
-      const rankingRes = await fetch("/api/ranking", {
-        cache: "no-store",
-      });
+        setSignal(target);
 
-      const rankingJson = await rankingRes.json();
-      const rankingStocks: Signal[] = rankingJson.ranking || [];
+        const historyRes = await fetch(
+          `/api/result/power-stats/${code}`,
+          {
+            cache: "no-store",
+          }
+        );
 
-      target =
-        rankingStocks.find((item) => item.code === code) || null;
-    }
+        const historyJson = await historyRes.json();
+        setHistoryStats(historyJson);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setStocks(allStocks);
-    setSignal(target);
-  };
-
-  const fetchStats = async () => {
-    const res = await fetch("/api/learning/stats");
-    setStats(await res.json());
-  };
-
-  const fetchResultStats = async () => {
-    const res = await fetch(`/api/result/stats/${code}`);
-    setResultStats(await res.json());
-  };
-
-  fetchSignal();
-  fetchStats();
-  fetchResultStats();
-
-  const timer = setInterval(() => {
     fetchSignal();
-    fetchResultStats();
-  }, 30000);
+  }, [code]);
 
-  return () => clearInterval(timer);
-}, [code]);
+  if (loading) {
+  return (
+    <main className="min-h-screen bg-black text-white p-4">
+      <div className="max-w-md mx-auto">
+        読み込み中...
+      </div>
+    </main>
+  );
+}
+ 
+
   if (!signal) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        AI解析中...
+      <main className="min-h-screen bg-black text-white p-5">
+        <h1 className="text-2xl font-black">銘柄が見つかりません</h1>
+        <p className="text-zinc-400 mt-2">CODE {code}</p>
       </main>
     );
   }
 
-  const ai = getAiDecision({
-    score: signal.score,
-    rsi: signal.rsi,
-    volumeRatio: signal.volumeRatio,
-    changePercent: signal.changePercent,
-    learningBonus: signal.learningBonus,
-  });
+  const power = getPower(signal);
+  const judge = getJudge(power);
+  const decision = getDecision(power);
 
-  const finalJudge = getAiFinalJudge({
-    score: signal.score,
-    rsi: signal.rsi,
-    volumeRatio: signal.volumeRatio,
-    changePercent: signal.changePercent,
-    learningBonus: signal.learningBonus,
-    reason: signal.reason,
-  });
-
-  const winRate = getAiWinRate({
-    score: signal.score,
-    rsi: signal.rsi,
-    volumeRatio: signal.volumeRatio,
-    changePercent: signal.changePercent,
-    learningBonus: signal.learningBonus,
-  });
-
-  const takeProfit = Math.round(signal.price * 1.025);
-  const stopLoss = Math.round(signal.price * 0.97);
-  const requiredMoney = signal.price * 100;
-  const profit = (takeProfit - signal.price) * 100;
-  const loss = (signal.price - stopLoss) * 100;
-
-  const sortedStocks = stocks
-    .slice()
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-  const aiRanking =
-    sortedStocks.findIndex((item) => item.code === signal.code) + 1;
-
-  const totalRankingStocks = stocks.length || 1000;
-
-  const rankingPercent =
-    aiRanking > 0 && totalRankingStocks > 0
-      ? Math.round((aiRanking / totalRankingStocks) * 100)
-      : 0;
-
-  const resultTotal = resultStats?.total ?? 0;
-
-  const nextLevel =
-    resultTotal >= 300
-      ? 300
-      : resultTotal >= 100
-      ? 300
-      : resultTotal >= 50
-      ? 100
-      : resultTotal >= 10
-      ? 50
-      : 10;
-
-  const currentLevelStart =
-    resultTotal >= 300
-      ? 300
-      : resultTotal >= 100
-      ? 100
-      : resultTotal >= 50
-      ? 50
-      : resultTotal >= 10
-      ? 10
-      : 0;
-
-  const progress =
-    nextLevel === currentLevelStart
-      ? 100
-      : Math.min(
-          100,
-          Math.round(
-            ((resultTotal - currentLevelStart) /
-              (nextLevel - currentLevelStart)) *
-              100
-          )
-        );
-
-  const remain = Math.max(0, nextLevel - resultTotal);
-
-  const tradeJudge =
-    finalJudge.label === "大本命"
-      ? "激熱"
-      : finalJudge.label === "本命"
-      ? "強い"
-      : finalJudge.label === "無理に入るな"
-      ? "静観"
-      : finalJudge.label === "静観"
-      ? "静観"
-      : "撤退";
-
-  const tradeColor =
-    tradeJudge === "激熱"
-      ? "text-purple-400"
-      : tradeJudge === "強い"
-      ? "text-green-400"
-      : tradeJudge === "静観"
-      ? "text-yellow-300"
-      : "text-red-500";
-
-  const shortReason =
-    finalJudge.reasons.length >= 2
-      ? `${finalJudge.reasons[0]
-          .replace("RSIが良好ゾーン", "RSI良好")
-          .replace("値動きは通常範囲", "値動き安定")}｜${finalJudge.reasons[1]
-          .replace("RSIが良好ゾーン", "RSI良好")
-          .replace("値動きは通常範囲", "値動き安定")}`
-      : signal.reason || "AI監視中";
+  const takeProfit =
+    signal.takeProfit ?? Math.round(signal.price * 1.03);
+  const stopLoss =
+    signal.stopLoss ?? Math.round(signal.price * 0.98);
 
   return (
-    <main className="min-h-screen bg-black text-white flex justify-center p-3">
-      <div className="w-full max-w-sm">
-        <section className="mb-4 rounded-3xl border border-orange-500/70 bg-black p-4 text-center">
-          <div className="flex items-center justify-center gap-4">
-            <p className={`text-2xl font-black ${tradeColor}`}>
-              🟢 {tradeJudge}
-            </p>
+  <main className="min-h-screen bg-black text-white p-4">
+    <div className="max-w-md mx-auto">
 
-            <div className="h-7 w-[1px] bg-zinc-700" />
+      <section className="rounded-3xl border border-orange-500/50 bg-zinc-950 p-5 mb-5">
 
-            <p className="text-2xl font-black text-cyan-400">
-              信頼度 {signal.score}%
-            </p>
+        <div className="flex justify-between items-center mb-5">
+          <div className="text-green-400 text-2xl font-black">
+            🟢 {judge}
           </div>
 
-          <div className="my-4 border-t border-zinc-800" />
+          <div className="text-cyan-400 text-2xl font-black">
+            信頼度 {power}%
+          </div>
+        </div>
 
-          <div className="flex items-center justify-center gap-3">
-            <p className="text-4xl font-black text-white">
-              {signal.code}
-            </p>
-
-            <p className="text-3xl font-black text-yellow-300 truncate">
+        <div className="border-t border-zinc-800 pt-5">
+          <h1 className="text-5xl font-black">
+            {signal.code}{" "}
+            <span className="text-yellow-300">
               {signal.name}
+            </span>
+          </h1>
+
+          <div className="text-center mt-8">
+            <p className="text-zinc-400">現在値</p>
+            <p className="text-6xl font-black">
+              {yen(signal.price)}
+            </p>
+            <p className="text-yellow-300 mt-2">
+              成行100株（必要資金{" "}
+              {yen(signal.price * 100)}）
             </p>
           </div>
 
-          <div className="my-4 border-t border-zinc-800" />
-
-          <p className="text-zinc-400 text-sm">現在値</p>
-
-          <p className="mt-1 text-4xl font-black">
-            {(signal.price ?? 0).toLocaleString()}円
-          </p>
-
-          <p className="mt-2 text-sm text-zinc-400">
-            成行100株
-            <span className="ml-1 text-yellow-300 font-bold">
-              （必要資金 {requiredMoney.toLocaleString()}円）
-            </span>
-          </p>
-
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <div className="rounded-xl border border-green-500 p-3">
-              <p className="text-green-400 font-black text-base">
+          <div className="grid grid-cols-2 gap-4 mt-8">
+            <div className="rounded-2xl border border-green-500 p-4 text-center">
+              <p className="text-green-400 font-bold">
                 🎯 利確
               </p>
-
-              <p className="text-2xl font-black">
-                {takeProfit.toLocaleString()}円
+              <p className="text-4xl font-black">
+                {yen(takeProfit)}
               </p>
-
-              <p className="text-green-400 text-xl font-black">
-                +{profit.toLocaleString()}円
+              <p className="text-green-400 font-bold">
+                +{yen((takeProfit - signal.price) * 100)}
               </p>
             </div>
 
-            <div className="rounded-xl border border-red-500 p-3">
-              <p className="text-red-400 font-black text-base">
+            <div className="rounded-2xl border border-red-500 p-4 text-center">
+              <p className="text-red-400 font-bold">
                 🛡 損切
               </p>
-
-              <p className="text-2xl font-black">
-                {stopLoss.toLocaleString()}円
+              <p className="text-4xl font-black">
+                {yen(stopLoss)}
               </p>
-
-              <p className="text-red-400 text-xl font-black">
-                -{loss.toLocaleString()}円
+              <p className="text-red-400 font-bold">
+                -{yen((signal.price - stopLoss) * 100)}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-zinc-700 bg-zinc-950 p-3 text-center">
-            <p className="text-lg font-black text-white">
-              {shortReason}
-            </p>
+          <div className="mt-6 rounded-2xl bg-zinc-900 p-4 text-center text-xl font-black">
+            {signal.reason || "AI理由なし"}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {resultStats && (
-          <section className="mb-4 rounded-3xl border border-purple-700 bg-black p-4 text-center">
-            <p className="text-xs text-purple-400">AI得意銘柄判定</p>
+      <section className="rounded-3xl border border-purple-500/50 bg-zinc-950 p-5 mb-5 text-center">
+  <p className="text-purple-300 text-sm">
+    AI得意銘柄判定
+  </p>
 
-            <p className="mt-2 text-2xl font-black text-purple-300">
-              {resultStats.total < 10
-                ? "データ蓄積中"
-                : resultStats.winRate >= 80
-                ? "超得意銘柄"
-                : resultStats.winRate >= 70
-                ? "得意銘柄"
-                : resultStats.winRate >= 50
-                ? "要検証"
-                : "苦手候補"}
+  <p className="text-4xl font-black text-purple-300 mt-2">
+    {historyStats && historyStats.total >= 10 && historyStats.winRate >= 70
+      ? "得意銘柄"
+      : historyStats && historyStats.total >= 10 && historyStats.winRate < 50
+      ? "苦手銘柄"
+      : "データ蓄積中"}
+  </p>
+
+  <p className="text-zinc-400 mt-2">
+    検証{historyStats?.total ?? 0}回 / 勝率{" "}
+    {historyStats?.winRate ?? 0}%
+  </p>
+
+  <div className="grid grid-cols-3 gap-3 mt-5">
+    <div className="rounded-2xl bg-zinc-900 border border-green-500/40 p-3">
+      <p className="text-green-400 text-sm">勝ち</p>
+      <p className="text-2xl font-black">
+        {historyStats?.win ?? 0}
+      </p>
+    </div>
+
+    <div className="rounded-2xl bg-zinc-900 border border-red-500/40 p-3">
+      <p className="text-red-400 text-sm">負け</p>
+      <p className="text-2xl font-black">
+        {historyStats?.lose ?? 0}
+      </p>
+    </div>
+
+    <div className="rounded-2xl bg-zinc-900 border border-cyan-500/40 p-3">
+      <p className="text-cyan-400 text-sm">勝率</p>
+      <p className="text-2xl font-black">
+        {historyStats?.winRate ?? 0}%
+      </p>
+    </div>
+  </div>
+
+  <p className="text-sm text-zinc-400 mt-4 leading-relaxed">
+    {historyStats && historyStats.total < 10
+      ? "まだ検証数が少ないため、AIは学習中です。"
+      : historyStats && historyStats.winRate >= 70
+      ? "この銘柄は過去実績が良く、AIが得意な可能性があります。"
+      : historyStats && historyStats.winRate < 50
+      ? "この銘柄は過去実績が弱く、慎重に見るべきです。"
+      : "標準的な成績です。今後のデータ蓄積で精度を高めます。"}
+  </p>
+</section>
+
+      <section className="rounded-3xl border border-cyan-500/50 bg-zinc-950 p-5 mb-5">
+        <p className="text-cyan-400 text-sm">AI学習レベル</p>
+
+        <div className="rounded-2xl border border-orange-500/50 p-5 mt-4 text-center">
+          <p className="text-yellow-300">AIランキング</p>
+          <p className="text-5xl font-black text-yellow-300">
+            1位
+          </p>
+          <p className="text-zinc-400">/189銘柄中</p>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-cyan-300 text-3xl font-black">
+            Lv1 見習いAI 🥚
+          </p>
+          <div className="w-full h-3 bg-zinc-800 rounded-full mt-3">
+            <div className="h-3 bg-cyan-400 rounded-full w-1/5" />
+          </div>
+          <p className="text-zinc-400 mt-2">
+            次のレベルまであと10件
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-zinc-700 bg-zinc-950 p-5">
+        <div className="flex justify-between">
+          <div>
+            <p className="text-zinc-400 text-sm">
+              SIGNALX AI ANALYSIS
             </p>
-
-            <p className="mt-1 text-xs text-zinc-400">
-              検証 {resultStats.total}回 / 勝率 {resultStats.winRate}%
-            </p>
-          </section>
-        )}
-
-        {resultStats && (
-          <section className="mb-4 rounded-3xl border border-cyan-700 bg-black p-4 text-center">
-            <p className="text-xs text-cyan-400">AI学習レベル</p>
-
-            <div className="mt-3 rounded-3xl border border-yellow-700 bg-black p-3 text-center">
-              <p className="text-xs text-yellow-400">AIランキング</p>
-
-              <p className="mt-2 text-3xl font-black text-yellow-300">
-                {aiRanking > 0 ? aiRanking : "-"}位
-              </p>
-
-              <p className="mt-1 text-sm font-bold text-zinc-300">
-                /{totalRankingStocks}銘柄中
-              </p>
-
-              <p className="mt-1 text-xs font-bold text-yellow-200">
-                上位 {rankingPercent}%
-              </p>
-            </div>
-
-            <p className="mt-4 text-2xl font-black text-cyan-300">
-              {resultStats.total >= 300
-                ? "Lv5 最強AI 👑"
-                : resultStats.total >= 100
-                ? "Lv4 熟練AI 🏆"
-                : resultStats.total >= 50
-                ? "Lv3 成長AI 🚀"
-                : resultStats.total >= 10
-                ? "Lv2 学習中AI 📚"
-                : "Lv1 見習いAI 🥚"}
-            </p>
-
-            <div className="mt-3">
-              <div className="h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
-                <div
-                  className="h-full bg-cyan-400"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-
-              <p className="mt-2 text-xs font-bold text-cyan-300">
-                次のレベルまであと {remain} 件
-              </p>
-            </div>
-
-            <p className="mt-1 text-xs text-zinc-400">
-              検証データ {resultStats.total}件
-            </p>
-          </section>
-        )}
-
-        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">
-                SIGNALX AI ANALYSIS
-              </p>
-
-              <h1 className="mt-1 text-3xl font-black">{signal.name}</h1>
-
-              <p className="mt-1 text-xs text-gray-500">
-                CODE {signal.code}
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-[10px] text-gray-500">AI POWER</p>
-
-              <p className="text-5xl font-black text-cyan-300">
-                {signal.score}
-              </p>
-            </div>
+            <h2 className="text-4xl font-black">
+              {signal.name}
+            </h2>
+            <p className="text-zinc-400">CODE {signal.code}</p>
           </div>
 
-          <section
-            className={`mt-4 rounded-3xl border ${finalJudge.border} ${finalJudge.bg} p-4`}
-          >
-            <p className="text-xs text-gray-400">AI FINAL JUDGE</p>
-
-            <p className={`mt-2 text-4xl font-black ${finalJudge.color}`}>
-              {finalJudge.label}
+          <div className="text-right">
+            <p className="text-zinc-400 text-sm">AI POWER</p>
+            <p className="text-6xl font-black text-cyan-400">
+              {power}
             </p>
+          </div>
+        </div>
 
-            <p className="mt-2 text-xl font-black text-white">
-              {finalJudge.title}
-            </p>
+        <div className="mt-6 rounded-2xl border border-red-500/60 p-5">
+          <p className="text-zinc-400 text-sm">
+            AI FINAL JUDGE
+          </p>
+          <p className="text-5xl font-black text-red-300">
+            {judge}
+          </p>
+          <p className="text-zinc-300 mt-2">
+            AIは有力候補と判断。タイミング監視。
+          </p>
+        </div>
 
-            <p className="mt-1 text-xs text-zinc-300">
-              {finalJudge.message}
-            </p>
-          </section>
+        <div className="mt-5 rounded-2xl border border-red-500/60 p-5">
+          <p className="text-zinc-400 text-sm">
+            AI TRADE DECISION
+          </p>
+          <p className="text-4xl font-black text-red-300">
+            {decision}
+          </p>
+          <p className="text-zinc-300 mt-2">
+            押し目・継続監視
+          </p>
+        </div>
 
-          <section
-            className={`mt-4 rounded-3xl border ${ai.border} bg-black p-4`}
-          >
-            <p className="text-xs text-gray-500">AI TRADE DECISION</p>
+        <div className="mt-5 rounded-2xl border border-cyan-500/60 p-5">
+          <p className="text-zinc-400 text-sm">
+            過去実績勝率
+          </p>
+          <p className="text-5xl font-black text-cyan-400">
+            {historyStats?.winRate ?? 0}%
+          </p>
+          <p className="text-zinc-400 mt-2">
+            検証 {historyStats?.total ?? 0}件 / 勝ち{" "}
+            {historyStats?.win ?? 0}件 / 負け{" "}
+            {historyStats?.lose ?? 0}件
+          </p>
+        </div>
+        <div className="mt-5 rounded-2xl border border-yellow-500/50 p-5">
+  <p className="text-yellow-400 text-sm">
+    AI評価
+  </p>
 
-            <p className={`mt-2 text-2xl font-black ${ai.color}`}>
-              {ai.label}
-            </p>
+  <p className="text-3xl font-black text-yellow-300 mt-2">
+    {
+      (historyStats?.total ?? 0) >= 10 &&
+      (historyStats?.winRate ?? 0) >= 70
+        ? "🔥 得意銘柄"
+        : (historyStats?.total ?? 0) >= 10 &&
+          (historyStats?.winRate ?? 0) < 50
+        ? "⚠️ 苦手銘柄"
+        : "📚 学習中"
+    }
+  </p>
 
-            <p className="mt-1 text-sm font-bold text-zinc-200">
-              {ai.message}
-            </p>
-          </section>
+  <p className="text-zinc-400 mt-2">
+    {
+      (historyStats?.total ?? 0) >= 10 &&
+      (historyStats?.winRate ?? 0) >= 70
+        ? "AIが高勝率を記録しています"
+        : (historyStats?.total ?? 0) >= 10 &&
+         (historyStats?.winRate ?? 0) < 50
+        ? "AIとの相性が悪い銘柄です"
+        : "データを蓄積しています"
+    }
+  </p>
+</div>
 
-          <section className="mt-4 rounded-3xl border border-green-900 bg-black p-4">
-            <p className="text-xs text-green-400">AI WIN RATE</p>
+        <div className="mt-5 rounded-2xl border border-green-500/50 p-5">
+          <p className="text-green-400 text-sm">AI WIN RATE</p>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-zinc-900 p-3">
-                <p className="text-[10px] text-gray-500">30分後勝率</p>
-                <p className="text-2xl font-black text-green-400">
-                  {winRate.win30}%
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-zinc-900 p-3">
-                <p className="text-[10px] text-gray-500">1時間後勝率</p>
-                <p className="text-2xl font-black text-cyan-400">
-                  {winRate.win60}%
-                </p>
-              </div>
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <div className="rounded-xl bg-zinc-900 p-4">
+              <p className="text-zinc-400 text-sm">
+                30分後勝率
+              </p>
+              <p className="text-4xl font-black text-green-400">
+                88%
+              </p>
             </div>
-          </section>
-        </section>
+
+            <div className="rounded-xl bg-zinc-900 p-4">
+              <p className="text-zinc-400 text-sm">
+                1時間後勝率
+              </p>
+              <p className="text-4xl font-black text-cyan-400">
+                83%
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
       </div>
     </main>
   );

@@ -1,5 +1,18 @@
 [
   {
+    "id": "1781437834364-5401",
+    "notifiedAt": "2026-06-14T11:50:34.364Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "5401",
+    "name": "日本製鉄",
+    "price": 551.6,
+    "aiPower": 80,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 568,
+    "stopLoss": 541
+  },
+  {
     "id": "1781413980875-5401",
     "notifiedAt": "2026-06-14T05:13:00.875Z",
     "profitNotified": false,

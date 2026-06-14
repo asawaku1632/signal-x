@@ -9,6 +9,8 @@ export type NotificationResult = {
   name: string;
   notifiedAt: string;
 
+  aiPower: number;
+
   entryPrice: number;
   price1h: number | null;
   closePrice: number | null;
@@ -55,53 +57,60 @@ export async function saveNotificationResult(
 ) {
   const results = await getNotificationResults();
 
-const price1h = prices.price1h ?? null;
-const closePrice = prices.closePrice ?? null;
-const nextClosePrice = prices.nextClosePrice ?? null;
+  const price1h = prices.price1h ?? null;
+  const closePrice = prices.closePrice ?? null;
+  const nextClosePrice = prices.nextClosePrice ?? null;
 
-const exists = results.find(
-  (r) => r.notificationId === log.id
-);
-
-if (exists) {
-  exists.price1h = exists.price1h ?? price1h;
-  exists.closePrice = exists.closePrice ?? closePrice;
-  exists.nextClosePrice =
-    exists.nextClosePrice ?? nextClosePrice;
-    const checkPrice =
-  exists.nextClosePrice ??
-  exists.closePrice ??
-  exists.price1h;
-
-if (checkPrice) {
-  if (checkPrice >= log.takeProfit)
-    exists.result = "WIN";
-  else if (checkPrice <= log.stopLoss)
-    exists.result = "LOSE";
-  else
-    exists.result = "HOLD";
-}
-
-exists.checkedAt =
-  new Date().toISOString();
-
-  await fs.writeFile(
-    filePath,
-    JSON.stringify(results, null, 2),
-    "utf-8"
+  const exists = results.find(
+    (r) => r.notificationId === log.id
   );
 
-  return exists;
-}
+  if (exists) {
+    exists.price1h = exists.price1h ?? price1h;
+    exists.closePrice = exists.closePrice ?? closePrice;
+    exists.nextClosePrice =
+      exists.nextClosePrice ?? nextClosePrice;
+
+    exists.aiPower = exists.aiPower ?? log.aiPower ?? 0;
+
+    const checkPrice =
+      exists.nextClosePrice ??
+      exists.closePrice ??
+      exists.price1h;
+
+    if (checkPrice) {
+      if (checkPrice >= log.takeProfit) {
+        exists.result = "WIN";
+      } else if (checkPrice <= log.stopLoss) {
+        exists.result = "LOSE";
+      } else {
+        exists.result = "HOLD";
+      }
+    }
+
+    exists.checkedAt = new Date().toISOString();
+
+    await fs.writeFile(
+      filePath,
+      JSON.stringify(results, null, 2),
+      "utf-8"
+    );
+
+    return exists;
+  }
 
   let result: NotificationResult["result"] = "UNKNOWN";
 
   const checkPrice = nextClosePrice ?? closePrice ?? price1h;
 
   if (checkPrice) {
-    if (checkPrice >= log.takeProfit) result = "WIN";
-    else if (checkPrice <= log.stopLoss) result = "LOSE";
-    else result = "HOLD";
+    if (checkPrice >= log.takeProfit) {
+      result = "WIN";
+    } else if (checkPrice <= log.stopLoss) {
+      result = "LOSE";
+    } else {
+      result = "HOLD";
+    }
   }
 
   const newResult: NotificationResult = {
@@ -110,6 +119,8 @@ exists.checkedAt =
     code: log.code,
     name: log.name,
     notifiedAt: log.notifiedAt,
+
+    aiPower: log.aiPower ?? 0,
 
     entryPrice: log.price,
     price1h,
@@ -126,7 +137,11 @@ exists.checkedAt =
 
   results.unshift(newResult);
 
-  await fs.writeFile(filePath, JSON.stringify(results, null, 2), "utf-8");
+  await fs.writeFile(
+    filePath,
+    JSON.stringify(results, null, 2),
+    "utf-8"
+  );
 
   return newResult;
 }
