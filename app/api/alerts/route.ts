@@ -58,7 +58,7 @@ export async function GET() {
 
     const json = await res.json();
     const stocks: Stock[] = json.stocks || [];
-
+console.log("stocks", stocks.length);
     const alerts = [];
 
     for (const stock of stocks) {
