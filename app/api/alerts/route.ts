@@ -21,12 +21,15 @@ type Stock = {
 };
 
 function getBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://signal-x-ppjg.vercel.app"
-  );
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "https://signal-x-ppjg.vercel.app";
 }
 
 function getScore(stock: Stock) {
@@ -63,99 +66,99 @@ export async function GET() {
 
       if (score >= 85) {
         alerts.push({
-          type: "💥 大本命",
+          type: "HOT",
           title: `${stock.name} AI POWER ${score}`,
-          message: "AIが超強気シグナルを検出。",
+          message: "Very strong AI signal detected.",
           color: "text-purple-300",
         });
       }
 
       if (score >= 70 && score < 85) {
         alerts.push({
-          type: "🔥 本命",
-          title: `${stock.name} 本命候補`,
-          message: "AI監視価値高め。",
+          type: "STRONG",
+          title: `${stock.name} strong candidate`,
+          message: "AI monitoring priority is high.",
           color: "text-orange-300",
         });
       }
 
       if (stock.patterns?.rapidRise) {
         alerts.push({
-          type: "📈 急騰",
-          title: `${stock.name} 急騰検知`,
-          message: "短期強上昇を検出。",
+          type: "RAPID_RISE",
+          title: `${stock.name} rapid rise`,
+          message: "Short-term strong rise detected.",
           color: "text-green-300",
         });
       }
 
       if (stock.patterns?.rapidDrop) {
         alerts.push({
-          type: "📉 急落警戒",
-          title: `${stock.name} 急落`,
-          message: "無理なエントリー注意。",
+          type: "RAPID_DROP",
+          title: `${stock.name} rapid drop`,
+          message: "Be careful with entry.",
           color: "text-red-300",
         });
       }
 
       if (stock.patterns?.volumeBreakout) {
         alerts.push({
-          type: "🟣 出来高急増",
-          title: `${stock.name} 出来高急増`,
-          message: "資金流入を検出。",
+          type: "VOLUME_BREAKOUT",
+          title: `${stock.name} volume breakout`,
+          message: "Volume increase detected.",
           color: "text-purple-300",
         });
       }
 
       if (stock.patterns?.highBreak) {
         alerts.push({
-          type: "🚀 高値更新",
-          title: `${stock.name} ブレイク`,
-          message: "高値更新シグナル。",
+          type: "HIGH_BREAK",
+          title: `${stock.name} high break`,
+          message: "High breakout signal detected.",
           color: "text-cyan-300",
         });
       }
 
       if (stock.patterns?.goldenCross) {
         alerts.push({
-          type: "🟢 GC接近",
-          title: `${stock.name} ゴールデンクロス`,
-          message: "上昇トレンド形成の可能性。",
+          type: "GOLDEN_CROSS",
+          title: `${stock.name} golden cross`,
+          message: "Possible uptrend formation.",
           color: "text-green-300",
         });
       }
 
       if (stock.patterns?.deadCross) {
         alerts.push({
-          type: "🔴 DC警戒",
-          title: `${stock.name} デッドクロス`,
-          message: "下落トレンド注意。",
+          type: "DEAD_CROSS",
+          title: `${stock.name} dead cross`,
+          message: "Downtrend warning.",
           color: "text-red-400",
         });
       }
 
       if (stock.patterns?.lowerWickBounce) {
         alerts.push({
-          type: "🔵 下ヒゲ反発",
-          title: `${stock.name} 反発候補`,
-          message: "下落後の戻りを検出。",
+          type: "LOWER_WICK_BOUNCE",
+          title: `${stock.name} bounce candidate`,
+          message: "Bounce after decline detected.",
           color: "text-cyan-300",
         });
       }
 
       if (stock.patterns?.upperWickWarning) {
         alerts.push({
-          type: "🟠 上ヒゲ警戒",
-          title: `${stock.name} 上値重め`,
-          message: "利確売り注意。",
+          type: "UPPER_WICK_WARNING",
+          title: `${stock.name} upper wick warning`,
+          message: "Profit taking pressure warning.",
           color: "text-yellow-300",
         });
       }
 
       if (stock.patterns?.trendFollow) {
         alerts.push({
-          type: "🧠 トレンド継続",
-          title: `${stock.name} 継続上昇`,
-          message: "AIがトレンド継続を検出。",
+          type: "TREND_FOLLOW",
+          title: `${stock.name} trend follow`,
+          message: "AI detected trend continuation.",
           color: "text-blue-300",
         });
       }
@@ -167,7 +170,7 @@ export async function GET() {
       count: alerts.length,
       updatedAt: new Date().toISOString(),
     });
-    } catch (error: any) {
+  } catch (error: any) {
     console.error(error);
 
     return NextResponse.json(
@@ -178,8 +181,7 @@ export async function GET() {
         message: error?.message || String(error),
         cause: error?.cause?.message || null,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
+}
