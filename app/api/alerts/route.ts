@@ -21,15 +21,7 @@ type Stock = {
 };
 
 function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL;
-  }
-
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-
-  return "https://signal-x-ppjg.vercel.app";
+  return "https://signal-x-hazel.vercel.app";
 }
 
 function getScore(stock: Stock) {
@@ -40,7 +32,7 @@ export async function GET() {
   try {
     const baseUrl = getBaseUrl();
 
-    const res = await fetch(`${baseUrl}/api/scan`, {
+    const res = await fetch(`${baseUrl}/api/scan?limit=500`, {
       cache: "no-store",
     });
 
@@ -51,6 +43,7 @@ export async function GET() {
           alerts: [],
           error: "scan api failed",
           status: res.status,
+          baseUrl,
         },
         { status: 500 }
       );
@@ -58,7 +51,7 @@ export async function GET() {
 
     const json = await res.json();
     const stocks: Stock[] = json.stocks || [];
-console.log("stocks", stocks.length);
+
     const alerts = [];
 
     for (const stock of stocks) {
@@ -168,11 +161,10 @@ console.log("stocks", stocks.length);
       success: true,
       alerts,
       count: alerts.length,
+      stockCount: stocks.length,
       updatedAt: new Date().toISOString(),
     });
   } catch (error: any) {
-    console.error(error);
-
     return NextResponse.json(
       {
         success: false,
