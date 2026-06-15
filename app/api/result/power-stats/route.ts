@@ -29,7 +29,7 @@ export async function GET() {
     > = {};
 
     for (const log of logs) {
-      const aiPower = log.aiPower ?? log.score ?? 0;
+      const aiPower = log.aiPower ?? 0;
       const range = getPowerRange(aiPower);
 
       if (!groups[range]) {
