@@ -167,7 +167,7 @@ export async function GET() {
       count: alerts.length,
       updatedAt: new Date().toISOString(),
     });
-  } catch (error: any) {
+    } catch (error: any) {
     console.error(error);
 
     return NextResponse.json(
@@ -176,8 +176,10 @@ export async function GET() {
         alerts: [],
         error: "alerts api failed",
         message: error?.message || String(error),
+        cause: error?.cause?.message || null,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
-}
