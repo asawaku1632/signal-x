@@ -7,6 +7,11 @@ type Stock = {
   name: string;
   score?: number;
   aiPower?: number;
+  price?: number;
+  changePercent?: number;
+  takeProfit?: number;
+  stopLoss?: number;
+  reason?: string;
   patterns?: {
     rapidRise?: boolean;
     rapidDrop?: boolean;
@@ -26,6 +31,25 @@ function getBaseUrl() {
 
 function getScore(stock: Stock) {
   return stock.score ?? stock.aiPower ?? 0;
+}
+
+function formatPrice(price?: number) {
+  if (!price || !Number.isFinite(price)) return "-";
+  return `${Math.round(price).toLocaleString()}円`;
+}
+
+function getSignalLabel(score: number) {
+  if (score >= 85) return "🔥 激熱";
+  if (score >= 70) return "🟢 強い";
+  if (score >= 50) return "🟡 静観";
+  return "🔴 見送り";
+}
+
+function getColor(score: number) {
+  if (score >= 85) return "text-purple-300";
+  if (score >= 70) return "text-green-300";
+  if (score >= 50) return "text-yellow-300";
+  return "text-red-300";
 }
 
 export async function GET() {
@@ -57,101 +81,101 @@ export async function GET() {
     for (const stock of stocks) {
       const score = getScore(stock);
 
-      if (score >= 85) {
+      if (score >= 70) {
         alerts.push({
-          type: "HOT",
-          title: `${stock.name} AI POWER ${score}`,
-          message: "Very strong AI signal detected.",
-          color: "text-purple-300",
-        });
-      }
-
-      if (score >= 70 && score < 85) {
-        alerts.push({
-          type: "STRONG",
-          title: `${stock.name} strong candidate`,
-          message: "AI monitoring priority is high.",
-          color: "text-orange-300",
+          type: getSignalLabel(score),
+          title: `${stock.code} ${stock.name}`,
+         message: [
+  `現在値 ${formatPrice(stock.price)}`,
+  `必要資金 ${Math.round((stock.price ?? 0) * 100).toLocaleString()}円`,
+  `信頼度 ${score}%`,
+  `🎯 利確 ${formatPrice(stock.takeProfit)}`,
+  `🛡 損切 ${formatPrice(stock.stopLoss)}`,
+  stock.reason ? `理由 ${stock.reason}` : "",
+]
+            .filter(Boolean)
+            .join("\n"),
+          color: getColor(score),
         });
       }
 
       if (stock.patterns?.rapidRise) {
         alerts.push({
-          type: "RAPID_RISE",
-          title: `${stock.name} rapid rise`,
-          message: "Short-term strong rise detected.",
+          type: "🚀 急騰",
+          title: `${stock.code} ${stock.name}`,
+          message: "短期的な急上昇を検知。飛び乗り注意。",
           color: "text-green-300",
         });
       }
 
       if (stock.patterns?.rapidDrop) {
         alerts.push({
-          type: "RAPID_DROP",
-          title: `${stock.name} rapid drop`,
-          message: "Be careful with entry.",
+          type: "⚠️ 急落",
+          title: `${stock.code} ${stock.name}`,
+          message: "急落を検知。無理なエントリー注意。",
           color: "text-red-300",
         });
       }
 
       if (stock.patterns?.volumeBreakout) {
         alerts.push({
-          type: "VOLUME_BREAKOUT",
-          title: `${stock.name} volume breakout`,
-          message: "Volume increase detected.",
+          type: "📈 出来高急増",
+          title: `${stock.code} ${stock.name}`,
+          message: "出来高の急増を検知。注目度上昇中。",
           color: "text-purple-300",
         });
       }
 
       if (stock.patterns?.highBreak) {
         alerts.push({
-          type: "HIGH_BREAK",
-          title: `${stock.name} high break`,
-          message: "High breakout signal detected.",
+          type: "💎 高値更新",
+          title: `${stock.code} ${stock.name}`,
+          message: "高値更新シグナルを検知。",
           color: "text-cyan-300",
         });
       }
 
       if (stock.patterns?.goldenCross) {
         alerts.push({
-          type: "GOLDEN_CROSS",
-          title: `${stock.name} golden cross`,
-          message: "Possible uptrend formation.",
+          type: "🟢 ゴールデンクロス",
+          title: `${stock.code} ${stock.name}`,
+          message: "上昇トレンド形成の可能性。",
           color: "text-green-300",
         });
       }
 
       if (stock.patterns?.deadCross) {
         alerts.push({
-          type: "DEAD_CROSS",
-          title: `${stock.name} dead cross`,
-          message: "Downtrend warning.",
+          type: "🔴 デッドクロス",
+          title: `${stock.code} ${stock.name}`,
+          message: "下落トレンド警戒。",
           color: "text-red-400",
         });
       }
 
       if (stock.patterns?.lowerWickBounce) {
         alerts.push({
-          type: "LOWER_WICK_BOUNCE",
-          title: `${stock.name} bounce candidate`,
-          message: "Bounce after decline detected.",
+          type: "↗️ 下ヒゲ反発",
+          title: `${stock.code} ${stock.name}`,
+          message: "下落後の反発候補。",
           color: "text-cyan-300",
         });
       }
 
       if (stock.patterns?.upperWickWarning) {
         alerts.push({
-          type: "UPPER_WICK_WARNING",
-          title: `${stock.name} upper wick warning`,
-          message: "Profit taking pressure warning.",
+          type: "⚠️ 上ヒゲ警戒",
+          title: `${stock.code} ${stock.name}`,
+          message: "利確売り圧力に注意。",
           color: "text-yellow-300",
         });
       }
 
       if (stock.patterns?.trendFollow) {
         alerts.push({
-          type: "TREND_FOLLOW",
-          title: `${stock.name} trend follow`,
-          message: "AI detected trend continuation.",
+          type: "📊 トレンド継続",
+          title: `${stock.code} ${stock.name}`,
+          message: "AIがトレンド継続を検知。",
           color: "text-blue-300",
         });
       }
