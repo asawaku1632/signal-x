@@ -35,10 +35,10 @@ function getScore(stock: Stock) {
 
 function formatPrice(price?: number) {
   if (!price || !Number.isFinite(price)) return "-";
-  return `${Math.round(price).toLocaleString()}円`;
+  return Math.round(price).toLocaleString();
 }
 
-function getSignalLabel(score: number) {
+function getSignalType(score: number) {
   if (score >= 85) return "🔥 激熱";
   if (score >= 70) return "🟢 強い";
   if (score >= 50) return "🟡 静観";
@@ -50,6 +50,10 @@ function getColor(score: number) {
   if (score >= 70) return "text-green-300";
   if (score >= 50) return "text-yellow-300";
   return "text-red-300";
+}
+
+function getWinRate(score: number) {
+  return Math.min(95, Math.max(40, Math.round(score * 0.9)));
 }
 
 export async function GET() {
@@ -75,117 +79,45 @@ export async function GET() {
 
     const json = await res.json();
     const stocks: Stock[] = json.stocks || [];
+    const totalStockList = json.totalStockList || stocks.length;
 
-    const alerts = [];
+    const alerts = stocks
+      .map((stock, index) => {
+        const score = getScore(stock);
+        const price = stock.price ?? 0;
+        const requiredCapital = Math.round(price * 100);
 
-    for (const stock of stocks) {
-      const score = getScore(stock);
-
-      if (score >= 70) {
-        alerts.push({
-          type: getSignalLabel(score),
+        return {
+          type: getSignalType(score),
           title: `${stock.code} ${stock.name}`,
-         message: [
-  `現在値 ${formatPrice(stock.price)}`,
-  `必要資金 ${Math.round((stock.price ?? 0) * 100).toLocaleString()}円`,
-  `信頼度 ${score}%`,
-  `🎯 利確 ${formatPrice(stock.takeProfit)}`,
-  `🛡 損切 ${formatPrice(stock.stopLoss)}`,
-  stock.reason ? `理由 ${stock.reason}` : "",
-]
-            .filter(Boolean)
-            .join("\n"),
+          code: stock.code,
+          name: stock.name,
+          score,
+          rank: index + 1,
+          totalRank: totalStockList,
+          winRate: getWinRate(score),
+          price,
+          priceText: `${formatPrice(stock.price)}円`,
+          requiredCapital,
+          requiredCapitalText: `${requiredCapital.toLocaleString()}円`,
+          takeProfit: stock.takeProfit ?? 0,
+          takeProfitText: `${formatPrice(stock.takeProfit)}円`,
+          stopLoss: stock.stopLoss ?? 0,
+          stopLossText: `${formatPrice(stock.stopLoss)}円`,
+          changePercent: stock.changePercent ?? 0,
+          reason: stock.reason || "AIが注目候補として検出",
           color: getColor(score),
-        });
-      }
-
-      if (stock.patterns?.rapidRise) {
-        alerts.push({
-          type: "🚀 急騰",
-          title: `${stock.code} ${stock.name}`,
-          message: "短期的な急上昇を検知。飛び乗り注意。",
-          color: "text-green-300",
-        });
-      }
-
-      if (stock.patterns?.rapidDrop) {
-        alerts.push({
-          type: "⚠️ 急落",
-          title: `${stock.code} ${stock.name}`,
-          message: "急落を検知。無理なエントリー注意。",
-          color: "text-red-300",
-        });
-      }
-
-      if (stock.patterns?.volumeBreakout) {
-        alerts.push({
-          type: "📈 出来高急増",
-          title: `${stock.code} ${stock.name}`,
-          message: "出来高の急増を検知。注目度上昇中。",
-          color: "text-purple-300",
-        });
-      }
-
-      if (stock.patterns?.highBreak) {
-        alerts.push({
-          type: "💎 高値更新",
-          title: `${stock.code} ${stock.name}`,
-          message: "高値更新シグナルを検知。",
-          color: "text-cyan-300",
-        });
-      }
-
-      if (stock.patterns?.goldenCross) {
-        alerts.push({
-          type: "🟢 ゴールデンクロス",
-          title: `${stock.code} ${stock.name}`,
-          message: "上昇トレンド形成の可能性。",
-          color: "text-green-300",
-        });
-      }
-
-      if (stock.patterns?.deadCross) {
-        alerts.push({
-          type: "🔴 デッドクロス",
-          title: `${stock.code} ${stock.name}`,
-          message: "下落トレンド警戒。",
-          color: "text-red-400",
-        });
-      }
-
-      if (stock.patterns?.lowerWickBounce) {
-        alerts.push({
-          type: "↗️ 下ヒゲ反発",
-          title: `${stock.code} ${stock.name}`,
-          message: "下落後の反発候補。",
-          color: "text-cyan-300",
-        });
-      }
-
-      if (stock.patterns?.upperWickWarning) {
-        alerts.push({
-          type: "⚠️ 上ヒゲ警戒",
-          title: `${stock.code} ${stock.name}`,
-          message: "利確売り圧力に注意。",
-          color: "text-yellow-300",
-        });
-      }
-
-      if (stock.patterns?.trendFollow) {
-        alerts.push({
-          type: "📊 トレンド継続",
-          title: `${stock.code} ${stock.name}`,
-          message: "AIがトレンド継続を検知。",
-          color: "text-blue-300",
-        });
-      }
-    }
+        };
+      })
+      .filter((alert) => alert.score >= 70)
+      .slice(0, 30);
 
     return NextResponse.json({
       success: true,
       alerts,
       count: alerts.length,
       stockCount: stocks.length,
+      totalStockList,
       updatedAt: new Date().toISOString(),
     });
   } catch (error: any) {
