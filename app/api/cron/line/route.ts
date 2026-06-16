@@ -28,6 +28,13 @@ function tradeDecision(score = 0) {
   return "🔴 見送り";
 }
 
+function winRateText(score: number) {
+  if (score >= 85) return 80;
+  if (score >= 70) return 70;
+  if (score >= 50) return 60;
+  return 45;
+}
+
 async function sendLine(message: string) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -68,7 +75,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;
-    const publicUrl = "https://signal-x-ppjg.vercel.app";
+    const publicUrl = "https://signal-x-hazel.vercel.app";
 
     const res = await fetch(`${baseUrl}/api/ranking`, {
       cache: "no-store",
@@ -101,19 +108,27 @@ export async function GET(req: Request) {
     const price = top.price ?? 0;
     const takeProfit = top.takeProfit ?? Math.round(price * 1.03);
     const stopLoss = top.stopLoss ?? Math.round(price * 0.98);
+
     const requiredMoney = price * 100;
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
+
+    const rankText = `1位 / ${ranking.length}銘柄中`;
+    const winRate = winRateText(score);
 
     const top3 = ranking
       .slice(0, 3)
       .map((stock, index) => {
         const rank = index === 0 ? "①" : index === 1 ? "②" : "③";
         const s = aiScore(stock);
+        const w = winRateText(s);
 
-        return `${rank} ${stock.code} ${stock.name}\n信頼度 ${s}% / ${tradeDecision(
-          s
-        )}`;
+        return (
+          `${rank} ${stock.code} ${stock.name}\n` +
+          `【信頼度】${s}%\n` +
+          `【勝率予測】${w}%\n` +
+          `${tradeDecision(s)}`
+        );
       })
       .join("\n\n");
 
@@ -122,19 +137,22 @@ export async function GET(req: Request) {
       `🏆 本日の大本命\n` +
       `━━━━━━━━━━━━━━\n\n` +
       `${top.code} ${top.name}\n\n` +
-      `${tradeDecision(score)}\n` +
-      `信頼度 ${score}%\n\n` +
-      `現在値 ${yen(price)}\n` +
-      `成行100株 ${yen(requiredMoney)}\n\n` +
-      `🎯 利確 ${yen(takeProfit)}\n` +
+      `${tradeDecision(score)}\n\n` +
+      `【信頼度】${score}%\n` +
+      `【勝率予測】${winRate}%\n` +
+      `【AI順位】${rankText}\n\n` +
+      `【現在値】${yen(price)}\n` +
+      `【必要資金】${yen(requiredMoney)}\n\n` +
+      `【利確】${yen(takeProfit)}\n` +
       `想定利益 +${yen(expectedProfit)}\n\n` +
-      `🛡 損切 ${yen(stopLoss)}\n` +
+      `【損切】${yen(stopLoss)}\n` +
       `想定損失 -${yen(expectedLoss)}\n\n` +
-      `理由：${top.reason || "AI理由なし"}\n\n` +
+      `【理由】\n` +
+      `${top.reason || "AI理由なし"}\n\n` +
       `👇 個別AI解析\n` +
       `${publicUrl}/analysis/${top.code}\n\n` +
       `━━━━━━━━━━━━━━\n` +
-      `TOP3\n\n` +
+      `🔥 TOP3\n\n` +
       `${top3}\n` +
       `━━━━━━━━━━━━━━`;
 
@@ -161,6 +179,7 @@ export async function GET(req: Request) {
       top,
       savedLog,
       rankingCount: ranking.length,
+      messagePreview: message,
     });
   } catch (error: any) {
     console.error(error);

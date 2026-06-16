@@ -62,9 +62,12 @@ export default function AnalysisPage() {
   useEffect(() => {
     const fetchSignal = async () => {
       try {
-        const scanRes = await fetch("/api/scan", {
-          cache: "no-store",
-        });
+       const scanRes = await fetch(
+  "/api/scan?limit=500",
+  {
+    cache: "no-store",
+  }
+);
 
         const scanJson = await scanRes.json();
         const stocks: Signal[] = scanJson.stocks || [];

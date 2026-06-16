@@ -1,5 +1,44 @@
 [
   {
+    "id": "1781604853087-8591",
+    "notifiedAt": "2026-06-16T10:14:13.087Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "8591",
+    "name": "オリックス",
+    "price": 6305,
+    "aiPower": 75,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 6494,
+    "stopLoss": 6179
+  },
+  {
+    "id": "1781604846228-8591",
+    "notifiedAt": "2026-06-16T10:14:06.228Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "8591",
+    "name": "オリックス",
+    "price": 6305,
+    "aiPower": 75,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 6494,
+    "stopLoss": 6179
+  },
+  {
+    "id": "1781604810341-8591",
+    "notifiedAt": "2026-06-16T10:13:30.341Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "8591",
+    "name": "オリックス",
+    "price": 6305,
+    "aiPower": 75,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 6494,
+    "stopLoss": 6179
+  },
+  {
     "id": "1781522741949-5401",
     "notifiedAt": "2026-06-15T11:25:41.949Z",
     "profitNotified": false,
