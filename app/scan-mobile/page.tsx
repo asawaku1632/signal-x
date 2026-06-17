@@ -47,6 +47,24 @@ export default function ScanMobilePage() {
       setLoading(false);
     }
   }
+  async function addFavorite(code: string, name: string) {
+  try {
+    await fetch("/api/favorites", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+        name,
+      }),
+    });
+
+    alert(`${name} をお気に入り登録しました⭐`);
+  } catch (error) {
+    console.error(error);
+  }
+}
 
   useEffect(() => {
     fetchStocks();
@@ -526,56 +544,73 @@ const tradeAction = bestSignal
   ref={rankingRef}
   className="space-y-3"
 >
-              <p className="font-bold text-yellow-300">
-                条件一致ランキング TOP10
-              </p>
-
-              {filteredStocks.slice(0, 10).map((stock, index) => (
-                <a
-                  key={`${stock.code}-${index}`}
-                  href={`/analysis/${stock.code}`}
-                  className="block rounded-2xl border border-zinc-800 bg-zinc-950 p-4"
-                >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-yellow-300 font-black">
-                        {index + 1}位
-                      </p>
-                      <p className="text-2xl font-black">{stock.code}</p>
-                      <p className="text-zinc-300">{stock.name}</p>
-                    </div>
-
-                    <div className="text-right">
-                      <p className={judgeColor(stock.score)}>
-                        {judgeLabel(stock.score)}
-                      </p>
-                      <p className="text-xl font-black">{stock.score}%</p>
-                      <p className="text-xs text-zinc-400">
-                        株価 {stock.price.toLocaleString()}円
-                      </p>
-                      <p className="text-xs text-zinc-400">
-                        必要資金 {(stock.price * 100).toLocaleString()}円
-                      </p>
-                      <p className="text-xs text-green-400">
-  🎯 利確 {Math.round(stock.price * 1.05).toLocaleString()}円
+       <p className="font-bold text-yellow-300">
+  条件一致ランキング TOP10
 </p>
 
-<p className="text-xs text-red-400">
-  🛡 損切 {Math.round(stock.price * 0.97).toLocaleString()}円
-</p>
-                      <p
-                        className={`text-xs ${
-                          stock.changePercent >= 0
-                            ? "text-green-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        変化率 {stock.changePercent}%
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              ))}
+{filteredStocks.slice(0, 10).map((stock, index) => (
+  <a
+    key={`${stock.code}-${index}`}
+    href={`/analysis/${stock.code}`}
+    className="block rounded-2xl border border-zinc-800 bg-zinc-950 p-4"
+  >
+    <div className="flex justify-between items-center">
+      <div>
+        <p className="text-yellow-300 font-black">
+          {index + 1}位
+        </p>
+
+        <p className="text-2xl font-black">{stock.code}</p>
+
+        <p className="text-zinc-300">{stock.name}</p>
+
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            addFavorite(stock.code, stock.name);
+          }}
+          className="mt-2 rounded-lg bg-yellow-400 px-3 py-1 text-xs font-bold text-black"
+        >
+          ⭐ お気に入り
+        </button>
+      </div>
+
+      <div className="text-right">
+        <p className={judgeColor(stock.score)}>
+          {judgeLabel(stock.score)}
+        </p>
+
+        <p className="text-xl font-black">{stock.score}%</p>
+
+        <p className="text-xs text-zinc-400">
+          株価 {stock.price.toLocaleString()}円
+        </p>
+
+        <p className="text-xs text-zinc-400">
+          必要資金 {(stock.price * 100).toLocaleString()}円
+        </p>
+
+        <p className="text-xs text-green-400">
+          🎯 利確 {Math.round(stock.price * 1.05).toLocaleString()}円
+        </p>
+
+        <p className="text-xs text-red-400">
+          🛡 損切 {Math.round(stock.price * 0.97).toLocaleString()}円
+        </p>
+
+        <p
+          className={`text-xs ${
+            stock.changePercent >= 0
+              ? "text-green-400"
+              : "text-red-400"
+          }`}
+        >
+          変化率 {stock.changePercent}%
+        </p>
+      </div>
+    </div>
+  </a>
+))}
             </section>
           </>
         )}

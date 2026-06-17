@@ -50,11 +50,11 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;
-    const publicUrl = "https://signal-x-ppjg.vercel.app";
+    const publicUrl = "https://signal-x-hazel.vercel.app";
 
     const logs = await getNotificationLogs();
 
-    const scanRes = await fetch(`${baseUrl}/api/scan`, {
+    const scanRes = await fetch(`${baseUrl}/api/scan?limit=500`, {
       cache: "no-store",
     });
 
@@ -75,17 +75,19 @@ export async function GET(req: Request) {
     const results = [];
 
     for (const log of logs) {
-     const target = stocks.find(
-  (s: any) => s.code === log.code
-);
-
-let currentPrice = target?.price ?? 0;
+      const target = stocks.find((s: any) => s.code === log.code);
+      const currentPrice = target?.price ?? 0;
 
       let status = "価格取得待ち";
       let lineSent = false;
       let lineStatus = 0;
       let lineResponse = "";
 
+      const profitAmount =
+  currentPrice > 0 ? Math.round((currentPrice - log.price) * 100) : 0;
+
+const lossAmount =
+  currentPrice > 0 ? Math.round((log.price - currentPrice) * 100) : 0;
       if (currentPrice > 0) {
         status = "監視中";
 
@@ -94,14 +96,18 @@ let currentPrice = target?.price ?? 0;
             status = "🎯 利確達成";
 
             const line = await sendLine(
-              `🎯 利確達成\n\n` +
+              `━━━━━━━━━━━━━━\n` +
+                `🎯 利確達成\n` +
+                `━━━━━━━━━━━━━━\n\n` +
                 `${log.code} ${log.name}\n\n` +
-                `通知時 ${yen(log.price)}\n` +
-                `現在値 ${yen(currentPrice)}\n` +
-                `利確ライン ${yen(log.takeProfit)}\n\n` +
-                `想定利益 +${yen((log.takeProfit - log.price) * 100)}\n\n` +
-                `AI予測成功🎉\n` +
-                `${publicUrl}/analysis/${log.code}`
+                `【通知時】${yen(log.price)}\n` +
+                `【現在値】${yen(currentPrice)}\n` +
+                `【利確ライン】${yen(log.takeProfit)}\n\n` +
+                `【利益】+${yen(profitAmount)}\n\n` +
+                `AI予測成功🎉\n\n` +
+                `👇 個別AI解析\n` +
+                `${publicUrl}/analysis/${log.code}\n` +
+                `━━━━━━━━━━━━━━`
             );
 
             lineSent = line.ok;
@@ -121,14 +127,18 @@ let currentPrice = target?.price ?? 0;
             status = "🛡 損切到達";
 
             const line = await sendLine(
-              `🛡 損切到達\n\n` +
+              `━━━━━━━━━━━━━━\n` +
+                `🛡 損切到達\n` +
+                `━━━━━━━━━━━━━━\n\n` +
                 `${log.code} ${log.name}\n\n` +
-                `通知時 ${yen(log.price)}\n` +
-                `現在値 ${yen(currentPrice)}\n` +
-                `損切ライン ${yen(log.stopLoss)}\n\n` +
-                `想定損失 -${yen((log.price - log.stopLoss) * 100)}\n\n` +
-                `次のチャンスを待ちましょう\n` +
-                `${publicUrl}/analysis/${log.code}`
+                `【通知時】${yen(log.price)}\n` +
+                `【現在値】${yen(currentPrice)}\n` +
+                `【損切ライン】${yen(log.stopLoss)}\n\n` +
+                `【損失】- ${yen(lossAmount)}\n\n` +
+                `次のチャンスを待ちましょう\n\n` +
+                `👇 個別AI解析\n` +
+                `${publicUrl}/analysis/${log.code}\n` +
+                `━━━━━━━━━━━━━━`
             );
 
             lineSent = line.ok;
@@ -158,6 +168,8 @@ let currentPrice = target?.price ?? 0;
         profitNotified: log.profitNotified ?? false,
         stopLossNotified: log.stopLossNotified ?? false,
         status,
+        profitAmount,
+        lossAmount,
         lineSent,
         lineStatus,
         lineResponse,

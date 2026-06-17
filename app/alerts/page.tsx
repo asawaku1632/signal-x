@@ -22,8 +22,18 @@ type AlertItem = {
   color: string;
 };
 
+type Stats = {
+  success: boolean;
+  total: number;
+  win: number;
+  lose: number;
+  active: number;
+  winRate: number;
+};
+
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
   const [showHotList, setShowHotList] = useState(false);
@@ -31,14 +41,17 @@ export default function AlertsPage() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch("/api/alerts", {
-        cache: "no-store",
-      });
+      const [alertsRes, statsRes] = await Promise.all([
+        fetch("/api/alerts", { cache: "no-store" }),
+        fetch("/api/stats", { cache: "no-store" }),
+      ]);
 
-      const json = await res.json();
+      const alertsJson = await alertsRes.json();
+      const statsJson = await statsRes.json();
 
-      setAlerts(json.alerts || []);
-      setUpdatedAt(json.updatedAt || "");
+      setAlerts(alertsJson.alerts || []);
+      setUpdatedAt(alertsJson.updatedAt || "");
+      setStats(statsJson.success ? statsJson : null);
     } catch (error) {
       console.error(error);
     } finally {
@@ -75,88 +88,236 @@ export default function AlertsPage() {
     if (!code) return;
     window.location.href = `/analysis/${code}`;
   };
-
   return (
-    <main className="min-h-screen bg-black text-white p-4 max-w-md mx-auto">
-      <section className="rounded-3xl border border-cyan-700 bg-zinc-950 p-5">
-        <p className="text-xs text-cyan-400">SIGNALX REAL ALERT</p>
+    <main className="min-h-screen bg-black text-white px-4 py-3 max-w-lg mx-auto">
+      <section className="relative overflow-hidden rounded-[1.6rem] border border-cyan-500/70 bg-gradient-to-br from-zinc-950 via-black to-cyan-950/20 p-3 shadow-[0_0_30px_rgba(34,211,238,0.15)]">
+        <div className="absolute right-5 top-5 text-5xl text-cyan-400 opacity-80">
+          ⚡
+        </div>
 
-        <h1 className="mt-2 text-4xl font-black">AI通知センター</h1>
+        <p className="text-xs font-bold text-cyan-400">
+          SIGNALX REAL ALERT
+        </p>
 
-        <p className="mt-3 text-sm text-zinc-400">
+        <h1 className="mt-1 text-3xl font-black tracking-tight">
+          AI通知センター
+        </h1>
+
+        <p className="mt-1 text-xs font-bold text-zinc-400">
           AIが重要シグナルだけ通知
         </p>
 
         {updatedAt && (
-          <p className="mt-3 text-xs text-zinc-600">
+          <p className="mt-2 text-[11px] text-zinc-500">
             最終更新 {new Date(updatedAt).toLocaleTimeString("ja-JP")}
           </p>
         )}
       </section>
 
-      {!loading && topAlert && (
-        <section
-          onClick={() => openAnalysis(topAlert.code)}
-          className="mt-5 cursor-pointer rounded-3xl border border-yellow-600 bg-zinc-950 p-5"
-        >
-          <p className="text-sm font-bold text-yellow-300">本日の大本命</p>
+      {!loading && stats && (
+        <section className="mt-2 rounded-[1.6rem] border border-zinc-700 bg-gradient-to-br from-zinc-950 via-black to-cyan-950/10 p-3 shadow-[0_0_25px_rgba(34,211,238,0.08)]">
+          <p className="text-lg font-black text-cyan-400">
+            SIGNALX実績
+          </p>
 
-          <h2 className="mt-3 text-3xl font-black text-yellow-300">
-            {topAlert.title}
-          </h2>
+          <div className="mt-1 text-center">
+            <p className="text-[11px] font-bold text-zinc-400">
+              現在の勝率
+            </p>
 
-          <div className="mt-4 space-y-2 text-sm font-bold text-white">
-            <p>【信頼度】{topAlert.score}%</p>
-            <p>
-              【AI順位】{topAlert.rank}位 / {topAlert.totalRank}銘柄中
+            <p className="mt-0 text-5xl font-black text-cyan-300">
+              {stats.winRate}%
             </p>
-            <p className="text-cyan-300">
-              【勝率予測】{topAlert.winRate}%
-            </p>
-            <p>【必要資金】{topAlert.requiredCapitalText}</p>
           </div>
 
-          <p className="mt-3 text-xs text-zinc-500">
-            タップで個別解析へ
-          </p>
+          <div className="mt-2 grid grid-cols-4 overflow-hidden rounded-2xl border border-zinc-800 bg-black/40">
+            <div className="border-r border-zinc-800 p-2 text-center">
+              <p className="text-[10px] font-bold text-zinc-400">
+                総通知
+              </p>
+              <p className="mt-0 text-2xl font-black text-cyan-300">
+                {stats.total}
+              </p>
+            </div>
+
+            <div className="border-r border-zinc-800 p-2 text-center">
+              <p className="text-[10px] font-bold text-zinc-400">
+                監視中
+              </p>
+              <p className="mt-0 text-2xl font-black text-yellow-300">
+                {stats.active}
+              </p>
+            </div>
+
+            <div className="border-r border-zinc-800 p-2 text-center">
+              <p className="text-[10px] font-bold text-green-400">
+                WIN
+              </p>
+              <p className="mt-0 text-2xl font-black text-green-400">
+                {stats.win}
+              </p>
+            </div>
+
+            <div className="p-2 text-center">
+              <p className="text-[10px] font-bold text-red-400">
+                LOSE
+              </p>
+              <p className="mt-0 text-2xl font-black text-red-400">
+                {stats.lose}
+              </p>
+            </div>
+          </div>
         </section>
       )}
+
+      {!loading && topAlert && (
+  <section
+    onClick={() => openAnalysis(topAlert.code)}
+    className="mt-2 cursor-pointer rounded-[1.6rem] border border-yellow-500/80 bg-gradient-to-br from-zinc-950 via-black to-yellow-950/10 p-3 shadow-[0_0_25px_rgba(234,179,8,0.12)]"
+  >
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-lg font-black text-yellow-300">
+        👑 本日の大本命
+      </p>
+
+      <div className="rounded-full border border-purple-500/80 bg-purple-950/50 px-3 py-1">
+        <p className="text-[11px] font-black text-purple-300">
+          信頼度 {topAlert.score}%
+        </p>
+      </div>
+    </div>
+
+    <h2 className="mt-3 text-4xl font-black tracking-tight text-white">
+      {topAlert.title}
+    </h2>
+
+    <div className="mt-3 grid grid-cols-2 gap-3">
+      <div>
+        <p className="text-[10px] font-bold text-zinc-500">
+          AI順位
+        </p>
+        <p className="mt-0 text-base font-black text-cyan-300">
+          {topAlert.rank}位 / {topAlert.totalRank}銘柄中
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-zinc-500">
+          勝率予測
+        </p>
+        <p className="mt-0 text-base font-black text-cyan-300">
+          {topAlert.winRate}%
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-3 flex items-center justify-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-950/80 p-2.5">
+      <span className="text-lg">📊</span>
+      <p className="text-lg font-black text-white">
+        詳細解析を見る
+      </p>
+    </div>
+  </section>
+)}
+      
 
       {!loading && (
-        <section className="mt-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-          <p className="text-sm font-bold text-zinc-400">本日の市場総評</p>
+        <section className="mt-3 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowHotList(true)}
+            className="rounded-[1.6rem] border border-purple-600 bg-gradient-to-br from-purple-950/60 via-black to-purple-950/20 p-3 text-left shadow-[0_0_20px_rgba(168,85,247,0.12)]"
+          >
+            <p className="text-base font-black text-purple-300">
+              🔥 激熱候補
+            </p>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setShowHotList(true)}
-              className="rounded-2xl border border-purple-700 bg-purple-950/40 p-4 text-left"
-            >
-              <p className="text-sm text-purple-300">🔥 激熱候補</p>
-              <p className="mt-2 text-3xl font-black text-purple-300">
-                {hotAlerts.length}件
+            <p className="mt-1 text-5xl font-black text-purple-300">
+              {hotAlerts.length}件
+            </p>
+
+            <div className="mt-2 flex items-center justify-between rounded-2xl border border-purple-700/70 bg-purple-950/30 px-3 py-2">
+              <p className="text-xs font-bold text-purple-200">
+                一覧を見る
               </p>
-            </button>
+              <p className="text-xl text-purple-300">›</p>
+            </div>
+          </button>
 
-            <button
-              onClick={() => setShowStrongList(true)}
-              className="rounded-2xl border border-green-700 bg-green-950/40 p-4 text-left"
-            >
-              <p className="text-sm text-green-300">🟢 強い候補</p>
-              <p className="mt-2 text-3xl font-black text-green-300">
-                {strongAlerts.length}件
+          <button
+            onClick={() => setShowStrongList(true)}
+            className="rounded-[1.6rem] border border-green-600 bg-gradient-to-br from-green-950/50 via-black to-green-950/20 p-3 text-left shadow-[0_0_20px_rgba(34,197,94,0.12)]"
+          >
+            <p className="text-base font-black text-green-300">
+              🟢 強い候補
+            </p>
+
+            <p className="mt-1 text-5xl font-black text-green-300">
+              {strongAlerts.length}件
+            </p>
+
+            <div className="mt-2 flex items-center justify-between rounded-2xl border border-green-700/70 bg-green-950/30 px-3 py-2">
+              <p className="text-xs font-bold text-green-200">
+                一覧を見る
               </p>
-            </button>
-          </div>
-
-          <p className="mt-4 text-xs text-zinc-500">
-            クリックすると候補一覧を表示します
-          </p>
+              <p className="text-xl text-green-300">›</p>
+            </div>
+          </button>
         </section>
       )}
 
-      {loading && (
-        <p className="mt-8 text-center text-zinc-500">AI監視中...</p>
-      )}
+  {!loading && alerts.length > 0 && (
+  <div className="mt-5 rounded-[1.8rem] border border-zinc-800 bg-zinc-950 p-4">
+    <h3 className="mb-4 text-lg font-black text-white">
+      🏆 TOP3候補
+    </h3>
+
+    <div className="space-y-3">
+      {alerts.slice(0, 3).map((alert, index) => (
+        <div
+          key={alert.code}
+          onClick={() => openAnalysis(alert.code)}
+          className="cursor-pointer rounded-2xl border border-zinc-800 bg-black/40 p-4"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl font-black text-black ${
+                  index === 0
+                    ? "bg-yellow-400"
+                    : index === 1
+                    ? "bg-zinc-300"
+                    : "bg-orange-500"
+                }`}
+              >
+                {index + 1}
+              </div>
+
+              <p className="text-2xl font-black text-white">
+                {alert.title}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-xs font-bold text-zinc-400">
+                信頼度
+              </p>
+
+              <p className="text-4xl font-black text-cyan-300">
+                {alert.score}%
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+{loading && (
+  <p className="mt-8 text-center text-zinc-500">
+    AI監視中...
+  </p>
+)}
 
       {!loading && alerts.length === 0 && (
         <section className="mt-6 rounded-3xl border border-zinc-700 bg-zinc-900 p-5">
@@ -168,7 +329,7 @@ export default function AlertsPage() {
         </section>
       )}
 
-      <section className="mt-6 space-y-4">
+      <section className="mt-5 space-y-4">
         {alerts.map((alert, index) => {
           const score = alert.score ?? 0;
           const barWidth = Math.max(5, Math.min(100, score));
