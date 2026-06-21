@@ -161,16 +161,20 @@ export async function GET(req: Request) {
     let savedLog = null;
 
     if (line.ok) {
-      savedLog = await saveNotificationLog({
-        code: top.code,
-        name: top.name,
-        price,
-        aiPower: score,
-        judge: tradeDecision(score),
-        takeProfit,
-        stopLoss,
-      });
-    }
+  try {
+    savedLog = await saveNotificationLog({
+      code: top.code,
+      name: top.name,
+      price,
+      aiPower: score,
+      judge: tradeDecision(score),
+      takeProfit,
+      stopLoss,
+    });
+  } catch (error) {
+    console.error("saveNotificationLog failed", error);
+  }
+}
 
     return NextResponse.json({
       success: line.ok,
