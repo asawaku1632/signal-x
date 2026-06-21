@@ -113,7 +113,7 @@ export async function GET(req: Request) {
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
 
-    const rankText = `1位 / ${ranking.length}銘柄中`;
+    const rankText = `1位 / ${json.totalStockList ?? 1006}銘柄中`;
     const winRate = winRateText(score);
 
     const top3 = ranking
