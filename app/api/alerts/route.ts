@@ -26,7 +26,7 @@ type Stock = {
 };
 
 function getBaseUrl() {
-  return "https://signal-x-hazel.vercel.app";
+  return "https://signal-x-ppjg.vercel.app";
 }
 
 function getScore(stock: Stock) {

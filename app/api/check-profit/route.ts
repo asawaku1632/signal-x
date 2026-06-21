@@ -52,7 +52,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;
-    const publicUrl = "https://signal-x-hazel.vercel.app";
+    const publicUrl = "https://signal-x-ppjg.vercel.app";
 
     const logs = await getNotificationLogs();
 
