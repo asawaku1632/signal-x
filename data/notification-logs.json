@@ -16,7 +16,7 @@
     "id": "1781522741949-5401",
     "notifiedAt": "2026-06-15T11:25:41.949Z",
     "profitNotified": false,
-    "stopLossNotified": false,
+    "stopLossNotified": true,
     "code": "5401",
     "name": "日本製鉄",
     "price": 574.2,

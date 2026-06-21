@@ -5,6 +5,8 @@ import {
   updateNotificationLog,
 } from "@/app/lib/notificationLog";
 
+import { saveNotificationResult } from "@/app/lib/notificationResult";
+
 function yen(value?: number) {
   if (value === undefined || value === null) return "-";
   return `${Math.round(value).toLocaleString()}円`;
@@ -54,7 +56,7 @@ export async function GET(req: Request) {
 
     const logs = await getNotificationLogs();
 
-    const scanRes = await fetch(`${baseUrl}/api/scan?limit=500`, {
+    const scanRes = await fetch(`${baseUrl}/api/scan?limit=1000`, {
       cache: "no-store",
     });
 
@@ -84,10 +86,11 @@ export async function GET(req: Request) {
       let lineResponse = "";
 
       const profitAmount =
-  currentPrice > 0 ? Math.round((currentPrice - log.price) * 100) : 0;
+        currentPrice > 0 ? Math.round((currentPrice - log.price) * 100) : 0;
 
-const lossAmount =
-  currentPrice > 0 ? Math.round((log.price - currentPrice) * 100) : 0;
+      const lossAmount =
+        currentPrice > 0 ? Math.round((log.price - currentPrice) * 100) : 0;
+
       if (currentPrice > 0) {
         status = "監視中";
 
@@ -118,6 +121,10 @@ const lossAmount =
               await updateNotificationLog(log.id, {
                 profitNotified: true,
               });
+
+              await saveNotificationResult(log, {
+                price1h: currentPrice,
+              });
             }
           } else {
             status = "🎯 利確通知済み";
@@ -134,7 +141,7 @@ const lossAmount =
                 `【通知時】${yen(log.price)}\n` +
                 `【現在値】${yen(currentPrice)}\n` +
                 `【損切ライン】${yen(log.stopLoss)}\n\n` +
-                `【損失】- ${yen(lossAmount)}\n\n` +
+                `【損失】-${yen(lossAmount)}\n\n` +
                 `次のチャンスを待ちましょう\n\n` +
                 `👇 個別AI解析\n` +
                 `${publicUrl}/analysis/${log.code}\n` +
@@ -148,6 +155,10 @@ const lossAmount =
             if (line.ok) {
               await updateNotificationLog(log.id, {
                 stopLossNotified: true,
+              });
+
+              await saveNotificationResult(log, {
+                price1h: currentPrice,
               });
             }
           } else {
