@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/line",
       "schedule": "10 0 * * 1-5"
+    },
+    {
+      "path": "/api/learning/save-daily",
+      "schedule": "15 0 * * 1-5"
+    },
+    {
+      "path": "/api/learning/check-daily",
+      "schedule": "20 6 * * 1-5"
     }
   ]
 }

@@ -29,7 +29,9 @@ export async function GET(req: Request) {
 
     const targetDate =
       url.searchParams.get("date") ||
-      new Date().toISOString().split("T")[0];
+      new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
 
     const scanRes = await fetch(`${baseUrl}/api/scan?limit=1000`, {
       cache: "no-store",
