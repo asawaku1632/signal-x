@@ -108,7 +108,7 @@ export default function AnalysisPage() {
         setTotalRank(scanJson.totalStockList || stocks.length);
 
         const historyRes = await fetch(
-          `/api/result/power-stats/${code}`,
+          `/api/learning/stats/${code}`,
           {
             cache: "no-store",
           }
