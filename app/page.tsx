@@ -422,6 +422,45 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+      {/* FOOTER */}
+<footer className="border-t border-slate-200 bg-slate-50 py-10 mt-16">
+  <div className="mx-auto max-w-6xl px-6 text-center">
+    <h2 className="text-2xl font-black">
+      SIGNAL<span className="text-blue-600">X</span>
+    </h2>
+
+    <p className="mt-3 text-sm text-slate-500 font-bold">
+      AIが1006銘柄を毎日分析する日本株AI分析サービス
+    </p>
+
+    <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm font-bold">
+      <Link
+        href="/terms"
+        className="text-slate-600 hover:text-blue-600 transition"
+      >
+        利用規約
+      </Link>
+
+      <Link
+        href="/privacy"
+        className="text-slate-600 hover:text-blue-600 transition"
+      >
+        プライバシーポリシー
+      </Link>
+
+      <Link
+        href="/contact"
+        className="text-slate-600 hover:text-blue-600 transition"
+      >
+        お問い合わせ
+      </Link>
+    </div>
+
+    <p className="mt-8 text-xs text-slate-400">
+      © 2026 SIGNALX. All Rights Reserved.
+    </p>
+  </div>
+</footer>
     </main>
   );
 }
