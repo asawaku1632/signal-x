@@ -14,25 +14,25 @@ const topStocks = [
     rank: "🥇",
     code: "2501",
     name: "サッポロHD",
-    score: 94,
+    score: 100,
     label: "🔥 激熱候補",
     comment: "EMA・VWAP・MACDが強く、上昇トレンド継続に注目。",
   },
   {
     rank: "🥈",
-    code: "7203",
-    name: "トヨタ自動車",
-    score: 91,
+    code: "9413",
+    name: "テレビ東京HD",
+    score: 99,
     label: "🔥 激熱候補",
-    comment: "出来高とトレンドが安定。押し目にも注目したい銘柄。",
+    comment: "出来高と上昇率が強く、AI POWER上位を維持。",
   },
   {
     rank: "🥉",
-    code: "5401",
-    name: "日本製鉄",
-    score: 89,
-    label: "🟢 本命候補",
-    comment: "中期トレンドが強く、AI POWER上位を維持。",
+    code: "8802",
+    name: "三菱地所",
+    score: 98,
+    label: "🔥 激熱候補",
+    comment: "VWAP上で推移し、Wボトム突破にも注目。",
   },
 ];
 
@@ -117,7 +117,7 @@ export default function HomePage() {
               </Link>
 
               <Link
-                href="/ranking"
+                href="/scan-mobile"
                 className="rounded-full border border-white/20 bg-white/10 px-9 py-4 text-sm font-black text-white"
               >
                 AIランキングを見る
