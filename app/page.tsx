@@ -1,5 +1,69 @@
 import Link from "next/link";
 
+const todayStats = [
+  ["1006", "監視銘柄"],
+  ["952", "取得済み"],
+  ["40", "激熱候補"],
+  ["158", "本命候補"],
+  ["V3", "AI POWER"],
+];
+
+const topStocks = [
+  {
+    rank: "🥇",
+    code: "2501",
+    name: "サッポロHD",
+    score: 94,
+    label: "🔥 激熱候補",
+    comment: "EMA・VWAP・MACDが強く、上昇トレンド継続に注目。",
+  },
+  {
+    rank: "🥈",
+    code: "7203",
+    name: "トヨタ自動車",
+    score: 91,
+    label: "🔥 激熱候補",
+    comment: "出来高とトレンドが安定。押し目にも注目したい銘柄。",
+  },
+  {
+    rank: "🥉",
+    code: "5401",
+    name: "日本製鉄",
+    score: 89,
+    label: "🟢 本命候補",
+    comment: "中期トレンドが強く、AI POWER上位を維持。",
+  },
+];
+
+const screens = [
+  ["📱 AIランキング", "1006銘柄からAIが注目銘柄を抽出"],
+  ["📊 AI分析", "EMA・VWAP・MACDをAIが解説"],
+  ["📈 リアルチャート", "チャートとテクニカル指標を確認"],
+];
+
+const problems = [
+  "何を買えばいいか分からない",
+  "チャートが難しい",
+  "毎日1000銘柄も見られない",
+  "売買判断に迷う",
+];
+
+const solutions = [
+  ["🤖 1006銘柄をAI分析", "毎日多数の日本株をAIが自動でチェックします。"],
+  ["📈 注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
+  ["📊 複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
+  ["💬 初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
+];
+
+const features = [
+  ["🤖 AI POWER", "AIが銘柄の強さをスコア化"],
+  ["📈 AIランキング", "注目銘柄をランキング表示"],
+  ["📊 テクニカル分析", "EMA・VWAP・MACD・RSIに対応"],
+  ["🔔 LINE通知", "重要な銘柄情報を通知"],
+  ["📱 スマホ対応", "毎朝スマホで確認しやすい画面"],
+  ["💬 AIコメント", "初心者向けに分かりやすく解説"],
+];
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
@@ -45,7 +109,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* MOCKUP */}
+          {/* PHONE MOCKUP */}
           <div className="mx-auto mt-12 max-w-sm rounded-[2.5rem] border border-white/20 bg-slate-950 p-4 shadow-2xl shadow-green-500/20">
             <div className="rounded-[2rem] bg-white p-4 text-slate-950">
               <div className="mb-4 flex items-center justify-between">
@@ -62,12 +126,7 @@ export default function HomePage() {
               </h2>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                {[
-                  ["1006", "監視銘柄"],
-                  ["952", "取得済み"],
-                  ["40", "激熱候補"],
-                  ["158", "本命候補"],
-                ].map(([num, label]) => (
+                {todayStats.slice(0, 4).map(([num, label]) => (
                   <div key={label} className="rounded-2xl bg-slate-50 p-4 text-center">
                     <p className="text-3xl font-black">{num}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">
@@ -110,13 +169,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            {[
-              ["1006", "監視銘柄"],
-              ["952", "取得済み"],
-              ["40", "激熱候補"],
-              ["158", "本命候補"],
-              ["V3", "AI POWER"],
-            ].map(([num, label]) => (
+            {todayStats.map(([num, label]) => (
               <div key={label} className="rounded-2xl bg-slate-50 p-5 text-center">
                 <p className="text-4xl font-black">{num}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">{label}</p>
@@ -126,8 +179,55 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* TOP STOCKS */}
+      <section className="bg-slate-50 px-5 py-14">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center">
+            <p className="text-sm font-black text-blue-600">AI PICKUP</p>
+            <h2 className="mt-2 text-4xl font-black">今日のAI注目銘柄</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              AI POWER V3が注目する銘柄をランキング形式で表示します。
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {topStocks.map((stock) => (
+              <div key={stock.code} className="rounded-3xl border bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">{stock.rank}</span>
+                  <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
+                    {stock.label}
+                  </span>
+                </div>
+
+                <p className="mt-5 text-sm font-black text-slate-500">
+                  {stock.code}
+                </p>
+                <h3 className="mt-1 text-2xl font-black">{stock.name}</h3>
+
+                <div className="mt-5 rounded-2xl bg-black p-4 text-white">
+                  <p className="text-xs font-bold text-yellow-300">AI POWER</p>
+                  <p className="mt-1 text-4xl font-black">{stock.score}</p>
+                </div>
+
+                <p className="mt-4 text-sm leading-7 text-slate-600">
+                  {stock.comment}
+                </p>
+
+                <Link
+                  href={`/analysis/${stock.code}`}
+                  className="mt-5 inline-block rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white"
+                >
+                  詳しく見る
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* SCREEN */}
-      <section className="px-5 py-12">
+      <section className="px-5 py-14">
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-sm font-black text-blue-600">SCREEN</p>
           <h2 className="mt-2 text-4xl font-black">実際の画面</h2>
@@ -136,11 +236,7 @@ export default function HomePage() {
           </p>
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {[
-              ["📱 AIランキング", "1006銘柄からAIが注目銘柄を抽出"],
-              ["📊 AI分析", "EMA・VWAP・MACDをAIが解説"],
-              ["📈 リアルチャート", "チャートとテクニカル指標を確認"],
-            ].map(([title, text]) => (
+            {screens.map(([title, text]) => (
               <div key={title} className="rounded-3xl border bg-slate-50 p-5 text-left">
                 <div className="flex h-72 items-center justify-center rounded-2xl bg-white text-center text-slate-400">
                   <div>
@@ -167,12 +263,7 @@ export default function HomePage() {
           </h2>
 
           <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {[
-              "何を買えばいいか分からない",
-              "チャートが難しい",
-              "毎日1000銘柄も見られない",
-              "売買判断に迷う",
-            ].map((text) => (
+            {problems.map((text) => (
               <div key={text} className="rounded-2xl bg-white p-6 text-left text-lg font-black shadow-sm">
                 ✅ {text}
               </div>
@@ -190,12 +281,7 @@ export default function HomePage() {
           </h2>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2">
-            {[
-              ["🤖 1006銘柄をAI分析", "毎日多数の日本株をAIが自動でチェックします。"],
-              ["📈 注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
-              ["📊 複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
-              ["💬 初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
-            ].map(([title, text]) => (
+            {solutions.map(([title, text]) => (
               <div key={title} className="rounded-3xl border p-7 text-left">
                 <h3 className="text-xl font-black">{title}</h3>
                 <p className="mt-4 text-sm leading-7 text-slate-600">{text}</p>
@@ -212,14 +298,7 @@ export default function HomePage() {
           <h2 className="mt-2 text-4xl font-black">主な機能</h2>
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {[
-              ["🤖 AI POWER", "AIが銘柄の強さをスコア化"],
-              ["📈 AIランキング", "注目銘柄をランキング表示"],
-              ["📊 テクニカル分析", "EMA・VWAP・MACD・RSIに対応"],
-              ["🔔 LINE通知", "重要な銘柄情報を通知"],
-              ["📱 スマホ対応", "毎朝スマホで確認しやすい画面"],
-              ["💬 AIコメント", "初心者向けに分かりやすく解説"],
-            ].map(([title, text]) => (
+            {features.map(([title, text]) => (
               <div key={title} className="rounded-2xl bg-white p-6 text-left shadow-sm">
                 <h3 className="text-lg font-black">{title}</h3>
                 <p className="mt-2 text-sm text-slate-600">{text}</p>
