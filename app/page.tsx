@@ -88,6 +88,14 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#14532d55,transparent_45%)]" />
 
         <div className="relative mx-auto max-w-6xl">
+          <div className="mb-8 flex justify-end">
+  <Link
+    href="/login"
+    className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-bold text-white hover:bg-white hover:text-black transition"
+  >
+    Googleログイン
+  </Link>
+</div>
           <div className="text-center">
             <p className="mb-5 inline-block rounded-full border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-sm font-bold text-yellow-300">
               SIGNALX β版 公開中
@@ -122,6 +130,12 @@ export default function HomePage() {
               >
                 AIランキングを見る
               </Link>
+              <Link
+  href="/login"
+  className="rounded-full border border-blue-400 bg-blue-600 px-9 py-4 text-sm font-black text-white shadow-lg shadow-blue-500/20"
+>
+  Googleログイン
+</Link>
             </div>
           </div>
 

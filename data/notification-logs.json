@@ -1,5 +1,18 @@
 [
   {
+    "id": "1782379474049-9501",
+    "notifiedAt": "2026-06-25T09:24:34.043Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "9501",
+    "name": "東京電力",
+    "price": 481.2,
+    "aiPower": 80,
+    "judge": "🟡 押し目待ち",
+    "takeProfit": 496,
+    "stopLoss": 472
+  },
+  {
     "id": "1781604853087-8591",
     "notifiedAt": "2026-06-16T10:14:13.087Z",
     "profitNotified": false,
