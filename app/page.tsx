@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const todayStats = [
   ["1006", "監視銘柄"],
@@ -36,9 +37,24 @@ const topStocks = [
 ];
 
 const screens = [
-  ["📱 AIランキング", "1006銘柄からAIが注目銘柄を抽出"],
-  ["📊 AI分析", "EMA・VWAP・MACDをAIが解説"],
-  ["📈 リアルチャート", "チャートとテクニカル指標を確認"],
+  {
+    title: "📱 AIランキング",
+    text: "1006銘柄からAIが注目銘柄を抽出",
+    image: "/images/ranking.png",
+    alt: "AIランキング画面",
+  },
+  {
+    title: "📊 AI分析",
+    text: "EMA・VWAP・MACDをAIが解説",
+    image: "/images/analysis.png",
+    alt: "AI分析画面",
+  },
+  {
+    title: "📈 リアルチャート",
+    text: "チャートとテクニカル指標を確認",
+    image: "/images/chart.png",
+    alt: "リアルチャート画面",
+  },
 ];
 
 const problems = [
@@ -127,7 +143,10 @@ export default function HomePage() {
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 {todayStats.slice(0, 4).map(([num, label]) => (
-                  <div key={label} className="rounded-2xl bg-slate-50 p-4 text-center">
+                  <div
+                    key={label}
+                    className="rounded-2xl bg-slate-50 p-4 text-center"
+                  >
                     <p className="text-3xl font-black">{num}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">
                       {label}
@@ -170,9 +189,14 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {todayStats.map(([num, label]) => (
-              <div key={label} className="rounded-2xl bg-slate-50 p-5 text-center">
+              <div
+                key={label}
+                className="rounded-2xl bg-slate-50 p-5 text-center"
+              >
                 <p className="text-4xl font-black">{num}</p>
-                <p className="mt-1 text-xs font-bold text-slate-500">{label}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {label}
+                </p>
               </div>
             ))}
           </div>
@@ -192,7 +216,10 @@ export default function HomePage() {
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
             {topStocks.map((stock) => (
-              <div key={stock.code} className="rounded-3xl border bg-white p-6 shadow-sm">
+              <div
+                key={stock.code}
+                className="rounded-3xl border bg-white p-6 shadow-sm"
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-3xl">{stock.rank}</span>
                   <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
@@ -236,18 +263,21 @@ export default function HomePage() {
           </p>
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {screens.map(([title, text]) => (
-              <div key={title} className="rounded-3xl border bg-slate-50 p-5 text-left">
-                <div className="flex h-72 items-center justify-center rounded-2xl bg-white text-center text-slate-400">
-                  <div>
-                    <p className="text-5xl font-black">画像</p>
-                    <p className="mt-2 text-xs font-bold">
-                      スクリーンショット予定
-                    </p>
-                  </div>
-                </div>
-                <h3 className="mt-4 text-xl font-black">{title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{text}</p>
+            {screens.map((screen) => (
+              <div
+                key={screen.title}
+                className="rounded-3xl border bg-slate-50 p-5 text-left"
+              >
+                <Image
+                  src={screen.image}
+                  alt={screen.alt}
+                  width={400}
+                  height={800}
+                  className="h-72 w-full rounded-2xl object-cover shadow-lg"
+                />
+
+                <h3 className="mt-4 text-xl font-black">{screen.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{screen.text}</p>
               </div>
             ))}
           </div>
@@ -264,7 +294,10 @@ export default function HomePage() {
 
           <div className="mt-8 grid gap-4 md:grid-cols-4">
             {problems.map((text) => (
-              <div key={text} className="rounded-2xl bg-white p-6 text-left text-lg font-black shadow-sm">
+              <div
+                key={text}
+                className="rounded-2xl bg-white p-6 text-left text-lg font-black shadow-sm"
+              >
                 ✅ {text}
               </div>
             ))}
@@ -284,7 +317,9 @@ export default function HomePage() {
             {solutions.map(([title, text]) => (
               <div key={title} className="rounded-3xl border p-7 text-left">
                 <h3 className="text-xl font-black">{title}</h3>
-                <p className="mt-4 text-sm leading-7 text-slate-600">{text}</p>
+                <p className="mt-4 text-sm leading-7 text-slate-600">
+                  {text}
+                </p>
               </div>
             ))}
           </div>
@@ -299,7 +334,10 @@ export default function HomePage() {
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
             {features.map(([title, text]) => (
-              <div key={title} className="rounded-2xl bg-white p-6 text-left shadow-sm">
+              <div
+                key={title}
+                className="rounded-2xl bg-white p-6 text-left shadow-sm"
+              >
                 <h3 className="text-lg font-black">{title}</h3>
                 <p className="mt-2 text-sm text-slate-600">{text}</p>
               </div>
@@ -343,9 +381,7 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-3xl border border-yellow-300 bg-yellow-50 p-7 text-left shadow-sm">
-              <p className="text-sm font-black text-yellow-700">
-                正式版予定
-              </p>
+              <p className="text-sm font-black text-yellow-700">正式版予定</p>
               <h3 className="mt-2 text-4xl font-black">月額980円〜</h3>
               <p className="mt-4 text-sm text-slate-600">
                 AI通知・詳細分析・実測勝率などを順次追加予定です。
