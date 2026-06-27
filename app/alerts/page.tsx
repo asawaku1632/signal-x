@@ -19,7 +19,7 @@ type AlertItem = {
   stopLossText?: string;
   changePercent?: number;
   reason?: string;
-  color: string;
+  color?: string;
 };
 
 type Stats = {
@@ -31,13 +31,95 @@ type Stats = {
   winRate: number;
 };
 
+function getAlertId(alert: AlertItem, index: number) {
+  return `${alert.code ?? "market"}-${alert.type}-${alert.title}-${index}`;
+}
+
+function getScore(alert: AlertItem) {
+  return alert.score ?? 0;
+}
+
+function getAlertRank(score: number) {
+  if (score >= 85) return "激熱";
+  if (score >= 70) return "強い";
+  if (score >= 50) return "注目";
+  return "様子見";
+}
+
+function getRankBadge(score: number) {
+  if (score >= 85) return "bg-purple-100 text-purple-700 border-purple-200";
+  if (score >= 70) return "bg-green-100 text-green-700 border-green-200";
+  if (score >= 50) return "bg-blue-100 text-blue-700 border-blue-200";
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function getTypeIcon(type?: string) {
+  if (!type) return "🔔";
+  if (type.includes("激熱")) return "🔥";
+  if (type.includes("強い")) return "🟢";
+  if (type.includes("利確")) return "🎯";
+  if (type.includes("損切")) return "⚠️";
+  if (type.includes("大本命")) return "👑";
+  return "🔔";
+}
+
+function createAiReasons(alert: AlertItem) {
+  const score = alert.score ?? 0;
+  const winRate = alert.winRate ?? 0;
+  const rank = alert.rank ?? 9999;
+  const changePercent = alert.changePercent ?? 0;
+
+  const reasons: string[] = [];
+
+  if (score >= 85) {
+    reasons.push("AI信頼度が非常に高い");
+  } else if (score >= 70) {
+    reasons.push("AI信頼度が高い");
+  } else if (score >= 50) {
+    reasons.push("AIが注目している");
+  }
+
+  if (winRate >= 75) {
+    reasons.push("勝率予測が高い");
+  } else if (winRate >= 60) {
+    reasons.push("勝率予測は良好");
+  }
+
+  if (rank <= 10) {
+    reasons.push("AIランキングTOP10入り");
+  } else if (rank <= 50) {
+    reasons.push("AIランキング上位");
+  }
+
+  if (changePercent >= 3) {
+    reasons.push("本日の上昇率が強い");
+  } else if (changePercent > 0) {
+    reasons.push("上昇基調を維持");
+  }
+
+  if (alert.priceText && alert.requiredCapitalText) {
+    reasons.push("現在値と必要資金を確認済み");
+  }
+
+  if (alert.takeProfitText && alert.stopLossText) {
+    reasons.push("利確ラインと損切ラインが明確");
+  }
+
+  if (alert.reason) {
+    reasons.push(alert.reason);
+  }
+
+  return Array.from(new Set(reasons)).slice(0, 6);
+}
+
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatedAt, setUpdatedAt] = useState<string>("");
-  const [showHotList, setShowHotList] = useState(false);
-  const [showStrongList, setShowStrongList] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [favoriteCodes, setFavoriteCodes] = useState<string[]>([]);
+  const [filter, setFilter] = useState<"all" | "unread" | "favorite">("all");
 
   const fetchAlerts = async () => {
     try {
@@ -53,466 +135,433 @@ export default function AlertsPage() {
       setUpdatedAt(alertsJson.updatedAt || "");
       setStats(statsJson.success ? statsJson : null);
     } catch (error) {
-      console.error(error);
+      console.error("alerts fetch error:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadLocalData = () => {
+    const savedRead = localStorage.getItem("signalx-read-alerts");
+    const savedFavorites = localStorage.getItem("signalx-favorites");
+
+    setReadIds(savedRead ? JSON.parse(savedRead) : []);
+    setFavoriteCodes(savedFavorites ? JSON.parse(savedFavorites) : []);
+  };
+
   useEffect(() => {
+    loadLocalData();
     fetchAlerts();
 
     const timer = setInterval(() => {
       fetchAlerts();
+      loadLocalData();
     }, 30000);
 
     return () => clearInterval(timer);
   }, []);
 
-  const hotAlerts = useMemo(
-    () => alerts.filter((alert) => (alert.score ?? 0) >= 85),
-    [alerts]
-  );
+  const unreadCount = useMemo(() => {
+    return alerts.filter((alert, index) => {
+      const id = getAlertId(alert, index);
+      return !readIds.includes(id);
+    }).length;
+  }, [alerts, readIds]);
 
-  const strongAlerts = useMemo(
-    () =>
-      alerts.filter(
-        (alert) => (alert.score ?? 0) >= 70 && (alert.score ?? 0) < 85
-      ),
-    [alerts]
-  );
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((alert, index) => {
+      const id = getAlertId(alert, index);
+
+      if (filter === "unread") {
+        return !readIds.includes(id);
+      }
+
+      if (filter === "favorite") {
+        return alert.code ? favoriteCodes.includes(alert.code) : false;
+      }
+
+      return true;
+    });
+  }, [alerts, readIds, favoriteCodes, filter]);
 
   const topAlert = alerts[0];
 
-  const openAnalysis = (code?: string) => {
-    if (!code) return;
-    window.location.href = `/analysis/${code}`;
+  const markAsRead = (id: string) => {
+    if (readIds.includes(id)) return;
+
+    const updated = [...readIds, id];
+    setReadIds(updated);
+    localStorage.setItem("signalx-read-alerts", JSON.stringify(updated));
   };
+
+  const markAllAsRead = () => {
+    const allIds = alerts.map((alert, index) => getAlertId(alert, index));
+    setReadIds(allIds);
+    localStorage.setItem("signalx-read-alerts", JSON.stringify(allIds));
+  };
+
+  const openAnalysis = (alert: AlertItem, index: number) => {
+    const id = getAlertId(alert, index);
+    markAsRead(id);
+
+    if (alert.code) {
+      window.location.href = `/analysis/${alert.code}`;
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-black text-white px-4 py-3 max-w-lg mx-auto">
-      <section className="relative overflow-hidden rounded-[1.6rem] border border-cyan-500/70 bg-gradient-to-br from-zinc-950 via-black to-cyan-950/20 p-3 shadow-[0_0_30px_rgba(34,211,238,0.15)]">
-        <div className="absolute right-5 top-5 text-5xl text-cyan-400 opacity-80">
-          ⚡
-        </div>
+    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
+      <div className="mx-auto max-w-md px-4 pt-4">
+        <header className="flex items-center justify-between mb-4">
+          <Link
+            href="/"
+            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
+          >
+            ‹
+          </Link>
 
-        <p className="text-xs font-bold text-cyan-400">
-          SIGNALX REAL ALERT
-        </p>
-
-        <h1 className="mt-1 text-3xl font-black tracking-tight">
-          AI通知センター
-        </h1>
-
-        <p className="mt-1 text-xs font-bold text-zinc-400">
-          AIが重要シグナルだけ通知
-        </p>
-
-        {updatedAt && (
-          <p className="mt-2 text-[11px] text-zinc-500">
-            最終更新 {new Date(updatedAt).toLocaleTimeString("ja-JP")}
-          </p>
-        )}
-      </section>
-
-      {!loading && stats && (
-        <section className="mt-2 rounded-[1.6rem] border border-zinc-700 bg-gradient-to-br from-zinc-950 via-black to-cyan-950/10 p-3 shadow-[0_0_25px_rgba(34,211,238,0.08)]">
-          <p className="text-lg font-black text-cyan-400">
-            SIGNALX実績
-          </p>
-
-          <div className="mt-1 text-center">
-            <p className="text-[11px] font-bold text-zinc-400">
-              現在の勝率
-            </p>
-
-            <p className="mt-0 text-5xl font-black text-cyan-300">
-              {stats.winRate}%
-            </p>
+          <div className="text-center">
+            <div className="text-3xl font-black">
+              SIGNAL<span className="text-blue-600">X</span>
+            </div>
+            <div className="text-xs font-black tracking-[0.22em] text-slate-500">
+              AI ALERT
+            </div>
           </div>
 
-          <div className="mt-2 grid grid-cols-4 overflow-hidden rounded-2xl border border-zinc-800 bg-black/40">
-            <div className="border-r border-zinc-800 p-2 text-center">
-              <p className="text-[10px] font-bold text-zinc-400">
-                総通知
-              </p>
-              <p className="mt-0 text-2xl font-black text-cyan-300">
-                {stats.total}
-              </p>
-            </div>
-
-            <div className="border-r border-zinc-800 p-2 text-center">
-              <p className="text-[10px] font-bold text-zinc-400">
-                監視中
-              </p>
-              <p className="mt-0 text-2xl font-black text-yellow-300">
-                {stats.active}
-              </p>
-            </div>
-
-            <div className="border-r border-zinc-800 p-2 text-center">
-              <p className="text-[10px] font-bold text-green-400">
-                WIN
-              </p>
-              <p className="mt-0 text-2xl font-black text-green-400">
-                {stats.win}
-              </p>
-            </div>
-
-            <div className="p-2 text-center">
-              <p className="text-[10px] font-bold text-red-400">
-                LOSE
-              </p>
-              <p className="mt-0 text-2xl font-black text-red-400">
-                {stats.lose}
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {!loading && topAlert && (
-  <section
-    onClick={() => openAnalysis(topAlert.code)}
-    className="mt-2 cursor-pointer rounded-[1.6rem] border border-yellow-500/80 bg-gradient-to-br from-zinc-950 via-black to-yellow-950/10 p-3 shadow-[0_0_25px_rgba(234,179,8,0.12)]"
-  >
-    <div className="flex items-center justify-between gap-3">
-      <p className="text-lg font-black text-yellow-300">
-        👑 本日の大本命
-      </p>
-
-      <div className="rounded-full border border-purple-500/80 bg-purple-950/50 px-3 py-1">
-        <p className="text-[11px] font-black text-purple-300">
-          信頼度 {topAlert.score}%
-        </p>
-      </div>
-    </div>
-
-    <h2 className="mt-3 text-4xl font-black tracking-tight text-white">
-      {topAlert.title}
-    </h2>
-
-    <div className="mt-3 grid grid-cols-2 gap-3">
-      <div>
-        <p className="text-[10px] font-bold text-zinc-500">
-          AI順位
-        </p>
-        <p className="mt-0 text-base font-black text-cyan-300">
-          {topAlert.rank}位 / {topAlert.totalRank}銘柄中
-        </p>
-      </div>
-
-      <div>
-        <p className="text-[10px] font-bold text-zinc-500">
-          勝率予測
-        </p>
-        <p className="mt-0 text-base font-black text-cyan-300">
-          {topAlert.winRate}%
-        </p>
-      </div>
-    </div>
-
-    <div className="mt-3 flex items-center justify-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-950/80 p-2.5">
-      <span className="text-lg">📊</span>
-      <p className="text-lg font-black text-white">
-        詳細解析を見る
-      </p>
-    </div>
-  </section>
-)}
-      
-
-      {!loading && (
-        <section className="mt-3 grid grid-cols-2 gap-3">
           <button
-            onClick={() => setShowHotList(true)}
-            className="rounded-[1.6rem] border border-purple-600 bg-gradient-to-br from-purple-950/60 via-black to-purple-950/20 p-3 text-left shadow-[0_0_20px_rgba(168,85,247,0.12)]"
+            onClick={fetchAlerts}
+            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-lg"
           >
-            <p className="text-base font-black text-purple-300">
-              🔥 激熱候補
-            </p>
-
-            <p className="mt-1 text-5xl font-black text-purple-300">
-              {hotAlerts.length}件
-            </p>
-
-            <div className="mt-2 flex items-center justify-between rounded-2xl border border-purple-700/70 bg-purple-950/30 px-3 py-2">
-              <p className="text-xs font-bold text-purple-200">
-                一覧を見る
-              </p>
-              <p className="text-xl text-purple-300">›</p>
-            </div>
+            ↻
           </button>
+        </header>
 
-          <button
-            onClick={() => setShowStrongList(true)}
-            className="rounded-[1.6rem] border border-green-600 bg-gradient-to-br from-green-950/50 via-black to-green-950/20 p-3 text-left shadow-[0_0_20px_rgba(34,197,94,0.12)]"
-          >
-            <p className="text-base font-black text-green-300">
-              🟢 強い候補
-            </p>
-
-            <p className="mt-1 text-5xl font-black text-green-300">
-              {strongAlerts.length}件
-            </p>
-
-            <div className="mt-2 flex items-center justify-between rounded-2xl border border-green-700/70 bg-green-950/30 px-3 py-2">
-              <p className="text-xs font-bold text-green-200">
-                一覧を見る
+        <section className="rounded-[24px] bg-gradient-to-br from-white to-yellow-50 border border-yellow-200 p-4 mb-4 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-black text-yellow-600">
+                🔔 AI通知センター
               </p>
-              <p className="text-xl text-green-300">›</p>
-            </div>
-          </button>
-        </section>
-      )}
-
-  {!loading && alerts.length > 0 && (
-  <div className="mt-5 rounded-[1.8rem] border border-zinc-800 bg-zinc-950 p-4">
-    <h3 className="mb-4 text-lg font-black text-white">
-      🏆 TOP3候補
-    </h3>
-
-    <div className="space-y-3">
-      {alerts.slice(0, 3).map((alert, index) => (
-        <div
-          key={alert.code}
-          onClick={() => openAnalysis(alert.code)}
-          className="cursor-pointer rounded-2xl border border-zinc-800 bg-black/40 p-4"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl font-black text-black ${
-                  index === 0
-                    ? "bg-yellow-400"
-                    : index === 1
-                    ? "bg-zinc-300"
-                    : "bg-orange-500"
-                }`}
-              >
-                {index + 1}
-              </div>
-
-              <p className="text-2xl font-black text-white">
-                {alert.title}
+              <h1 className="text-5xl font-black mt-2">{unreadCount}</h1>
+              <p className="text-sm font-bold text-slate-500 mt-1">
+                未読通知
               </p>
             </div>
 
             <div className="text-right">
-              <p className="text-xs font-bold text-zinc-400">
-                信頼度
-              </p>
-
-              <p className="text-4xl font-black text-cyan-300">
-                {alert.score}%
+              <p className="text-xs font-black text-slate-500">更新</p>
+              <p className="text-sm font-black text-slate-700">
+                {updatedAt
+                  ? new Date(updatedAt).toLocaleTimeString("ja-JP", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "--:--"}
               </p>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
 
-{loading && (
-  <p className="mt-8 text-center text-zinc-500">
-    AI監視中...
-  </p>
-)}
-
-      {!loading && alerts.length === 0 && (
-        <section className="mt-6 rounded-3xl border border-zinc-700 bg-zinc-900 p-5">
-          <h2 className="text-3xl font-black text-zinc-300">今日は休もう</h2>
-
-          <p className="mt-3 text-sm text-zinc-400">
-            現在大きな通知はありません。
-          </p>
+          <button
+            onClick={markAllAsRead}
+            className="mt-4 w-full rounded-2xl bg-yellow-400 text-white py-3 font-black active:scale-[0.98] transition"
+          >
+            すべて既読にする
+          </button>
         </section>
-      )}
 
-      <section className="mt-5 space-y-4">
-        {alerts.map((alert, index) => {
-          const score = alert.score ?? 0;
-          const barWidth = Math.max(5, Math.min(100, score));
+        {stats && (
+          <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
+            <h2 className="text-xl font-black mb-3">📊 SIGNALX実績</h2>
 
-          return (
-            <div
-              key={`${alert.title}-${index}`}
-              onClick={() => openAnalysis(alert.code)}
-              className="cursor-pointer rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className={`text-sm font-bold ${alert.color}`}>
-                    {alert.type}
+            <div className="grid grid-cols-4 gap-2">
+              <Mini label="通知" value={`${stats.total}`} color="text-blue-600" />
+              <Mini label="監視" value={`${stats.active}`} color="text-yellow-600" />
+              <Mini label="WIN" value={`${stats.win}`} color="text-green-600" />
+              <Mini label="LOSE" value={`${stats.lose}`} color="text-red-500" />
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-center">
+              <p className="text-xs font-black text-slate-500">現在の勝率</p>
+              <p className="text-4xl font-black text-blue-600 mt-1">
+                {stats.winRate}%
+              </p>
+            </div>
+          </section>
+        )}
+
+        {!loading && topAlert && (
+          <section
+            onClick={() => openAnalysis(topAlert, 0)}
+            className="cursor-pointer rounded-[24px] bg-gradient-to-br from-white to-orange-50 border border-orange-200 p-4 mb-4 shadow-sm active:scale-[0.98] transition"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-black text-orange-600">
+                👑 本日の大本命
+              </p>
+              <span
+                className={`rounded-xl border px-3 py-1 text-xs font-black ${getRankBadge(
+                  getScore(topAlert)
+                )}`}
+              >
+                {getAlertRank(getScore(topAlert))} {topAlert.score ?? 0}%
+              </span>
+            </div>
+
+            <h2 className="text-3xl font-black mt-3">{topAlert.title}</h2>
+
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <Mini
+                label="AI順位"
+                value={`${topAlert.rank ?? "-"}位`}
+                color="text-yellow-600"
+              />
+              <Mini
+                label="勝率予測"
+                value={`${topAlert.winRate ?? 0}%`}
+                color="text-green-600"
+              />
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-white/80 border border-orange-100 p-3">
+              <p className="text-xs font-black text-slate-500 mb-2">
+                AIが注目した理由
+              </p>
+              <div className="space-y-1">
+                {createAiReasons(topAlert).slice(0, 4).map((reason) => (
+                  <p key={reason} className="text-sm font-bold">
+                    ✅ {reason}
                   </p>
+                ))}
+              </div>
+            </div>
 
-                  <h2 className={`mt-3 text-3xl font-black ${alert.color}`}>
-                    {alert.title}
-                  </h2>
+            <p className="text-sm text-slate-500 font-bold mt-3">
+              タップで詳細分析へ
+            </p>
+          </section>
+        )}
+
+        <section className="grid grid-cols-3 gap-2 mb-4">
+          <FilterButton
+            label="すべて"
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+          />
+          <FilterButton
+            label="未読"
+            active={filter === "unread"}
+            onClick={() => setFilter("unread")}
+          />
+          <FilterButton
+            label="お気に入り"
+            active={filter === "favorite"}
+            onClick={() => setFilter("favorite")}
+          />
+        </section>
+
+        {loading && (
+          <section className="rounded-[24px] bg-white border border-slate-200 p-5 shadow-sm">
+            <p className="font-bold text-slate-500">AI通知を読み込み中...</p>
+          </section>
+        )}
+
+        {!loading && filteredAlerts.length === 0 && (
+          <section className="rounded-[24px] bg-white border border-slate-200 p-5 shadow-sm text-center">
+            <p className="text-4xl mb-3">🔕</p>
+            <h2 className="text-xl font-black">通知はありません</h2>
+            <p className="text-sm text-slate-500 font-bold mt-2">
+              条件に合う通知はまだありません。
+            </p>
+          </section>
+        )}
+
+        <section className="space-y-3">
+          {filteredAlerts.map((alert, index) => {
+            const originalIndex = alerts.indexOf(alert);
+            const id = getAlertId(alert, originalIndex);
+            const isRead = readIds.includes(id);
+            const score = alert.score ?? 0;
+            const reasons = createAiReasons(alert);
+
+            return (
+              <div
+                key={id}
+                onClick={() => openAnalysis(alert, originalIndex)}
+                className={`cursor-pointer rounded-[24px] border p-4 shadow-sm active:scale-[0.98] transition ${
+                  isRead
+                    ? "bg-white border-slate-200 opacity-70"
+                    : "bg-white border-blue-200"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {!isRead && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                      )}
+                      <p className="text-xs font-black text-slate-500">
+                        {getTypeIcon(alert.type)} {alert.type}
+                      </p>
+                    </div>
+
+                    <h2 className="text-2xl font-black mt-2">
+                      {alert.title}
+                    </h2>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-xl border px-3 py-1 text-xs font-black ${getRankBadge(
+                      score
+                    )}`}
+                  >
+                    {getAlertRank(score)} {score}%
+                  </span>
                 </div>
 
-                <div className="text-2xl opacity-60">⚡</div>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <Mini
+                    label="現在値"
+                    value={alert.priceText || "-"}
+                    color="text-slate-900"
+                  />
+                  <Mini
+                    label="必要資金"
+                    value={alert.requiredCapitalText || "-"}
+                    color="text-slate-900"
+                  />
+                  <Mini
+                    label="利確"
+                    value={alert.takeProfitText || "-"}
+                    color="text-green-600"
+                  />
+                  <Mini
+                    label="損切"
+                    value={alert.stopLossText || "-"}
+                    color="text-red-500"
+                  />
+                </div>
+
+                <div className="mt-3 rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                  <p className="text-xs font-black text-slate-500 mb-2">
+                    AI判断理由
+                  </p>
+
+                  <div className="space-y-1">
+                    {reasons.map((reason) => (
+                      <p key={reason} className="text-sm font-bold leading-6">
+                        ✅ {reason}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className={`h-full ${
+                      score >= 85
+                        ? "bg-purple-500"
+                        : score >= 70
+                        ? "bg-green-500"
+                        : score >= 50
+                        ? "bg-blue-500"
+                        : "bg-slate-400"
+                    }`}
+                    style={{ width: `${Math.max(5, Math.min(score, 100))}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-500">
+                  <p>
+                    AI順位 {alert.rank ?? "-"}位 / {alert.totalRank ?? "-"}銘柄
+                  </p>
+                  <p>{isRead ? "既読" : "未読"}</p>
+                </div>
               </div>
+            );
+          })}
+        </section>
+      </div>
 
-              <div className="mt-4 space-y-2 text-base font-bold text-white leading-relaxed">
-                <p>【現在値】{alert.priceText}</p>
-                <p>【必要資金】{alert.requiredCapitalText}</p>
-
-                <div className="h-3" />
-
-                <p>【利確】{alert.takeProfitText}</p>
-                <p>【損切】{alert.stopLossText}</p>
-
-                <div className="h-3" />
-
-                <p>【信頼度】{score}%</p>
-
-                <p className="text-cyan-300">
-                  【勝率予測】{alert.winRate}%
-                </p>
-
-                <p className="text-yellow-300">
-                  【AI順位】{alert.rank}位 / {alert.totalRank}銘柄中
-                </p>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/40 p-4">
-                <p className="text-sm font-bold text-zinc-400">【理由】</p>
-                <p className="mt-2 text-sm font-bold text-zinc-100 leading-relaxed">
-                  {alert.reason}
-                </p>
-              </div>
-
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className={`h-full ${
-                    alert.color.includes("red")
-                      ? "bg-red-500"
-                      : alert.color.includes("green")
-                      ? "bg-green-500"
-                      : alert.color.includes("purple")
-                      ? "bg-purple-500"
-                      : alert.color.includes("orange")
-                      ? "bg-orange-500"
-                      : alert.color.includes("yellow")
-                      ? "bg-yellow-500"
-                      : "bg-cyan-500"
-                  }`}
-                  style={{
-                    width: `${barWidth}%`,
-                  }}
-                />
-              </div>
-
-              <p className="mt-4 text-xs text-zinc-500">
-                タップで個別解析へ / SIGNALX REALTIME AI
-              </p>
-            </div>
-          );
-        })}
-      </section>
-
-      {showHotList && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4">
-          <div className="mx-auto max-w-md rounded-3xl border border-purple-700 bg-zinc-950 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black text-purple-300">
-                🔥 激熱候補一覧
-              </h2>
-
-              <button
-                onClick={() => setShowHotList(false)}
-                className="text-2xl font-black text-zinc-400"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {hotAlerts.length === 0 && (
-                <p className="text-sm text-zinc-500">
-                  現在、激熱候補はありません。
-                </p>
-              )}
-
-              {hotAlerts.map((alert) => (
-                <Link
-                  key={alert.code}
-                  href={`/analysis/${alert.code}`}
-                  className="block rounded-2xl border border-purple-700 bg-black/40 p-4"
-                >
-                  <p className="text-xs text-zinc-500">
-                    {alert.rank}位 / {alert.totalRank}銘柄中
-                  </p>
-
-                  <p className="mt-1 text-xl font-black text-purple-300">
-                    {alert.title}
-                  </p>
-
-                  <p className="mt-2 text-sm font-bold text-white">
-                    【信頼度】{alert.score}%　【勝率予測】{alert.winRate}%
-                  </p>
-
-                  <p className="mt-1 text-xs text-zinc-400">
-                    タップで個別解析へ
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showStrongList && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4">
-          <div className="mx-auto max-w-md rounded-3xl border border-green-700 bg-zinc-950 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black text-green-300">
-                🟢 強い候補一覧
-              </h2>
-
-              <button
-                onClick={() => setShowStrongList(false)}
-                className="text-2xl font-black text-zinc-400"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {strongAlerts.length === 0 && (
-                <p className="text-sm text-zinc-500">
-                  現在、強い候補はありません。
-                </p>
-              )}
-
-              {strongAlerts.map((alert) => (
-                <Link
-                  key={alert.code}
-                  href={`/analysis/${alert.code}`}
-                  className="block rounded-2xl border border-green-700 bg-black/40 p-4"
-                >
-                  <p className="text-xs text-zinc-500">
-                    {alert.rank}位 / {alert.totalRank}銘柄中
-                  </p>
-
-                  <p className="mt-1 text-xl font-black text-green-300">
-                    {alert.title}
-                  </p>
-
-                  <p className="mt-2 text-sm font-bold text-white">
-                    【信頼度】{alert.score}%　【勝率予測】{alert.winRate}%
-                  </p>
-
-                  <p className="mt-1 text-xs text-zinc-400">
-                    タップで個別解析へ
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <BottomNav />
     </main>
+  );
+}
+
+function Mini({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-center">
+      <p className="text-[10px] font-black text-slate-500">{label}</p>
+      <p className={`text-lg font-black mt-1 ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function FilterButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-2xl py-3 text-sm font-black ${
+        active
+          ? "bg-blue-600 text-white"
+          : "bg-white text-slate-500 border border-slate-200"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function BottomNav() {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
+      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
+        <Nav href="/" icon="🏠" label="ホーム" />
+        <Nav href="/today-market" icon="🤖" label="市場" />
+        <Nav href="/favorites" icon="⭐" label="お気に入り" />
+        <Nav href="/alerts" icon="🔔" label="通知" active />
+        <Nav href="/learning" icon="🧠" label="学習" />
+      </div>
+    </nav>
+  );
+}
+
+function Nav({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`text-center text-xs font-bold ${
+        active ? "text-yellow-500" : "text-slate-500"
+      }`}
+    >
+      <div className="text-2xl">{icon}</div>
+      {label}
+    </Link>
   );
 }

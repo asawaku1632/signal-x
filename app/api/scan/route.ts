@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
+import { calculateAiScore, type ChartAnalysis } from "@/app/lib/aiEngine";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "YUJI_TEST_0615";
-
-
-
-
+const DEBUG_VERSION = "AI_ENGINE_SPLIT_0627";
 
 type CacheData = {
   timestamp: number;
@@ -17,8 +14,6 @@ type CacheData = {
 
 let cacheData: CacheData | null = null;
 
-// 今はテスト中なので0秒。
-// 確認後に 60 * 1000 に戻す。
 const CACHE_TIME = 60 * 1000;
 
 function getUniqueStocks(stocks: Stock[]) {
@@ -40,80 +35,155 @@ function clampLimit(value: number) {
   return value;
 }
 
-async function fetchYahooPrice(code: string) {
+async function fetchYahooChart(code: string): Promise<ChartAnalysis | null> {
   const symbol = `${code}.T`;
 
   const res = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       symbol
-    )}?range=1d&interval=1m`,
-    { cache: "no-store" }
+    )}?range=1d&interval=5m`,
+    {
+      cache: "no-store",
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    }
   );
+
+  if (!res.ok) return null;
 
   const data = await res.json();
   const result = data.chart?.result?.[0];
 
-  const price =
-    result?.meta?.regularMarketPrice ??
-    result?.meta?.previousClose ??
-    null;
+  if (!result) return null;
 
-  const previousClose = result?.meta?.previousClose ?? null;
+  const timestamps: number[] = result.timestamp ?? [];
+  const quote = result.indicators?.quote?.[0];
 
-  return {
-    price,
-    previousClose,
-    marketState: result?.meta?.marketState ?? null,
-  };
-}
+  const candles = timestamps
+    .map((time: number, index: number) => ({
+      time,
+      open: quote?.open?.[index],
+      high: quote?.high?.[index],
+      low: quote?.low?.[index],
+      close: quote?.close?.[index],
+      volume: quote?.volume?.[index],
+    }))
+    .filter((item: any) => item.close)
+    .slice(-60);
 
-function judgeStock(params: {
-  code: string;
-  name: string;
-  price: number;
-  previousClose: number | null;
-}) {
-  const { code, name, price, previousClose } = params;
+  const closes = candles.map((candle: any) => candle.close);
+  const currentPrice = closes[closes.length - 1] ?? null;
 
-  const changePercent =
-    previousClose && previousClose > 0
-      ? ((price - previousClose) / previousClose) * 100
-      : 0;
+  const ma20 =
+    closes.length >= 20
+      ? closes.slice(-20).reduce((sum: number, value: number) => {
+          return sum + value;
+        }, 0) / 20
+      : null;
 
-  let score = 50;
-  const reasons: string[] = [];
+  const trend =
+    ma20 === null || currentPrice === null
+      ? "NO_DATA"
+      : currentPrice > ma20
+      ? "UPTREND"
+      : "DOWNTREND";
 
-  if (changePercent >= 2) {
-    score += 25;
-    reasons.push("上昇率が強い");
-  } else if (changePercent >= 1) {
-    score += 15;
-    reasons.push("上昇傾向");
-  } else if (changePercent <= -2) {
-    score -= 20;
-    reasons.push("下落が強い");
-  } else {
-    reasons.push("値動きは通常範囲");
+  const prev = candles[candles.length - 2];
+  const last = candles[candles.length - 1];
+
+  let candleSignal = "NONE";
+  let patternSignal = "NONE";
+  let patternScore = 0;
+  const patternReasons: string[] = [];
+
+  if (prev && last) {
+    const prevBear = prev.close < prev.open;
+    const prevBull = prev.close > prev.open;
+    const lastBear = last.close < last.open;
+    const lastBull = last.close > last.open;
+
+    const bullishEngulfing =
+      prevBear &&
+      lastBull &&
+      last.open <= prev.close &&
+      last.close >= prev.open;
+
+    const bearishEngulfing =
+      prevBull &&
+      lastBear &&
+      last.open >= prev.close &&
+      last.close <= prev.open;
+
+    if (bullishEngulfing) {
+      candleSignal = "BULLISH_ENGULFING";
+      patternScore += 15;
+      patternReasons.push("買い包み足を検出");
+    }
+
+    if (bearishEngulfing) {
+      candleSignal = "BEARISH_ENGULFING";
+      patternScore -= 15;
+      patternReasons.push("売り包み足を検出");
+    }
   }
 
-  if (price > 0 && price <= 1000) {
-    score += 5;
-    reasons.push("10万円以下で100株を狙いやすい");
+  if (trend === "UPTREND") {
+    patternScore += 10;
+    patternReasons.push("現在価格がMA20より上");
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  if (trend === "DOWNTREND") {
+    patternScore -= 10;
+    patternReasons.push("現在価格がMA20より下");
+  }
+
+  if (candles.length >= 20 && currentPrice !== null) {
+    const recent = candles.slice(-20);
+
+    const firstHalf = recent.slice(0, 10);
+    const secondHalf = recent.slice(10, 20);
+
+    const firstLow = Math.min(...firstHalf.map((c: any) => c.low));
+    const secondLow = Math.min(...secondHalf.map((c: any) => c.low));
+
+    const firstLowIndex = firstHalf.findIndex((c: any) => c.low === firstLow);
+
+    const secondLowIndex =
+      secondHalf.findIndex((c: any) => c.low === secondLow) + 10;
+
+    const lowsClose = Math.abs(firstLow - secondLow) / currentPrice < 0.015;
+
+    const middleHigh = Math.max(
+      ...recent.slice(firstLowIndex, secondLowIndex).map((c: any) => c.high)
+    );
+
+    const necklineBreak = currentPrice > middleHigh * 0.998;
+    const bouncedFromSecondLow = currentPrice > secondLow * 1.008;
+
+    if (lowsClose && bouncedFromSecondLow) {
+      patternSignal = "W_BOTTOM";
+      patternScore += 25;
+      patternReasons.push("Wボトム候補を検出");
+    }
+
+    if (lowsClose && bouncedFromSecondLow && necklineBreak) {
+      patternSignal = "W_BOTTOM_BREAK";
+      patternScore += 20;
+      patternReasons.push("ネックライン付近まで回復");
+    }
+  }
 
   return {
-    code,
-    name,
-    score,
-    price,
-    changePercent: Number(changePercent.toFixed(2)),
-    rsi: 50,
-    volumeRatio: 1,
-    reason: reasons.join("・"),
-    takeProfit: Math.round(price * 1.03),
-    stopLoss: Math.round(price * 0.98),
+    success: true,
+    currentPrice,
+    ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
+    trend,
+    candleSignal,
+    patternSignal,
+    patternScore,
+    patternReasons,
+    candles,
   };
 }
 
@@ -166,16 +236,17 @@ export async function GET(req: Request) {
     const uniqueStocks = getUniqueStocks(STOCKS);
     const targetStocks = uniqueStocks.slice(0, limit);
 
-    const rawResults = await runInBatches(targetStocks, 30, async (stock) => {
-      const quote = await fetchYahooPrice(stock.code);
+    const rawResults = await runInBatches(targetStocks, 20, async (stock) => {
+      const chart = await fetchYahooChart(stock.code);
 
-      if (!quote.price) return null;
+      if (!chart?.currentPrice) return null;
 
-      return judgeStock({
+      return calculateAiScore({
         code: stock.code,
         name: stock.name,
-        price: quote.price,
-        previousClose: quote.previousClose,
+        price: chart.currentPrice,
+        previousClose: chart.candles?.[0]?.open ?? null,
+        chart,
       });
     });
 
@@ -197,7 +268,7 @@ export async function GET(req: Request) {
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
       scanMs: Date.now() - startedAt,
-      batchSize: 30,
+      batchSize: 20,
       stocks,
     });
   } catch (error) {
