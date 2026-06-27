@@ -29,11 +29,15 @@ export default function LoginPage() {
           </p>
 
           <button
-            onClick={() => signIn("google", { callbackUrl: "/scan-mobile" })}
-            className="mt-8 w-full rounded-full bg-blue-600 px-6 py-4 text-sm font-black text-white shadow-lg shadow-blue-200"
-          >
-            Googleでログイン
-          </button>
+  onClick={() =>
+    signIn("google", {
+      callbackUrl: "/dashboard",
+    })
+  }
+  className="mt-8 w-full rounded-full bg-blue-600 px-6 py-4 text-sm font-black text-white shadow-lg shadow-blue-200"
+>
+  Googleでログイン
+</button>
         </section>
       </div>
     </main>
