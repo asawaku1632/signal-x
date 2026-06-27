@@ -309,13 +309,13 @@ export default function HomePage() {
 
               <h2 className="text-3xl font-black mt-2">
 
-                {loadingScan ? "解析中..." : "AI市場ブリーフィング"}
+                {loadingScan ? "解析中..." : "今日の市場総評"}
 
               </h2>
 
               <p className="text-xs text-slate-500 font-bold mt-1">
 
-                1000銘柄をAI POWER v2で解析
+                AIが今日の相場を総合判定
 
               </p>
 
