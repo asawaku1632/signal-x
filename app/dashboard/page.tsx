@@ -295,7 +295,18 @@ export default function HomePage() {
   </button>
 </form>
 
+<Link
+  href="/scan-mobile"
+  className="mb-3 block rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-center shadow-sm"
+>
+  <p className="text-sm font-black text-green-700">
+    💴 予算で銘柄を探す
+  </p>
 
+  <p className="mt-1 text-xs font-bold text-slate-500">
+    10万円・30万円・50万円・100万円以内で買える銘柄を確認
+  </p>
+</Link>
 
         <Link
 
