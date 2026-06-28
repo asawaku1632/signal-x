@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Stock = {
   code: string;
@@ -72,11 +73,16 @@ function getMarketComment(hot: number, strong: number) {
   return "今日は無理に売買せず、様子見を優先したい相場です。";
 }
 export default function ScanMobilePage() {
+  const searchParams = useSearchParams();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [totalStocks, setTotalStocks] = useState(0);
   const [loading, setLoading] = useState(true);
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
-  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(1000000);
+  const initialBudget =
+  Number(searchParams.get("budget")) || 1000000;
+
+const [budgetFilter, setBudgetFilter] =
+  useState<BudgetFilter>(initialBudget as BudgetFilter);
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
   const rankingRef = useRef<HTMLDivElement>(null);
@@ -375,6 +381,21 @@ export default function ScanMobilePage() {
             />
           </div>
         </section>
+        {budgetFilter !== "all" && (
+  <section className="rounded-[24px] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-4 shadow-sm">
+    <p className="text-xs font-black tracking-wider text-emerald-700">
+      💴 現在の予算
+    </p>
+
+    <h2 className="mt-1 text-3xl font-black text-emerald-700">
+      {Number(budgetFilter).toLocaleString()}円以内
+    </h2>
+
+    <p className="mt-2 text-sm font-bold text-slate-600">
+      この予算で購入できる銘柄だけ表示しています。
+    </p>
+  </section>
+)}
 
         <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
           <h2 className="text-xl font-black">💴 予算フィルター</h2>
