@@ -181,75 +181,9 @@ export default function LearningPage() {
   <WinRateChart data={data.winRateTrend} />
 </section>
 
-        <section className="rounded-[24px] bg-green-50 border border-green-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">🏆 AIが得意な銘柄</h2>
+        
 
-          <div className="space-y-3">
-            {data.bestStocks.map((stock, index) => (
-              <Link
-                key={stock.code}
-                href={`/analysis/${stock.code}`}
-                className="block rounded-2xl bg-white border border-green-100 p-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-black text-green-600">
-                      {index + 1}位
-                    </p>
-                    <p className="text-lg font-black">
-                      {stock.code} {stock.name}
-                    </p>
-                    <p className="text-xs text-slate-500 font-bold">
-                      検証 {stock.total}回
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xs font-black text-slate-500">勝率</p>
-                    <p className="text-3xl font-black text-green-600">
-                      {stock.winRate}%
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-[24px] bg-red-50 border border-red-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">⚠ AIが苦手な銘柄</h2>
-
-          <div className="space-y-3">
-            {data.worstStocks.map((stock, index) => (
-              <Link
-                key={stock.code}
-                href={`/analysis/${stock.code}`}
-                className="block rounded-2xl bg-white border border-red-100 p-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-black text-red-600">
-                      {index + 1}位
-                    </p>
-                    <p className="text-lg font-black">
-                      {stock.code} {stock.name}
-                    </p>
-                    <p className="text-xs text-slate-500 font-bold">
-                      検証 {stock.total}回
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xs font-black text-slate-500">勝率</p>
-                    <p className="text-3xl font-black text-red-500">
-                      {stock.winRate}%
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+        
 
         <section className="rounded-[24px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
           <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
