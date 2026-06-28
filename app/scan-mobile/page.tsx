@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Stock = {
@@ -75,6 +75,14 @@ function getMarketComment(hot: number, strong: number) {
 }
 
 export default function ScanMobilePage() {
+  return (
+    <Suspense fallback={<div className="p-5 font-bold">読み込み中...</div>}>
+      <ScanMobileContent />
+    </Suspense>
+  );
+}
+
+function ScanMobileContent() {
   const searchParams = useSearchParams();
 
   const [stocks, setStocks] = useState<Stock[]>([]);
