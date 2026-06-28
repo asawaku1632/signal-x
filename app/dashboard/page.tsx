@@ -321,20 +321,6 @@ export default function HomePage() {
 
             </div>
 
-
-
-            <div className="text-right">
-
-            
-
-              <p className="text-2xl font-black text-blue-600">
-
-                {aiSummary.topStock?.code ?? "---"}
-
-              </p>
-
-            </div>
-
           </div>
 
 
