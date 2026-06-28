@@ -254,13 +254,11 @@ export default function HomePage() {
   className="h-11 rounded-2xl bg-white shadow flex items-center gap-2 px-2"
 >
   {session?.user?.image ? (
-    <Image
-      src={session.user.image}
-      alt="User"
-      width={32}
-      height={32}
-      className="rounded-full"
-    />
+    <img
+  src={session.user.image}
+  alt="User"
+  className="w-8 h-8 rounded-full"
+/>
   ) : (
     <span className="text-lg">👤</span>
   )}

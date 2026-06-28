@@ -77,13 +77,11 @@ export default function MyPage() {
 
         <section className="rounded-[28px] border border-blue-200 bg-gradient-to-br from-white to-blue-50 p-6 text-center shadow-sm">
           {session.user?.image ? (
-            <Image
-              src={session.user.image}
-              alt="user"
-              width={88}
-              height={88}
-              className="mx-auto rounded-full border-4 border-white shadow"
-            />
+            <img
+  src={session.user.image}
+  alt="user"
+  className="mx-auto h-[88px] w-[88px] rounded-full border-4 border-white shadow"
+/>
           ) : (
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-slate-200 text-4xl">
               👤
