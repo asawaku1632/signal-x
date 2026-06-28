@@ -57,6 +57,7 @@ function getMarketJudge(hot: number, strong: number) {
   if (strong >= 30) return "⚪ 厳選";
   return "🔵 静観";
 }
+
 function getMarketComment(hot: number, strong: number) {
   if (hot >= 80)
     return "市場全体が非常に強い状態です。Sランク銘柄を積極的に狙える一日です。";
@@ -72,17 +73,21 @@ function getMarketComment(hot: number, strong: number) {
 
   return "今日は無理に売買せず、様子見を優先したい相場です。";
 }
+
 export default function ScanMobilePage() {
   const searchParams = useSearchParams();
+
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [totalStocks, setTotalStocks] = useState(0);
   const [loading, setLoading] = useState(true);
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
-  const initialBudget =
-  Number(searchParams.get("budget")) || 1000000;
 
-const [budgetFilter, setBudgetFilter] =
-  useState<BudgetFilter>(initialBudget as BudgetFilter);
+  const initialBudget =
+    Number(searchParams.get("budget")) || 1000000;
+
+  const [budgetFilter, setBudgetFilter] =
+    useState<BudgetFilter>(initialBudget as BudgetFilter);
+
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
   const rankingRef = useRef<HTMLDivElement>(null);
@@ -228,8 +233,7 @@ const [budgetFilter, setBudgetFilter] =
         ).toFixed(1)
       )
     : 0;
-
-  return (
+      return (
     <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
       <div className="mx-auto max-w-md px-4 pt-5 space-y-5">
         <header className="flex items-center justify-between">
@@ -250,158 +254,24 @@ const [budgetFilter, setBudgetFilter] =
           </button>
         </header>
 
-        <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
-          <p className="text-sm font-black text-blue-600">🔍 監視スキャン</p>
-
-          <div className="mt-3 flex items-end justify-between">
-            <div>
-              <p className="text-5xl font-black">
-                {totalStocks.toLocaleString()}
-              </p>
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                監視対象銘柄
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-400">取得済み</p>
-              <p className="text-3xl font-black text-blue-600">
-                {stocks.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-3">
-            <p className="text-sm font-bold text-blue-700">
-              60秒ごとに自動更新 / AI POWER V3で解析
+        {budgetFilter !== "all" && (
+          <section className="rounded-[24px] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-4 shadow-sm">
+            <p className="text-xs font-black tracking-wider text-emerald-700">
+              💴 現在の予算
             </p>
-          </div>
-        </section>
 
-        <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 className="text-xl font-black">💴 予算フィルター</h2>
+            <h2 className="mt-1 text-3xl font-black text-emerald-700">
+              {Number(budgetFilter).toLocaleString()}円以内
+            </h2>
 
-
-        <section className="rounded-[28px] bg-white border border-green-200 p-5 shadow-sm">
-          <p className="text-sm font-black text-green-600">📊 今日の市場総評</p>
-
-          <h2 className="mt-3 text-4xl font-black">
-            AI判定 {marketJudge}
-          </h2>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => {
-                setSignalFilter("hot");
-                setTimeout(scrollToRanking, 100);
-              }}
-              className="rounded-2xl bg-red-50 border border-red-200 p-4 text-center"
-            >
-              <p className="text-xs font-black text-red-400">激熱候補</p>
-              <p className="mt-1 text-4xl font-black text-red-500">
-                {hotSignals.length}
-              </p>
-            </button>
-
-            <button
-              onClick={() => {
-                setSignalFilter("strong");
-                setTimeout(scrollToRanking, 100);
-              }}
-              className="rounded-2xl bg-cyan-50 border border-cyan-200 p-4 text-center"
-            >
-              <p className="text-xs font-black text-cyan-500">本命候補</p>
-              <p className="mt-1 text-4xl font-black text-cyan-600">
-                {strongSignals.length}
-              </p>
-            </button>
-          </div>
-
-          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
-            {marketComment}
-          </p>
-        </section>
-
-        {hotTop3.length > 0 && (
-          <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
-            <h2 className="text-xl font-black">🔥 激熱候補 TOP3</h2>
-
-            <div className="mt-4 space-y-3">
-              {hotTop3.map((stock, index) => (
-                <a
-                  key={stock.code}
-                  href={`/analysis/${stock.code}`}
-                  className="block rounded-2xl bg-slate-50 border border-slate-100 p-4"
-                >
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-yellow-500">
-                        {index + 1}位
-                      </p>
-                      <p className="mt-1 text-2xl font-black">
-                        {stock.code}
-                      </p>
-                      <p className="text-lg font-black text-slate-700">
-                        {stock.name}
-                      </p>
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        {stock.reason || "AI理由なし"}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-xs font-black text-slate-400">
-                        AI POWER
-                      </p>
-                      <p className="text-4xl font-black text-red-500">
-                        {stock.score}
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
+            <p className="mt-2 text-sm font-bold text-slate-600">
+              この予算で購入できる銘柄だけ表示しています。
+            </p>
           </section>
         )}
 
         <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 className="text-xl font-black">🔥 シグナルフィルター</h2>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <FilterButton
-              active={signalFilter === "hot"}
-              label="激熱"
-              onClick={() => setSignalFilter("hot")}
-            />
-            <FilterButton
-              active={signalFilter === "strong"}
-              label="本命以上"
-              onClick={() => setSignalFilter("strong")}
-            />
-            <FilterButton
-              active={signalFilter === "all"}
-              label="全件"
-              onClick={() => setSignalFilter("all")}
-            />
-          </div>
-        </section>
-        {budgetFilter !== "all" && (
-  <section className="rounded-[24px] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-4 shadow-sm">
-    <p className="text-xs font-black tracking-wider text-emerald-700">
-      💴 現在の予算
-    </p>
-
-    <h2 className="mt-1 text-3xl font-black text-emerald-700">
-      {Number(budgetFilter).toLocaleString()}円以内
-    </h2>
-
-    <p className="mt-2 text-sm font-bold text-slate-600">
-      この予算で購入できる銘柄だけ表示しています。
-    </p>
-  </section>
-)}
-
-      
+          <h2 className="text-xl font-black">💴 予算フィルター</h2>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {[
@@ -416,7 +286,10 @@ const [budgetFilter, setBudgetFilter] =
                 key={item.label}
                 active={budgetFilter === item.value}
                 label={item.label}
-                onClick={() => setBudgetFilter(item.value as BudgetFilter)}
+                onClick={() => {
+                  setBudgetFilter(item.value as BudgetFilter);
+                  setTimeout(scrollToRanking, 100);
+                }}
               />
             ))}
           </div>
@@ -561,6 +434,47 @@ const [budgetFilter, setBudgetFilter] =
             </div>
           )}
         </section>
+                {hotTop3.length > 0 && (
+          <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
+            <h2 className="text-xl font-black">🔥 激熱候補 TOP3</h2>
+
+            <div className="mt-4 space-y-3">
+              {hotTop3.map((stock, index) => (
+                <a
+                  key={stock.code}
+                  href={`/analysis/${stock.code}`}
+                  className="block rounded-2xl bg-slate-50 border border-slate-100 p-4"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-yellow-500">
+                        {index + 1}位
+                      </p>
+                      <p className="mt-1 text-2xl font-black">
+                        {stock.code}
+                      </p>
+                      <p className="text-lg font-black text-slate-700">
+                        {stock.name}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        {stock.reason || "AI理由なし"}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-black text-slate-400">
+                        AI POWER
+                      </p>
+                      <p className="text-4xl font-black text-red-500">
+                        {stock.score}
+                      </p>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {bestSignal && (
           <section className="rounded-[28px] bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white shadow-sm">
@@ -600,6 +514,74 @@ const [budgetFilter, setBudgetFilter] =
             </a>
           </section>
         )}
+
+        <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
+          <p className="text-sm font-black text-blue-600">🔍 監視スキャン</p>
+
+          <div className="mt-3 flex items-end justify-between">
+            <div>
+              <p className="text-5xl font-black">
+                {totalStocks.toLocaleString()}
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                監視対象銘柄
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-xs font-black text-slate-400">取得済み</p>
+              <p className="text-3xl font-black text-blue-600">
+                {stocks.length}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-3">
+            <p className="text-sm font-bold text-blue-700">
+              60秒ごとに自動更新 / AI POWER V3で解析
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-[28px] bg-white border border-green-200 p-5 shadow-sm">
+          <p className="text-sm font-black text-green-600">📊 今日の市場総評</p>
+
+          <h2 className="mt-3 text-4xl font-black">
+            AI判定 {marketJudge}
+          </h2>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setSignalFilter("hot");
+                setTimeout(scrollToRanking, 100);
+              }}
+              className="rounded-2xl bg-red-50 border border-red-200 p-4 text-center"
+            >
+              <p className="text-xs font-black text-red-400">激熱候補</p>
+              <p className="mt-1 text-4xl font-black text-red-500">
+                {hotSignals.length}
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                setSignalFilter("strong");
+                setTimeout(scrollToRanking, 100);
+              }}
+              className="rounded-2xl bg-cyan-50 border border-cyan-200 p-4 text-center"
+            >
+              <p className="text-xs font-black text-cyan-500">本命候補</p>
+              <p className="mt-1 text-4xl font-black text-cyan-600">
+                {strongSignals.length}
+              </p>
+            </button>
+          </div>
+
+          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
+            {marketComment}
+          </p>
+        </section>
       </div>
     </main>
   );
