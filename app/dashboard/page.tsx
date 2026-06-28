@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
-
+import { useRouter } from "next/navigation";
 
 
 type TodayMarketData = {
@@ -111,13 +111,13 @@ function getPatternText(pattern?: string) {
 
 
 export default function HomePage() {
+  const router = useRouter();
   const { data: session } = useSession();
 
   const [marketData, setMarketData] = useState<TodayMarketData | null>(null);
-
   const [stocks, setStocks] = useState<Stock[]>([]);
-
   const [loadingScan, setLoadingScan] = useState(true);
+  const [searchText, setSearchText] = useState("");
 
 
 
@@ -271,21 +271,31 @@ export default function HomePage() {
 
 
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-4 py-3 mb-3 flex items-center gap-3">
+        <form
+  onSubmit={(e) => {
+    e.preventDefault();
 
-          <span className="text-xl">🔍</span>
+    const keyword = searchText.trim();
 
-          <input
+    if (!keyword) return;
 
-            className="w-full outline-none text-sm font-bold placeholder:text-slate-400 bg-transparent"
+    router.push(`/analysis/${keyword}`);
+  }}
+  className="bg-white rounded-2xl shadow-sm border border-slate-200 px-4 py-3 mb-3 flex items-center gap-3"
+>
+  <span className="text-xl">🔍</span>
 
-            placeholder="銘柄名・コードを検索"
+  <input
+    value={searchText}
+    onChange={(e) => setSearchText(e.target.value)}
+    className="w-full outline-none text-sm font-bold placeholder:text-slate-400 bg-transparent"
+    placeholder="銘柄コードを入力 例：9983"
+  />
 
-          />
-
-          <span className="text-lg text-slate-500">⌗</span>
-
-        </div>
+  <button type="submit" className="text-lg text-blue-600 font-black">
+    →
+  </button>
+</form>
 
 
 
