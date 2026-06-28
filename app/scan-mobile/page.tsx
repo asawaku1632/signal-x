@@ -278,6 +278,10 @@ const [budgetFilter, setBudgetFilter] =
           </div>
         </section>
 
+        <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
+          <h2 className="text-xl font-black">💴 予算フィルター</h2>
+
+
         <section className="rounded-[28px] bg-white border border-green-200 p-5 shadow-sm">
           <p className="text-sm font-black text-green-600">📊 今日の市場総評</p>
 
@@ -397,8 +401,7 @@ const [budgetFilter, setBudgetFilter] =
   </section>
 )}
 
-        <section className="rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 className="text-xl font-black">💴 予算フィルター</h2>
+      
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {[
