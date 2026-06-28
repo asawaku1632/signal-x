@@ -297,16 +297,72 @@ export default function HomePage() {
 
 <Link
   href="/scan-mobile"
-  className="mb-3 block rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-center shadow-sm"
+  className="mb-4 block rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-5 shadow-lg transition hover:scale-[1.02]"
 >
-  <p className="text-sm font-black text-green-700">
-    💴 予算で銘柄を探す
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-xs font-black tracking-wider text-emerald-600">
+        💴 BUDGET STOCK SEARCH
+      </p>
+
+      <h2 className="mt-1 text-xl font-black text-slate-900">
+        予算から銘柄を探す
+      </h2>
+
+      <p className="mt-2 text-sm text-slate-600">
+        10万円・30万円・50万円・100万円以内で
+        AIがおすすめ銘柄を表示します。
+      </p>
+    </div>
+
+    <div className="text-4xl">
+      💰
+    </div>
+  </div>
+</Link>
+<div className="mb-5">
+  <p className="mb-3 text-sm font-black text-slate-600">
+    人気の予算
   </p>
 
-  <p className="mt-1 text-xs font-bold text-slate-500">
-    10万円・30万円・50万円・100万円以内で買える銘柄を確認
-  </p>
-</Link>
+  <div className="grid grid-cols-2 gap-3">
+    <Link
+      href="/scan-mobile?budget=100000"
+      className="rounded-2xl bg-emerald-500 p-4 text-center font-black text-white shadow"
+    >
+      💴
+      <br />
+      10万円以内
+    </Link>
+
+    <Link
+      href="/scan-mobile?budget=300000"
+      className="rounded-2xl bg-blue-500 p-4 text-center font-black text-white shadow"
+    >
+      💴
+      <br />
+      30万円以内
+    </Link>
+
+    <Link
+      href="/scan-mobile?budget=500000"
+      className="rounded-2xl bg-orange-500 p-4 text-center font-black text-white shadow"
+    >
+      💴
+      <br />
+      50万円以内
+    </Link>
+
+    <Link
+      href="/scan-mobile?budget=100000"
+      className="rounded-2xl bg-purple-500 p-4 text-center font-black text-white shadow"
+    >
+      💴
+      <br />
+      100万円以内
+    </Link>
+  </div>
+</div>
 
         <Link
 

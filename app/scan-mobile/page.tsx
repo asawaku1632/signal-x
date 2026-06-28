@@ -27,6 +27,15 @@ function yen(value?: number | null) {
   if (value === undefined || value === null) return "-";
   return `${Math.round(value).toLocaleString()}円`;
 }
+function budgetLabel(value: BudgetFilter) {
+  if (value === "all") return "制限なし";
+
+  if (value >= 10000) {
+    return `${Math.round(value / 10000)}万円以内`;
+  }
+
+  return `${value.toLocaleString()}円以内`;
+}
 
 function judgeLabel(score: number) {
   if (score >= 95) return "👑 Sランク";
@@ -91,7 +100,7 @@ function ScanMobileContent() {
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
 
   const initialBudget =
-    Number(searchParams.get("budget")) || 1000000;
+    Number(searchParams.get("budget")) || 100000;
 
   const [budgetFilter, setBudgetFilter] =
     useState<BudgetFilter>(initialBudget as BudgetFilter);
@@ -269,7 +278,7 @@ function ScanMobileContent() {
             </p>
 
             <h2 className="mt-1 text-3xl font-black text-emerald-700">
-              {Number(budgetFilter).toLocaleString()}円以内
+              {budgetLabel(budgetFilter)}
             </h2>
 
             <p className="mt-2 text-sm font-bold text-slate-600">
