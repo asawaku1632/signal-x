@@ -325,7 +325,11 @@ export default function HomePage() {
 
             <div className="text-right">
 
-              <p className="text-xs font-black text-slate-500">本命</p>
+              <p className="text-xs font-black text-slate-500">🎯 今日の注目銘柄
+
+9983
+
+ファーストリテイリング</p>
 
               <p className="text-2xl font-black text-blue-600">
 
