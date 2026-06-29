@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import db from "@/app/lib/db";
 
+type StockStats = {
+  code: string;
+  name: string;
+  total: number;
+  win: number;
+  lose: number;
+  winRate: number;
+};
+
 export async function GET() {
   try {
     const rows = db
@@ -19,10 +28,54 @@ export async function GET() {
     const hold = rows.filter((row) => row.result === "hold").length;
     const pending = rows.filter((row) => row.result === "pending").length;
 
+    const judgedRows = rows.filter(
+      (row) => row.result === "win" || row.result === "lose"
+    );
+
     const judgedTotal = win + lose;
 
     const winRate =
       judgedTotal === 0 ? 0 : Math.round((win / judgedTotal) * 100);
+
+    const stockMap = new Map<string, StockStats>();
+
+    for (const row of judgedRows) {
+      const code = String(row.code || row.stockCode || "");
+      if (!code) continue;
+
+      const name = String(row.name || row.stockName || code);
+
+      const current =
+        stockMap.get(code) || {
+          code,
+          name,
+          total: 0,
+          win: 0,
+          lose: 0,
+          winRate: 0,
+        };
+
+      current.total += 1;
+
+      if (row.result === "win") current.win += 1;
+      if (row.result === "lose") current.lose += 1;
+
+      current.winRate = Math.round((current.win / current.total) * 100);
+
+      stockMap.set(code, current);
+    }
+
+    const stockStats = Array.from(stockMap.values()).filter(
+      (stock) => stock.total >= 2
+    );
+
+    const bestStocks = [...stockStats]
+      .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+      .slice(0, 3);
+
+    const worstStocks = [...stockStats]
+      .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
+      .slice(0, 3);
 
     const dateSet = new Set(
       rows
@@ -43,8 +96,8 @@ export async function GET() {
       growth: total,
       dateCount: dateSet.size,
 
-      bestStocks: [],
-      worstStocks: [],
+      bestStocks,
+      worstStocks,
 
       winRateTrend: [],
 
