@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import db from "@/app/lib/db";
+import pool from "@/app/lib/postgres";
 
 type StockStats = {
   code: string;
@@ -7,30 +7,25 @@ type StockStats = {
   total: number;
   win: number;
   lose: number;
+  hold: number;
+  unknown: number;
   winRate: number;
 };
 
 export async function GET() {
   try {
-    const rows = db
-      .prepare(
-        `
-        SELECT *
-        FROM learning_logs
-        `
-      )
-      .all() as any[];
+    const { rows } = await pool.query(`
+      SELECT *
+      FROM daily_stock_results
+      ORDER BY created_at DESC
+    `);
 
     const total = rows.length;
 
-    const win = rows.filter((row) => row.result === "win").length;
-    const lose = rows.filter((row) => row.result === "lose").length;
-    const hold = rows.filter((row) => row.result === "hold").length;
-    const pending = rows.filter((row) => row.result === "pending").length;
-
-    const judgedRows = rows.filter(
-      (row) => row.result === "win" || row.result === "lose"
-    );
+    const win = rows.filter((row) => row.result === "WIN").length;
+    const lose = rows.filter((row) => row.result === "LOSE").length;
+    const hold = rows.filter((row) => row.result === "HOLD").length;
+    const unknown = rows.filter((row) => row.result === "UNKNOWN").length;
 
     const judgedTotal = win + lose;
 
@@ -39,11 +34,11 @@ export async function GET() {
 
     const stockMap = new Map<string, StockStats>();
 
-    for (const row of judgedRows) {
-      const code = String(row.code || row.stockCode || "");
+    for (const row of rows) {
+      const code = String(row.code || "");
       if (!code) continue;
 
-      const name = String(row.name || row.stockName || code);
+      const name = String(row.name || code);
 
       const current =
         stockMap.get(code) || {
@@ -52,34 +47,42 @@ export async function GET() {
           total: 0,
           win: 0,
           lose: 0,
+          hold: 0,
+          unknown: 0,
           winRate: 0,
         };
 
       current.total += 1;
 
-      if (row.result === "win") current.win += 1;
-      if (row.result === "lose") current.lose += 1;
+      if (row.result === "WIN") current.win += 1;
+      if (row.result === "LOSE") current.lose += 1;
+      if (row.result === "HOLD") current.hold += 1;
+      if (row.result === "UNKNOWN") current.unknown += 1;
 
-      current.winRate = Math.round((current.win / current.total) * 100);
+      const judged = current.win + current.lose;
+      current.winRate =
+        judged === 0 ? 0 : Math.round((current.win / judged) * 100);
 
       stockMap.set(code, current);
     }
 
     const stockStats = Array.from(stockMap.values()).filter(
-      (stock) => stock.total >= 2
+      (stock) => stock.total >= 1
     );
 
     const bestStocks = [...stockStats]
+      .filter((stock) => stock.win + stock.lose > 0)
       .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
       .slice(0, 3);
 
     const worstStocks = [...stockStats]
+      .filter((stock) => stock.win + stock.lose > 0)
       .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
       .slice(0, 3);
 
     const dateSet = new Set(
       rows
-        .map((row) => String(row.createdAt || row.checkedAt || "").slice(0, 10))
+        .map((row) => String(row.created_at || "").slice(0, 10))
         .filter(Boolean)
     );
 
@@ -90,7 +93,7 @@ export async function GET() {
       win,
       lose,
       hold,
-      pending,
+      pending: unknown,
       winRate,
 
       growth: total,
@@ -103,7 +106,7 @@ export async function GET() {
 
       comment:
         judgedTotal === 0
-          ? "AIは現在データ蓄積中です。検証数が増えるほど、勝率の精度が上がります。"
+          ? `現在${total}件の学習データを蓄積中です。翌営業日の判定後にAI勝率が表示されます。`
           : `現在${judgedTotal}件の判定済みデータからAI勝率を算出しています。`,
 
       updatedAt: new Date().toLocaleString("ja-JP", {
@@ -113,7 +116,7 @@ export async function GET() {
         minute: "2-digit",
       }),
     });
-    } catch (error) {
+  } catch (error) {
     console.error("learning dashboard error:", error);
 
     return NextResponse.json({
@@ -129,7 +132,7 @@ export async function GET() {
       bestStocks: [],
       worstStocks: [],
       winRateTrend: [],
-      comment: "本番環境ではAI学習データを準備中です。",
+      comment: "AI学習データの取得に失敗しました。",
       updatedAt: new Date().toLocaleString("ja-JP"),
     });
   }
