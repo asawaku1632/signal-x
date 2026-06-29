@@ -1,45 +1,44 @@
-import fs from "fs/promises";
-import path from "path";
+import pool from "@/app/lib/postgres";
 
 export type DailyStockResult = {
   id: string;
   date: string;
   code: string;
   name: string;
-
   score: number;
   price: number;
-
   nextPrice: number | null;
   changePercent: number | null;
-
   result: "WIN" | "LOSE" | "HOLD" | "UNKNOWN";
-
   checkedAt: string | null;
   createdAt: string;
 };
 
-const filePath = path.join(
-  process.cwd(),
-  "data",
-  "daily-stock-results.json"
-);
-
-async function ensureFile() {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-
-  try {
-    await fs.access(filePath);
-  } catch {
-    await fs.writeFile(filePath, "[]", "utf-8");
-  }
+function mapRow(row: any): DailyStockResult {
+  return {
+    id: row.id,
+    date: row.date,
+    code: row.code,
+    name: row.name,
+    score: Number(row.score ?? 0),
+    price: Number(row.price ?? 0),
+    nextPrice: row.next_price === null ? null : Number(row.next_price),
+    changePercent:
+      row.change_percent === null ? null : Number(row.change_percent),
+    result: row.result,
+    checkedAt: row.checked_at,
+    createdAt: row.created_at,
+  };
 }
 
 export async function getDailyStockResults(): Promise<DailyStockResult[]> {
-  await ensureFile();
+  const { rows } = await pool.query(`
+    SELECT *
+    FROM daily_stock_results
+    ORDER BY created_at DESC
+  `);
 
-  const text = await fs.readFile(filePath, "utf-8");
-  return JSON.parse(text || "[]");
+  return rows.map(mapRow);
 }
 
 export async function saveDailyStocks(
@@ -52,23 +51,10 @@ export async function saveDailyStocks(
     price?: number;
   }[]
 ) {
-  const results = await getDailyStockResults();
-
   let added = 0;
   let skipped = 0;
 
   for (const stock of stocks) {
-    const exists = results.find(
-      (item) =>
-        item.date === date &&
-        item.code === stock.code
-    );
-
-    if (exists) {
-      skipped += 1;
-      continue;
-    }
-
     const score = stock.score ?? stock.aiPower ?? 0;
     const price = stock.price ?? 0;
 
@@ -77,39 +63,46 @@ export async function saveDailyStocks(
       continue;
     }
 
-    results.push({
-      id: `${date}-${stock.code}`,
-      date,
-      code: stock.code,
-      name: stock.name,
+    const id = `${date}-${stock.code}`;
 
-      score,
-      price,
+    const result = await pool.query(
+      `
+      INSERT INTO daily_stock_results (
+        id,
+        date,
+        code,
+        name,
+        score,
+        price,
+        result,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'UNKNOWN', NOW())
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id
+      `,
+      [id, date, stock.code, stock.name, score, price]
+    );
 
-      nextPrice: null,
-      changePercent: null,
-
-      result: "UNKNOWN",
-
-      checkedAt: null,
-      createdAt: new Date().toISOString(),
-    });
-
-    added += 1;
+    if (result.rowCount && result.rowCount > 0) {
+      added += 1;
+    } else {
+      skipped += 1;
+    }
   }
 
-  await fs.writeFile(
-    filePath,
-    JSON.stringify(results, null, 2),
-    "utf-8"
-  );
+  const totalResult = await pool.query(`
+    SELECT COUNT(*)::int AS total
+    FROM daily_stock_results
+  `);
 
   return {
     added,
     skipped,
-    total: results.length,
+    total: totalResult.rows[0]?.total ?? 0,
   };
 }
+
 export async function updateDailyStockResult(
   id: string,
   data: {
@@ -118,26 +111,21 @@ export async function updateDailyStockResult(
     result: "WIN" | "LOSE" | "HOLD";
   }
 ) {
-  const results = await getDailyStockResults();
-
-  const target = results.find(
-    (item) => item.id === id
+  const { rows } = await pool.query(
+    `
+    UPDATE daily_stock_results
+    SET
+      next_price = $1,
+      change_percent = $2,
+      result = $3,
+      checked_at = NOW()
+    WHERE id = $4
+    RETURNING *
+    `,
+    [data.nextPrice, data.changePercent, data.result, id]
   );
 
-  if (!target) {
-    return null;
-  }
+  if (!rows[0]) return null;
 
-  target.nextPrice = data.nextPrice;
-  target.changePercent = data.changePercent;
-  target.result = data.result;
-  target.checkedAt = new Date().toISOString();
-
-  await fs.writeFile(
-    filePath,
-    JSON.stringify(results, null, 2),
-    "utf-8"
-  );
-
-  return target;
+  return mapRow(rows[0]);
 }
