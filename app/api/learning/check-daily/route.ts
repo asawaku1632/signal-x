@@ -25,7 +25,10 @@ function judgeResult(
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const baseUrl = url.origin;
+
+    const siteUrl =
+      process.env.NEXTAUTH_URL ||
+      "http://localhost:3000";
 
     const targetDate =
       url.searchParams.get("date") ||
@@ -33,9 +36,20 @@ export async function GET(req: Request) {
         .toISOString()
         .split("T")[0];
 
-    const scanRes = await fetch(`${baseUrl}/api/scan?limit=1000`, {
+    const scanRes = await fetch(`${siteUrl}/api/scan?limit=1000`, {
       cache: "no-store",
     });
+
+    if (!scanRes.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "scan api failed",
+          status: scanRes.status,
+        },
+        { status: 500 }
+      );
+    }
 
     const scanJson = await scanRes.json();
     const stocks: Stock[] = scanJson.stocks || [];
@@ -61,7 +75,7 @@ export async function GET(req: Request) {
 
       const nextPrice = current?.price ?? 0;
 
-      if (nextPrice <= 0) {
+      if (nextPrice <= 0 || item.price <= 0) {
         skipped += 1;
         continue;
       }
