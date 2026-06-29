@@ -1,76 +1,86 @@
+import { NextResponse } from "next/server";
+import db from "@/app/lib/db";
+
 export async function GET() {
-  return Response.json({
-    success: true,
+  try {
+    const rows = db
+      .prepare(
+        `
+        SELECT *
+        FROM learning_logs
+        `
+      )
+      .all() as any[];
 
-    total: 962,
-    win: 0,
-    lose: 1,
-    hold: 961,
-    winRate: 0,
+    const total = rows.length;
 
-    growth: 12,
-    dateCount: 1,
+    const win = rows.filter((row) => row.result === "win").length;
+    const lose = rows.filter((row) => row.result === "lose").length;
+    const hold = rows.filter((row) => row.result === "hold").length;
+    const pending = rows.filter((row) => row.result === "pending").length;
 
-    bestStocks: [
+    const judgedTotal = win + lose;
+
+    const winRate =
+      judgedTotal === 0 ? 0 : Math.round((win / judgedTotal) * 100);
+
+    const dateSet = new Set(
+      rows
+        .map((row) => String(row.createdAt || row.checkedAt || "").slice(0, 10))
+        .filter(Boolean)
+    );
+
+    return NextResponse.json({
+      success: true,
+
+      total,
+      win,
+      lose,
+      hold,
+      pending,
+      winRate,
+
+      growth: total,
+      dateCount: dateSet.size,
+
+      bestStocks: [],
+      worstStocks: [],
+
+      winRateTrend: [],
+
+      comment:
+        judgedTotal === 0
+          ? "AIは現在データ蓄積中です。検証数が増えるほど、勝率の精度が上がります。"
+          : `現在${judgedTotal}件の判定済みデータからAI勝率を算出しています。`,
+
+      updatedAt: new Date().toLocaleString("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    });
+  } catch (error) {
+    console.error("learning dashboard error:", error);
+
+    return NextResponse.json(
       {
-        code: "9501",
-        name: "東京電力",
-        winRate: 91,
-        total: 22,
+        success: false,
+        total: 0,
+        win: 0,
+        lose: 0,
+        hold: 0,
+        pending: 0,
+        winRate: 0,
+        growth: 0,
+        dateCount: 0,
+        bestStocks: [],
+        worstStocks: [],
+        winRateTrend: [],
+        comment: "AI学習データの取得に失敗しました。",
+        updatedAt: new Date().toLocaleString("ja-JP"),
       },
-      {
-        code: "6758",
-        name: "ソニーG",
-        winRate: 84,
-        total: 19,
-      },
-      {
-        code: "5401",
-        name: "日本製鉄",
-        winRate: 78,
-        total: 25,
-      },
-    ],
-
-    worstStocks: [
-      {
-        code: "9984",
-        name: "ソフトバンクG",
-        winRate: 34,
-        total: 18,
-      },
-      {
-        code: "7203",
-        name: "トヨタ",
-        winRate: 38,
-        total: 21,
-      },
-      {
-        code: "8035",
-        name: "東エレク",
-        winRate: 42,
-        total: 16,
-      },
-    ],
-
-    winRateTrend: [
-      { label: "1日目", value: 0 },
-      { label: "2日目", value: 12 },
-      { label: "3日目", value: 24 },
-      { label: "4日目", value: 38 },
-      { label: "5日目", value: 51 },
-      { label: "6日目", value: 63 },
-      { label: "7日目", value: 75 },
-    ],
-
-    comment:
-      "AIは現在データ蓄積中です。検証数が増えるほど、得意銘柄・苦手銘柄の判定精度が上がります。",
-
-    updatedAt: new Date().toLocaleString("ja-JP", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  });
+      { status: 500 }
+    );
+  }
 }
