@@ -12,15 +12,16 @@ type Stock = {
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const baseUrl = url.origin;
+    const siteUrl =
+  process.env.NEXTAUTH_URL ||
+  "http://localhost:3000";
 
-    const scanRes = await fetch(
-      `${baseUrl}/api/scan?limit=1000`,
-      {
-        cache: "no-store",
-      }
-    );
+const scanRes = await fetch(
+  `${siteUrl}/api/scan?limit=1000`,
+  {
+    cache: "no-store",
+  }
+);
 
     if (!scanRes.ok) {
       return NextResponse.json(
