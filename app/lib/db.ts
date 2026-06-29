@@ -1,6 +1,12 @@
+import path from "path";
 import Database from "better-sqlite3";
 
-const db = new Database("signalx.db");
+const dbPath =
+  process.env.NODE_ENV === "production"
+    ? "/tmp/signalx.db"
+    : path.join(process.cwd(), "signalx.db");
+
+const db = new Database(dbPath);
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS learning_logs (
@@ -17,20 +23,13 @@ db.prepare(`
 db.prepare(`
   CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-
     code TEXT,
     name TEXT,
-
     price REAL,
-
     score INTEGER,
-
     judge TEXT,
-
     takeProfit REAL,
-
     stopLoss REAL,
-
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `).run();
