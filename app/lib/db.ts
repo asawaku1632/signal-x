@@ -1,10 +1,13 @@
+import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 
 const dbPath =
   process.env.NODE_ENV === "production"
     ? "/tmp/signalx.db"
-    : path.join(process.cwd(), "signalx.db");
+    : path.join(process.cwd(), "data", "signalx.db");
+
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
 

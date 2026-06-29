@@ -80,9 +80,9 @@ function getRankStyle(rank: number) {
 }
 
 function getRankLabel(rank: number) {
-  if (rank === 1) return "🥇 1位";
-  if (rank <= 10) return `🔥 ${rank}位`;
-  if (rank <= 50) return `✨ ${rank}位`;
+  if (rank === 1) return " 1位";
+  if (rank <= 10) return ` ${rank}位`;
+  if (rank <= 50) return ` ${rank}位`;
   return `${rank}位`;
 }
 
