@@ -133,7 +133,22 @@ export async function GET() {
         comment: "AI学習データの取得に失敗しました。",
         updatedAt: new Date().toLocaleString("ja-JP"),
       },
-      { status: 500 }
+         return NextResponse.json({
+      success: false,
+      total: 0,
+      win: 0,
+      lose: 0,
+      hold: 0,
+      pending: 0,
+      winRate: 0,
+      growth: 0,
+      dateCount: 0,
+      bestStocks: [],
+      worstStocks: [],
+      winRateTrend: [],
+      comment: "本番環境ではAI学習データを準備中です。",
+      updatedAt: new Date().toLocaleString("ja-JP"),
+    });
     );
   }
 }
