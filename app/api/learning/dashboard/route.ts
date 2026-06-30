@@ -105,9 +105,11 @@ export async function GET() {
       winRateTrend: [],
 
       comment:
-        judgedTotal === 0
-          ? `現在${total}件の学習データを蓄積中です。翌営業日の判定後にAI勝率が表示されます。`
-          : `現在${judgedTotal}件の判定済みデータからAI勝率を算出しています。`,
+  judgedTotal === 0 && hold > 0
+    ? `現在${hold}件のHOLD判定があります。大きな値動きが出た銘柄からAI勝率に反映されます。`
+    : judgedTotal === 0
+    ? `現在${total}件の学習データを蓄積中です。翌営業日の判定後にAI勝率が表示されます。`
+    : `現在${judgedTotal}件のWIN/LOSE判定済みデータからAI勝率を算出しています。`,
 
       updatedAt: new Date().toLocaleString("ja-JP", {
         month: "2-digit",
