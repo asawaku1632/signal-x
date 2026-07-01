@@ -51,6 +51,7 @@ function judgeLabel(ok: boolean) {
 function judgeColor(status?: string) {
   if (status === "PASS") return "#16a34a";
   if (status === "FAIL") return "#dc2626";
+  if (status === "NO_DATA") return "#f97316";
   return "#f97316";
 }
 
@@ -64,6 +65,12 @@ export default function VerificationPage() {
 
   const [aiPowerResult, setAiPowerResult] = useState<any>(null);
   const [aiPowerLoading, setAiPowerLoading] = useState(false);
+
+  const [learningResult, setLearningResult] = useState<any>(null);
+  const [learningLoading, setLearningLoading] = useState(false);
+
+  const [lineResult, setLineResult] = useState<any>(null);
+  const [lineLoading, setLineLoading] = useState(false);
 
   async function runAiPowerVerification() {
     setAiPowerLoading(true);
@@ -83,6 +90,48 @@ export default function VerificationPage() {
       });
     } finally {
       setAiPowerLoading(false);
+    }
+  }
+
+  async function runLearningVerification() {
+    setLearningLoading(true);
+
+    try {
+      const res = await fetch("/api/verification/learning", {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      setLearningResult(data);
+    } catch (error) {
+      setLearningResult({
+        success: false,
+        status: "FAIL",
+        error: "LEARNING_VERIFICATION_FAILED",
+      });
+    } finally {
+      setLearningLoading(false);
+    }
+  }
+
+  async function runLineVerification() {
+    setLineLoading(true);
+
+    try {
+      const res = await fetch("/api/verification/line", {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      setLineResult(data);
+    } catch (error) {
+      setLineResult({
+        success: false,
+        status: "FAIL",
+        error: "LINE_VERIFICATION_FAILED",
+      });
+    } finally {
+      setLineLoading(false);
     }
   }
 
@@ -131,8 +180,7 @@ export default function VerificationPage() {
 
   const statusColor = judgeColor(result?.status);
   const aiPowerStatusColor = judgeColor(aiPowerResult?.status);
-
-  return (
+    return (
     <main
       style={{
         minHeight: "100vh",
@@ -189,6 +237,42 @@ export default function VerificationPage() {
             }}
           >
             {aiPowerLoading ? "AI POWER監査中..." : "AI POWER監査"}
+          </button>
+
+          <button
+            onClick={runLearningVerification}
+            disabled={learningLoading}
+            style={{
+              marginTop: 16,
+              marginLeft: 12,
+              padding: "12px 20px",
+              borderRadius: 10,
+              border: "none",
+              background: learningLoading ? "#86efac" : "#16a34a",
+              color: "white",
+              fontWeight: "bold",
+              cursor: learningLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            {learningLoading ? "AI学習監査中..." : "AI学習監査"}
+          </button>
+
+          <button
+            onClick={runLineVerification}
+            disabled={lineLoading}
+            style={{
+              marginTop: 16,
+              marginLeft: 12,
+              padding: "12px 20px",
+              borderRadius: 10,
+              border: "none",
+              background: lineLoading ? "#86efac" : "#06c755",
+              color: "white",
+              fontWeight: "bold",
+              cursor: lineLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            {lineLoading ? "LINE監査中..." : "LINE通知監査"}
           </button>
         </header>
 
@@ -360,10 +444,7 @@ export default function VerificationPage() {
                 </p>
                 <p>未取得総数：{result.missingCount ?? 0}件</p>
                 <p>除外候補：{(result as any).excludedCount ?? 0}件</p>
-                <p>
-                  要調査：
-                  {(result as any).investigationRequiredCount ?? 0}件
-                </p>
+                <p>要調査：{(result as any).investigationRequiredCount ?? 0}件</p>
                 <p>解析時間：{debugResult.scanMs}ms</p>
 
                 <table
@@ -456,6 +537,7 @@ export default function VerificationPage() {
                       <th style={thStyle}>理由</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {result.missingStocks.map((stock) => (
                       <tr key={stock.code}>
@@ -528,44 +610,28 @@ export default function VerificationPage() {
               </p>
             )}
 
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                marginTop: 12,
-              }}
-            >
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
               <tbody>
                 <tr>
                   <td style={tdStyle}>検査銘柄</td>
                   <td style={tdStyle}>{aiPowerResult.checked ?? 0}</td>
                   <td style={tdStyle}>-</td>
                 </tr>
-
                 <tr>
                   <td style={tdStyle}>PASS</td>
                   <td style={tdStyle}>{aiPowerResult.pass ?? 0}</td>
-                  <td style={tdStyle}>
-                    {judgeLabel(aiPowerResult.status === "PASS")}
-                  </td>
+                  <td style={tdStyle}>{judgeLabel(aiPowerResult.status === "PASS")}</td>
                 </tr>
-
                 <tr>
                   <td style={tdStyle}>FAIL</td>
                   <td style={tdStyle}>{aiPowerResult.fail ?? 0}</td>
-                  <td style={tdStyle}>
-                    {judgeLabel((aiPowerResult.fail ?? 1) === 0)}
-                  </td>
+                  <td style={tdStyle}>{judgeLabel((aiPowerResult.fail ?? 1) === 0)}</td>
                 </tr>
-
                 <tr>
                   <td style={tdStyle}>一致率</td>
                   <td style={tdStyle}>{aiPowerResult.passRate ?? 0}%</td>
-                  <td style={tdStyle}>
-                    {judgeLabel((aiPowerResult.passRate ?? 0) >= 99)}
-                  </td>
+                  <td style={tdStyle}>{judgeLabel((aiPowerResult.passRate ?? 0) >= 99)}</td>
                 </tr>
-
                 <tr>
                   <td style={tdStyle}>API時間</td>
                   <td style={tdStyle}>{aiPowerResult.apiTimeMs ?? "-"}ms</td>
@@ -587,32 +653,6 @@ export default function VerificationPage() {
                 <h3 style={{ color: "#dc2626", marginTop: 0 }}>
                   AI POWER FAIL一覧：{aiPowerResult.failedStocks.length}件
                 </h3>
-
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    background: "white",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>コード</th>
-                      <th style={thStyle}>銘柄名</th>
-                      <th style={thStyle}>エラー</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {aiPowerResult.failedStocks.map((stock: any) => (
-                      <tr key={stock.code}>
-                        <td style={tdStyle}>{stock.code}</td>
-                        <td style={tdStyle}>{stock.name}</td>
-                        <td style={tdStyle}>{stock.errors?.join(" / ")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             ) : (
               <p
@@ -627,6 +667,99 @@ export default function VerificationPage() {
               >
                 ✅ AI POWER異常なし
               </p>
+            )}
+          </section>
+        )}
+
+        {learningResult && (
+          <section
+            style={{
+              background: "white",
+              borderRadius: 16,
+              padding: 24,
+              marginTop: 24,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+            }}
+          >
+            <h2 style={{ color: judgeColor(learningResult.status), marginTop: 0 }}>
+              Phase4：AI学習監査：{learningResult.status}
+            </h2>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
+              <tbody>
+                <tr><td style={tdStyle}>daily-stock-results</td><td style={tdStyle}>{learningResult.dailyResults ?? 0}</td><td style={tdStyle}>保存件数</td></tr>
+                <tr><td style={tdStyle}>WIN</td><td style={tdStyle}>{learningResult.win ?? 0}</td><td style={tdStyle}>判定済み</td></tr>
+                <tr><td style={tdStyle}>LOSE</td><td style={tdStyle}>{learningResult.lose ?? 0}</td><td style={tdStyle}>判定済み</td></tr>
+                <tr><td style={tdStyle}>HOLD</td><td style={tdStyle}>{learningResult.hold ?? 0}</td><td style={tdStyle}>保留</td></tr>
+                <tr><td style={tdStyle}>UNKNOWN</td><td style={tdStyle}>{learningResult.unknown ?? 0}</td><td style={tdStyle}>未判定</td></tr>
+                <tr><td style={tdStyle}>判定済み</td><td style={tdStyle}>{learningResult.judged ?? 0}</td><td style={tdStyle}>WIN + LOSE</td></tr>
+                <tr><td style={tdStyle}>AI勝率</td><td style={tdStyle}>{learningResult.winRate ?? 0}%</td><td style={tdStyle}>WIN / WIN+LOSE</td></tr>
+                <tr><td style={tdStyle}>API時間</td><td style={tdStyle}>{learningResult.apiTimeMs ?? "-"}ms</td><td style={tdStyle}>情報</td></tr>
+              </tbody>
+            </table>
+
+            <p
+              style={{
+                marginTop: 20,
+                background: "#dcfce7",
+                color: "#166534",
+                borderRadius: 12,
+                padding: 16,
+                fontWeight: "bold",
+              }}
+            >
+              ✅ AI学習データ取得OK
+            </p>
+          </section>
+        )}
+                {lineResult && (
+          <section
+            style={{
+              background: "white",
+              borderRadius: 16,
+              padding: 24,
+              marginTop: 24,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+            }}
+          >
+            <h2 style={{ color: judgeColor(lineResult.status), marginTop: 0 }}>
+              Phase5：LINE通知監査：{lineResult.status}
+            </h2>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
+              <tbody>
+                <tr><td style={tdStyle}>本日通知対象</td><td style={tdStyle}>{lineResult.targetCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
+                <tr><td style={tdStyle}>送信件数</td><td style={tdStyle}>{lineResult.sentCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
+                <tr><td style={tdStyle}>成功件数</td><td style={tdStyle}>{lineResult.successCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
+                <tr><td style={tdStyle}>失敗件数</td><td style={tdStyle}>{lineResult.failedCount ?? 0}</td><td style={tdStyle}>{judgeLabel((lineResult.failedCount ?? 0) === 0)}</td></tr>
+                <tr><td style={tdStyle}>重複通知</td><td style={tdStyle}>{lineResult.duplicateCount ?? 0}</td><td style={tdStyle}>{judgeLabel((lineResult.duplicateCount ?? 0) === 0)}</td></tr>
+                <tr><td style={tdStyle}>通知履歴総数</td><td style={tdStyle}>{lineResult.totalLogs ?? 0}</td><td style={tdStyle}>保存済み</td></tr>
+                <tr><td style={tdStyle}>API時間</td><td style={tdStyle}>{lineResult.apiTimeMs ?? "-"}ms</td><td style={tdStyle}>情報</td></tr>
+              </tbody>
+            </table>
+
+            {lineResult.latestNotification && (
+              <div
+                style={{
+                  marginTop: 20,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 12,
+                  padding: 16,
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>最新通知</h3>
+                <p>
+                  {lineResult.latestNotification.code}{" "}
+                  {lineResult.latestNotification.name}
+                </p>
+                <p>AI POWER：{lineResult.latestNotification.aiPower}</p>
+                <p>判定：{lineResult.latestNotification.judge}</p>
+                <p>
+                  通知時刻：
+                  {new Date(lineResult.latestNotification.notifiedAt).toLocaleString("ja-JP")}
+                </p>
+              </div>
             )}
           </section>
         )}
@@ -665,13 +798,9 @@ export default function VerificationPage() {
                     <td style={tdStyle}>
                       {new Date(item.created_at).toLocaleString("ja-JP")}
                     </td>
-
                     <td style={tdStyle}>{item.status}</td>
-
                     <td style={tdStyle}>{item.stock_count}</td>
-
                     <td style={tdStyle}>{item.missing_count}</td>
-
                     <td style={tdStyle}>{item.scan_ms}</td>
                   </tr>
                 ))}
