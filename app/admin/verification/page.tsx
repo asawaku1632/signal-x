@@ -180,6 +180,37 @@ export default function VerificationPage() {
 
   const statusColor = judgeColor(result?.status);
   const aiPowerStatusColor = judgeColor(aiPowerResult?.status);
+  const phase1Ok = result?.status === "PASS";
+const phase2Ok =
+  technicalResult?.status === "PASS" ||
+  technicalResult?.failCount === 0 ||
+  technicalResult?.matchRate >= 99;
+const phase3Ok = aiPowerResult?.status === "PASS";
+const phase4Ok = learningResult?.status === "PASS";
+const phase5Ok =
+  lineResult?.status === "PASS" || lineResult?.status === "NO_DATA";
+
+const allRequiredOk =
+  phase1Ok && phase2Ok && phase3Ok && phase4Ok && phase5Ok;
+
+const hasAnyFail =
+  result?.status === "FAIL" ||
+  result?.status === "ERROR" ||
+  technicalResult?.status === "FAIL" ||
+  aiPowerResult?.status === "FAIL" ||
+  learningResult?.status === "FAIL" ||
+  lineResult?.status === "FAIL";
+
+const qaStatus = hasAnyFail
+  ? "🔴 NOT READY"
+  : allRequiredOk
+  ? "🟢 READY FOR RELEASE"
+  : "🟡 CHECKING";
+const qaStatusColor = hasAnyFail
+  ? "#dc2626"
+  : qaStatus.includes("READY")
+  ? "#16a34a"
+  : "#f97316";
     return (
     <main
       style={{
@@ -275,6 +306,40 @@ export default function VerificationPage() {
             {lineLoading ? "LINE監査中..." : "LINE通知監査"}
           </button>
         </header>
+        <section
+  style={{
+    background: "white",
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    border: "2px solid #16a34a",
+  }}
+>
+  <h2 style={{ marginTop: 0 }}>SIGNALX QA STATUS</h2>
+
+  <h1 style={{ color: qaStatusColor, margin: "8px 0" }}>
+  {qaStatus}
+</h1>
+
+  <p style={{ color: "#6b7280", marginTop: 8 }}>
+    Google Play公開前 品質保証フェーズ
+  </p>
+
+  <div style={{ lineHeight: 2, marginTop: 16 }}>
+  <p>{phase1Ok ? "✅" : "⏳"} Phase1：データ取得監査</p>
+  <p>{phase2Ok ? "✅" : "⏳"} Phase2：テクニカル監査</p>
+  <p>{phase3Ok ? "✅" : "⏳"} Phase3：AI POWER監査</p>
+  <p>{phase4Ok ? "✅" : "⏳"} Phase4：AI学習監査</p>
+  <p>
+    {lineResult?.status === "NO_DATA" ? "🟠" : phase5Ok ? "✅" : "⏳"}{" "}
+    Phase5：LINE通知監査
+    {lineResult?.status === "NO_DATA"
+      ? "（通知なし日はNO_DATA）"
+      : ""}
+  </p>
+</div>
+</section>
 
         {result && (
           <section
