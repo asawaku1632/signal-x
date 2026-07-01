@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
+import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
 import { calculateAiScore, type ChartAnalysis } from "@/app/lib/aiEngine";
 
 export const dynamic = "force-dynamic";
@@ -35,45 +36,68 @@ function clampLimit(value: number) {
   return value;
 }
 
-async function fetchYahooChart(code: string): Promise<ChartAnalysis | null> {
+async function fetchYahooChart(
+  code: string
+): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
   const symbol = `${code}.T`;
+  async function fetchChart(range: string, interval: string) {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+        symbol
+      )}?range=${range}&interval=${interval}`,
+      {
+        cache: "no-store",
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      }
+    );
 
-  const res = await fetch(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-      symbol
-    )}?range=1d&interval=5m`,
-    {
-      cache: "no-store",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    }
-  );
+    if (!res.ok) return null;
 
-  if (!res.ok) return null;
+    const data = await res.json();
+    const result = data.chart?.result?.[0];
 
-  const data = await res.json();
-  const result = data.chart?.result?.[0];
+    if (!result) return null;
 
-  if (!result) return null;
+    const timestamps: number[] = result.timestamp ?? [];
+    const quote = result.indicators?.quote?.[0];
 
-  const timestamps: number[] = result.timestamp ?? [];
-  const quote = result.indicators?.quote?.[0];
+    const candles = timestamps
+      .map((time: number, index: number) => ({
+        time,
+        open: quote?.open?.[index],
+        high: quote?.high?.[index],
+        low: quote?.low?.[index],
+        close: quote?.close?.[index],
+        volume: quote?.volume?.[index],
+      }))
+      .filter((item: any) => item.close)
+      .slice(-60);
 
-  const candles = timestamps
-    .map((time: number, index: number) => ({
-      time,
-      open: quote?.open?.[index],
-      high: quote?.high?.[index],
-      low: quote?.low?.[index],
-      close: quote?.close?.[index],
-      volume: quote?.volume?.[index],
-    }))
-    .filter((item: any) => item.close)
-    .slice(-60);
+    const closes = candles.map((candle: any) => candle.close);
+    const currentPrice = closes[closes.length - 1] ?? null;
 
-  const closes = candles.map((candle: any) => candle.close);
-  const currentPrice = closes[closes.length - 1] ?? null;
+    if (!currentPrice) return null;
+
+    return {
+      candles,
+      closes,
+      currentPrice,
+    };
+  }
+
+  let chartData = await fetchChart("1d", "5m");
+  let dataSource = "intraday";
+
+  if (!chartData) {
+    chartData = await fetchChart("5d", "1d");
+    dataSource = "daily_fallback";
+  }
+
+  if (!chartData) return null;
+
+  const { candles, closes, currentPrice } = chartData;
 
   const ma20 =
     closes.length >= 20
@@ -176,6 +200,7 @@ async function fetchYahooChart(code: string): Promise<ChartAnalysis | null> {
 
   return {
     success: true,
+     dataSource,
     currentPrice,
     ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
     trend,
@@ -233,21 +258,26 @@ export async function GET(req: Request) {
       });
     }
 
-    const uniqueStocks = getUniqueStocks(STOCKS);
-    const targetStocks = uniqueStocks.slice(0, limit);
+    const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
+const targetStocks = uniqueStocks.slice(0, limit);
 
     const rawResults = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
 
       if (!chart?.currentPrice) return null;
 
-      return calculateAiScore({
+           const scored = calculateAiScore({
         code: stock.code,
         name: stock.name,
         price: chart.currentPrice,
         previousClose: chart.candles?.[0]?.open ?? null,
         chart,
       });
+
+      return {
+        ...scored,
+        dataSource: chart.dataSource ?? "intraday",
+      };
     });
 
     const stocks = rawResults
