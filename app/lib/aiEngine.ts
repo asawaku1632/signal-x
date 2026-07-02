@@ -1,3 +1,8 @@
+import {
+  buildPatternLearning,
+  type PatternLearningResult,
+} from "./patternLearning";
+
 export type Candle = {
   time: number;
   open: number;
@@ -58,6 +63,8 @@ export type AiResult = {
   reason: string;
   takeProfit: number;
   stopLoss: number;
+  patternLearning: PatternLearningResult;
+  patternKey: string;
 };
 
 export function clampScore(score: number) {
@@ -198,6 +205,7 @@ function buildEmaSeries(values: number[], period: number) {
 
   return result;
 }
+
 export function calculateAiScore(params: {
   code: string;
   name: string;
@@ -221,6 +229,16 @@ export function calculateAiScore(params: {
   const ema75 = calculateEma(closes, 75);
   const vwap = calculateVwap(candles);
   const macdData = calculateMacd(closes);
+
+  const patternLearning = buildPatternLearning({
+    rsi,
+    trend: chart?.trend ?? "NO_DATA",
+    price,
+    ema20,
+    vwap,
+    macd: macdData.macd,
+    macdSignal: macdData.signal,
+  });
 
   const breakdown: ScoreBreakdown = {
     momentum: 0,
@@ -414,5 +432,7 @@ export function calculateAiScore(params: {
     reason: Array.from(new Set(reasons)).slice(0, 8).join("・"),
     takeProfit: Math.round(price * 1.03),
     stopLoss: Math.round(price * 0.98),
+    patternLearning,
+    patternKey: patternLearning.patternKey,
   };
 }
