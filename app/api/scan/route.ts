@@ -12,7 +12,7 @@ import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V5_PATTERN_LEARNING_0702";
+const DEBUG_VERSION = "AI_POWER_V6_SELF_EVOLUTION_0702";
 
 type CacheData = {
   timestamp: number;
@@ -31,6 +31,14 @@ type PatternStats = {
   patternKey: string;
   win: number;
   lose: number;
+};
+
+type WeightRule = {
+  ruleKey: string;
+  bonus: number;
+  winRate: number;
+  sampleCount: number;
+  confidence: number;
 };
 
 let cacheData: CacheData | null = null;
@@ -94,7 +102,6 @@ async function getLearningStatsMap(codes: string[]) {
 
 async function getPatternStatsMap(patternKeys: string[]) {
   const map = new Map<string, PatternStats>();
-
   const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
 
   if (uniqueKeys.length === 0) return map;
@@ -127,6 +134,43 @@ async function getPatternStatsMap(patternKeys: string[]) {
   return map;
 }
 
+async function getWeightRuleMap(patternKeys: string[]) {
+  const map = new Map<string, WeightRule>();
+  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
+
+  if (uniqueKeys.length === 0) return map;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      rule_key,
+      bonus,
+      win_rate,
+      sample_count,
+      confidence
+    FROM ai_power_weight_rules
+    WHERE
+      rule_type = 'pattern'
+      AND is_active = true
+      AND rule_key = ANY($1)
+    `,
+    [uniqueKeys]
+  );
+
+  for (const row of rows) {
+    const ruleKey = String(row.rule_key);
+
+    map.set(ruleKey, {
+      ruleKey,
+      bonus: Number(row.bonus || 0),
+      winRate: Number(row.win_rate || 0),
+      sampleCount: Number(row.sample_count || 0),
+      confidence: Number(row.confidence || 0),
+    });
+  }
+
+  return map;
+}
 async function fetchYahooChart(
   code: string
 ): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
@@ -212,7 +256,8 @@ async function fetchYahooChart(
   let patternSignal = "NONE";
   let patternScore = 0;
   const patternReasons: string[] = [];
-    if (prev && last) {
+
+  if (prev && last) {
     const prevBear = prev.close < prev.open;
     const prevBull = prev.close > prev.open;
     const lastBear = last.close < last.open;
@@ -341,9 +386,10 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V5",
+        aiPowerVersion: "V6.3",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
+        weightRulesEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -378,10 +424,12 @@ export async function GET(req: Request) {
     });
 
     const validScored = rawScored.filter(Boolean) as any[];
+    const patternKeys = validScored.map((stock) => stock.patternKey);
 
-    const patternStatsMap = await getPatternStatsMap(
-      validScored.map((stock) => stock.patternKey)
-    );
+    const [patternStatsMap, weightRuleMap] = await Promise.all([
+      getPatternStatsMap(patternKeys),
+      getWeightRuleMap(patternKeys),
+    ]);
 
     const stocks = validScored
       .map((scored: any) => {
@@ -403,8 +451,14 @@ export async function GET(req: Request) {
           lose: patternStats?.lose ?? 0,
         });
 
+        const weightRule = weightRuleMap.get(scored.patternKey);
+        const weightRuleApplied = Boolean(weightRule);
+        const finalPatternBonus = weightRuleApplied
+          ? weightRule!.bonus
+          : pattern.bonus;
+
         const finalScore = clampScore(
-          scored.score + learning.bonus + pattern.bonus
+          scored.score + learning.bonus + finalPatternBonus
         );
 
         const learningReason =
@@ -414,12 +468,15 @@ export async function GET(req: Request) {
               }・銘柄勝率${learning.winRate}%`
             : "";
 
-        const patternReason =
-          pattern.total >= 10
-            ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${
-                pattern.bonus
-              }・パターン勝率${pattern.winRate}%`
-            : "";
+        const patternReason = weightRuleApplied
+          ? `AI自己進化補正${finalPatternBonus >= 0 ? "+" : ""}${finalPatternBonus}・信頼度${
+              weightRule!.confidence
+            }%`
+          : pattern.total >= 10
+          ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${
+              pattern.bonus
+            }・パターン勝率${pattern.winRate}%`
+          : "";
 
         const reasons = [scored.reason, learningReason, patternReason].filter(
           Boolean
@@ -440,17 +497,28 @@ export async function GET(req: Request) {
           scoreBreakdown: {
             ...scored.scoreBreakdown,
             learning: learning.bonus,
-            patternLearning: pattern.bonus,
+            patternLearning: finalPatternBonus,
           },
           learningBonus: learning.bonus,
           learningWinRate: learning.winRate,
           learningWin: learningStats?.win ?? 0,
           learningLose: learningStats?.lose ?? 0,
-          patternBonus: pattern.bonus,
-          patternWinRate: pattern.winRate,
-          patternTotal: pattern.total,
+
+          patternBonus: finalPatternBonus,
+          patternBonusSource: weightRuleApplied ? "weight_rule" : "calculated",
+          patternWinRate: weightRuleApplied
+            ? weightRule!.winRate
+            : pattern.winRate,
+          patternTotal: weightRuleApplied
+            ? weightRule!.sampleCount
+            : pattern.total,
           patternWin: pattern.win,
           patternLose: pattern.lose,
+
+          weightRuleApplied,
+          weightRuleBonus: weightRule?.bonus ?? 0,
+          weightRuleConfidence: weightRule?.confidence ?? 0,
+
           reason: reasons.join("・"),
         };
       })
@@ -466,9 +534,10 @@ export async function GET(req: Request) {
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V5",
+      aiPowerVersion: "V6.3",
       learningBonusEnabled: true,
       patternBonusEnabled: true,
+      weightRulesEnabled: true,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -483,9 +552,10 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V5",
+        aiPowerVersion: "V6.3",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
+        weightRulesEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,
