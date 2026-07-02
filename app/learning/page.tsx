@@ -1,8 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import WinRateChart from "@/components/WinRateChart";
+import { useEffect, useMemo, useState } from "react";
+
+import WinRateRing from "@/components/Learning/WinRateRing";
+import SummaryMini from "@/components/Learning/SummaryMini";
+import Mini from "@/components/Learning/Mini";
+import LineChart from "@/components/Learning/LineChart";
+import DonutChart from "@/components/Learning/DonutChart";
+import RankingCard, {
+  type StockRanking,
+} from "@/components/Learning/RankingCard";
+
+type TrendItem = {
+  date: string;
+  total: number;
+  win: number;
+  lose: number;
+  hold: number;
+  winRate: number;
+};
+
+type GrowthItem = {
+  date: string;
+  total: number;
+};
 
 type LearningDashboard = {
   success: boolean;
@@ -10,25 +32,14 @@ type LearningDashboard = {
   win: number;
   lose: number;
   hold: number;
+  pending: number;
   winRate: number;
   growth: number;
   dateCount: number;
-  bestStocks: {
-    code: string;
-    name: string;
-    winRate: number;
-    total: number;
-  }[];
-  worstStocks: {
-    code: string;
-    name: string;
-    winRate: number;
-    total: number;
-  }[];
-  winRateTrend: {
-    label: string;
-    value: number;
-  }[];
+  bestStocks: StockRanking[];
+  worstStocks: StockRanking[];
+  winRateTrend: TrendItem[];
+  growthTrend: GrowthItem[];
   comment: string;
   updatedAt: string;
 };
@@ -55,6 +66,11 @@ export default function LearningPage() {
 
     fetchLearning();
   }, []);
+
+  const judgedTotal = useMemo(() => {
+    if (!data) return 0;
+    return data.win + data.lose;
+  }, [data]);
 
   if (loading) {
     return (
@@ -84,7 +100,17 @@ export default function LearningPage() {
     );
   }
 
-  
+  const winRateTrend = data.winRateTrend
+    .filter((item) => item.win + item.lose > 0)
+    .map((item) => ({
+      label: item.date.slice(5).replace("-", "/"),
+      value: item.winRate,
+    }));
+
+  const growthTrend = data.growthTrend.map((item) => ({
+    label: item.date.slice(5).replace("-", "/"),
+    value: item.total,
+  }));
 
   return (
     <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
@@ -115,75 +141,104 @@ export default function LearningPage() {
         </header>
 
         <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex gap-4 items-center">
+            <WinRateRing winRate={data.winRate} />
+
+            <div className="flex-1">
               <p className="text-sm font-black text-blue-600">
                 🧠 AI学習ダッシュボード
               </p>
-              <h1 className="text-5xl font-black text-blue-600 mt-2">
-                {data.winRate}%
-              </h1>
-              <p className="text-sm font-bold text-slate-500 mt-1">
-                現在のAI勝率
-              </p>
+
+              <div className="mt-3 rounded-2xl bg-white/80 border border-blue-100 px-3 py-2">
+                <p className="text-xs font-black text-slate-500">更新</p>
+                <p className="text-sm font-black text-slate-700">
+                  {data.updatedAt}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <SummaryMini
+                  label="AI成長"
+                  value={data.growth.toLocaleString()}
+                  sub="累計学習件数"
+                  color="text-green-600"
+                />
+
+                <SummaryMini
+                  label="判定済み"
+                  value={judgedTotal.toLocaleString()}
+                  sub="WIN / LOSE"
+                  color="text-blue-600"
+                />
+              </div>
             </div>
-
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-500">更新</p>
-              <p className="text-sm font-black text-slate-700">
-                {data.updatedAt}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 h-4 rounded-full bg-slate-200 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-blue-600"
-              style={{ width: `${Math.min(data.winRate, 100)}%` }}
-            />
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-green-50 border border-green-100 p-4 text-center">
-            <p className="text-xs font-black text-slate-500">AI成長率</p>
-            <p className="text-4xl font-black text-green-600 mt-1">
-              +{data.growth}%
-            </p>
-            <p className="text-xs text-slate-500 font-bold mt-1">
-              学習データ増加により精度向上中
-            </p>
           </div>
         </section>
 
         <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">📚 学習件数</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-black">📚 学習件数</h2>
+            <p className="text-xs font-black text-slate-500">
+              学習日数：{data.dateCount}日
+            </p>
+          </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <Mini label="TOTAL" value={`${data.total}`} color="text-blue-600" />
             <Mini label="WIN" value={`${data.win}`} color="text-green-600" />
             <Mini label="LOSE" value={`${data.lose}`} color="text-red-500" />
-            <Mini label="HOLD" value={`${data.hold}`} color="text-slate-700" />
+            <Mini label="HOLD" value={`${data.hold}`} color="text-orange-500" />
+            <Mini
+              label="WAIT"
+              value={`${data.pending}`}
+              color="text-slate-500"
+            />
           </div>
-
-          <p className="text-xs text-slate-500 font-bold mt-3">
-            学習日数：{data.dateCount}日
-          </p>
         </section>
 
         <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-  <div className="flex items-center justify-between mb-3">
-    <h2 className="text-xl font-black">📈 勝率推移</h2>
-    <span className="text-xs font-black text-blue-600">
-      AI成長グラフ
-    </span>
-  </div>
- 
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-black">📈 勝率推移</h2>
+            <span className="text-xs font-black text-blue-600">WIN RATE</span>
+          </div>
 
-  <WinRateChart data={data.winRateTrend} />
-</section>
+          <LineChart data={winRateTrend} suffix="%" colorClass="bg-blue-600" />
+        </section>
 
-        
+        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-black">🌱 AI成長グラフ</h2>
+            <span className="text-xs font-black text-green-600">GROWTH</span>
+          </div>
 
-        
+          <LineChart data={growthTrend} colorClass="bg-green-600" />
+        </section>
+
+        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
+          <h2 className="text-xl font-black mb-3">🥧 判定内訳</h2>
+
+          <DonutChart
+            win={data.win}
+            lose={data.lose}
+            hold={data.hold}
+            pending={data.pending}
+            total={data.total}
+          />
+        </section>
+
+        <RankingCard
+          title="🏆 AIが得意な銘柄 TOP5"
+          stocks={data.bestStocks}
+          emptyText="まだWIN/LOSE判定済みの銘柄がありません。"
+          type="best"
+        />
+
+        <RankingCard
+          title="⚠️ AIが苦手な銘柄 TOP5"
+          stocks={data.worstStocks}
+          emptyText="まだ苦手銘柄の判定データがありません。"
+          type="worst"
+        />
 
         <section className="rounded-[24px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
           <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
@@ -193,23 +248,6 @@ export default function LearningPage() {
 
       <BottomNav />
     </main>
-  );
-}
-
-function Mini({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-center">
-      <p className="text-[10px] font-black text-slate-500">{label}</p>
-      <p className={`text-xl font-black mt-1 ${color}`}>{value}</p>
-    </div>
   );
 }
 

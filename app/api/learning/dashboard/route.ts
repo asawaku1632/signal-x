@@ -12,12 +12,31 @@ type StockStats = {
   winRate: number;
 };
 
+type TrendItem = {
+  date: string;
+  total: number;
+  win: number;
+  lose: number;
+  hold: number;
+  winRate: number;
+};
+
+function formatDate(value: unknown) {
+  const date = new Date(String(value));
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 export async function GET() {
   try {
     const { rows } = await pool.query(`
       SELECT *
       FROM daily_stock_results
-      ORDER BY created_at DESC
+      ORDER BY created_at ASC
     `);
 
     const total = rows.length;
@@ -73,18 +92,72 @@ export async function GET() {
     const bestStocks = [...stockStats]
       .filter((stock) => stock.win + stock.lose > 0)
       .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
-      .slice(0, 3);
+      .slice(0, 5);
 
     const worstStocks = [...stockStats]
       .filter((stock) => stock.win + stock.lose > 0)
       .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
-      .slice(0, 3);
+      .slice(0, 5);
 
-    const dateSet = new Set(
-      rows
-        .map((row) => String(row.created_at || "").slice(0, 10))
-        .filter(Boolean)
-    );
+    const trendMap = new Map<string, TrendItem>();
+
+    for (const row of rows) {
+      const date = formatDate(row.created_at);
+      if (!date) continue;
+
+      const current =
+        trendMap.get(date) || {
+          date,
+          total: 0,
+          win: 0,
+          lose: 0,
+          hold: 0,
+          winRate: 0,
+        };
+
+      current.total += 1;
+
+      if (row.result === "WIN") current.win += 1;
+      if (row.result === "LOSE") current.lose += 1;
+      if (row.result === "HOLD") current.hold += 1;
+
+      const judged = current.win + current.lose;
+      current.winRate =
+        judged === 0 ? 0 : Math.round((current.win / judged) * 100);
+
+      trendMap.set(date, current);
+    }
+
+    const winRateTrend = Array.from(trendMap.values());
+
+    let cumulativeTotal = 0;
+
+    const growthTrend = winRateTrend.map((item) => {
+      cumulativeTotal += item.total;
+
+      return {
+        date: item.date,
+        total: cumulativeTotal,
+      };
+    });
+
+    const resultPie = [
+      { name: "WIN", value: win },
+      { name: "LOSE", value: lose },
+      { name: "HOLD", value: hold },
+      { name: "判定待ち", value: unknown },
+    ];
+
+    const comment =
+      judgedTotal === 0 && hold > 0
+        ? `現在${hold}件のHOLD判定があります。まだ大きな値動きが出ていないため、AIは慎重に学習データを蓄積中です。`
+        : judgedTotal === 0
+        ? `現在${total}件の学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。`
+        : winRate >= 70
+        ? `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。かなり良好な学習結果が出ています。`
+        : winRate >= 50
+        ? `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。AIは安定した学習を継続中です。`
+        : `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。苦手パターンを分析し、AI POWER改善に活用します。`;
 
     return NextResponse.json({
       success: true,
@@ -97,19 +170,16 @@ export async function GET() {
       winRate,
 
       growth: total,
-      dateCount: dateSet.size,
+      dateCount: winRateTrend.length,
 
       bestStocks,
       worstStocks,
 
-      winRateTrend: [],
+      winRateTrend,
+      growthTrend,
+      resultPie,
 
-      comment:
-  judgedTotal === 0 && hold > 0
-    ? `現在${hold}件のHOLD判定があります。大きな値動きが出た銘柄からAI勝率に反映されます。`
-    : judgedTotal === 0
-    ? `現在${total}件の学習データを蓄積中です。翌営業日の判定後にAI勝率が表示されます。`
-    : `現在${judgedTotal}件のWIN/LOSE判定済みデータからAI勝率を算出しています。`,
+      comment,
 
       updatedAt: new Date().toLocaleString("ja-JP", {
         month: "2-digit",
@@ -134,6 +204,8 @@ export async function GET() {
       bestStocks: [],
       worstStocks: [],
       winRateTrend: [],
+      growthTrend: [],
+      resultPie: [],
       comment: "AI学習データの取得に失敗しました。",
       updatedAt: new Date().toLocaleString("ja-JP"),
     });
