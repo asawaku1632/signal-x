@@ -7,11 +7,12 @@ import {
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
 import { calculateLearningBonus } from "@/app/lib/learningBonus";
+import { calculatePatternBonus } from "@/app/lib/patternBonus";
 import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V4_LEARNING_0702";
+const DEBUG_VERSION = "AI_POWER_V5_PATTERN_LEARNING_0702";
 
 type CacheData = {
   timestamp: number;
@@ -24,6 +25,12 @@ type LearningStats = {
   win: number;
   lose: number;
   winRate: number;
+};
+
+type PatternStats = {
+  patternKey: string;
+  win: number;
+  lose: number;
 };
 
 let cacheData: CacheData | null = null;
@@ -79,6 +86,41 @@ async function getLearningStatsMap(codes: string[]) {
       win,
       lose,
       winRate,
+    });
+  }
+
+  return map;
+}
+
+async function getPatternStatsMap(patternKeys: string[]) {
+  const map = new Map<string, PatternStats>();
+
+  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
+
+  if (uniqueKeys.length === 0) return map;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      pattern_key,
+      SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) AS win,
+      SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END) AS lose
+    FROM pattern_learning_logs
+    WHERE pattern_key = ANY($1)
+    GROUP BY pattern_key
+    `,
+    [uniqueKeys]
+  );
+
+  for (const row of rows) {
+    const patternKey = String(row.pattern_key);
+    const win = Number(row.win || 0);
+    const lose = Number(row.lose || 0);
+
+    map.set(patternKey, {
+      patternKey,
+      win,
+      lose,
     });
   }
 
@@ -170,8 +212,7 @@ async function fetchYahooChart(
   let patternSignal = "NONE";
   let patternScore = 0;
   const patternReasons: string[] = [];
-
-  if (prev && last) {
+    if (prev && last) {
     const prevBear = prev.close < prev.open;
     const prevBull = prev.close > prev.open;
     const lastBear = last.close < last.open;
@@ -300,6 +341,9 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
+        aiPowerVersion: "V5",
+        learningBonusEnabled: true,
+        patternBonusEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -314,7 +358,7 @@ export async function GET(req: Request) {
 
     const learningStatsMap = await getLearningStatsMap(targetCodes);
 
-    const rawResults = await runInBatches(targetStocks, 20, async (stock) => {
+    const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
 
       if (!chart?.currentPrice) return null;
@@ -327,56 +371,89 @@ export async function GET(req: Request) {
         chart,
       });
 
-      const learningStats = learningStatsMap.get(stock.code);
-const judgedLearning =
-  (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
-
-const learning =
-  judgedLearning > 0
-    ? calculateLearningBonus(learningStats?.winRate)
-    : {
-        bonus: 0,
-        winRate: 0,
-      };
-
-      const finalScore = clampScore(scored.score + learning.bonus);
-
-      const learningReason =
-        learningStats && learningStats.win + learningStats.lose > 0
-          ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${
-              learning.bonus
-            }・過去勝率${learning.winRate}%`
-          : "";
-
       return {
         ...scored,
-        score: finalScore,
-        aiPower: finalScore,
-        rank:
-          finalScore >= 85
-            ? "S"
-            : finalScore >= 70
-            ? "A"
-            : finalScore >= 50
-            ? "B"
-            : "C",
-        scoreBreakdown: {
-          ...scored.scoreBreakdown,
-          learning: learning.bonus,
-        },
-        learningBonus: learning.bonus,
-        learningWinRate: learning.winRate,
-        learningWin: learningStats?.win ?? 0,
-        learningLose: learningStats?.lose ?? 0,
-        reason: learningReason
-          ? `${scored.reason}・${learningReason}`
-          : scored.reason,
         dataSource: chart.dataSource ?? "intraday",
       };
     });
 
-    const stocks = rawResults
-      .filter(Boolean)
+    const validScored = rawScored.filter(Boolean) as any[];
+
+    const patternStatsMap = await getPatternStatsMap(
+      validScored.map((stock) => stock.patternKey)
+    );
+
+    const stocks = validScored
+      .map((scored: any) => {
+        const learningStats = learningStatsMap.get(scored.code);
+        const judgedLearning =
+          (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
+
+        const learning =
+          judgedLearning > 0
+            ? calculateLearningBonus(learningStats?.winRate)
+            : {
+                bonus: 0,
+                winRate: 0,
+              };
+
+        const patternStats = patternStatsMap.get(scored.patternKey);
+        const pattern = calculatePatternBonus({
+          win: patternStats?.win ?? 0,
+          lose: patternStats?.lose ?? 0,
+        });
+
+        const finalScore = clampScore(
+          scored.score + learning.bonus + pattern.bonus
+        );
+
+        const learningReason =
+          learningStats && learningStats.win + learningStats.lose > 0
+            ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${
+                learning.bonus
+              }・銘柄勝率${learning.winRate}%`
+            : "";
+
+        const patternReason =
+          pattern.total >= 10
+            ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${
+                pattern.bonus
+              }・パターン勝率${pattern.winRate}%`
+            : "";
+
+        const reasons = [scored.reason, learningReason, patternReason].filter(
+          Boolean
+        );
+
+        return {
+          ...scored,
+          score: finalScore,
+          aiPower: finalScore,
+          rank:
+            finalScore >= 85
+              ? "S"
+              : finalScore >= 70
+              ? "A"
+              : finalScore >= 50
+              ? "B"
+              : "C",
+          scoreBreakdown: {
+            ...scored.scoreBreakdown,
+            learning: learning.bonus,
+            patternLearning: pattern.bonus,
+          },
+          learningBonus: learning.bonus,
+          learningWinRate: learning.winRate,
+          learningWin: learningStats?.win ?? 0,
+          learningLose: learningStats?.lose ?? 0,
+          patternBonus: pattern.bonus,
+          patternWinRate: pattern.winRate,
+          patternTotal: pattern.total,
+          patternWin: pattern.win,
+          patternLose: pattern.lose,
+          reason: reasons.join("・"),
+        };
+      })
       .sort((a: any, b: any) => b.score - a.score);
 
     cacheData = {
@@ -389,8 +466,9 @@ const learning =
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V4",
+      aiPowerVersion: "V5",
       learningBonusEnabled: true,
+      patternBonusEnabled: true,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -405,6 +483,9 @@ const learning =
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
+        aiPowerVersion: "V5",
+        learningBonusEnabled: true,
+        patternBonusEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,
