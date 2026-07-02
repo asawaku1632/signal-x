@@ -1,16 +1,29 @@
 import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
-import { calculateAiScore, type ChartAnalysis } from "@/app/lib/aiEngine";
+import {
+  calculateAiScore,
+  clampScore,
+  type ChartAnalysis,
+} from "@/app/lib/aiEngine";
+import { calculateLearningBonus } from "@/app/lib/learningBonus";
+import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_ENGINE_SPLIT_0627";
+const DEBUG_VERSION = "AI_POWER_V4_LEARNING_0702";
 
 type CacheData = {
   timestamp: number;
   limit: number;
   stocks: any[];
+};
+
+type LearningStats = {
+  code: string;
+  win: number;
+  lose: number;
+  winRate: number;
 };
 
 let cacheData: CacheData | null = null;
@@ -36,10 +49,47 @@ function clampLimit(value: number) {
   return value;
 }
 
+async function getLearningStatsMap(codes: string[]) {
+  const map = new Map<string, LearningStats>();
+
+  if (codes.length === 0) return map;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      code,
+      SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) AS win,
+      SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END) AS lose
+    FROM daily_stock_results
+    WHERE code = ANY($1)
+    GROUP BY code
+    `,
+    [codes]
+  );
+
+  for (const row of rows) {
+    const code = String(row.code);
+    const win = Number(row.win || 0);
+    const lose = Number(row.lose || 0);
+    const judged = win + lose;
+    const winRate = judged === 0 ? 0 : Math.round((win / judged) * 100);
+
+    map.set(code, {
+      code,
+      win,
+      lose,
+      winRate,
+    });
+  }
+
+  return map;
+}
+
 async function fetchYahooChart(
   code: string
 ): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
   const symbol = `${code}.T`;
+
   async function fetchChart(range: string, interval: string) {
     const res = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -200,7 +250,7 @@ async function fetchYahooChart(
 
   return {
     success: true,
-     dataSource,
+    dataSource,
     currentPrice,
     ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
     trend,
@@ -259,14 +309,17 @@ export async function GET(req: Request) {
     }
 
     const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
-const targetStocks = uniqueStocks.slice(0, limit);
+    const targetStocks = uniqueStocks.slice(0, limit);
+    const targetCodes = targetStocks.map((stock) => stock.code);
+
+    const learningStatsMap = await getLearningStatsMap(targetCodes);
 
     const rawResults = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
 
       if (!chart?.currentPrice) return null;
 
-           const scored = calculateAiScore({
+      const scored = calculateAiScore({
         code: stock.code,
         name: stock.name,
         price: chart.currentPrice,
@@ -274,8 +327,50 @@ const targetStocks = uniqueStocks.slice(0, limit);
         chart,
       });
 
+      const learningStats = learningStatsMap.get(stock.code);
+const judgedLearning =
+  (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
+
+const learning =
+  judgedLearning > 0
+    ? calculateLearningBonus(learningStats?.winRate)
+    : {
+        bonus: 0,
+        winRate: 0,
+      };
+
+      const finalScore = clampScore(scored.score + learning.bonus);
+
+      const learningReason =
+        learningStats && learningStats.win + learningStats.lose > 0
+          ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${
+              learning.bonus
+            }・過去勝率${learning.winRate}%`
+          : "";
+
       return {
         ...scored,
+        score: finalScore,
+        aiPower: finalScore,
+        rank:
+          finalScore >= 85
+            ? "S"
+            : finalScore >= 70
+            ? "A"
+            : finalScore >= 50
+            ? "B"
+            : "C",
+        scoreBreakdown: {
+          ...scored.scoreBreakdown,
+          learning: learning.bonus,
+        },
+        learningBonus: learning.bonus,
+        learningWinRate: learning.winRate,
+        learningWin: learningStats?.win ?? 0,
+        learningLose: learningStats?.lose ?? 0,
+        reason: learningReason
+          ? `${scored.reason}・${learningReason}`
+          : scored.reason,
         dataSource: chart.dataSource ?? "intraday",
       };
     });
@@ -294,6 +389,8 @@ const targetStocks = uniqueStocks.slice(0, limit);
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
+      aiPowerVersion: "V4",
+      learningBonusEnabled: true,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,

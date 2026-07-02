@@ -34,6 +34,8 @@ type LearningDashboard = {
   hold: number;
   pending: number;
   winRate: number;
+  previousWinRate: number;
+  diff: number;
   growth: number;
   dateCount: number;
   bestStocks: StockRanking[];
@@ -142,7 +144,30 @@ export default function LearningPage() {
 
         <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
           <div className="flex gap-4 items-center">
-            <WinRateRing winRate={data.winRate} />
+            <div>
+              <WinRateRing winRate={data.winRate} />
+
+              <div className="mt-3 rounded-2xl bg-white border border-blue-100 p-3 text-center shadow-sm">
+                <p className="text-[10px] font-black text-slate-500">
+                  前営業日比
+                </p>
+                <p
+                  className={`text-2xl font-black mt-1 ${
+                    data.diff > 0
+                      ? "text-green-600"
+                      : data.diff < 0
+                      ? "text-red-500"
+                      : "text-slate-600"
+                  }`}
+                >
+                  {data.diff > 0 ? "+" : ""}
+                  {data.diff}%
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 mt-1">
+                  前回 {data.previousWinRate}%
+                </p>
+              </div>
+            </div>
 
             <div className="flex-1">
               <p className="text-sm font-black text-blue-600">
@@ -242,7 +267,9 @@ export default function LearningPage() {
 
         <section className="rounded-[24px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
           <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
-          <p className="text-sm leading-7 font-bold">{data.comment}</p>
+          <p className="text-sm leading-7 font-bold whitespace-pre-line">
+            {data.comment}
+          </p>
         </section>
       </div>
 

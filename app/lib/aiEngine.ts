@@ -31,6 +31,7 @@ export type ScoreBreakdown = {
   rsi: number;
   volume: number;
   patternBonus: number;
+  learning: number;
 };
 
 export type AiResult = {
@@ -197,7 +198,6 @@ function buildEmaSeries(values: number[], period: number) {
 
   return result;
 }
-
 export function calculateAiScore(params: {
   code: string;
   name: string;
@@ -234,6 +234,7 @@ export function calculateAiScore(params: {
     rsi: 0,
     volume: 0,
     patternBonus: 0,
+    learning: 0,
   };
 
   let score = 35;
@@ -324,9 +325,9 @@ export function calculateAiScore(params: {
   }
 
   if (chart?.patternSignal === "W_BOTTOM_BREAK") {
-  breakdown.pattern = volumeRatio >= 2 ? 14 : 8;
-  reasons.push("Wボトム突破");
-}
+    breakdown.pattern = volumeRatio >= 2 ? 14 : 8;
+    reasons.push("Wボトム突破");
+  }
 
   if (chart?.candleSignal === "BULLISH_ENGULFING") {
     breakdown.candle = 8;
@@ -384,7 +385,8 @@ export function calculateAiScore(params: {
     breakdown.candle +
     breakdown.rsi +
     breakdown.volume +
-    breakdown.patternBonus;
+    breakdown.patternBonus +
+    breakdown.learning;
 
   score = clampScore(score);
 

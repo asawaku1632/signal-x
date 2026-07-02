@@ -31,6 +31,75 @@ function formatDate(value: unknown) {
   return date.toISOString().slice(0, 10);
 }
 
+function createAiComment({
+  winRate,
+  previousWinRate,
+  diff,
+  judgedTotal,
+  win,
+  lose,
+  hold,
+  unknown,
+}: {
+  winRate: number;
+  previousWinRate: number;
+  diff: number;
+  judgedTotal: number;
+  win: number;
+  lose: number;
+  hold: number;
+  unknown: number;
+}) {
+  if (judgedTotal === 0 && hold > 0) {
+    return `現在${hold}件のHOLD判定があります。まだ大きな値動きが出ていないため、AIは慎重に学習データを蓄積中です。`;
+  }
+
+  if (judgedTotal === 0) {
+    return `現在は学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。`;
+  }
+
+  let trendComment = "";
+
+  if (diff > 0) {
+    trendComment = `前営業日より${diff}%改善しました。`;
+  } else if (diff < 0) {
+    trendComment = `前営業日より${Math.abs(diff)}%低下しました。`;
+  } else {
+    trendComment = "前営業日と同水準です。";
+  }
+
+  let levelComment = "";
+
+  if (winRate >= 80) {
+    levelComment =
+      "🔥 AIは非常に高い精度を維持しています。現在の市場との相性も良好です。";
+  } else if (winRate >= 60) {
+    levelComment =
+      "📈 AIは安定した学習を継続しています。精度は順調に向上しています。";
+  } else if (winRate >= 40) {
+    levelComment =
+      "⚖️ AIは改善途中です。苦手パターンを分析しながら精度を高めています。";
+  } else {
+    levelComment =
+      "⚠️ AIは現在改善フェーズです。学習データを蓄積しながら精度向上を目指します。";
+  }
+
+  return `
+AI勝率は${winRate}%です。
+
+${trendComment}
+
+現在のWIN/LOSE判定件数は${judgedTotal}件です。
+
+WIN：${win}件
+LOSE：${lose}件
+HOLD：${hold}件
+判定待ち：${unknown}件
+
+${levelComment}
+`.trim();
+}
+
 export async function GET() {
   try {
     const { rows } = await pool.query(`
@@ -130,6 +199,17 @@ export async function GET() {
 
     const winRateTrend = Array.from(trendMap.values());
 
+    const judgedTrend = winRateTrend.filter(
+      (item) => item.win + item.lose > 0
+    );
+
+    const previousWinRate =
+      judgedTrend.length >= 2
+        ? judgedTrend[judgedTrend.length - 2].winRate
+        : winRate;
+
+    const diff = winRate - previousWinRate;
+
     let cumulativeTotal = 0;
 
     const growthTrend = winRateTrend.map((item) => {
@@ -148,16 +228,16 @@ export async function GET() {
       { name: "判定待ち", value: unknown },
     ];
 
-    const comment =
-      judgedTotal === 0 && hold > 0
-        ? `現在${hold}件のHOLD判定があります。まだ大きな値動きが出ていないため、AIは慎重に学習データを蓄積中です。`
-        : judgedTotal === 0
-        ? `現在${total}件の学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。`
-        : winRate >= 70
-        ? `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。かなり良好な学習結果が出ています。`
-        : winRate >= 50
-        ? `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。AIは安定した学習を継続中です。`
-        : `現在${judgedTotal}件の判定データからAI勝率は${winRate}%です。苦手パターンを分析し、AI POWER改善に活用します。`;
+    const comment = createAiComment({
+      winRate,
+      previousWinRate,
+      diff,
+      judgedTotal,
+      win,
+      lose,
+      hold,
+      unknown,
+    });
 
     return NextResponse.json({
       success: true,
@@ -168,6 +248,8 @@ export async function GET() {
       hold,
       pending: unknown,
       winRate,
+      previousWinRate,
+      diff,
 
       growth: total,
       dateCount: winRateTrend.length,
@@ -199,6 +281,8 @@ export async function GET() {
       hold: 0,
       pending: 0,
       winRate: 0,
+      previousWinRate: 0,
+      diff: 0,
       growth: 0,
       dateCount: 0,
       bestStocks: [],
