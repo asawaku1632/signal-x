@@ -510,6 +510,7 @@ export async function GET(req: Request) {
       getSectorStatsMap(sectorKeys),
       getExperienceBonusMap(experienceKeys),
     ]);
+   
 
     const stocks = validScored
       .map((scored: any) => {

@@ -9,6 +9,24 @@ export type ExperienceBonusResult = {
   confidence: number;
 };
 
+export type ExperienceProfile = {
+  experienceKey?: string | null;
+  patternKey?: string | null;
+  sectorKey?: string | null;
+  marketPattern?: string | null;
+  trend?: string | null;
+  rsiZone?: string | null;
+  macdState?: string | null;
+  ema20State?: string | null;
+  vwapState?: string | null;
+};
+
+export type SimilarExperienceBonusResult = ExperienceBonusResult & {
+  similarity: number;
+  matched: number;
+  checked: number;
+};
+
 function calculateConfidence(total: number) {
   if (total >= 100) return 100;
   if (total >= 30) return 80;
@@ -64,6 +82,42 @@ export function calculateExperienceBonus({
   };
 }
 
+function calculateSimilarity(
+  current: ExperienceProfile,
+  history: ExperienceProfile
+) {
+  const checks = [
+    [current.patternKey, history.patternKey],
+    [current.sectorKey, history.sectorKey],
+    [current.marketPattern, history.marketPattern],
+    [current.trend, history.trend],
+    [current.rsiZone, history.rsiZone],
+    [current.macdState, history.macdState],
+    [current.ema20State, history.ema20State],
+    [current.vwapState, history.vwapState],
+  ];
+
+  const validChecks = checks.filter(([a, b]) => Boolean(a) && Boolean(b));
+  const checked = validChecks.length;
+
+  if (checked === 0) {
+    return {
+      similarity: 0,
+      matched: 0,
+      checked: 0,
+    };
+  }
+
+  const matched = validChecks.filter(([a, b]) => a === b).length;
+  const similarity = Math.round((matched / checked) * 100);
+
+  return {
+    similarity,
+    matched,
+    checked,
+  };
+}
+
 export async function getExperienceBonusMap(experienceKeys: string[]) {
   const map = new Map<string, ExperienceBonusResult>();
 
@@ -101,4 +155,73 @@ export async function getExperienceBonusMap(experienceKeys: string[]) {
   }
 
   return map;
+}
+
+export async function getSimilarExperienceBonus(
+  current: ExperienceProfile,
+  options?: {
+    minSimilarity?: number;
+    limit?: number;
+  }
+): Promise<SimilarExperienceBonusResult> {
+  const minSimilarity = options?.minSimilarity ?? 80;
+  const limit = options?.limit ?? 5000;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      pattern_key,
+      sector_key,
+      market_pattern,
+      trend,
+      rsi_zone,
+      macd_state,
+      ema20_state,
+      vwap_state,
+      result
+    FROM experience_learning_logs
+    WHERE result IN ('WIN', 'LOSE')
+    ORDER BY id DESC
+    LIMIT $1
+    `,
+    [limit]
+  );
+
+  let win = 0;
+  let lose = 0;
+  let similarityTotal = 0;
+  let matchedTotal = 0;
+  let checkedTotal = 0;
+
+  for (const row of rows) {
+    const similarity = calculateSimilarity(current, {
+      patternKey: row.pattern_key,
+      sectorKey: row.sector_key,
+      marketPattern: row.market_pattern,
+      trend: row.trend,
+      rsiZone: row.rsi_zone,
+      macdState: row.macd_state,
+      ema20State: row.ema20_state,
+      vwapState: row.vwap_state,
+    });
+
+    if (similarity.similarity < minSimilarity) continue;
+
+    similarityTotal += similarity.similarity;
+    matchedTotal += similarity.matched;
+    checkedTotal += similarity.checked;
+
+    if (row.result === "WIN") win++;
+    if (row.result === "LOSE") lose++;
+  }
+
+  const base = calculateExperienceBonus({ win, lose });
+  const total = win + lose;
+
+  return {
+    ...base,
+    similarity: total > 0 ? Math.round(similarityTotal / total) : 0,
+    matched: matchedTotal,
+    checked: checkedTotal,
+  };
 }
