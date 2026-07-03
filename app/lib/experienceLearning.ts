@@ -7,16 +7,6 @@ type StockExperience = {
   aiPower?: number;
   score?: number;
   patternKey?: string;
-
-  trend?: string | null;
-  rsi?: number | null;
-  macd?: number | null;
-  macdSignal?: number | null;
-  ema20?: number | null;
-  vwap?: number | null;
-  price?: number | null;
-  currentPrice?: number | null;
-  candleSignal?: string | null;
 };
 
 type SaveExperienceInput = {
@@ -33,42 +23,40 @@ export type ExperienceBonusResult = {
   lose: number;
 };
 
-function getRsiZone(rsi?: number | null) {
-  if (rsi == null) return "NO_RSI";
-  if (rsi < 30) return "RSI_UNDER_30";
-  if (rsi < 40) return "RSI_30_40";
-  if (rsi < 50) return "RSI_40_50";
-  if (rsi < 60) return "RSI_50_60";
-  if (rsi < 70) return "RSI_60_70";
-  if (rsi < 80) return "RSI_70_80";
-  return "RSI_OVER_80";
-}
+type SeasonInfo = {
+  tradeYear: number;
+  tradeMonth: number;
+  tradeDay: number;
+  weekday: number;
+  monthPhase: string;
+  seasonKey: string;
+};
 
-function getMacdState(macd?: number | null, macdSignal?: number | null) {
-  if (macd == null || macdSignal == null) return "NO_MACD";
-  if (macd > macdSignal) return "MACD_ABOVE_SIGNAL";
-  if (macd < macdSignal) return "MACD_BELOW_SIGNAL";
-  return "MACD_FLAT";
-}
+function getSeasonInfo(tradeDate: string): SeasonInfo {
+  const date = new Date(`${tradeDate}T00:00:00`);
+  const tradeYear = date.getFullYear();
+  const tradeMonth = date.getMonth() + 1;
+  const tradeDay = date.getDate();
+  const weekday = date.getDay();
 
-function getPrice(stock: StockExperience) {
-  return stock.price ?? stock.currentPrice ?? null;
-}
+  let monthPhase = "MID_MONTH";
 
-function getEma20State(stock: StockExperience) {
-  const price = getPrice(stock);
-  if (price == null || stock.ema20 == null) return "NO_EMA20";
-  if (price > stock.ema20) return "PRICE_ABOVE_EMA20";
-  if (price < stock.ema20) return "PRICE_BELOW_EMA20";
-  return "PRICE_ON_EMA20";
-}
+  if (tradeDay <= 10) {
+    monthPhase = "EARLY_MONTH";
+  } else if (tradeDay >= 21) {
+    monthPhase = "LATE_MONTH";
+  }
 
-function getVwapState(stock: StockExperience) {
-  const price = getPrice(stock);
-  if (price == null || stock.vwap == null) return "NO_VWAP";
-  if (price > stock.vwap) return "PRICE_ABOVE_VWAP";
-  if (price < stock.vwap) return "PRICE_BELOW_VWAP";
-  return "PRICE_ON_VWAP";
+  const seasonKey = `${tradeMonth}_${monthPhase}`;
+
+  return {
+    tradeYear,
+    tradeMonth,
+    tradeDay,
+    weekday,
+    monthPhase,
+    seasonKey,
+  };
 }
 
 export function createExperienceKey({
@@ -97,13 +85,25 @@ export function calculateExperienceBonus({
   const total = win + lose;
 
   if (total <= 0) {
-    return { bonus: 0, winRate: 0, total, win, lose };
+    return {
+      bonus: 0,
+      winRate: 0,
+      total,
+      win,
+      lose,
+    };
   }
 
   const winRate = Math.round((win / total) * 100);
 
   if (total < 10) {
-    return { bonus: 0, winRate, total, win, lose };
+    return {
+      bonus: 0,
+      winRate,
+      total,
+      win,
+      lose,
+    };
   }
 
   if (winRate >= 85) return { bonus: 10, winRate, total, win, lose };
@@ -114,7 +114,13 @@ export function calculateExperienceBonus({
   if (winRate >= 35) return { bonus: -3, winRate, total, win, lose };
   if (winRate >= 25) return { bonus: -6, winRate, total, win, lose };
 
-  return { bonus: -10, winRate, total, win, lose };
+  return {
+    bonus: -10,
+    winRate,
+    total,
+    win,
+    lose,
+  };
 }
 
 export async function saveExperienceLearning({
@@ -125,27 +131,23 @@ export async function saveExperienceLearning({
   const targets = stocks.filter((stock) => stock.code && stock.patternKey);
 
   if (targets.length === 0) {
-    return { experienceAdded: 0 };
+    return {
+      experienceAdded: 0,
+    };
   }
+
+  const season = getSeasonInfo(tradeDate);
 
   const values: any[] = [];
   const placeholders: string[] = [];
 
   targets.forEach((stock, index) => {
     const sectorKey = getSectorKey(stock.code);
-
     const experienceKey = createExperienceKey({
       patternKey: stock.patternKey,
       sectorKey,
       marketPattern,
     });
-
-    const trend = stock.trend ?? "NO_TREND";
-    const rsiZone = getRsiZone(stock.rsi);
-    const macdState = getMacdState(stock.macd, stock.macdSignal);
-    const ema20State = getEma20State(stock);
-    const vwapState = getVwapState(stock);
-    const candleSignal = stock.candleSignal ?? "NONE";
 
     const base = index * 14;
 
@@ -156,14 +158,14 @@ export async function saveExperienceLearning({
       stock.patternKey,
       sectorKey,
       marketPattern ?? null,
-      trend,
-      rsiZone,
-      macdState,
-      ema20State,
-      vwapState,
-      candleSignal,
       stock.result ?? "UNKNOWN",
-      stock.aiPower ?? stock.score ?? null
+      stock.aiPower ?? stock.score ?? null,
+      season.tradeYear,
+      season.tradeMonth,
+      season.tradeDay,
+      season.weekday,
+      season.monthPhase,
+      season.seasonKey
     );
 
     placeholders.push(
@@ -184,14 +186,14 @@ export async function saveExperienceLearning({
       pattern_key,
       sector_key,
       market_pattern,
-      trend,
-      rsi_zone,
-      macd_state,
-      ema20_state,
-      vwap_state,
-      candle_signal,
       result,
-      ai_power
+      ai_power,
+      trade_year,
+      trade_month,
+      trade_day,
+      weekday,
+      month_phase,
+      season_key
     )
     VALUES ${placeholders.join(",")}
     `,
@@ -200,6 +202,7 @@ export async function saveExperienceLearning({
 
   return {
     experienceAdded: targets.length,
+    season,
   };
 }
 
