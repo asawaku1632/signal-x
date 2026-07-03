@@ -87,7 +87,7 @@ function calculateSimilarity(
   history: ExperienceProfile
 ) {
   const checks = [
-    [current.patternKey, history.patternKey],
+    
     [current.sectorKey, history.sectorKey],
     [current.marketPattern, history.marketPattern],
     [current.trend, history.trend],

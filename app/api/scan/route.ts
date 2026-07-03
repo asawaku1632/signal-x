@@ -12,11 +12,12 @@ import { calculateSectorBonus } from "@/app/lib/sectorBonus";
 import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
 import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
+import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
 import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V9_EXPERIENCE_BONUS_0703";
+const DEBUG_VERSION = "AI_POWER_V9_2_SIMILAR_EXPERIENCE_0703";
 
 type CacheData = {
   timestamp: number;
@@ -197,7 +198,6 @@ async function getWeightRuleMap(patternKeys: string[]) {
 
   return map;
 }
-
 async function getSectorStatsMap(sectorKeys: string[]) {
   const map = new Map<string, SectorStats>();
   const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
@@ -346,7 +346,8 @@ async function fetchYahooChart(
       patternReasons.push("売り包み足を検出");
     }
   }
-    if (trend === "UPTREND") {
+
+  if (trend === "UPTREND") {
     patternScore += 10;
     patternReasons.push("現在価格がMA20より上");
   }
@@ -365,19 +366,26 @@ async function fetchYahooChart(
     const firstLow = Math.min(...firstHalf.map((c: any) => c.low));
     const secondLow = Math.min(...secondHalf.map((c: any) => c.low));
 
-    const firstLowIndex = firstHalf.findIndex((c: any) => c.low === firstLow);
+    const firstLowIndex =
+      firstHalf.findIndex((c: any) => c.low === firstLow);
 
     const secondLowIndex =
       secondHalf.findIndex((c: any) => c.low === secondLow) + 10;
 
-    const lowsClose = Math.abs(firstLow - secondLow) / currentPrice < 0.015;
+    const lowsClose =
+      Math.abs(firstLow - secondLow) / currentPrice < 0.015;
 
     const middleHigh = Math.max(
-      ...recent.slice(firstLowIndex, secondLowIndex).map((c: any) => c.high)
+      ...recent
+        .slice(firstLowIndex, secondLowIndex)
+        .map((c: any) => c.high)
     );
 
-    const necklineBreak = currentPrice > middleHigh * 0.998;
-    const bouncedFromSecondLow = currentPrice > secondLow * 1.008;
+    const necklineBreak =
+      currentPrice > middleHigh * 0.998;
+
+    const bouncedFromSecondLow =
+      currentPrice > secondLow * 1.008;
 
     if (lowsClose && bouncedFromSecondLow) {
       patternSignal = "W_BOTTOM";
@@ -385,7 +393,11 @@ async function fetchYahooChart(
       patternReasons.push("Wボトム候補を検出");
     }
 
-    if (lowsClose && bouncedFromSecondLow && necklineBreak) {
+    if (
+      lowsClose &&
+      bouncedFromSecondLow &&
+      necklineBreak
+    ) {
       patternSignal = "W_BOTTOM_BREAK";
       patternScore += 20;
       patternReasons.push("ネックライン付近まで回復");
@@ -396,7 +408,10 @@ async function fetchYahooChart(
     success: true,
     dataSource,
     currentPrice,
-    ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
+    ma20:
+      ma20 === null
+        ? null
+        : Number(ma20.toFixed(2)),
     trend,
     candleSignal,
     patternSignal,
@@ -405,7 +420,6 @@ async function fetchYahooChart(
     candles,
   };
 }
-
 async function runInBatches<T, R>(
   items: T[],
   batchSize: number,
@@ -444,13 +458,14 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V9.1",
+        aiPowerVersion: "V9.2",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
         sectorEnabled: true,
         sectorBonusEnabled: true,
         experienceBonusEnabled: true,
+        similarExperienceEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -486,6 +501,7 @@ export async function GET(req: Request) {
     });
 
     const validScored = rawScored.filter(Boolean) as any[];
+
     const patternKeys = validScored.map((stock) => stock.patternKey);
     const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
 
@@ -504,13 +520,17 @@ export async function GET(req: Request) {
       weightRuleMap,
       sectorStatsMap,
       experienceBonusMap,
+      similarExperienceBonusMap,
     ] = await Promise.all([
       getPatternStatsMap(patternKeys),
       getWeightRuleMap(patternKeys),
       getSectorStatsMap(sectorKeys),
       getExperienceBonusMap(experienceKeys),
+      getSimilarExperienceBonusMap(experienceKeys, {
+        minSimilarity: 70,
+        limit: 300,
+      }),
     ]);
-   
 
     const stocks = validScored
       .map((scored: any) => {
@@ -543,6 +563,7 @@ export async function GET(req: Request) {
 
         const weightRule = weightRuleMap.get(scored.patternKey);
         const weightRuleApplied = Boolean(weightRule);
+
         const finalPatternBonus = weightRuleApplied
           ? weightRule!.bonus
           : pattern.bonus;
@@ -563,12 +584,26 @@ export async function GET(req: Request) {
             confidence: 0,
           };
 
+        const similarExperience =
+          similarExperienceBonusMap.get(experienceKey) || {
+            bonus: 0,
+            winRate: 0,
+            total: 0,
+            win: 0,
+            lose: 0,
+            confidence: 0,
+            similarCount: 0,
+            averageSimilarity: 0,
+            items: [],
+          };
+
         const finalScore = clampScore(
           scored.score +
             learning.bonus +
             finalPatternBonus +
             sector.bonus +
-            experience.bonus
+            experience.bonus +
+            similarExperience.bonus
         );
 
         const learningReason =
@@ -602,12 +637,22 @@ export async function GET(req: Request) {
               }・経験勝率${experience.winRate}%`
             : "";
 
+        const similarExperienceReason =
+          similarExperience.total >= 10
+            ? `類似経験補正${
+                similarExperience.bonus >= 0 ? "+" : ""
+              }${similarExperience.bonus}・類似勝率${
+                similarExperience.winRate
+              }%・平均類似${similarExperience.averageSimilarity}%`
+            : "";
+
         const reasons = [
           scored.reason,
           learningReason,
           patternReason,
           sectorReason,
           experienceReason,
+          similarExperienceReason,
         ].filter(Boolean);
 
         return {
@@ -629,13 +674,16 @@ export async function GET(req: Request) {
               : finalScore >= 50
               ? "B"
               : "C",
+
           scoreBreakdown: {
             ...scored.scoreBreakdown,
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
             sector: sector.bonus,
             experience: experience.bonus,
+            similarExperience: similarExperience.bonus,
           },
+
           learningBonus: learning.bonus,
           learningWinRate: learning.winRate,
           learningWin: learningStats?.win ?? 0,
@@ -665,6 +713,15 @@ export async function GET(req: Request) {
           experienceLose: experience.lose,
           experienceConfidence: experience.confidence,
 
+          similarExperienceBonus: similarExperience.bonus,
+          similarExperienceWinRate: similarExperience.winRate,
+          similarExperienceTotal: similarExperience.total,
+          similarExperienceWin: similarExperience.win,
+          similarExperienceLose: similarExperience.lose,
+          similarExperienceConfidence: similarExperience.confidence,
+          similarExperienceCount: similarExperience.similarCount,
+          averageSimilarity: similarExperience.averageSimilarity,
+
           weightRuleApplied,
           weightRuleBonus: weightRule?.bonus ?? 0,
           weightRuleConfidence: weightRule?.confidence ?? 0,
@@ -684,13 +741,14 @@ export async function GET(req: Request) {
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V9.1",
+      aiPowerVersion: "V9.2",
       learningBonusEnabled: true,
       patternBonusEnabled: true,
       weightRulesEnabled: true,
       sectorEnabled: true,
       sectorBonusEnabled: true,
       experienceBonusEnabled: true,
+      similarExperienceEnabled: true,
       marketPattern,
       count: stocks.length,
       requestedLimit: limit,
@@ -706,13 +764,14 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V9.1",
+        aiPowerVersion: "V9.2",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
         sectorEnabled: true,
         sectorBonusEnabled: true,
         experienceBonusEnabled: true,
+        similarExperienceEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,

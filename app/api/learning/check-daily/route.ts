@@ -5,6 +5,8 @@ import {
   updateDailyStockResult,
 } from "@/app/lib/dailyLearning";
 
+import pool from "@/app/lib/postgres";
+
 type Stock = {
   code: string;
   price?: number;
@@ -67,6 +69,7 @@ export async function GET(req: Request) {
     let lose = 0;
     let hold = 0;
     let skipped = 0;
+    let experienceUpdated = 0;
 
     for (const item of targets) {
       const current = stocks.find(
@@ -93,6 +96,19 @@ export async function GET(req: Request) {
         result,
       });
 
+      const experienceRes = await pool.query(
+        `
+        UPDATE experience_learning_logs
+        SET result = $1
+        WHERE trade_date = $2
+          AND code = $3
+          AND result = 'UNKNOWN'
+        `,
+        [result, targetDate, item.code]
+      );
+
+      experienceUpdated += experienceRes.rowCount ?? 0;
+
       checked += 1;
 
       if (result === "WIN") win += 1;
@@ -109,6 +125,7 @@ export async function GET(req: Request) {
       win,
       lose,
       hold,
+      experienceUpdated,
     });
   } catch (error: any) {
     return NextResponse.json(
