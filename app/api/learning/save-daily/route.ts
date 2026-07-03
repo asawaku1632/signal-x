@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 import pool from "@/app/lib/postgres";
 import { saveDailyStocks } from "@/app/lib/dailyLearning";
+import { saveSectorLearning } from "@/app/lib/sectorLearning";
+import { saveMarketLearning } from "@/app/lib/marketLearning";
+import { saveExperienceLearning } from "@/app/lib/experienceLearning";
 
 type PatternLearning = {
   rsiBand?: string;
@@ -18,6 +21,8 @@ type Stock = {
   score?: number;
   aiPower?: number;
   price?: number;
+  changePercent?: number;
+  result?: string;
   patternLearning?: PatternLearning;
   patternKey?: string;
 };
@@ -92,7 +97,6 @@ async function savePatternLearningLogs(stocks: Stock[]) {
     patternAdded: targets.length,
   };
 }
-
 export async function GET(req: Request) {
   try {
     const siteUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
@@ -117,16 +121,38 @@ export async function GET(req: Request) {
 
     const today = new Date().toISOString().split("T")[0];
 
+    // 銘柄学習
     const result = await saveDailyStocks(today, stocks);
 
+    // パターン学習
     const patternResult = await savePatternLearningLogs(stocks);
+
+    // セクター学習（V7）
+    const sectorResult = await saveSectorLearning(today, stocks);
+
+    // 市場学習（V8）
+    const marketResult = await saveMarketLearning({
+      tradeDate: today,
+      stocks,
+    });
+
+    // 経験学習（V9）
+    const experienceResult = await saveExperienceLearning({
+      tradeDate: today,
+      stocks,
+      marketPattern: marketResult.market.marketPattern,
+    });
 
     return NextResponse.json({
       success: true,
       date: today,
       stockCount: stocks.length,
+
       ...result,
       ...patternResult,
+      ...sectorResult,
+      ...marketResult,
+      ...experienceResult,
     });
   } catch (error: any) {
     return NextResponse.json(

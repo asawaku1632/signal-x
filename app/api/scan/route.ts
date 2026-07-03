@@ -8,11 +8,15 @@ import {
 } from "@/app/lib/aiEngine";
 import { calculateLearningBonus } from "@/app/lib/learningBonus";
 import { calculatePatternBonus } from "@/app/lib/patternBonus";
+import { calculateSectorBonus } from "@/app/lib/sectorBonus";
+import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
+import { createExperienceKey } from "@/app/lib/experienceLearning";
+import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
 import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V6_SELF_EVOLUTION_0702";
+const DEBUG_VERSION = "AI_POWER_V9_EXPERIENCE_BONUS_0703";
 
 type CacheData = {
   timestamp: number;
@@ -41,6 +45,12 @@ type WeightRule = {
   confidence: number;
 };
 
+type SectorStats = {
+  sectorKey: string;
+  win: number;
+  lose: number;
+};
+
 let cacheData: CacheData | null = null;
 
 const CACHE_TIME = 60 * 1000;
@@ -62,6 +72,22 @@ function clampLimit(value: number) {
   if (value < 1) return 200;
   if (value > 1000) return 1000;
   return value;
+}
+
+async function getLatestMarketPattern() {
+  const { rows } = await pool.query(
+    `
+    SELECT market_pattern
+    FROM market_learning_logs
+    WHERE market_pattern IS NOT NULL
+    ORDER BY trade_date DESC
+    LIMIT 1
+    `
+  );
+
+  return rows[0]?.market_pattern
+    ? String(rows[0].market_pattern)
+    : "NO_MARKET";
 }
 
 async function getLearningStatsMap(codes: string[]) {
@@ -171,6 +197,39 @@ async function getWeightRuleMap(patternKeys: string[]) {
 
   return map;
 }
+
+async function getSectorStatsMap(sectorKeys: string[]) {
+  const map = new Map<string, SectorStats>();
+  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
+
+  if (uniqueKeys.length === 0) return map;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      sector_key,
+      SUM(win_count) AS win,
+      SUM(lose_count) AS lose
+    FROM sector_learning_logs
+    WHERE sector_key = ANY($1)
+    GROUP BY sector_key
+    `,
+    [uniqueKeys]
+  );
+
+  for (const row of rows) {
+    const sectorKey = String(row.sector_key);
+
+    map.set(sectorKey, {
+      sectorKey,
+      win: Number(row.win || 0),
+      lose: Number(row.lose || 0),
+    });
+  }
+
+  return map;
+}
+
 async function fetchYahooChart(
   code: string
 ): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
@@ -287,8 +346,7 @@ async function fetchYahooChart(
       patternReasons.push("売り包み足を検出");
     }
   }
-
-  if (trend === "UPTREND") {
+    if (trend === "UPTREND") {
     patternScore += 10;
     patternReasons.push("現在価格がMA20より上");
   }
@@ -386,10 +444,13 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V6.3",
+        aiPowerVersion: "V9.1",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
+        sectorEnabled: true,
+        sectorBonusEnabled: true,
+        experienceBonusEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -403,6 +464,7 @@ export async function GET(req: Request) {
     const targetCodes = targetStocks.map((stock) => stock.code);
 
     const learningStatsMap = await getLearningStatsMap(targetCodes);
+    const marketPattern = await getLatestMarketPattern();
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -425,14 +487,41 @@ export async function GET(req: Request) {
 
     const validScored = rawScored.filter(Boolean) as any[];
     const patternKeys = validScored.map((stock) => stock.patternKey);
+    const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
 
-    const [patternStatsMap, weightRuleMap] = await Promise.all([
+    const experienceKeys = validScored.map((stock) => {
+      const sectorKey = getSectorKey(stock.code);
+
+      return createExperienceKey({
+        patternKey: stock.patternKey,
+        sectorKey,
+        marketPattern,
+      });
+    });
+
+    const [
+      patternStatsMap,
+      weightRuleMap,
+      sectorStatsMap,
+      experienceBonusMap,
+    ] = await Promise.all([
       getPatternStatsMap(patternKeys),
       getWeightRuleMap(patternKeys),
+      getSectorStatsMap(sectorKeys),
+      getExperienceBonusMap(experienceKeys),
     ]);
 
     const stocks = validScored
       .map((scored: any) => {
+        const sectorKey = getSectorKey(scored.code);
+        const sectorLabel = getSectorLabel(scored.code);
+
+        const experienceKey = createExperienceKey({
+          patternKey: scored.patternKey,
+          sectorKey,
+          marketPattern,
+        });
+
         const learningStats = learningStatsMap.get(scored.code);
         const judgedLearning =
           (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
@@ -457,8 +546,28 @@ export async function GET(req: Request) {
           ? weightRule!.bonus
           : pattern.bonus;
 
+        const sectorStats = sectorStatsMap.get(sectorKey);
+        const sector = calculateSectorBonus({
+          win: sectorStats?.win ?? 0,
+          lose: sectorStats?.lose ?? 0,
+        });
+
+        const experience =
+          experienceBonusMap.get(experienceKey) || {
+            bonus: 0,
+            winRate: 0,
+            total: 0,
+            win: 0,
+            lose: 0,
+            confidence: 0,
+          };
+
         const finalScore = clampScore(
-          scored.score + learning.bonus + finalPatternBonus
+          scored.score +
+            learning.bonus +
+            finalPatternBonus +
+            sector.bonus +
+            experience.bonus
         );
 
         const learningReason =
@@ -478,12 +587,37 @@ export async function GET(req: Request) {
             }・パターン勝率${pattern.winRate}%`
           : "";
 
-        const reasons = [scored.reason, learningReason, patternReason].filter(
-          Boolean
-        );
+        const sectorReason =
+          sector.total >= 10
+            ? `セクター補正${sector.bonus >= 0 ? "+" : ""}${
+                sector.bonus
+              }・${sectorLabel}勝率${sector.winRate}%`
+            : "";
+
+        const experienceReason =
+          experience.total >= 10
+            ? `経験補正${experience.bonus >= 0 ? "+" : ""}${
+                experience.bonus
+              }・経験勝率${experience.winRate}%`
+            : "";
+
+        const reasons = [
+          scored.reason,
+          learningReason,
+          patternReason,
+          sectorReason,
+          experienceReason,
+        ].filter(Boolean);
 
         return {
           ...scored,
+
+          sectorKey,
+          sectorLabel,
+
+          experienceKey,
+          marketPattern,
+
           score: finalScore,
           aiPower: finalScore,
           rank:
@@ -498,6 +632,8 @@ export async function GET(req: Request) {
             ...scored.scoreBreakdown,
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
+            sector: sector.bonus,
+            experience: experience.bonus,
           },
           learningBonus: learning.bonus,
           learningWinRate: learning.winRate,
@@ -514,6 +650,19 @@ export async function GET(req: Request) {
             : pattern.total,
           patternWin: pattern.win,
           patternLose: pattern.lose,
+
+          sectorBonus: sector.bonus,
+          sectorWinRate: sector.winRate,
+          sectorTotal: sector.total,
+          sectorWin: sector.win,
+          sectorLose: sector.lose,
+
+          experienceBonus: experience.bonus,
+          experienceWinRate: experience.winRate,
+          experienceTotal: experience.total,
+          experienceWin: experience.win,
+          experienceLose: experience.lose,
+          experienceConfidence: experience.confidence,
 
           weightRuleApplied,
           weightRuleBonus: weightRule?.bonus ?? 0,
@@ -534,10 +683,14 @@ export async function GET(req: Request) {
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V6.3",
+      aiPowerVersion: "V9.1",
       learningBonusEnabled: true,
       patternBonusEnabled: true,
       weightRulesEnabled: true,
+      sectorEnabled: true,
+      sectorBonusEnabled: true,
+      experienceBonusEnabled: true,
+      marketPattern,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -552,10 +705,13 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V6.3",
+        aiPowerVersion: "V9.1",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
+        sectorEnabled: true,
+        sectorBonusEnabled: true,
+        experienceBonusEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,
