@@ -4,7 +4,8 @@ export async function GET() {
   const startedAt = Date.now();
 
   try {
-    const baseUrl = "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     const generateRes = await fetch(
       `${baseUrl}/api/ai-power/recommendations/generate`,
@@ -42,7 +43,8 @@ export async function GET() {
       generated: generateData.recommendationCount ?? 0,
       saved: saveData.savedCount ?? 0,
       applied: applyData.applied ?? 0,
-      evolutionLogsAdded: applyData.evolutionLogsAdded ?? 0,
+      evolutionLogsAdded:
+        applyData.evolutionLogsAdded ?? 0,
       apiTimeMs: Date.now() - startedAt,
       steps: {
         generate: generateData.success,
@@ -56,10 +58,12 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        aiPowerVersion: "V11.3_AUTO_EVOLVE",
         error:
           error instanceof Error
             ? error.message
             : String(error),
+        apiTimeMs: Date.now() - startedAt,
       },
       { status: 500 }
     );
