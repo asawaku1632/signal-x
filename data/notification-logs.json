@@ -1,5 +1,18 @@
 [
   {
+    "id": "1783205573791-6954",
+    "notifiedAt": "2026-07-04T22:52:53.790Z",
+    "profitNotified": false,
+    "stopLossNotified": false,
+    "code": "6954",
+    "name": "ファナック",
+    "price": 7439,
+    "aiPower": 100,
+    "judge": "🟢 買い",
+    "takeProfit": 7662,
+    "stopLoss": 7290
+  },
+  {
     "id": "1783156974056-6954",
     "notifiedAt": "2026-07-04T09:22:54.048Z",
     "profitNotified": false,

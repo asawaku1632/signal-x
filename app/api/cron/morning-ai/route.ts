@@ -31,43 +31,79 @@ export async function GET() {
       `${baseUrl}/api/sector-learning/save-daily`
     );
 
-    // ③ AI自己進化
+    // ③ 時間帯学習保存
+    const timeSaveData = await fetchJson(
+      `${baseUrl}/api/time-learning/save`
+    );
+
+    // ④ ボラティリティ学習保存
+    const volatilitySaveData = await fetchJson(
+      `${baseUrl}/api/volatility-learning/save`
+    );
+
+    // ⑤ イベント学習保存
+    const eventSaveData = await fetchJson(
+      `${baseUrl}/api/event-learning/save`
+    );
+
+    // ⑥ AI自己進化
     const autoEvolveData = await fetchJson(
       `${baseUrl}/api/ai-power/auto-evolve`
     );
 
-    // ④ セクター勝敗判定
+    // ⑦ セクター勝敗判定
     const sectorJudgeData = await fetchJson(
       `${baseUrl}/api/sector-learning/judge`
     );
 
-    // ⑤ セクターBONUS反映
+    // ⑧ ボラティリティ勝敗判定
+    const volatilityJudgeData = await fetchJson(
+      `${baseUrl}/api/volatility-learning/judge`
+    );
+
+    // ⑨ イベント勝敗判定
+    const eventJudgeData = await fetchJson(
+      `${baseUrl}/api/event-learning/judge`
+    );
+
+    // ⑩ 時間帯勝敗判定
+    const timeJudgeData = await fetchJson(
+      `${baseUrl}/api/time-learning/judge`
+    );
+
+    // ⑪ セクターBONUS反映
     const sectorApplyBonusData = await fetchJson(
       `${baseUrl}/api/sector-learning/apply-bonus`
     );
 
-    // ⑥ LINEランキング通知
+    // ⑫ LINEランキング通知
     const lineData = await fetchJson(
       `${baseUrl}/api/cron/line-ranking`
     );
 
-    // ⑦ QA監査
+    // ⑬ QA監査
     const qaData = await fetchJson(
       `${baseUrl}/api/verification/run`
     );
 
     return NextResponse.json({
       success: true,
-      cronName: "V13.5_MORNING_AI_SECTOR_AUTO",
-      aiPowerVersion: "V13.5",
+      cronName: "V13.12_MORNING_AI_FULL_INTEGRATION",
+      aiPowerVersion: "V13.12",
       message:
-        "Morning AI cron completed with sector learning cycle",
+        "Morning AI cron completed with sector, time, volatility and event learning",
 
       steps: {
         scan: true,
         sectorSaveDaily: true,
+        timeSave: true,
+        volatilitySave: true,
+        eventSave: true,
         autoEvolve: true,
         sectorJudge: true,
+        volatilityJudge: true,
+        eventJudge: true,
+        timeJudge: true,
         sectorApplyBonus: true,
         lineRanking: true,
         qa: true,
@@ -85,11 +121,21 @@ export async function GET() {
           scanData.sectorWeightRuleEnabled,
       },
 
-      sectorSaveDaily: sectorSaveDailyData,
+      learning: {
+        sectorSaveDaily: sectorSaveDailyData,
+        timeSave: timeSaveData,
+        volatilitySave: volatilitySaveData,
+        eventSave: eventSaveData,
+      },
 
       autoEvolve: autoEvolveData,
 
-      sectorJudge: sectorJudgeData,
+      judges: {
+        sectorJudge: sectorJudgeData,
+        volatilityJudge: volatilityJudgeData,
+        eventJudge: eventJudgeData,
+        timeJudge: timeJudgeData,
+      },
 
       sectorApplyBonus: sectorApplyBonusData,
 
@@ -110,8 +156,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        cronName: "V13.5_MORNING_AI_SECTOR_AUTO",
-        aiPowerVersion: "V13.5",
+        cronName: "V13.12_MORNING_AI_FULL_INTEGRATION",
+        aiPowerVersion: "V13.12",
         error:
           error instanceof Error
             ? error.message
