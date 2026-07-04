@@ -28,7 +28,7 @@ export async function GET() {
 
     // ② セクター日次保存
     const sectorSaveDailyData = await fetchJson(
-      `${baseUrl}/api/sector/save-daily`
+      `${baseUrl}/api/sector-learning/save-daily`
     );
 
     // ③ AI自己進化
@@ -38,12 +38,12 @@ export async function GET() {
 
     // ④ セクター勝敗判定
     const sectorJudgeData = await fetchJson(
-      `${baseUrl}/api/sector/judge`
+      `${baseUrl}/api/sector-learning/judge`
     );
 
     // ⑤ セクターBONUS反映
     const sectorApplyBonusData = await fetchJson(
-      `${baseUrl}/api/sector/apply-bonus`
+      `${baseUrl}/api/sector-learning/apply-bonus`
     );
 
     // ⑥ LINEランキング通知
