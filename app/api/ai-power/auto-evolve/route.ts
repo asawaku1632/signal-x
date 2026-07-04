@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const startedAt = Date.now();
 
   try {
-    const baseUrl =
-      process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = new URL(req.url).origin;
 
     const generateRes = await fetch(
       `${baseUrl}/api/ai-power/recommendations/generate`,
@@ -46,6 +45,7 @@ export async function GET() {
       evolutionLogsAdded:
         applyData.evolutionLogsAdded ?? 0,
       apiTimeMs: Date.now() - startedAt,
+      baseUrl,
       steps: {
         generate: generateData.success,
         save: saveData.success,
