@@ -13,11 +13,12 @@ import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
 import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
 import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
+import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V9_2_SIMILAR_EXPERIENCE_0703";
+const DEBUG_VERSION = "AI_POWER_V13_4_SECTOR_WEIGHT_RULE_0704";
 
 type CacheData = {
   timestamp: number;
@@ -39,6 +40,14 @@ type PatternStats = {
 };
 
 type WeightRule = {
+  ruleKey: string;
+  bonus: number;
+  winRate: number;
+  sampleCount: number;
+  confidence: number;
+};
+
+type SectorWeightRule = {
   ruleKey: string;
   bonus: number;
   winRate: number;
@@ -126,7 +135,6 @@ async function getLearningStatsMap(codes: string[]) {
 
   return map;
 }
-
 async function getPatternStatsMap(patternKeys: string[]) {
   const map = new Map<string, PatternStats>();
   const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
@@ -198,6 +206,45 @@ async function getWeightRuleMap(patternKeys: string[]) {
 
   return map;
 }
+
+async function getSectorWeightRuleMap(sectorKeys: string[]) {
+  const map = new Map<string, SectorWeightRule>();
+  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
+
+  if (uniqueKeys.length === 0) return map;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      rule_key,
+      bonus,
+      win_rate,
+      sample_count,
+      confidence
+    FROM ai_power_weight_rules
+    WHERE
+      rule_type = 'SECTOR'
+      AND is_active = true
+      AND rule_key = ANY($1)
+    `,
+    [uniqueKeys]
+  );
+
+  for (const row of rows) {
+    const ruleKey = String(row.rule_key);
+
+    map.set(ruleKey, {
+      ruleKey,
+      bonus: Number(row.bonus || 0),
+      winRate: Number(row.win_rate || 0),
+      sampleCount: Number(row.sample_count || 0),
+      confidence: Number(row.confidence || 0),
+    });
+  }
+
+  return map;
+}
+
 async function getSectorStatsMap(sectorKeys: string[]) {
   const map = new Map<string, SectorStats>();
   const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
@@ -229,7 +276,6 @@ async function getSectorStatsMap(sectorKeys: string[]) {
 
   return map;
 }
-
 async function fetchYahooChart(
   code: string
 ): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
@@ -359,33 +405,24 @@ async function fetchYahooChart(
 
   if (candles.length >= 20 && currentPrice !== null) {
     const recent = candles.slice(-20);
-
     const firstHalf = recent.slice(0, 10);
     const secondHalf = recent.slice(10, 20);
 
     const firstLow = Math.min(...firstHalf.map((c: any) => c.low));
     const secondLow = Math.min(...secondHalf.map((c: any) => c.low));
 
-    const firstLowIndex =
-      firstHalf.findIndex((c: any) => c.low === firstLow);
-
+    const firstLowIndex = firstHalf.findIndex((c: any) => c.low === firstLow);
     const secondLowIndex =
       secondHalf.findIndex((c: any) => c.low === secondLow) + 10;
 
-    const lowsClose =
-      Math.abs(firstLow - secondLow) / currentPrice < 0.015;
+    const lowsClose = Math.abs(firstLow - secondLow) / currentPrice < 0.015;
 
     const middleHigh = Math.max(
-      ...recent
-        .slice(firstLowIndex, secondLowIndex)
-        .map((c: any) => c.high)
+      ...recent.slice(firstLowIndex, secondLowIndex).map((c: any) => c.high)
     );
 
-    const necklineBreak =
-      currentPrice > middleHigh * 0.998;
-
-    const bouncedFromSecondLow =
-      currentPrice > secondLow * 1.008;
+    const necklineBreak = currentPrice > middleHigh * 0.998;
+    const bouncedFromSecondLow = currentPrice > secondLow * 1.008;
 
     if (lowsClose && bouncedFromSecondLow) {
       patternSignal = "W_BOTTOM";
@@ -393,11 +430,7 @@ async function fetchYahooChart(
       patternReasons.push("Wボトム候補を検出");
     }
 
-    if (
-      lowsClose &&
-      bouncedFromSecondLow &&
-      necklineBreak
-    ) {
+    if (lowsClose && bouncedFromSecondLow && necklineBreak) {
       patternSignal = "W_BOTTOM_BREAK";
       patternScore += 20;
       patternReasons.push("ネックライン付近まで回復");
@@ -408,10 +441,7 @@ async function fetchYahooChart(
     success: true,
     dataSource,
     currentPrice,
-    ma20:
-      ma20 === null
-        ? null
-        : Number(ma20.toFixed(2)),
+    ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
     trend,
     candleSignal,
     patternSignal,
@@ -420,6 +450,7 @@ async function fetchYahooChart(
     candles,
   };
 }
+
 async function runInBatches<T, R>(
   items: T[],
   batchSize: number,
@@ -440,7 +471,6 @@ async function runInBatches<T, R>(
 
   return results;
 }
-
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const now = Date.now();
@@ -458,14 +488,16 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V9.2",
+        aiPowerVersion: "V13.4",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
         sectorEnabled: true,
         sectorBonusEnabled: true,
+        sectorWeightRuleEnabled: true,
         experienceBonusEnabled: true,
         similarExperienceEnabled: true,
+        experienceRankingEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -519,16 +551,24 @@ export async function GET(req: Request) {
       patternStatsMap,
       weightRuleMap,
       sectorStatsMap,
+      sectorWeightRuleMap,
       experienceBonusMap,
       similarExperienceBonusMap,
+      experienceRankingMap,
     ] = await Promise.all([
       getPatternStatsMap(patternKeys),
       getWeightRuleMap(patternKeys),
       getSectorStatsMap(sectorKeys),
+      getSectorWeightRuleMap(sectorKeys),
       getExperienceBonusMap(experienceKeys),
       getSimilarExperienceBonusMap(experienceKeys, {
         minSimilarity: 70,
         limit: 300,
+      }),
+      getExperienceRankingMap(experienceKeys, {
+        minSimilarity: 70,
+        candidateLimit: 500,
+        topLimit: 10,
       }),
     ]);
 
@@ -569,12 +609,18 @@ export async function GET(req: Request) {
           : pattern.bonus;
 
         const sectorStats = sectorStatsMap.get(sectorKey);
-        const sector = calculateSectorBonus({
+        const calculatedSector = calculateSectorBonus({
           win: sectorStats?.win ?? 0,
           lose: sectorStats?.lose ?? 0,
         });
 
-        const experience =
+        const sectorWeightRule = sectorWeightRuleMap.get(sectorKey);
+        const sectorWeightRuleApplied = Boolean(sectorWeightRule);
+
+        const finalSectorBonus = sectorWeightRuleApplied
+          ? sectorWeightRule!.bonus
+          : calculatedSector.bonus;
+                  const experience =
           experienceBonusMap.get(experienceKey) || {
             bonus: 0,
             winRate: 0,
@@ -587,13 +633,30 @@ export async function GET(req: Request) {
         const similarExperience =
           similarExperienceBonusMap.get(experienceKey) || {
             bonus: 0,
+            baseBonus: 0,
             winRate: 0,
             total: 0,
             win: 0,
             lose: 0,
             confidence: 0,
+            similarityRate: 0,
             similarCount: 0,
             averageSimilarity: 0,
+            items: [],
+          };
+
+        const experienceRanking =
+          experienceRankingMap.get(experienceKey) || {
+            bonus: 0,
+            winRate: 0,
+            total: 0,
+            win: 0,
+            lose: 0,
+            confidence: 0,
+            weightedWinRate: 0,
+            weightedTotal: 0,
+            averageSimilarity: 0,
+            topCount: 0,
             items: [],
           };
 
@@ -601,49 +664,44 @@ export async function GET(req: Request) {
           scored.score +
             learning.bonus +
             finalPatternBonus +
-            sector.bonus +
+            finalSectorBonus +
             experience.bonus +
-            similarExperience.bonus
+            similarExperience.bonus +
+            experienceRanking.bonus
         );
 
         const learningReason =
           learningStats && learningStats.win + learningStats.lose > 0
-            ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${
-                learning.bonus
-              }・銘柄勝率${learning.winRate}%`
+            ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${learning.bonus}・銘柄勝率${learning.winRate}%`
             : "";
 
-        const patternReason = weightRuleApplied
-          ? `AI自己進化補正${finalPatternBonus >= 0 ? "+" : ""}${finalPatternBonus}・信頼度${
-              weightRule!.confidence
-            }%`
-          : pattern.total >= 10
-          ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${
-              pattern.bonus
-            }・パターン勝率${pattern.winRate}%`
-          : "";
+        const patternReason =
+          weightRuleApplied
+            ? `AI自己進化補正${finalPatternBonus >= 0 ? "+" : ""}${finalPatternBonus}・信頼度${weightRule!.confidence}%`
+            : pattern.total >= 10
+            ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${pattern.bonus}・パターン勝率${pattern.winRate}%`
+            : "";
 
         const sectorReason =
-          sector.total >= 10
-            ? `セクター補正${sector.bonus >= 0 ? "+" : ""}${
-                sector.bonus
-              }・${sectorLabel}勝率${sector.winRate}%`
+          sectorWeightRuleApplied
+            ? `セクターAI補正${finalSectorBonus >= 0 ? "+" : ""}${finalSectorBonus}・${sectorLabel}勝率${sectorWeightRule!.winRate}%`
+            : calculatedSector.total >= 10
+            ? `セクター補正${calculatedSector.bonus >= 0 ? "+" : ""}${calculatedSector.bonus}・${sectorLabel}勝率${calculatedSector.winRate}%`
             : "";
 
         const experienceReason =
           experience.total >= 10
-            ? `経験補正${experience.bonus >= 0 ? "+" : ""}${
-                experience.bonus
-              }・経験勝率${experience.winRate}%`
+            ? `経験補正${experience.bonus >= 0 ? "+" : ""}${experience.bonus}・経験勝率${experience.winRate}%`
             : "";
 
         const similarExperienceReason =
           similarExperience.total >= 10
-            ? `類似経験補正${
-                similarExperience.bonus >= 0 ? "+" : ""
-              }${similarExperience.bonus}・類似勝率${
-                similarExperience.winRate
-              }%・平均類似${similarExperience.averageSimilarity}%`
+            ? `類似経験補正${similarExperience.bonus >= 0 ? "+" : ""}${similarExperience.bonus}・類似勝率${similarExperience.winRate}%・平均類似${similarExperience.averageSimilarity}%`
+            : "";
+
+        const experienceRankingReason =
+          experienceRanking.weightedTotal >= 10
+            ? `経験ランキング補正${experienceRanking.bonus >= 0 ? "+" : ""}${experienceRanking.bonus}・重み付き勝率${experienceRanking.weightedWinRate}%・TOP${experienceRanking.topCount}`
             : "";
 
         const reasons = [
@@ -653,6 +711,7 @@ export async function GET(req: Request) {
           sectorReason,
           experienceReason,
           similarExperienceReason,
+          experienceRankingReason,
         ].filter(Boolean);
 
         return {
@@ -666,6 +725,7 @@ export async function GET(req: Request) {
 
           score: finalScore,
           aiPower: finalScore,
+
           rank:
             finalScore >= 85
               ? "S"
@@ -679,9 +739,10 @@ export async function GET(req: Request) {
             ...scored.scoreBreakdown,
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
-            sector: sector.bonus,
+            sector: finalSectorBonus,
             experience: experience.bonus,
             similarExperience: similarExperience.bonus,
+            experienceRanking: experienceRanking.bonus,
           },
 
           learningBonus: learning.bonus,
@@ -690,8 +751,10 @@ export async function GET(req: Request) {
           learningLose: learningStats?.lose ?? 0,
 
           patternBonus: finalPatternBonus,
-          patternBonusSource: weightRuleApplied ? "weight_rule" : "calculated",
-          patternWinRate: weightRuleApplied
+          patternBonusSource: weightRuleApplied
+            ? "weight_rule"
+            : "calculated",
+                      patternWinRate: weightRuleApplied
             ? weightRule!.winRate
             : pattern.winRate,
           patternTotal: weightRuleApplied
@@ -700,11 +763,21 @@ export async function GET(req: Request) {
           patternWin: pattern.win,
           patternLose: pattern.lose,
 
-          sectorBonus: sector.bonus,
-          sectorWinRate: sector.winRate,
-          sectorTotal: sector.total,
-          sectorWin: sector.win,
-          sectorLose: sector.lose,
+          sectorBonus: finalSectorBonus,
+          sectorBonusSource: sectorWeightRuleApplied
+            ? "sector_weight_rule"
+            : "calculated",
+          sectorWeightRuleApplied,
+          sectorWeightRuleBonus: sectorWeightRule?.bonus ?? 0,
+          sectorWeightRuleConfidence: sectorWeightRule?.confidence ?? 0,
+          sectorWinRate: sectorWeightRuleApplied
+            ? sectorWeightRule!.winRate
+            : calculatedSector.winRate,
+          sectorTotal: sectorWeightRuleApplied
+            ? sectorWeightRule!.sampleCount
+            : calculatedSector.total,
+          sectorWin: sectorStats?.win ?? 0,
+          sectorLose: sectorStats?.lose ?? 0,
 
           experienceBonus: experience.bonus,
           experienceWinRate: experience.winRate,
@@ -714,13 +787,28 @@ export async function GET(req: Request) {
           experienceConfidence: experience.confidence,
 
           similarExperienceBonus: similarExperience.bonus,
+          similarExperienceBaseBonus: similarExperience.baseBonus,
           similarExperienceWinRate: similarExperience.winRate,
           similarExperienceTotal: similarExperience.total,
           similarExperienceWin: similarExperience.win,
           similarExperienceLose: similarExperience.lose,
           similarExperienceConfidence: similarExperience.confidence,
           similarExperienceCount: similarExperience.similarCount,
+          similarExperienceSimilarityRate: similarExperience.similarityRate,
           averageSimilarity: similarExperience.averageSimilarity,
+
+          experienceRankingBonus: experienceRanking.bonus,
+          experienceRankingWinRate: experienceRanking.winRate,
+          experienceRankingWeightedWinRate: experienceRanking.weightedWinRate,
+          experienceRankingTotal: experienceRanking.total,
+          experienceRankingWeightedTotal: experienceRanking.weightedTotal,
+          experienceRankingWin: experienceRanking.win,
+          experienceRankingLose: experienceRanking.lose,
+          experienceRankingConfidence: experienceRanking.confidence,
+          experienceRankingAverageSimilarity:
+            experienceRanking.averageSimilarity,
+          experienceRankingTopCount: experienceRanking.topCount,
+          experienceRankingItems: experienceRanking.items,
 
           weightRuleApplied,
           weightRuleBonus: weightRule?.bonus ?? 0,
@@ -741,14 +829,16 @@ export async function GET(req: Request) {
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V9.2",
+      aiPowerVersion: "V13.4",
       learningBonusEnabled: true,
       patternBonusEnabled: true,
       weightRulesEnabled: true,
       sectorEnabled: true,
       sectorBonusEnabled: true,
+      sectorWeightRuleEnabled: true,
       experienceBonusEnabled: true,
       similarExperienceEnabled: true,
+      experienceRankingEnabled: true,
       marketPattern,
       count: stocks.length,
       requestedLimit: limit,
@@ -764,14 +854,16 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V9.2",
+        aiPowerVersion: "V13.4",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
         sectorEnabled: true,
         sectorBonusEnabled: true,
+        sectorWeightRuleEnabled: true,
         experienceBonusEnabled: true,
         similarExperienceEnabled: true,
+        experienceRankingEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,

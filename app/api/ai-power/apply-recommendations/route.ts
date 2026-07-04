@@ -27,6 +27,7 @@ function getConfidence(sampleCount: number) {
   if (sampleCount >= 10) return 50;
   return 0;
 }
+
 export async function GET(req: Request) {
   const startedAt = Date.now();
 
@@ -65,6 +66,23 @@ export async function GET(req: Request) {
     for (const item of appliedCandidates) {
       const confidence = getConfidence(item.sample_count);
 
+      const [ruleType, ruleKey] = item.pattern_key.includes(":")
+        ? item.pattern_key.split(":")
+        : ["PATTERN", item.pattern_key];
+
+      const previous = await pool.query(
+        `
+        SELECT bonus
+        FROM ai_power_weight_rules
+        WHERE rule_type = $1
+          AND rule_key = $2
+        LIMIT 1
+        `,
+        [ruleType, ruleKey]
+      );
+
+      const oldBonus = previous.rows[0]?.bonus ?? 0;
+
       await pool.query(
         `
         INSERT INTO ai_power_weight_rules (
@@ -80,16 +98,16 @@ export async function GET(req: Request) {
           updated_at
         )
         VALUES (
-          'pattern',
           $1,
           $2,
           $3,
           $4,
-          0,
-          0,
           $5,
+          0,
+          0,
+          $6,
           true,
-          now()
+          NOW()
         )
         ON CONFLICT (rule_type, rule_key)
         DO UPDATE SET
@@ -98,14 +116,41 @@ export async function GET(req: Request) {
           sample_count = EXCLUDED.sample_count,
           confidence = EXCLUDED.confidence,
           is_active = true,
-          updated_at = now()
+          updated_at = NOW()
         `,
         [
-          item.pattern_key,
+          ruleType,
+          ruleKey,
           item.recommended_bonus,
           item.win_rate,
           item.sample_count,
           confidence,
+        ]
+      );
+
+      await pool.query(
+        `
+        INSERT INTO ai_power_evolution_logs (
+          rule_type,
+          rule_key,
+          old_bonus,
+          new_bonus,
+          win_rate,
+          sample_count,
+          reason
+        )
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7
+        )
+        `,
+        [
+          ruleType,
+          ruleKey,
+          oldBonus,
+          item.recommended_bonus,
+          item.win_rate,
+          item.sample_count,
+          `${ruleType} ${ruleKey} updated automatically`,
         ]
       );
 
@@ -121,16 +166,17 @@ export async function GET(req: Request) {
         [item.pattern_key, item.recommended_bonus]
       );
 
-      applied += 1;
+      applied++;
     }
 
     return NextResponse.json({
       success: true,
-      aiPowerVersion: "V6.3_SELF_EVOLUTION",
+      aiPowerVersion: "V11.1_EVOLUTION_HISTORY",
       checked: candidates.length,
       applied,
       skipped: candidates.length - applied,
       rulesUpdated: applied,
+      evolutionLogsAdded: applied,
       candidates,
       appliedCandidates,
       apiTimeMs: Date.now() - startedAt,
@@ -142,9 +188,14 @@ export async function GET(req: Request) {
       {
         success: false,
         error: "AI_POWER_APPLY_RECOMMENDATIONS_FAILED",
-        message: error instanceof Error ? error.message : String(error),
+        message:
+          error instanceof Error
+            ? error.message
+            : String(error),
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

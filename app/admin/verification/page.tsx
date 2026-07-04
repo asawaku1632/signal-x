@@ -19,34 +19,25 @@ type VerificationResult = {
   success: boolean;
   status: "PASS" | "FAIL" | "ERROR";
   checkedAt?: string;
-
   scanSuccess?: boolean;
   cached?: boolean;
   fallback?: boolean;
   debugVersion?: string;
-
   acquisitionRate?: number;
   requestedLimit?: number;
   totalStockList?: number | null;
   stockCount?: number;
   missingCount?: number;
   missingStocks?: MissingStock[];
-
   validCode?: number;
   validName?: number;
   validPrice?: number;
   validScore?: number;
   validReason?: number;
-
   errorCount?: number;
   errors?: VerificationError[];
-
   error?: string;
 };
-
-function judgeLabel(ok: boolean) {
-  return ok ? "PASS" : "FAIL";
-}
 
 function judgeColor(status?: string) {
   if (status === "PASS") return "#16a34a";
@@ -55,12 +46,21 @@ function judgeColor(status?: string) {
   return "#f97316";
 }
 
+function recommendationColor(evaluation?: string) {
+  if (evaluation === "STRONG_BUY") return "#16a34a";
+  if (evaluation === "BUY") return "#22c55e";
+  if (evaluation === "SLIGHT_BUY") return "#84cc16";
+  if (evaluation === "KEEP") return "#f97316";
+  if (evaluation === "WEAK") return "#fb923c";
+  if (evaluation === "AVOID") return "#dc2626";
+  if (evaluation === "NOT_ENOUGH_DATA") return "#6b7280";
+  return "#6b7280";
+}
+
 export default function VerificationPage() {
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [history, setHistory] = useState<any[]>([]);
-  const [debugResult, setDebugResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
 
   const [aiPowerResult, setAiPowerResult] = useState<any>(null);
@@ -72,6 +72,10 @@ export default function VerificationPage() {
   const [lineResult, setLineResult] = useState<any>(null);
   const [lineLoading, setLineLoading] = useState(false);
 
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [evolutionHistory, setEvolutionHistory] = useState<any[]>([]);
+  const [dailyReports, setDailyReports] = useState<any[]>([]);
+
   async function runAiPowerVerification() {
     setAiPowerLoading(true);
 
@@ -82,7 +86,7 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setAiPowerResult(data);
-    } catch (error) {
+    } catch {
       setAiPowerResult({
         success: false,
         status: "FAIL",
@@ -103,7 +107,7 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setLearningResult(data);
-    } catch (error) {
+    } catch {
       setLearningResult({
         success: false,
         status: "FAIL",
@@ -124,7 +128,7 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setLineResult(data);
-    } catch (error) {
+    } catch {
       setLineResult({
         success: false,
         status: "FAIL",
@@ -134,8 +138,7 @@ export default function VerificationPage() {
       setLineLoading(false);
     }
   }
-
-  const runVerification = async () => {
+    const runVerification = async () => {
     setLoading(true);
     setResult(null);
 
@@ -147,26 +150,34 @@ export default function VerificationPage() {
       const data = await res.json();
       setResult(data);
 
-      const historyRes = await fetch("/api/verification/history", {
-        cache: "no-store",
-      });
-
-      const historyData = await historyRes.json();
-      setHistory(historyData.logs ?? []);
-
-      const debugRes = await fetch("/api/verification/scan-debug?limit=1000", {
-        cache: "no-store",
-      });
-
-      const debugData = await debugRes.json();
-      setDebugResult(debugData);
-
       const technicalRes = await fetch("/api/verification/technical?limit=100", {
         cache: "no-store",
       });
 
       const technicalData = await technicalRes.json();
       setTechnicalResult(technicalData);
+
+      const recommendationRes = await fetch(
+        "/api/ai-power/recommendations/list",
+        { cache: "no-store" }
+      );
+
+      const recommendationData = await recommendationRes.json();
+      setRecommendations(recommendationData.recommendations ?? []);
+
+      const evolutionRes = await fetch("/api/ai-power/evolution-history", {
+        cache: "no-store",
+      });
+
+      const evolutionData = await evolutionRes.json();
+      setEvolutionHistory(evolutionData.history ?? []);
+
+      const reportRes = await fetch("/api/ai-power/daily-report/history", {
+        cache: "no-store",
+      });
+
+      const reportData = await reportRes.json();
+      setDailyReports(reportData.history ?? []);
     } catch (error) {
       setResult({
         success: false,
@@ -178,40 +189,52 @@ export default function VerificationPage() {
     }
   };
 
-  const statusColor = judgeColor(result?.status);
-  const aiPowerStatusColor = judgeColor(aiPowerResult?.status);
   const phase1Ok = result?.status === "PASS";
-const phase2Ok =
-  technicalResult?.status === "PASS" ||
-  technicalResult?.failCount === 0 ||
-  technicalResult?.matchRate >= 99;
-const phase3Ok = aiPowerResult?.status === "PASS";
-const phase4Ok = learningResult?.status === "PASS";
-const phase5Ok =
-  lineResult?.status === "PASS" || lineResult?.status === "NO_DATA";
+  const phase2Ok =
+    technicalResult?.status === "PASS" ||
+    technicalResult?.failCount === 0 ||
+    technicalResult?.matchRate >= 99;
+  const phase3Ok = aiPowerResult?.status === "PASS";
+  const phase4Ok = learningResult?.status === "PASS";
+  const phase5Ok =
+    lineResult?.status === "PASS" || lineResult?.status === "NO_DATA";
+  const phase6Ok = recommendations.length > 0;
+  const phase7Ok = evolutionHistory.length > 0;
+  const phase8Ok = dailyReports.length > 0;
 
-const allRequiredOk =
-  phase1Ok && phase2Ok && phase3Ok && phase4Ok && phase5Ok;
+  const allRequiredOk =
+    phase1Ok &&
+    phase2Ok &&
+    phase3Ok &&
+    phase4Ok &&
+    phase5Ok &&
+    phase6Ok &&
+    phase7Ok &&
+    phase8Ok;
 
-const hasAnyFail =
-  result?.status === "FAIL" ||
-  result?.status === "ERROR" ||
-  technicalResult?.status === "FAIL" ||
-  aiPowerResult?.status === "FAIL" ||
-  learningResult?.status === "FAIL" ||
-  lineResult?.status === "FAIL";
+  const hasAnyFail =
+    result?.status === "FAIL" ||
+    result?.status === "ERROR" ||
+    technicalResult?.status === "FAIL" ||
+    aiPowerResult?.status === "FAIL" ||
+    learningResult?.status === "FAIL" ||
+    lineResult?.status === "FAIL";
 
-const qaStatus = hasAnyFail
-  ? "🔴 NOT READY"
-  : allRequiredOk
-  ? "🟢 READY FOR RELEASE"
-  : "🟡 CHECKING";
-const qaStatusColor = hasAnyFail
-  ? "#dc2626"
-  : qaStatus.includes("READY")
-  ? "#16a34a"
-  : "#f97316";
-    return (
+  const qaStatus = hasAnyFail
+    ? "🔴 NOT READY"
+    : allRequiredOk
+    ? "🟢 READY FOR RELEASE"
+    : "🟡 CHECKING";
+
+  const qaStatusColor = hasAnyFail
+    ? "#dc2626"
+    : qaStatus.includes("READY")
+    ? "#16a34a"
+    : "#f97316";
+
+  const latestReport = dailyReports[dailyReports.length - 1];
+
+  return (
     <main
       style={{
         minHeight: "100vh",
@@ -220,16 +243,8 @@ const qaStatusColor = hasAnyFail
         color: "#111827",
       }}
     >
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <header
-          style={{
-            background: "white",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            marginBottom: 20,
-          }}
-        >
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <header style={cardStyle}>
           <h1 style={{ margin: 0 }}>SIGNALX Verification Center</h1>
           <p style={{ marginTop: 8, color: "#6b7280" }}>
             Google Play公開前 品質保証チェック
@@ -239,14 +254,8 @@ const qaStatusColor = hasAnyFail
             onClick={runVerification}
             disabled={loading}
             style={{
-              marginTop: 16,
-              padding: "12px 20px",
-              borderRadius: 10,
-              border: "none",
+              ...buttonStyle,
               background: loading ? "#6b7280" : "#111827",
-              color: "white",
-              fontWeight: "bold",
-              cursor: loading ? "not-allowed" : "pointer",
             }}
           >
             {loading ? "検証中..." : "検証開始"}
@@ -256,15 +265,9 @@ const qaStatusColor = hasAnyFail
             onClick={runAiPowerVerification}
             disabled={aiPowerLoading}
             style={{
-              marginTop: 16,
+              ...buttonStyle,
               marginLeft: 12,
-              padding: "12px 20px",
-              borderRadius: 10,
-              border: "none",
               background: aiPowerLoading ? "#93c5fd" : "#2563eb",
-              color: "white",
-              fontWeight: "bold",
-              cursor: aiPowerLoading ? "not-allowed" : "pointer",
             }}
           >
             {aiPowerLoading ? "AI POWER監査中..." : "AI POWER監査"}
@@ -274,15 +277,9 @@ const qaStatusColor = hasAnyFail
             onClick={runLearningVerification}
             disabled={learningLoading}
             style={{
-              marginTop: 16,
+              ...buttonStyle,
               marginLeft: 12,
-              padding: "12px 20px",
-              borderRadius: 10,
-              border: "none",
               background: learningLoading ? "#86efac" : "#16a34a",
-              color: "white",
-              fontWeight: "bold",
-              cursor: learningLoading ? "not-allowed" : "pointer",
             }}
           >
             {learningLoading ? "AI学習監査中..." : "AI学習監査"}
@@ -292,591 +289,242 @@ const qaStatusColor = hasAnyFail
             onClick={runLineVerification}
             disabled={lineLoading}
             style={{
-              marginTop: 16,
+              ...buttonStyle,
               marginLeft: 12,
-              padding: "12px 20px",
-              borderRadius: 10,
-              border: "none",
               background: lineLoading ? "#86efac" : "#06c755",
-              color: "white",
-              fontWeight: "bold",
-              cursor: lineLoading ? "not-allowed" : "pointer",
             }}
           >
             {lineLoading ? "LINE監査中..." : "LINE通知監査"}
           </button>
         </header>
+
         <section
-  style={{
-    background: "white",
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-    border: "2px solid #16a34a",
-  }}
->
-  <h2 style={{ marginTop: 0 }}>SIGNALX QA STATUS</h2>
+          style={{
+            ...cardStyle,
+            border: "2px solid #16a34a",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>SIGNALX QA STATUS</h2>
 
-  <h1 style={{ color: qaStatusColor, margin: "8px 0" }}>
-  {qaStatus}
-</h1>
+          <h1 style={{ color: qaStatusColor, margin: "8px 0" }}>
+            {qaStatus}
+          </h1>
 
-  <p style={{ color: "#6b7280", marginTop: 8 }}>
-    Google Play公開前 品質保証フェーズ
-  </p>
+          <p style={{ color: "#6b7280", marginTop: 8 }}>
+            Google Play公開前 品質保証フェーズ
+          </p>
 
-  <div style={{ lineHeight: 2, marginTop: 16 }}>
-  <p>{phase1Ok ? "✅" : "⏳"} Phase1：データ取得監査</p>
-  <p>{phase2Ok ? "✅" : "⏳"} Phase2：テクニカル監査</p>
-  <p>{phase3Ok ? "✅" : "⏳"} Phase3：AI POWER監査</p>
-  <p>{phase4Ok ? "✅" : "⏳"} Phase4：AI学習監査</p>
-  <p>
-    {lineResult?.status === "NO_DATA" ? "🟠" : phase5Ok ? "✅" : "⏳"}{" "}
-    Phase5：LINE通知監査
-    {lineResult?.status === "NO_DATA"
-      ? "（通知なし日はNO_DATA）"
-      : ""}
-  </p>
-</div>
-</section>
+          <div style={{ lineHeight: 2, marginTop: 16 }}>
+            <p>{phase1Ok ? "✅" : "⏳"} Phase1：データ取得監査</p>
+            <p>{phase2Ok ? "✅" : "⏳"} Phase2：テクニカル監査</p>
+            <p>{phase3Ok ? "✅" : "⏳"} Phase3：AI POWER監査</p>
+            <p>{phase4Ok ? "✅" : "⏳"} Phase4：AI学習監査</p>
+            <p>
+              {lineResult?.status === "NO_DATA" ? "🟠" : phase5Ok ? "✅" : "⏳"}{" "}
+              Phase5：LINE通知監査
+              {lineResult?.status === "NO_DATA"
+                ? "（通知なし日はNO_DATA）"
+                : ""}
+            </p>
+            <p>{phase6Ok ? "✅" : "⏳"} Phase6：AI提案監査</p>
+            <p>{phase7Ok ? "✅" : "⏳"} Phase7：AI進化履歴</p>
+            <p>{phase8Ok ? "✅" : "⏳"} Phase8：AI日次レポート</p>
+          </div>
+        </section>
+              {evolutionHistory.length > 0 && (
+        <section style={cardStyle}>
+          <h2>🧠 AI Evolution History</h2>
 
-        {result && (
-          <section
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>日時</th>
+                <th style={thStyle}>種類</th>
+                <th style={thStyle}>ルール</th>
+                <th style={thStyle}>変更</th>
+                <th style={thStyle}>勝率</th>
+                <th style={thStyle}>件数</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {evolutionHistory.map((item) => (
+                <tr key={item.id}>
+                  <td style={tdStyle}>
+                    {new Date(item.applied_at).toLocaleString("ja-JP")}
+                  </td>
+                  <td style={tdStyle}>{item.rule_type}</td>
+                  <td style={tdStyle}>{item.rule_key}</td>
+                  <td style={tdStyle}>
+                    {item.old_bonus} → {item.new_bonus}
+                  </td>
+                  <td style={tdStyle}>{item.win_rate}%</td>
+                  <td style={tdStyle}>{item.sample_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {recommendations.length > 0 && (
+        <section style={cardStyle}>
+          <h2>🤖 Phase6：AI Recommendation</h2>
+
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>項目</th>
+                <th style={thStyle}>現在</th>
+                <th style={thStyle}>AI提案</th>
+                <th style={thStyle}>勝率</th>
+                <th style={thStyle}>件数</th>
+                <th style={thStyle}>評価</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {recommendations.map((item) => (
+                <tr key={item.id}>
+                  <td style={tdStyle}>{item.pattern_key}</td>
+                  <td style={tdStyle}>{item.current_bonus}</td>
+
+                  <td
+                    style={{
+                      ...tdStyle,
+                      color:
+                        item.recommended_bonus > 0
+                          ? "#16a34a"
+                          : item.recommended_bonus < 0
+                          ? "#dc2626"
+                          : "#6b7280",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {item.recommended_bonus > 0 ? "+" : ""}
+                    {item.recommended_bonus}
+                  </td>
+
+                  <td style={tdStyle}>{item.win_rate}%</td>
+                  <td style={tdStyle}>{item.sample_count}</td>
+
+                  <td
+                    style={{
+                      ...tdStyle,
+                      color: recommendationColor(item.evaluation),
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {item.evaluation}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {latestReport && (
+        <section style={cardStyle}>
+          <h2>📈 AI Daily Report</h2>
+
+          <div
             style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              display: "grid",
+              gridTemplateColumns: "repeat(4,1fr)",
+              gap: 16,
+              marginBottom: 20,
             }}
           >
-            <h2 style={{ color: statusColor, marginTop: 0 }}>
-              総合判定：{result.status}
-            </h2>
-
-            {result.error && (
-              <p style={{ color: "#dc2626", fontWeight: "bold" }}>
-                エラー：{result.error}
-              </p>
-            )}
-
-            <div style={{ lineHeight: 2 }}>
-              <p>検証時刻：{result.checkedAt}</p>
-              <p>Debug Version：{result.debugVersion ?? "-"}</p>
-              <p>Scan成功：{String(result.scanSuccess)}</p>
-              <p>Cache使用：{String(result.cached)}</p>
-              <p>Fallback使用：{String(result.fallback)}</p>
+            <div style={statCard}>
+              <h3>🤖 Health</h3>
+              <h1>{latestReport.health_score}</h1>
             </div>
 
-            <hr style={{ margin: "20px 0" }} />
+            <div style={statCard}>
+              <h3>📊 Acquisition</h3>
+              <h1>{latestReport.acquisition_rate}%</h1>
+            </div>
 
-            <h3>Phase1：データ取得検証</h3>
+            <div style={statCard}>
+              <h3>🧠 Evolution</h3>
+              <h1>{latestReport.evolution_count}</h1>
+            </div>
 
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                marginTop: 12,
-              }}
-            >
-              <tbody>
-                <tr>
-                  <td style={tdStyle}>要求銘柄数</td>
-                  <td style={tdStyle}>{result.requestedLimit ?? "-"}</td>
-                  <td style={tdStyle}>-</td>
-                </tr>
+            <div style={statCard}>
+              <h3>✅ QA</h3>
+              <h1>{latestReport.qa_status}</h1>
+            </div>
+          </div>
 
-                <tr>
-                  <td style={tdStyle}>登録銘柄総数</td>
-                  <td style={tdStyle}>{result.totalStockList ?? "-"}</td>
-                  <td style={tdStyle}>-</td>
-                </tr>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>日付</th>
+                <th style={thStyle}>Health</th>
+                <th style={thStyle}>取得率</th>
+                <th style={thStyle}>提案</th>
+                <th style={thStyle}>反映</th>
+                <th style={thStyle}>進化</th>
+              </tr>
+            </thead>
 
-                <tr>
-                  <td style={tdStyle}>対象銘柄取得率</td>
+            <tbody>
+              {dailyReports.map((r) => (
+                <tr key={r.id}>
                   <td style={tdStyle}>
-                    {result.stockCount ?? 0} / {result.totalStockList ?? 0}{" "}
-                    (
-                    {result.acquisitionRate
-                      ? (result.acquisitionRate * 100).toFixed(2)
-                      : "0.00"}
-                    %)
+                    {new Date(r.report_date).toLocaleDateString("ja-JP")}
+                  </td>
+                  <td style={tdStyle}>{r.health_score}</td>
+                  <td style={tdStyle}>{r.acquisition_rate}%</td>
+                  <td style={tdStyle}>
+                    {r.generated_recommendations}
                   </td>
                   <td style={tdStyle}>
-                    {judgeLabel((result.acquisitionRate ?? 0) >= 0.99)}
+                    {r.applied_recommendations}
                   </td>
+                  <td style={tdStyle}>{r.evolution_count}</td>
                 </tr>
-
-                <tr>
-                  <td style={tdStyle}>未取得銘柄数</td>
-                  <td style={tdStyle}>{result.missingCount ?? "-"}</td>
-                  <td style={tdStyle}>情報</td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>除外候補</td>
-                  <td style={tdStyle}>{(result as any).excludedCount ?? 0}</td>
-                  <td style={tdStyle}>確認中</td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>要調査銘柄</td>
-                  <td style={tdStyle}>
-                    {(result as any).investigationRequiredCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>監視中</td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>銘柄コード</td>
-                  <td style={tdStyle}>
-                    {result.validCode ?? 0} / {result.stockCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>
-                    {judgeLabel(result.validCode === result.stockCount)}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>銘柄名</td>
-                  <td style={tdStyle}>
-                    {result.validName ?? 0} / {result.stockCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>
-                    {judgeLabel(result.validName === result.stockCount)}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>現在価格</td>
-                  <td style={tdStyle}>
-                    {result.validPrice ?? 0} / {result.stockCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>
-                    {judgeLabel(result.validPrice === result.stockCount)}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>AI POWER</td>
-                  <td style={tdStyle}>
-                    {result.validScore ?? 0} / {result.stockCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>
-                    {judgeLabel(result.validScore === result.stockCount)}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>判定理由</td>
-                  <td style={tdStyle}>
-                    {result.validReason ?? 0} / {result.stockCount ?? 0}
-                  </td>
-                  <td style={tdStyle}>
-                    {judgeLabel(result.validReason === result.stockCount)}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style={tdStyle}>エラー件数</td>
-                  <td style={tdStyle}>{result.errorCount ?? 0}</td>
-                  <td style={tdStyle}>
-                    {judgeLabel((result.errorCount ?? 1) === 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-                        {debugResult?.reasonSummary && (
-              <div
-                style={{
-                  marginTop: 24,
-                  background: "#fff7ed",
-                  border: "1px solid #fed7aa",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <h3 style={{ marginTop: 0 }}>取得失敗の内訳</h3>
-
-                <p>対象銘柄取得：{result.stockCount ?? 0}件</p>
-                <p>有効銘柄総数：{result.totalStockList ?? 0}件</p>
-                <p>
-                  取得率：
-                  {result.acquisitionRate
-                    ? (result.acquisitionRate * 100).toFixed(2)
-                    : "0.00"}
-                  %
-                </p>
-                <p>未取得総数：{result.missingCount ?? 0}件</p>
-                <p>除外候補：{(result as any).excludedCount ?? 0}件</p>
-                <p>要調査：{(result as any).investigationRequiredCount ?? 0}件</p>
-                <p>解析時間：{debugResult.scanMs}ms</p>
-
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    background: "white",
-                    marginTop: 12,
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>原因</th>
-                      <th style={thStyle}>件数</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {Object.entries(debugResult.reasonSummary).map(
-                      ([reason, count]) => (
-                        <tr key={reason}>
-                          <td style={tdStyle}>{reason}</td>
-                          <td style={tdStyle}>{String(count)}</td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {debugResult?.failedStocks && (
-              <div style={{ marginTop: 20 }}>
-                <h4>取得失敗銘柄 詳細</h4>
-
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    background: "white",
-                    marginTop: 12,
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>コード</th>
-                      <th style={thStyle}>銘柄名</th>
-                      <th style={thStyle}>原因</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {debugResult.failedStocks.map((stock: any) => (
-                      <tr key={stock.code}>
-                        <td style={tdStyle}>{stock.code}</td>
-                        <td style={tdStyle}>{stock.name}</td>
-                        <td style={tdStyle}>{stock.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {result.missingStocks && result.missingStocks.length > 0 && (
-              <div
-                style={{
-                  marginTop: 24,
-                  background: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <h3 style={{ color: "#dc2626", marginTop: 0 }}>
-                  未取得銘柄一覧：{result.missingStocks.length}件
-                </h3>
-
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    background: "white",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>コード</th>
-                      <th style={thStyle}>銘柄名</th>
-                      <th style={thStyle}>理由</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {result.missingStocks.map((stock) => (
-                      <tr key={stock.code}>
-                        <td style={tdStyle}>{stock.code}</td>
-                        <td style={tdStyle}>{stock.name}</td>
-                        <td style={tdStyle}>{stock.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {result.errors && result.errors.length > 0 && (
-              <div style={{ marginTop: 24 }}>
-                <h3>エラー詳細 最大100件</h3>
-                <ul>
-                  {result.errors.map((item, index) => (
-                    <li key={index}>
-                      {item.code || "UNKNOWN"}{" "}
-                      {item.name ? `(${item.name})` : ""}：{item.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        )}
-
-        {technicalResult && (
-          <section
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            }}
-          >
-            <h2>Phase2：テクニカル検証</h2>
-
-            <p>対象銘柄数：{technicalResult.targetCount}</p>
-            <p>PASS：{technicalResult.passCount}</p>
-            <p>FAIL：{technicalResult.failCount}</p>
-            <p>一致率：{technicalResult.matchRate}%</p>
-            <p>解析時間：{technicalResult.scanMs}ms</p>
-
-            <h3>検証指標</h3>
-            <p>{technicalResult.indicators?.join(" / ")}</p>
-          </section>
-        )}
-
-        {aiPowerResult && (
-          <section
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            }}
-          >
-            <h2 style={{ color: aiPowerStatusColor, marginTop: 0 }}>
-              Phase3：AI POWER監査：{aiPowerResult.status}
-            </h2>
-
-            {aiPowerResult.error && (
-              <p style={{ color: "#dc2626", fontWeight: "bold" }}>
-                エラー：{aiPowerResult.error}
-              </p>
-            )}
-
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
-              <tbody>
-                <tr>
-                  <td style={tdStyle}>検査銘柄</td>
-                  <td style={tdStyle}>{aiPowerResult.checked ?? 0}</td>
-                  <td style={tdStyle}>-</td>
-                </tr>
-                <tr>
-                  <td style={tdStyle}>PASS</td>
-                  <td style={tdStyle}>{aiPowerResult.pass ?? 0}</td>
-                  <td style={tdStyle}>{judgeLabel(aiPowerResult.status === "PASS")}</td>
-                </tr>
-                <tr>
-                  <td style={tdStyle}>FAIL</td>
-                  <td style={tdStyle}>{aiPowerResult.fail ?? 0}</td>
-                  <td style={tdStyle}>{judgeLabel((aiPowerResult.fail ?? 1) === 0)}</td>
-                </tr>
-                <tr>
-                  <td style={tdStyle}>一致率</td>
-                  <td style={tdStyle}>{aiPowerResult.passRate ?? 0}%</td>
-                  <td style={tdStyle}>{judgeLabel((aiPowerResult.passRate ?? 0) >= 99)}</td>
-                </tr>
-                <tr>
-                  <td style={tdStyle}>API時間</td>
-                  <td style={tdStyle}>{aiPowerResult.apiTimeMs ?? "-"}ms</td>
-                  <td style={tdStyle}>情報</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {aiPowerResult.failedStocks?.length > 0 ? (
-              <div
-                style={{
-                  marginTop: 24,
-                  background: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <h3 style={{ color: "#dc2626", marginTop: 0 }}>
-                  AI POWER FAIL一覧：{aiPowerResult.failedStocks.length}件
-                </h3>
-              </div>
-            ) : (
-              <p
-                style={{
-                  marginTop: 20,
-                  background: "#dcfce7",
-                  color: "#166534",
-                  borderRadius: 12,
-                  padding: 16,
-                  fontWeight: "bold",
-                }}
-              >
-                ✅ AI POWER異常なし
-              </p>
-            )}
-          </section>
-        )}
-
-        {learningResult && (
-          <section
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            }}
-          >
-            <h2 style={{ color: judgeColor(learningResult.status), marginTop: 0 }}>
-              Phase4：AI学習監査：{learningResult.status}
-            </h2>
-
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
-              <tbody>
-                <tr><td style={tdStyle}>daily-stock-results</td><td style={tdStyle}>{learningResult.dailyResults ?? 0}</td><td style={tdStyle}>保存件数</td></tr>
-                <tr><td style={tdStyle}>WIN</td><td style={tdStyle}>{learningResult.win ?? 0}</td><td style={tdStyle}>判定済み</td></tr>
-                <tr><td style={tdStyle}>LOSE</td><td style={tdStyle}>{learningResult.lose ?? 0}</td><td style={tdStyle}>判定済み</td></tr>
-                <tr><td style={tdStyle}>HOLD</td><td style={tdStyle}>{learningResult.hold ?? 0}</td><td style={tdStyle}>保留</td></tr>
-                <tr><td style={tdStyle}>UNKNOWN</td><td style={tdStyle}>{learningResult.unknown ?? 0}</td><td style={tdStyle}>未判定</td></tr>
-                <tr><td style={tdStyle}>判定済み</td><td style={tdStyle}>{learningResult.judged ?? 0}</td><td style={tdStyle}>WIN + LOSE</td></tr>
-                <tr><td style={tdStyle}>AI勝率</td><td style={tdStyle}>{learningResult.winRate ?? 0}%</td><td style={tdStyle}>WIN / WIN+LOSE</td></tr>
-                <tr><td style={tdStyle}>API時間</td><td style={tdStyle}>{learningResult.apiTimeMs ?? "-"}ms</td><td style={tdStyle}>情報</td></tr>
-              </tbody>
-            </table>
-
-            <p
-              style={{
-                marginTop: 20,
-                background: "#dcfce7",
-                color: "#166534",
-                borderRadius: 12,
-                padding: 16,
-                fontWeight: "bold",
-              }}
-            >
-              ✅ AI学習データ取得OK
-            </p>
-          </section>
-        )}
-                {lineResult && (
-          <section
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            }}
-          >
-            <h2 style={{ color: judgeColor(lineResult.status), marginTop: 0 }}>
-              Phase5：LINE通知監査：{lineResult.status}
-            </h2>
-
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
-              <tbody>
-                <tr><td style={tdStyle}>本日通知対象</td><td style={tdStyle}>{lineResult.targetCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
-                <tr><td style={tdStyle}>送信件数</td><td style={tdStyle}>{lineResult.sentCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
-                <tr><td style={tdStyle}>成功件数</td><td style={tdStyle}>{lineResult.successCount ?? 0}</td><td style={tdStyle}>今日</td></tr>
-                <tr><td style={tdStyle}>失敗件数</td><td style={tdStyle}>{lineResult.failedCount ?? 0}</td><td style={tdStyle}>{judgeLabel((lineResult.failedCount ?? 0) === 0)}</td></tr>
-                <tr><td style={tdStyle}>重複通知</td><td style={tdStyle}>{lineResult.duplicateCount ?? 0}</td><td style={tdStyle}>{judgeLabel((lineResult.duplicateCount ?? 0) === 0)}</td></tr>
-                <tr><td style={tdStyle}>通知履歴総数</td><td style={tdStyle}>{lineResult.totalLogs ?? 0}</td><td style={tdStyle}>保存済み</td></tr>
-                <tr><td style={tdStyle}>API時間</td><td style={tdStyle}>{lineResult.apiTimeMs ?? "-"}ms</td><td style={tdStyle}>情報</td></tr>
-              </tbody>
-            </table>
-
-            {lineResult.latestNotification && (
-              <div
-                style={{
-                  marginTop: 20,
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <h3 style={{ marginTop: 0 }}>最新通知</h3>
-                <p>
-                  {lineResult.latestNotification.code}{" "}
-                  {lineResult.latestNotification.name}
-                </p>
-                <p>AI POWER：{lineResult.latestNotification.aiPower}</p>
-                <p>判定：{lineResult.latestNotification.judge}</p>
-                <p>
-                  通知時刻：
-                  {new Date(lineResult.latestNotification.notifiedAt).toLocaleString("ja-JP")}
-                </p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {history.length > 0 && (
-          <section
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-            }}
-          >
-            <h2>Verification History</h2>
-
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-              }}
-            >
-              <thead>
-                <tr>
-                  <th style={thStyle}>日時</th>
-                  <th style={thStyle}>判定</th>
-                  <th style={thStyle}>取得銘柄</th>
-                  <th style={thStyle}>不足</th>
-                  <th style={thStyle}>API(ms)</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id}>
-                    <td style={tdStyle}>
-                      {new Date(item.created_at).toLocaleString("ja-JP")}
-                    </td>
-                    <td style={tdStyle}>{item.status}</td>
-                    <td style={tdStyle}>{item.stock_count}</td>
-                    <td style={tdStyle}>{item.missing_count}</td>
-                    <td style={tdStyle}>{item.scan_ms}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-      </div>
-    </main>
-  );
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </div>
+  </main>
+);
 }
+
+const cardStyle: CSSProperties = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 24,
+  marginBottom: 20,
+  boxShadow: "0 2px 10px rgba(0,0,0,.06)",
+};
+
+const statCard: CSSProperties = {
+  background: "#f8fafc",
+  borderRadius: 12,
+  padding: 20,
+  textAlign: "center",
+};
+
+const buttonStyle: CSSProperties = {
+  marginTop: 16,
+  padding: "12px 20px",
+  borderRadius: 10,
+  border: "none",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const tableStyle: CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  marginTop: 16,
+};
 
 const tdStyle: CSSProperties = {
   borderBottom: "1px solid #e5e7eb",
