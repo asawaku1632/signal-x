@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const baseUrl = new URL(req.url).origin;
+
     const res = await fetch(
-      "http://localhost:3000/api/experience/analytics",
+      `${baseUrl}/api/experience/analytics`,
       {
         cache: "no-store",
       }
@@ -27,7 +29,7 @@ export async function GET() {
         }
       >
     ) {
-      Object.entries(values).forEach(([key, value]) => {
+      Object.entries(values ?? {}).forEach(([key, value]) => {
         let recommendedBonus = 0;
         let evaluation = "KEEP";
 
@@ -64,20 +66,30 @@ export async function GET() {
       });
     }
 
-    evaluate("RSI", data.analytics.rsi);
-    evaluate("MACD", data.analytics.macd);
-    evaluate("TREND", data.analytics.trend);
+    evaluate("RSI", data.analytics?.rsi);
+    evaluate("MACD", data.analytics?.macd);
+    evaluate("TREND", data.analytics?.trend);
 
     return NextResponse.json({
       success: true,
+      aiPowerVersion: "V11.0_RECOMMENDATIONS_GENERATE",
       recommendationCount: recommendations.length,
       recommendations,
+      baseUrl,
     });
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error("recommendations generate error:", error);
 
-    return NextResponse.json({
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        aiPowerVersion: "V11.0_RECOMMENDATIONS_GENERATE",
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
