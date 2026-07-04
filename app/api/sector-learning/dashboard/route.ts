@@ -22,21 +22,39 @@ export async function GET() {
   try {
     const { rows } = await pool.query(`
       SELECT
-        l.sector_key,
-        l.sector_name,
-        SUM(l.win_count)::int AS win,
-        SUM(l.lose_count)::int AS lose,
-        SUM(l.hold_count)::int AS hold,
-        SUM(l.judged_count)::int AS total,
-        COALESCE(MAX(r.bonus), 0)::int AS ai_bonus,
-        COALESCE(MAX(r.confidence), 0)::int AS confidence
-      FROM sector_learning_logs l
+        latest.sector_key,
+        latest.sector_name,
+        COALESCE(latest.win_count, 0)::int AS win,
+        COALESCE(latest.lose_count, 0)::int AS lose,
+        COALESCE(latest.hold_count, 0)::int AS hold,
+        COALESCE(latest.judged_count, 0)::int AS total,
+        COALESCE(latest.win_rate, 0)::numeric AS win_rate,
+        COALESCE(latest.ai_bonus, 0)::int AS calculated_bonus,
+        COALESCE(latest.confidence, 0)::int AS calculated_confidence,
+        COALESCE(r.bonus, latest.ai_bonus, 0)::int AS ai_bonus,
+        COALESCE(r.confidence, latest.confidence, 0)::int AS confidence,
+        latest.trade_date,
+        r.updated_at AS rule_updated_at
+      FROM (
+        SELECT DISTINCT ON (sector_key)
+          sector_key,
+          sector_name,
+          win_count,
+          lose_count,
+          hold_count,
+          judged_count,
+          win_rate,
+          ai_bonus,
+          confidence,
+          trade_date
+        FROM sector_learning_logs
+        WHERE judged_count >= 0
+        ORDER BY sector_key, trade_date DESC
+      ) latest
       LEFT JOIN ai_power_weight_rules r
         ON r.rule_type = 'SECTOR'
-       AND r.rule_key = l.sector_key
+       AND r.rule_key = latest.sector_key
        AND r.is_active = true
-      GROUP BY l.sector_key, l.sector_name
-      ORDER BY total DESC
     `);
 
     const sectors = rows
@@ -45,9 +63,7 @@ export async function GET() {
         const lose = Number(row.lose ?? 0);
         const hold = Number(row.hold ?? 0);
         const total = Number(row.total ?? win + lose + hold);
-
-        const winRate =
-          total > 0 ? Math.round((win / total) * 100) : 0;
+        const winRate = Math.round(Number(row.win_rate ?? 0));
 
         return {
           sectorKey: row.sector_key,
@@ -59,13 +75,16 @@ export async function GET() {
           winRate,
           aiBonus: Number(row.ai_bonus ?? 0),
           confidence: Number(row.confidence ?? 0),
+          calculatedBonus: Number(row.calculated_bonus ?? 0),
+          calculatedConfidence: Number(row.calculated_confidence ?? 0),
+          tradeDate: row.trade_date,
+          ruleUpdatedAt: row.rule_updated_at,
           evaluation: getEvaluation(winRate, total),
         };
       })
       .sort((a, b) => {
-        if (b.winRate !== a.winRate) {
-          return b.winRate - a.winRate;
-        }
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        if (b.confidence !== a.confidence) return b.confidence - a.confidence;
         return b.total - a.total;
       })
       .map((sector, index) => ({
@@ -76,7 +95,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      aiPowerVersion: "V13.6_SECTOR_DASHBOARD",
+      aiPowerVersion: "V13.6.1_SECTOR_DASHBOARD_LATEST",
       sectorCount: sectors.length,
       sectors,
     });
@@ -86,7 +105,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        aiPowerVersion: "V13.6_SECTOR_DASHBOARD",
+        aiPowerVersion: "V13.6.1_SECTOR_DASHBOARD_LATEST",
         error:
           error instanceof Error
             ? error.message

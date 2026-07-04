@@ -21,6 +21,11 @@ export async function GET() {
     let applied = 0;
 
     for (const row of rows) {
+      const winRate = Math.round(Number(row.win_rate ?? 0));
+      const aiBonus = Math.round(Number(row.ai_bonus ?? 0));
+      const confidence = Math.round(Number(row.confidence ?? 0));
+      const sampleCount = Math.round(Number(row.judged_count ?? 0));
+
       await pool.query(
         `
         INSERT INTO ai_power_weight_rules (
@@ -58,10 +63,10 @@ export async function GET() {
         `,
         [
           row.sector_key,
-          Number(row.ai_bonus ?? 0),
-          Number(row.win_rate ?? 0),
-          Number(row.judged_count ?? 0),
-          Number(row.confidence ?? 0),
+          aiBonus,
+          winRate,
+          sampleCount,
+          confidence,
         ]
       );
 
@@ -70,7 +75,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      aiPowerVersion: "V13.3_SECTOR_APPLY_BONUS",
+      aiPowerVersion: "V13.6.3_SECTOR_APPLY_BONUS_INT_SAFE",
       checked: rows.length,
       applied,
       rulesUpdated: applied,
@@ -82,7 +87,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        aiPowerVersion: "V13.3_SECTOR_APPLY_BONUS",
+        aiPowerVersion: "V13.6.3_SECTOR_APPLY_BONUS_INT_SAFE",
         error:
           error instanceof Error
             ? error.message
