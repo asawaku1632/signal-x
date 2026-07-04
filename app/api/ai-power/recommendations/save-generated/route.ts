@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const baseUrl = "http://localhost:3000";
+    const baseUrl = new URL(req.url).origin;
 
     const res = await fetch(
       `${baseUrl}/api/ai-power/recommendations/generate`,
@@ -66,14 +66,17 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      aiPowerVersion: "V11.1_RECOMMENDATIONS_SAVE_GENERATED",
       savedCount,
+      baseUrl,
     });
   } catch (error) {
-    console.error(error);
+    console.error("save generated recommendations error:", error);
 
     return NextResponse.json(
       {
         success: false,
+        aiPowerVersion: "V11.1_RECOMMENDATIONS_SAVE_GENERATED",
         error:
           error instanceof Error
             ? error.message
