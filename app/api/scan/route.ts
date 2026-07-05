@@ -24,6 +24,7 @@ import {
   getLearningVolatilityBonus,
   getLearningEventBonus,
   getLearningRiskBonus,
+  calculateMarketLearningBonus,
 } from "@/app/lib/learning";
 
 import {
@@ -43,7 +44,7 @@ import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V14_0_INTEGRATED_ENGINE_0705";
+const DEBUG_VERSION = "AI_POWER_V14_5_REFACTOR_LEARNING_0705";
 
 type CacheData = {
   timestamp: number;
@@ -349,10 +350,13 @@ export async function GET(req: Request) {
     const marketPattern = await getLatestMarketPattern();
     const latestMarketBonus = await getLatestMarketBonus();
 
-    const marketBonus =
-      latestMarketBonus.confidence >= 50
-        ? latestMarketBonus.bonus
-        : getMarketBonus(marketPattern);
+    const marketLearning = calculateMarketLearningBonus({
+      marketPattern,
+      fixedBonus: getMarketBonus(marketPattern),
+      latestMarketBonus,
+    });
+
+    const marketBonus = marketLearning.bonus;
 
     const timeLearning = await getLearningTimeBonus();
     
@@ -546,8 +550,8 @@ const riskLearning = getLearningRiskBonus({
           marketBonus,
           timeBonus,
           volatilityBonus,
-          eventBonus,
-          riskBonus,
+          eventBonus: eventLearning.bonus,
+          riskBonus: riskLearning.bonus,
 
           learningBonus: learning.bonus,
           patternBonus: finalPatternBonus,
@@ -596,6 +600,7 @@ timeConfidence: timeLearning.confidence,
           scoreBreakdown: {
             ...scored.scoreBreakdown,
             market: marketBonus,
+            marketLearning,
             time: timeBonus,
             timeLearning,
             volatility: volatilityBonus,
@@ -646,8 +651,9 @@ riskLearning: {
 
       marketPattern,
       marketBonus,
-      marketWinRate: latestMarketBonus.winRate,
-      marketConfidence: latestMarketBonus.confidence,
+      marketWinRate: marketLearning.winRate,
+      marketConfidence: marketLearning.confidence,
+      marketBonusSource: marketLearning.source,
 
       timeBonus,
 
