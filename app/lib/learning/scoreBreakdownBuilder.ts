@@ -1,59 +1,93 @@
-export function buildScoreBreakdown(params: {
-  baseScoreBreakdown: Record<string, any>;
-  marketBonus: number;
-  marketLearning: any;
-  timeBonus: number;
-  timeLearning: any;
-  volatilityBonus: number;
-  volatilityLearning: any;
-  eventKey: string;
-  eventLearning: any;
-  riskKey: string;
-  riskLearning: any;
-  learning: any;
-  finalPatternBonus: number;
-  finalSectorBonus: number;
-  experience: any;
-  similarExperience: any;
-  experienceRanking: any;
+export function buildScoreBreakdown({
+  scored,
+  learningResult,
+  learningBonus,
+  patternLearningBonus,
+  sectorBonus,
+  experienceResult,
+}: {
+  scored: any;
+  learningResult: any;
+  learningBonus: number;
+  patternLearningBonus: number;
+  sectorBonus: number;
+  experienceResult: any;
 }) {
+  const market = learningResult?.market ?? {
+    bonus: 0,
+    marketPattern: "NO_MARKET",
+    winRate: 0,
+    confidence: 0,
+    source: "fixed",
+  };
+
+  const time = learningResult?.time ?? {
+    bonus: 0,
+    timeSlot: "UNKNOWN",
+    winRate: 0,
+    judged: 0,
+    confidence: 0,
+    source: "fixed",
+  };
+
+  const volatility = learningResult?.volatility ?? {
+    bonus: 0,
+    volatilityBand: "UNKNOWN",
+    winRate: 0,
+    judged: 0,
+    confidence: 0,
+    source: "fixed",
+  };
+
+  const event = learningResult?.event ?? {
+    eventKey: "NO_EVENT",
+    bonus: 0,
+    winRate: 0,
+    judged: 0,
+    confidence: 0,
+    source: "fixed",
+  };
+
+  const risk = learningResult?.risk ?? {
+    riskKey: "MIDDLE_RISK",
+    bonus: 0,
+    winRate: 0,
+    judged: 0,
+    confidence: 0,
+    source: "fixed",
+  };
+
+  const experience = experienceResult?.experience ?? { bonus: 0 };
+  const similarExperience =
+    experienceResult?.similarExperience ?? { bonus: 0 };
+  const experienceRanking =
+    experienceResult?.experienceRanking ?? { bonus: 0 };
+
   return {
-    ...params.baseScoreBreakdown,
+    ...scored.scoreBreakdown,
 
-    market: params.marketBonus,
-    marketLearning: params.marketLearning,
+    learning: learningBonus,
 
-    time: params.timeBonus,
-    timeLearning: params.timeLearning,
+    market: market.bonus,
+    marketLearning: market,
 
-    volatility: params.volatilityBonus,
-    volatilityLearning: params.volatilityLearning,
+    time: time.bonus,
+    timeLearning: time,
 
-    event: params.eventLearning.bonus,
-    eventLearning: {
-      eventKey: params.eventKey,
-      bonus: params.eventLearning.bonus,
-      winRate: params.eventLearning.winRate,
-      judged: params.eventLearning.judged,
-      confidence: params.eventLearning.confidence,
-      source: params.eventLearning.source,
-    },
+    volatility: volatility.bonus,
+    volatilityLearning: volatility,
 
-    risk: params.riskLearning.bonus,
-    riskLearning: {
-      riskKey: params.riskKey,
-      bonus: params.riskLearning.bonus,
-      winRate: params.riskLearning.winRate,
-      judged: params.riskLearning.judged,
-      confidence: params.riskLearning.confidence,
-      source: params.riskLearning.source,
-    },
+    event: event.bonus,
+    eventLearning: event,
 
-    learning: params.learning.bonus,
-    patternLearning: params.finalPatternBonus,
-    sector: params.finalSectorBonus,
-    experience: params.experience.bonus,
-    similarExperience: params.similarExperience.bonus,
-    experienceRanking: params.experienceRanking.bonus,
+    risk: risk.bonus,
+    riskLearning: risk,
+
+    patternLearning: patternLearningBonus,
+    sector: sectorBonus,
+
+    experience: experience.bonus ?? 0,
+    similarExperience: similarExperience.bonus ?? 0,
+    experienceRanking: experienceRanking.bonus ?? 0,
   };
 }

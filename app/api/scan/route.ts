@@ -10,27 +10,21 @@ import {
   getSectorWeightRuleMap,
   getSectorStatsMap,
 } from "@/app/lib/learning/database";
-  
-
-import { getGlobalLearningContext } from "@/app/lib/learning/learningEngine";
-
+import { getLearningTimeBonus } from "@/app/lib/learning";
+import { runAiPipeline } from "@/app/lib/learning/pipeline";
 import {
   calculateAiScore,
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
-
-import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
-import {
-  buildExperienceKey,
-  buildExperienceKeys,
-  getExperienceLearningMaps,
-} from "@/app/lib/learning/experienceEngine";
-import { buildStockAiPowerResult } from "@/app/lib/learning/aiPowerEngine";
-
+import { getSectorKey } from "@/app/lib/sectorMap";
+import { createExperienceKey } from "@/app/lib/experienceLearning";
+import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
+import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
+import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V15_AI_POWER_ENGINE_0705";
+const DEBUG_VERSION = "AI_POWER_V16_PIPELINE_0705";
 
 type CacheData = {
   timestamp: number;
@@ -60,7 +54,6 @@ function clampLimit(value: number) {
   if (value > 1000) return 1000;
   return value;
 }
-
 
 async function fetchYahooChart(
   code: string
@@ -257,6 +250,7 @@ async function runInBatches<T, R>(
 
   return results;
 }
+
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const now = Date.now();
@@ -274,7 +268,7 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V14.0",
+        aiPowerVersion: "V16.0",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
@@ -284,6 +278,7 @@ export async function GET(req: Request) {
         experienceBonusEnabled: true,
         similarExperienceEnabled: true,
         experienceRankingEnabled: true,
+        aiPipelineEnabled: true,
         cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         count: cacheData.stocks.length,
         requestedLimit: limit,
@@ -300,16 +295,7 @@ export async function GET(req: Request) {
 
     const marketPattern = await getLatestMarketPattern();
     const latestMarketBonus = await getLatestMarketBonus();
-
-    const {
-      marketLearning,
-      marketBonus,
-      timeLearning,
-      timeBonus,
-    } = await getGlobalLearningContext({
-      marketPattern,
-      latestMarketBonus,
-    });
+    const timeLearning = await getLearningTimeBonus();
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -335,10 +321,14 @@ export async function GET(req: Request) {
     const patternKeys = validScored.map((stock) => stock.patternKey);
     const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
 
-    const experienceKeys = buildExperienceKeys({
-      stocks: validScored,
-      marketPattern,
-      getSectorKey,
+    const experienceKeys = validScored.map((stock) => {
+      const sectorKey = getSectorKey(stock.code);
+
+      return createExperienceKey({
+        patternKey: stock.patternKey,
+        sectorKey,
+        marketPattern,
+      });
     });
 
     const [
@@ -346,74 +336,68 @@ export async function GET(req: Request) {
       weightRuleMap,
       sectorStatsMap,
       sectorWeightRuleMap,
-      experienceMaps,
+      experienceBonusMap,
+      similarExperienceBonusMap,
+      experienceRankingMap,
     ] = await Promise.all([
       getPatternStatsMap(patternKeys),
       getWeightRuleMap(patternKeys),
       getSectorStatsMap(sectorKeys),
       getSectorWeightRuleMap(sectorKeys),
-      getExperienceLearningMaps(experienceKeys),
+      getExperienceBonusMap(experienceKeys),
+      getSimilarExperienceBonusMap(experienceKeys, {
+        minSimilarity: 70,
+        limit: 300,
+      }),
+      getExperienceRankingMap(experienceKeys, {
+        minSimilarity: 70,
+        candidateLimit: 500,
+        topLimit: 10,
+      }),
     ]);
 
-    const {
-      experienceBonusMap,
-      similarExperienceBonusMap,
-      experienceRankingMap,
-    } = experienceMaps;
     const stocks = (
       await Promise.all(
-    validScored.map(async (scored: any) => {
-        const sectorKey = getSectorKey(scored.code);
-        const sectorLabel = getSectorLabel(scored.code);
+        validScored.map(async (scored: any) =>
+          runAiPipeline({
+            scored,
+            marketPattern,
+            latestMarketBonus,
+            timeLearning,
+            learningStatsMap,
+            patternStatsMap,
+            weightRuleMap,
+            sectorStatsMap,
+            sectorWeightRuleMap,
+            experienceBonusMap,
+            similarExperienceBonusMap,
+            experienceRankingMap,
+          })
+        )
+      )
+    ).sort((a: any, b: any) => b.score - a.score);
 
-        const experienceKey = buildExperienceKey({
-          patternKey: scored.patternKey,
-          sectorKey,
-          marketPattern,
-        });
-
-        return await buildStockAiPowerResult({
-          scored,
-          sectorKey,
-          sectorLabel,
-          experienceKey,
-          marketPattern,
-          marketBonus,
-          marketLearning,
-          timeBonus,
-          timeLearning,
-          learningStatsMap,
-          patternStatsMap,
-          weightRuleMap,
-          sectorStatsMap,
-          sectorWeightRuleMap,
-          experienceBonusMap,
-          similarExperienceBonusMap,
-          experienceRankingMap,
-        });
-      })
-    )
-  ).sort((a: any, b: any) => b.score - a.score);
     cacheData = {
       timestamp: Date.now(),
       limit,
       stocks,
     };
 
+    const firstStock = stocks[0];
+    const marketLearning = firstStock?.scoreBreakdown?.marketLearning;
+    const timeLearningResult = firstStock?.scoreBreakdown?.timeLearning;
+
     return NextResponse.json({
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V14.0",
-
+      aiPowerVersion: "V16.0",
       marketPattern,
-      marketBonus,
-      marketWinRate: marketLearning.winRate,
-      marketConfidence: marketLearning.confidence,
-      marketBonusSource: marketLearning.source,
-
-      timeBonus,
-
+      marketBonus: marketLearning?.bonus ?? 0,
+      marketWinRate: marketLearning?.winRate ?? 0,
+      marketConfidence: marketLearning?.confidence ?? 0,
+      marketBonusSource: marketLearning?.source ?? "fixed",
+      timeBonus: timeLearningResult?.bonus ?? 0,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -421,7 +405,6 @@ export async function GET(req: Request) {
       batchSize: 20,
       stocks,
     });
-
   } catch (error) {
     if (cacheData) {
       return NextResponse.json({
@@ -429,7 +412,7 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V14.0",
+        aiPowerVersion: "V16.0",
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,

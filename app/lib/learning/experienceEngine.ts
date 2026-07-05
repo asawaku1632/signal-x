@@ -1,61 +1,31 @@
-import { createExperienceKey } from "@/app/lib/experienceLearning";
-import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
-import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
-import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
-
-export type ExperienceLearningMaps = {
-  experienceBonusMap: Map<string, any>;
-  similarExperienceBonusMap: Map<string, any>;
-  experienceRankingMap: Map<string, any>;
+export type ExperienceResult = {
+  experience:{bonus:number};
+  similarExperience:{bonus:number};
+  experienceRanking:{bonus:number};
 };
 
-export function buildExperienceKey(params: {
-  patternKey: string;
-  sectorKey: string;
-  marketPattern: string;
-}) {
-  return createExperienceKey(params);
-}
+export function getExperienceResult({
+  experienceKey,
+  experienceBonusMap,
+  similarExperienceBonusMap,
+  experienceRankingMap,
+}:{
+  experienceKey:string;
+  experienceBonusMap:Map<string,any>;
+  similarExperienceBonusMap:Map<string,any>;
+  experienceRankingMap:Map<string,any>;
+}):ExperienceResult{
+  const exp=experienceBonusMap.get(experienceKey);
+  const sim=similarExperienceBonusMap.get(experienceKey);
+  const rank=experienceRankingMap.get(experienceKey);
 
-export function buildExperienceKeys(params: {
-  stocks: any[];
-  marketPattern: string;
-  getSectorKey: (code: string) => string;
-}) {
-  return params.stocks.map((stock) => {
-    const sectorKey = params.getSectorKey(stock.code);
-
-    return buildExperienceKey({
-      patternKey: stock.patternKey,
-      sectorKey,
-      marketPattern: params.marketPattern,
-    });
-  });
-}
-
-export async function getExperienceLearningMaps(
-  experienceKeys: string[]
-): Promise<ExperienceLearningMaps> {
-  const [
-    experienceBonusMap,
-    similarExperienceBonusMap,
-    experienceRankingMap,
-  ] = await Promise.all([
-    getExperienceBonusMap(experienceKeys),
-    getSimilarExperienceBonusMap(experienceKeys, {
-      minSimilarity: 70,
-      limit: 300,
-    }),
-    getExperienceRankingMap(experienceKeys, {
-      minSimilarity: 70,
-      candidateLimit: 500,
-      topLimit: 10,
-    }),
-  ]);
-
-  return {
-    experienceBonusMap,
-    similarExperienceBonusMap,
-    experienceRankingMap,
+  return{
+    experience:{bonus:exp?.bonus??0},
+    similarExperience:{bonus:sim?.bonus??0},
+    experienceRanking:{bonus:rank?.bonus??0},
   };
+}
+
+export function getExperienceLearningMaps(){
+  return {};
 }

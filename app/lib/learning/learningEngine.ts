@@ -1,89 +1,58 @@
-import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
-import { detectEventType } from "@/app/lib/eventType";
-import { getEventBonus } from "@/app/lib/eventBonus";
-import { getMarketBonus } from "@/app/lib/marketBonus";
+import { calculateMarketLearningBonus } from "./marketLearning";
+import { getLearningVolatilityBonus } from "./volatilityLearning";
+import { getLearningEventBonus } from "./eventLearning";
+import { getLearningRiskBonus } from "./riskLearning";
 
-import {
-  calculateMarketLearningBonus,
-  getLearningTimeBonus,
-  getLearningVolatilityBonus,
-  getLearningEventBonus,
-  getLearningRiskBonus,
-} from "@/app/lib/learning";
-
-export type LatestMarketBonus = {
-  bonus: number;
-  winRate: number;
-  confidence: number;
-};
-
-export async function getGlobalLearningContext(params: {
-  marketPattern: string;
-  latestMarketBonus: LatestMarketBonus;
-}) {
-  const marketLearning = calculateMarketLearningBonus({
-    marketPattern: params.marketPattern,
-    fixedBonus: getMarketBonus(params.marketPattern),
-    latestMarketBonus: params.latestMarketBonus,
+export async function getLearningResult({
+  marketPattern,
+  fixedMarketBonus,
+  latestMarketBonus,
+  timeLearning,
+  volatility,
+  eventKey,
+  eventBonus,
+  riskKey,
+  riskBonus,
+}:{
+  marketPattern:string;
+  fixedMarketBonus:number;
+  latestMarketBonus:{bonus:number;winRate:number;confidence:number};
+  timeLearning:any;
+  volatility:number;
+  eventKey:string;
+  eventBonus:number;
+  riskKey:string;
+  riskBonus:number;
+}){
+  const market=calculateMarketLearningBonus({
+    marketPattern,
+    fixedBonus:fixedMarketBonus,
+    latestMarketBonus,
   });
 
-  const timeLearning = await getLearningTimeBonus();
+  const volatilityLearning=await getLearningVolatilityBonus(volatility);
 
-  return {
-    marketLearning,
-    marketBonus: marketLearning.bonus,
-    timeLearning,
-    timeBonus: timeLearning.bonus,
+  const event=getLearningEventBonus({
+    eventKey,
+    eventBonus,
+    eventStatsMap:{},
+  });
+
+  const risk=getLearningRiskBonus({
+    riskKey,
+    riskBonus,
+    riskStatsMap:{},
+  });
+
+  return{
+    market,
+    time:timeLearning,
+    volatility:volatilityLearning,
+    event,
+    risk,
   };
 }
 
-export async function getStockLearningContext(params: {
-  scored: any;
-  volatility: number;
-}) {
-  const volatilityLearning = await getLearningVolatilityBonus(params.volatility);
-  const volatilityBonus = volatilityLearning.bonus;
-
-  const eventType = detectEventType(params.scored);
-  const eventBonus = getEventBonus(eventType);
-  const eventKey = eventType || "NO_EVENT";
-
-  const eventLearning = getLearningEventBonus({
-    eventKey,
-    eventBonus,
-    eventStatsMap: {},
-  });
-
-  const riskScore = calculateRiskScore({
-    aiPower: params.scored.score,
-    changePercent: params.scored.changePercent ?? 0,
-    volatility: params.volatility,
-  });
-
-  const riskBonus = getRiskBonus(riskScore);
-  const riskKey =
-    riskBonus >= 0
-      ? "LOW_RISK"
-      : riskBonus <= -5
-      ? "HIGH_RISK"
-      : "MIDDLE_RISK";
-
-  const riskLearning = getLearningRiskBonus({
-    riskKey,
-    riskBonus,
-    riskStatsMap: {},
-  });
-
-  return {
-    volatilityLearning,
-    volatilityBonus,
-    eventType,
-    eventBonus,
-    eventKey,
-    eventLearning,
-    riskScore,
-    riskBonus,
-    riskKey,
-    riskLearning,
-  };
+export function getStockLearningContext(){
+  return {};
 }
