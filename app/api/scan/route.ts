@@ -528,6 +528,18 @@ const eventLearning = getLearningEventBonus({
         });
 
         const riskBonus = getRiskBonus(riskScore);
+        const riskKey =
+  riskBonus >= 0
+    ? "LOW_RISK"
+    : riskBonus <= -5
+    ? "HIGH_RISK"
+    : "MIDDLE_RISK";
+
+const riskLearning = getLearningRiskBonus({
+  riskKey,
+  riskBonus,
+  riskStatsMap: {},
+});
 
         const finalScore = calculateFinalAiPower({
           baseScore: scored.score,
@@ -597,7 +609,15 @@ eventLearning: {
   confidence: eventLearning.confidence,
   source: eventLearning.source,
 },
-            risk: riskBonus,
+           risk: riskLearning.bonus,
+riskLearning: {
+  riskKey,
+  bonus: riskLearning.bonus,
+  winRate: riskLearning.winRate,
+  judged: riskLearning.judged,
+  confidence: riskLearning.confidence,
+  source: riskLearning.source,
+},
 
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
