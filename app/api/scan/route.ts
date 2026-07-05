@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
 import { calculateFinalAiPower } from "@/app/lib/aiPowerEngine";
-import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
-import { detectEventType } from "@/app/lib/eventType";
-import { getEventBonus } from "@/app/lib/eventBonus";
-import { getMarketBonus } from "@/app/lib/marketBonus";
 import {
   getLatestMarketPattern,
   getLatestMarketBonus,
@@ -18,12 +14,9 @@ import {
   
 
 import {
-  getLearningTimeBonus,
-  getLearningVolatilityBonus,
-  getLearningEventBonus,
-  getLearningRiskBonus,
-  calculateMarketLearningBonus,
-} from "@/app/lib/learning";
+  getGlobalLearningContext,
+  getStockLearningContext,
+} from "@/app/lib/learning/learningEngine";
 
 import {
   calculateAiScore,
@@ -313,17 +306,15 @@ export async function GET(req: Request) {
     const marketPattern = await getLatestMarketPattern();
     const latestMarketBonus = await getLatestMarketBonus();
 
-    const marketLearning = calculateMarketLearningBonus({
+    const {
+      marketLearning,
+      marketBonus,
+      timeLearning,
+      timeBonus,
+    } = await getGlobalLearningContext({
       marketPattern,
-      fixedBonus: getMarketBonus(marketPattern),
       latestMarketBonus,
     });
-
-    const marketBonus = marketLearning.bonus;
-
-    const timeLearning = await getLearningTimeBonus();
-    
-    const timeBonus = timeLearning.bonus;
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -473,37 +464,18 @@ export async function GET(req: Request) {
             items: [],
           };
         const volatility = Math.abs(scored.changePercent ?? 0);
-        const volatilityLearning = await getLearningVolatilityBonus(volatility);
-        const volatilityBonus = volatilityLearning.bonus;
-
-        const eventType = detectEventType(scored);
-        const eventBonus = getEventBonus(eventType);
-        const eventKey = eventType || "NO_EVENT";
-
-        const eventLearning = getLearningEventBonus({
-          eventKey,
+        const {
+          volatilityLearning,
+          volatilityBonus,
           eventBonus,
-          eventStatsMap: {},
-        });
-
-        const riskScore = calculateRiskScore({
-          aiPower: scored.score,
-          changePercent: scored.changePercent ?? 0,
-          volatility,
-        });
-
-        const riskBonus = getRiskBonus(riskScore);
-        const riskKey =
-          riskBonus >= 0
-            ? "LOW_RISK"
-            : riskBonus <= -5
-            ? "HIGH_RISK"
-            : "MIDDLE_RISK";
-
-        const riskLearning = getLearningRiskBonus({
-          riskKey,
+          eventKey,
+          eventLearning,
           riskBonus,
-          riskStatsMap: {},
+          riskKey,
+          riskLearning,
+        } = await getStockLearningContext({
+          scored,
+          volatility,
         });
 
         const finalScore = calculateFinalAiPower({
