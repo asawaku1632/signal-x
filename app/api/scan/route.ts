@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
 import { calculateFinalAiPower } from "@/app/lib/aiPowerEngine";
-import { getTimeBonus } from "@/app/lib/timeBonus";
 import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
 import { detectEventType } from "@/app/lib/eventType";
 import { getEventBonus } from "@/app/lib/eventBonus";
@@ -18,7 +17,6 @@ import {
 } from "@/app/lib/learning/database";
   
 
-import { getVolatilityBonus } from "@/app/lib/volatilityBonus";
 import {
   getLearningTimeBonus,
   getLearningVolatilityBonus,
@@ -50,41 +48,6 @@ type CacheData = {
   timestamp: number;
   limit: number;
   stocks: any[];
-};
-
-type LearningStats = {
-  code: string;
-  win: number;
-  lose: number;
-  winRate: number;
-};
-
-type PatternStats = {
-  patternKey: string;
-  win: number;
-  lose: number;
-};
-
-type WeightRule = {
-  ruleKey: string;
-  bonus: number;
-  winRate: number;
-  sampleCount: number;
-  confidence: number;
-};
-
-type SectorWeightRule = {
-  ruleKey: string;
-  bonus: number;
-  winRate: number;
-  sampleCount: number;
-  confidence: number;
-};
-
-type SectorStats = {
-  sectorKey: string;
-  win: number;
-  lose: number;
 };
 
 let cacheData: CacheData | null = null;
@@ -360,8 +323,7 @@ export async function GET(req: Request) {
 
     const timeLearning = await getLearningTimeBonus();
     
-
-const timeBonus = timeLearning.bonus;
+    const timeBonus = timeLearning.bonus;
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -421,8 +383,8 @@ const timeBonus = timeLearning.bonus;
         topLimit: 10,
       }),
     ]);
-const stocks = (
-  await Promise.all(
+    const stocks = (
+      await Promise.all(
     validScored.map(async (scored: any) => {
         const sectorKey = getSectorKey(scored.code);
         const sectorLabel = getSectorLabel(scored.code);
@@ -511,19 +473,18 @@ const stocks = (
             items: [],
           };
         const volatility = Math.abs(scored.changePercent ?? 0);
-const volatilityLearning = await getLearningVolatilityBonus(volatility);
-const volatilityBonus = volatilityLearning.bonus;
+        const volatilityLearning = await getLearningVolatilityBonus(volatility);
+        const volatilityBonus = volatilityLearning.bonus;
 
         const eventType = detectEventType(scored);
-const eventBonus = getEventBonus(eventType);
+        const eventBonus = getEventBonus(eventType);
+        const eventKey = eventType || "NO_EVENT";
 
-const eventKey = eventType || "NO_EVENT";
-
-const eventLearning = getLearningEventBonus({
-  eventKey,
-  eventBonus,
-  eventStatsMap: {},
-});
+        const eventLearning = getLearningEventBonus({
+          eventKey,
+          eventBonus,
+          eventStatsMap: {},
+        });
 
         const riskScore = calculateRiskScore({
           aiPower: scored.score,
@@ -533,17 +494,17 @@ const eventLearning = getLearningEventBonus({
 
         const riskBonus = getRiskBonus(riskScore);
         const riskKey =
-  riskBonus >= 0
-    ? "LOW_RISK"
-    : riskBonus <= -5
-    ? "HIGH_RISK"
-    : "MIDDLE_RISK";
+          riskBonus >= 0
+            ? "LOW_RISK"
+            : riskBonus <= -5
+            ? "HIGH_RISK"
+            : "MIDDLE_RISK";
 
-const riskLearning = getLearningRiskBonus({
-  riskKey,
-  riskBonus,
-  riskStatsMap: {},
-});
+        const riskLearning = getLearningRiskBonus({
+          riskKey,
+          riskBonus,
+          riskStatsMap: {},
+        });
 
         const finalScore = calculateFinalAiPower({
           baseScore: scored.score,
@@ -561,11 +522,11 @@ const riskLearning = getLearningRiskBonus({
           experienceRankingBonus: experienceRanking.bonus,
         });
 const timeLearningReason =
-  timeLearning.bonus > 0
-    ? `時間帯学習 +${timeLearning.bonus}`
-    : timeLearning.bonus < 0
-    ? `時間帯学習 ${timeLearning.bonus}`
-    : "";
+          timeLearning.bonus > 0
+            ? `時間帯学習 +${timeLearning.bonus}`
+            : timeLearning.bonus < 0
+            ? `時間帯学習 ${timeLearning.bonus}`
+            : "";
 
         const reasons = [
           scored.reason,
@@ -584,9 +545,9 @@ const timeLearningReason =
           aiPower: finalScore,
           timeSlot: timeLearning.timeSlot,
 timeBonusSource: timeLearning.source,
-timeWinRate: timeLearning.winRate,
-timeJudged: timeLearning.judged,
-timeConfidence: timeLearning.confidence,
+          timeWinRate: timeLearning.winRate,
+          timeJudged: timeLearning.judged,
+          timeConfidence: timeLearning.confidence,
 
           rank:
             finalScore >= 85
@@ -606,23 +567,23 @@ timeConfidence: timeLearning.confidence,
             volatility: volatilityBonus,
             volatilityLearning,
             event: eventLearning.bonus,
-eventLearning: {
-  eventKey,
-  bonus: eventLearning.bonus,
-  winRate: eventLearning.winRate,
-  judged: eventLearning.judged,
-  confidence: eventLearning.confidence,
-  source: eventLearning.source,
-},
-           risk: riskLearning.bonus,
-riskLearning: {
-  riskKey,
-  bonus: riskLearning.bonus,
-  winRate: riskLearning.winRate,
-  judged: riskLearning.judged,
-  confidence: riskLearning.confidence,
-  source: riskLearning.source,
-},
+            eventLearning: {
+              eventKey,
+              bonus: eventLearning.bonus,
+              winRate: eventLearning.winRate,
+              judged: eventLearning.judged,
+              confidence: eventLearning.confidence,
+              source: eventLearning.source,
+            },
+            risk: riskLearning.bonus,
+            riskLearning: {
+              riskKey,
+              bonus: riskLearning.bonus,
+              winRate: riskLearning.winRate,
+              judged: riskLearning.judged,
+              confidence: riskLearning.confidence,
+              source: riskLearning.source,
+            },
 
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
@@ -632,7 +593,7 @@ riskLearning: {
             experienceRanking: experienceRanking.bonus,
           },
 
-                   reason: reasons.join("・"),
+          reason: reasons.join("・"),
         };
       })
     )
