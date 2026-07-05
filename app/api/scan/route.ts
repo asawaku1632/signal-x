@@ -22,6 +22,8 @@ import { getVolatilityBonus } from "@/app/lib/volatilityBonus";
 import {
   getLearningTimeBonus,
   getLearningVolatilityBonus,
+  getLearningEventBonus,
+  getLearningRiskBonus,
 } from "@/app/lib/learning";
 
 import {
@@ -353,6 +355,7 @@ export async function GET(req: Request) {
         : getMarketBonus(marketPattern);
 
     const timeLearning = await getLearningTimeBonus();
+    
 
 const timeBonus = timeLearning.bonus;
 
@@ -508,7 +511,15 @@ const volatilityLearning = await getLearningVolatilityBonus(volatility);
 const volatilityBonus = volatilityLearning.bonus;
 
         const eventType = detectEventType(scored);
-        const eventBonus = getEventBonus(eventType);
+const eventBonus = getEventBonus(eventType);
+
+const eventKey = eventType || "NO_EVENT";
+
+const eventLearning = getLearningEventBonus({
+  eventKey,
+  eventBonus,
+  eventStatsMap: {},
+});
 
         const riskScore = calculateRiskScore({
           aiPower: scored.score,
@@ -577,7 +588,15 @@ timeConfidence: timeLearning.confidence,
             timeLearning,
             volatility: volatilityBonus,
             volatilityLearning,
-            event: eventBonus,
+            event: eventLearning.bonus,
+eventLearning: {
+  eventKey,
+  bonus: eventLearning.bonus,
+  winRate: eventLearning.winRate,
+  judged: eventLearning.judged,
+  confidence: eventLearning.confidence,
+  source: eventLearning.source,
+},
             risk: riskBonus,
 
             learning: learning.bonus,
