@@ -24,9 +24,9 @@ export function calculateRiskScore(params: {
 }
 
 export function getRiskBonus(riskScore: number) {
-  if (riskScore >= 80) return -12;
-  if (riskScore >= 65) return -8;
-  if (riskScore >= 50) return -3;
-  if (riskScore >= 35) return 2;
-  return 5;
+  if (riskScore >= 80) return -8;
+  if (riskScore >= 65) return -5;
+  if (riskScore >= 50) return -2;
+  if (riskScore >= 35) return 1;
+  return 3;
 }

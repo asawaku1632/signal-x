@@ -6,13 +6,14 @@ import { getTimeBonus } from "@/app/lib/timeBonus";
 import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
 import { detectEventType } from "@/app/lib/eventType";
 import { getEventBonus } from "@/app/lib/eventBonus";
-
+import { getMarketBonus } from "@/app/lib/marketBonus";
 import { getVolatilityBonus } from "@/app/lib/volatilityBonus";
+
 import {
   calculateAiScore,
-  clampScore,
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
+
 import { calculateLearningBonus } from "@/app/lib/learningBonus";
 import { calculatePatternBonus } from "@/app/lib/patternBonus";
 import { calculateSectorBonus } from "@/app/lib/sectorBonus";
@@ -107,6 +108,26 @@ async function getLatestMarketPattern() {
     : "NO_MARKET";
 }
 
+async function getLatestMarketBonus() {
+  const { rows } = await pool.query(
+    `
+    SELECT
+      ai_bonus,
+      win_rate,
+      confidence
+    FROM market_learning_logs
+    WHERE ai_bonus IS NOT NULL
+    ORDER BY trade_date DESC
+    LIMIT 1
+    `
+  );
+
+  return {
+    bonus: Number(rows[0]?.ai_bonus ?? 0),
+    winRate: Number(rows[0]?.win_rate ?? 0),
+    confidence: Number(rows[0]?.confidence ?? 0),
+  };
+}
 async function getLearningStatsMap(codes: string[]) {
   const map = new Map<string, LearningStats>();
 
@@ -142,6 +163,7 @@ async function getLearningStatsMap(codes: string[]) {
 
   return map;
 }
+
 async function getPatternStatsMap(patternKeys: string[]) {
   const map = new Map<string, PatternStats>();
   const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
@@ -518,27 +540,16 @@ export async function GET(req: Request) {
     const targetCodes = targetStocks.map((stock) => stock.code);
 
     const learningStatsMap = await getLearningStatsMap(targetCodes);
-    const marketPattern = await getLatestMarketPattern();
-    let marketBonus = 0;
 
-switch (marketPattern) {
-  case "BULLISH":
-    marketBonus = 6;
-    break;
-  case "SLIGHTLY_BULLISH":
-    marketBonus = 3;
-    break;
-  case "NEUTRAL":
-    marketBonus = 0;
-    break;
-  case "SLIGHTLY_BEARISH":
-    marketBonus = -3;
-    break;
-  case "BEARISH":
-    marketBonus = -6;
-    break;
-}
-const timeBonus = getTimeBonus();
+    const marketPattern = await getLatestMarketPattern();
+    const latestMarketBonus = await getLatestMarketBonus();
+
+    const marketBonus =
+      latestMarketBonus.confidence >= 50
+        ? latestMarketBonus.bonus
+        : getMarketBonus(marketPattern);
+
+    const timeBonus = getTimeBonus();
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -647,7 +658,8 @@ const timeBonus = getTimeBonus();
         const finalSectorBonus = sectorWeightRuleApplied
           ? sectorWeightRule!.bonus
           : calculatedSector.bonus;
-                  const experience =
+
+        const experience =
           experienceBonusMap.get(experienceKey) || {
             bonus: 0,
             winRate: 0,
@@ -686,77 +698,38 @@ const timeBonus = getTimeBonus();
             topCount: 0,
             items: [],
           };
-const volatility = Math.abs(scored.changePercent ?? 0);
-const volatilityBonus = getVolatilityBonus(volatility);
-const eventType = detectEventType(scored);
-const eventBonus = getEventBonus(eventType);
-       
-const riskScore = calculateRiskScore({
-  aiPower: scored.score,
-  changePercent: scored.changePercent ?? 0,
-  volatility,
-});
+                  const volatility = Math.abs(scored.changePercent ?? 0);
+        const volatilityBonus = getVolatilityBonus(volatility);
 
-const riskBonus = getRiskBonus(riskScore);
+        const eventType = detectEventType(scored);
+        const eventBonus = getEventBonus(eventType);
 
-const finalScore = calculateFinalAiPower({
-  baseScore: scored.score,
-  marketBonus,
-  timeBonus,
-volatilityBonus,
-eventBonus,
-  riskBonus,
+        const riskScore = calculateRiskScore({
+          aiPower: scored.score,
+          changePercent: scored.changePercent ?? 0,
+          volatility,
+        });
 
-  learningBonus: learning.bonus,
-  patternBonus: finalPatternBonus,
-  sectorBonus: finalSectorBonus,
-  experienceBonus: experience.bonus,
-  similarExperienceBonus: similarExperience.bonus,
-  experienceRankingBonus: experienceRanking.bonus,
-});
+        const riskBonus = getRiskBonus(riskScore);
 
-        const learningReason =
-          learningStats && learningStats.win + learningStats.lose > 0
-            ? `AI学習補正${learning.bonus >= 0 ? "+" : ""}${learning.bonus}・銘柄勝率${learning.winRate}%`
-            : "";
+        const finalScore = calculateFinalAiPower({
+          baseScore: scored.score,
+          marketBonus,
+          timeBonus,
+          volatilityBonus,
+          eventBonus,
+          riskBonus,
 
-        const patternReason =
-          weightRuleApplied
-            ? `AI自己進化補正${finalPatternBonus >= 0 ? "+" : ""}${finalPatternBonus}・信頼度${weightRule!.confidence}%`
-            : pattern.total >= 10
-            ? `パターン補正${pattern.bonus >= 0 ? "+" : ""}${pattern.bonus}・パターン勝率${pattern.winRate}%`
-            : "";
-
-        const sectorReason =
-          sectorWeightRuleApplied
-            ? `セクターAI補正${finalSectorBonus >= 0 ? "+" : ""}${finalSectorBonus}・${sectorLabel}勝率${sectorWeightRule!.winRate}%`
-            : calculatedSector.total >= 10
-            ? `セクター補正${calculatedSector.bonus >= 0 ? "+" : ""}${calculatedSector.bonus}・${sectorLabel}勝率${calculatedSector.winRate}%`
-            : "";
-
-        const experienceReason =
-          experience.total >= 10
-            ? `経験補正${experience.bonus >= 0 ? "+" : ""}${experience.bonus}・経験勝率${experience.winRate}%`
-            : "";
-
-        const similarExperienceReason =
-          similarExperience.total >= 10
-            ? `類似経験補正${similarExperience.bonus >= 0 ? "+" : ""}${similarExperience.bonus}・類似勝率${similarExperience.winRate}%・平均類似${similarExperience.averageSimilarity}%`
-            : "";
-
-        const experienceRankingReason =
-          experienceRanking.weightedTotal >= 10
-            ? `経験ランキング補正${experienceRanking.bonus >= 0 ? "+" : ""}${experienceRanking.bonus}・重み付き勝率${experienceRanking.weightedWinRate}%・TOP${experienceRanking.topCount}`
-            : "";
+          learningBonus: learning.bonus,
+          patternBonus: finalPatternBonus,
+          sectorBonus: finalSectorBonus,
+          experienceBonus: experience.bonus,
+          similarExperienceBonus: similarExperience.bonus,
+          experienceRankingBonus: experienceRanking.bonus,
+        });
 
         const reasons = [
           scored.reason,
-          learningReason,
-          patternReason,
-          sectorReason,
-          experienceReason,
-          similarExperienceReason,
-          experienceRankingReason,
         ].filter(Boolean);
 
         return {
@@ -764,7 +737,6 @@ eventBonus,
 
           sectorKey,
           sectorLabel,
-
           experienceKey,
           marketPattern,
 
@@ -783,10 +755,11 @@ eventBonus,
           scoreBreakdown: {
             ...scored.scoreBreakdown,
             market: marketBonus,
-time: timeBonus,
-volatility: volatilityBonus,
-event: eventBonus,
-risk: riskBonus,
+            time: timeBonus,
+            volatility: volatilityBonus,
+            event: eventBonus,
+            risk: riskBonus,
+
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
             sector: finalSectorBonus,
@@ -794,75 +767,6 @@ risk: riskBonus,
             similarExperience: similarExperience.bonus,
             experienceRanking: experienceRanking.bonus,
           },
-
-          learningBonus: learning.bonus,
-          learningWinRate: learning.winRate,
-          learningWin: learningStats?.win ?? 0,
-          learningLose: learningStats?.lose ?? 0,
-
-          patternBonus: finalPatternBonus,
-          patternBonusSource: weightRuleApplied
-            ? "weight_rule"
-            : "calculated",
-                      patternWinRate: weightRuleApplied
-            ? weightRule!.winRate
-            : pattern.winRate,
-          patternTotal: weightRuleApplied
-            ? weightRule!.sampleCount
-            : pattern.total,
-          patternWin: pattern.win,
-          patternLose: pattern.lose,
-
-          sectorBonus: finalSectorBonus,
-          sectorBonusSource: sectorWeightRuleApplied
-            ? "sector_weight_rule"
-            : "calculated",
-          sectorWeightRuleApplied,
-          sectorWeightRuleBonus: sectorWeightRule?.bonus ?? 0,
-          sectorWeightRuleConfidence: sectorWeightRule?.confidence ?? 0,
-          sectorWinRate: sectorWeightRuleApplied
-            ? sectorWeightRule!.winRate
-            : calculatedSector.winRate,
-          sectorTotal: sectorWeightRuleApplied
-            ? sectorWeightRule!.sampleCount
-            : calculatedSector.total,
-          sectorWin: sectorStats?.win ?? 0,
-          sectorLose: sectorStats?.lose ?? 0,
-
-          experienceBonus: experience.bonus,
-          experienceWinRate: experience.winRate,
-          experienceTotal: experience.total,
-          experienceWin: experience.win,
-          experienceLose: experience.lose,
-          experienceConfidence: experience.confidence,
-
-          similarExperienceBonus: similarExperience.bonus,
-          similarExperienceBaseBonus: similarExperience.baseBonus,
-          similarExperienceWinRate: similarExperience.winRate,
-          similarExperienceTotal: similarExperience.total,
-          similarExperienceWin: similarExperience.win,
-          similarExperienceLose: similarExperience.lose,
-          similarExperienceConfidence: similarExperience.confidence,
-          similarExperienceCount: similarExperience.similarCount,
-          similarExperienceSimilarityRate: similarExperience.similarityRate,
-          averageSimilarity: similarExperience.averageSimilarity,
-
-          experienceRankingBonus: experienceRanking.bonus,
-          experienceRankingWinRate: experienceRanking.winRate,
-          experienceRankingWeightedWinRate: experienceRanking.weightedWinRate,
-          experienceRankingTotal: experienceRanking.total,
-          experienceRankingWeightedTotal: experienceRanking.weightedTotal,
-          experienceRankingWin: experienceRanking.win,
-          experienceRankingLose: experienceRanking.lose,
-          experienceRankingConfidence: experienceRanking.confidence,
-          experienceRankingAverageSimilarity:
-            experienceRanking.averageSimilarity,
-          experienceRankingTopCount: experienceRanking.topCount,
-          experienceRankingItems: experienceRanking.items,
-
-          weightRuleApplied,
-          weightRuleBonus: weightRule?.bonus ?? 0,
-          weightRuleConfidence: weightRule?.confidence ?? 0,
 
           reason: reasons.join("・"),
         };
@@ -880,17 +784,14 @@ risk: riskBonus,
       cached: false,
       debugVersion: DEBUG_VERSION,
       aiPowerVersion: "V14.0",
-      learningBonusEnabled: true,
-      patternBonusEnabled: true,
-      weightRulesEnabled: true,
-      sectorEnabled: true,
-      sectorBonusEnabled: true,
-      sectorWeightRuleEnabled: true,
-      experienceBonusEnabled: true,
-      similarExperienceEnabled: true,
-      experienceRankingEnabled: true,
+
       marketPattern,
+      marketBonus,
+      marketWinRate: latestMarketBonus.winRate,
+      marketConfidence: latestMarketBonus.confidence,
+
       timeBonus,
+
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -898,6 +799,7 @@ risk: riskBonus,
       batchSize: 20,
       stocks,
     });
+
   } catch (error) {
     if (cacheData) {
       return NextResponse.json({
@@ -906,15 +808,6 @@ risk: riskBonus,
         fallback: true,
         debugVersion: DEBUG_VERSION,
         aiPowerVersion: "V14.0",
-        learningBonusEnabled: true,
-        patternBonusEnabled: true,
-        weightRulesEnabled: true,
-        sectorEnabled: true,
-        sectorBonusEnabled: true,
-        sectorWeightRuleEnabled: true,
-        experienceBonusEnabled: true,
-        similarExperienceEnabled: true,
-        experienceRankingEnabled: true,
         error: String(error),
         count: cacheData.stocks.length,
         requestedLimit: cacheData.limit,
