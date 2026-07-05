@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
+import { calculateFinalAiPower } from "@/app/lib/aiPowerEngine";
+import { getTimeBonus } from "@/app/lib/timeBonus";
+import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
+import { detectEventType } from "@/app/lib/eventType";
+import { getEventBonus } from "@/app/lib/eventBonus";
+
+import { getVolatilityBonus } from "@/app/lib/volatilityBonus";
 import {
   calculateAiScore,
   clampScore,
@@ -18,7 +25,7 @@ import pool from "@/app/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V13_4_SECTOR_WEIGHT_RULE_0704";
+const DEBUG_VERSION = "AI_POWER_V14_0_INTEGRATED_ENGINE_0705";
 
 type CacheData = {
   timestamp: number;
@@ -488,7 +495,7 @@ export async function GET(req: Request) {
         success: true,
         cached: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V13.4",
+        aiPowerVersion: "V14.0",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
@@ -512,6 +519,26 @@ export async function GET(req: Request) {
 
     const learningStatsMap = await getLearningStatsMap(targetCodes);
     const marketPattern = await getLatestMarketPattern();
+    let marketBonus = 0;
+
+switch (marketPattern) {
+  case "BULLISH":
+    marketBonus = 6;
+    break;
+  case "SLIGHTLY_BULLISH":
+    marketBonus = 3;
+    break;
+  case "NEUTRAL":
+    marketBonus = 0;
+    break;
+  case "SLIGHTLY_BEARISH":
+    marketBonus = -3;
+    break;
+  case "BEARISH":
+    marketBonus = -6;
+    break;
+}
+const timeBonus = getTimeBonus();
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -659,16 +686,34 @@ export async function GET(req: Request) {
             topCount: 0,
             items: [],
           };
+const volatility = Math.abs(scored.changePercent ?? 0);
+const volatilityBonus = getVolatilityBonus(volatility);
+const eventType = detectEventType(scored);
+const eventBonus = getEventBonus(eventType);
+       
+const riskScore = calculateRiskScore({
+  aiPower: scored.score,
+  changePercent: scored.changePercent ?? 0,
+  volatility,
+});
 
-        const finalScore = clampScore(
-          scored.score +
-            learning.bonus +
-            finalPatternBonus +
-            finalSectorBonus +
-            experience.bonus +
-            similarExperience.bonus +
-            experienceRanking.bonus
-        );
+const riskBonus = getRiskBonus(riskScore);
+
+const finalScore = calculateFinalAiPower({
+  baseScore: scored.score,
+  marketBonus,
+  timeBonus,
+volatilityBonus,
+eventBonus,
+  riskBonus,
+
+  learningBonus: learning.bonus,
+  patternBonus: finalPatternBonus,
+  sectorBonus: finalSectorBonus,
+  experienceBonus: experience.bonus,
+  similarExperienceBonus: similarExperience.bonus,
+  experienceRankingBonus: experienceRanking.bonus,
+});
 
         const learningReason =
           learningStats && learningStats.win + learningStats.lose > 0
@@ -737,6 +782,11 @@ export async function GET(req: Request) {
 
           scoreBreakdown: {
             ...scored.scoreBreakdown,
+            market: marketBonus,
+time: timeBonus,
+volatility: volatilityBonus,
+event: eventBonus,
+risk: riskBonus,
             learning: learning.bonus,
             patternLearning: finalPatternBonus,
             sector: finalSectorBonus,
@@ -829,7 +879,7 @@ export async function GET(req: Request) {
       success: true,
       cached: false,
       debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V13.4",
+      aiPowerVersion: "V14.0",
       learningBonusEnabled: true,
       patternBonusEnabled: true,
       weightRulesEnabled: true,
@@ -840,6 +890,7 @@ export async function GET(req: Request) {
       similarExperienceEnabled: true,
       experienceRankingEnabled: true,
       marketPattern,
+      timeBonus,
       count: stocks.length,
       requestedLimit: limit,
       totalStockList: uniqueStocks.length,
@@ -854,7 +905,7 @@ export async function GET(req: Request) {
         cached: true,
         fallback: true,
         debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V13.4",
+        aiPowerVersion: "V14.0",
         learningBonusEnabled: true,
         patternBonusEnabled: true,
         weightRulesEnabled: true,
