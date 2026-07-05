@@ -7,7 +7,22 @@ import { calculateRiskScore, getRiskBonus } from "@/app/lib/riskBonus";
 import { detectEventType } from "@/app/lib/eventType";
 import { getEventBonus } from "@/app/lib/eventBonus";
 import { getMarketBonus } from "@/app/lib/marketBonus";
+import {
+  getLatestMarketPattern,
+  getLatestMarketBonus,
+  getLearningStatsMap,
+  getPatternStatsMap,
+  getWeightRuleMap,
+  getSectorWeightRuleMap,
+  getSectorStatsMap,
+} from "@/app/lib/learning/database";
+  
+
 import { getVolatilityBonus } from "@/app/lib/volatilityBonus";
+import {
+  getLearningTimeBonus,
+  getLearningVolatilityBonus,
+} from "@/app/lib/learning";
 
 import {
   calculateAiScore,
@@ -22,7 +37,7 @@ import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
 import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
 import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
-import pool from "@/app/lib/postgres";
+
 
 export const dynamic = "force-dynamic";
 
@@ -92,219 +107,7 @@ function clampLimit(value: number) {
   return value;
 }
 
-async function getLatestMarketPattern() {
-  const { rows } = await pool.query(
-    `
-    SELECT market_pattern
-    FROM market_learning_logs
-    WHERE market_pattern IS NOT NULL
-    ORDER BY trade_date DESC
-    LIMIT 1
-    `
-  );
 
-  return rows[0]?.market_pattern
-    ? String(rows[0].market_pattern)
-    : "NO_MARKET";
-}
-
-async function getLatestMarketBonus() {
-  const { rows } = await pool.query(
-    `
-    SELECT
-      ai_bonus,
-      win_rate,
-      confidence
-    FROM market_learning_logs
-    WHERE ai_bonus IS NOT NULL
-    ORDER BY trade_date DESC
-    LIMIT 1
-    `
-  );
-
-  return {
-    bonus: Number(rows[0]?.ai_bonus ?? 0),
-    winRate: Number(rows[0]?.win_rate ?? 0),
-    confidence: Number(rows[0]?.confidence ?? 0),
-  };
-}
-async function getLearningStatsMap(codes: string[]) {
-  const map = new Map<string, LearningStats>();
-
-  if (codes.length === 0) return map;
-
-  const { rows } = await pool.query(
-    `
-    SELECT
-      code,
-      SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) AS win,
-      SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END) AS lose
-    FROM daily_stock_results
-    WHERE code = ANY($1)
-    GROUP BY code
-    `,
-    [codes]
-  );
-
-  for (const row of rows) {
-    const code = String(row.code);
-    const win = Number(row.win || 0);
-    const lose = Number(row.lose || 0);
-    const judged = win + lose;
-    const winRate = judged === 0 ? 0 : Math.round((win / judged) * 100);
-
-    map.set(code, {
-      code,
-      win,
-      lose,
-      winRate,
-    });
-  }
-
-  return map;
-}
-
-async function getPatternStatsMap(patternKeys: string[]) {
-  const map = new Map<string, PatternStats>();
-  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
-
-  if (uniqueKeys.length === 0) return map;
-
-  const { rows } = await pool.query(
-    `
-    SELECT
-      pattern_key,
-      SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) AS win,
-      SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END) AS lose
-    FROM pattern_learning_logs
-    WHERE pattern_key = ANY($1)
-    GROUP BY pattern_key
-    `,
-    [uniqueKeys]
-  );
-
-  for (const row of rows) {
-    const patternKey = String(row.pattern_key);
-    const win = Number(row.win || 0);
-    const lose = Number(row.lose || 0);
-
-    map.set(patternKey, {
-      patternKey,
-      win,
-      lose,
-    });
-  }
-
-  return map;
-}
-
-async function getWeightRuleMap(patternKeys: string[]) {
-  const map = new Map<string, WeightRule>();
-  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
-
-  if (uniqueKeys.length === 0) return map;
-
-  const { rows } = await pool.query(
-    `
-    SELECT
-      rule_key,
-      bonus,
-      win_rate,
-      sample_count,
-      confidence
-    FROM ai_power_weight_rules
-    WHERE
-      rule_type = 'pattern'
-      AND is_active = true
-      AND rule_key = ANY($1)
-    `,
-    [uniqueKeys]
-  );
-
-  for (const row of rows) {
-    const ruleKey = String(row.rule_key);
-
-    map.set(ruleKey, {
-      ruleKey,
-      bonus: Number(row.bonus || 0),
-      winRate: Number(row.win_rate || 0),
-      sampleCount: Number(row.sample_count || 0),
-      confidence: Number(row.confidence || 0),
-    });
-  }
-
-  return map;
-}
-
-async function getSectorWeightRuleMap(sectorKeys: string[]) {
-  const map = new Map<string, SectorWeightRule>();
-  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
-
-  if (uniqueKeys.length === 0) return map;
-
-  const { rows } = await pool.query(
-    `
-    SELECT
-      rule_key,
-      bonus,
-      win_rate,
-      sample_count,
-      confidence
-    FROM ai_power_weight_rules
-    WHERE
-      rule_type = 'SECTOR'
-      AND is_active = true
-      AND rule_key = ANY($1)
-    `,
-    [uniqueKeys]
-  );
-
-  for (const row of rows) {
-    const ruleKey = String(row.rule_key);
-
-    map.set(ruleKey, {
-      ruleKey,
-      bonus: Number(row.bonus || 0),
-      winRate: Number(row.win_rate || 0),
-      sampleCount: Number(row.sample_count || 0),
-      confidence: Number(row.confidence || 0),
-    });
-  }
-
-  return map;
-}
-
-async function getSectorStatsMap(sectorKeys: string[]) {
-  const map = new Map<string, SectorStats>();
-  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
-
-  if (uniqueKeys.length === 0) return map;
-
-  const { rows } = await pool.query(
-    `
-    SELECT
-      sector_key,
-      SUM(win_count) AS win,
-      SUM(lose_count) AS lose
-    FROM sector_learning_logs
-    WHERE sector_key = ANY($1)
-    GROUP BY sector_key
-    `,
-    [uniqueKeys]
-  );
-
-  for (const row of rows) {
-    const sectorKey = String(row.sector_key);
-
-    map.set(sectorKey, {
-      sectorKey,
-      win: Number(row.win || 0),
-      lose: Number(row.lose || 0),
-    });
-  }
-
-  return map;
-}
 async function fetchYahooChart(
   code: string
 ): Promise<(ChartAnalysis & { dataSource?: string }) | null> {
@@ -549,7 +352,9 @@ export async function GET(req: Request) {
         ? latestMarketBonus.bonus
         : getMarketBonus(marketPattern);
 
-    const timeBonus = getTimeBonus();
+    const timeLearning = await getLearningTimeBonus();
+
+const timeBonus = timeLearning.bonus;
 
     const rawScored = await runInBatches(targetStocks, 20, async (stock) => {
       const chart = await fetchYahooChart(stock.code);
@@ -609,9 +414,9 @@ export async function GET(req: Request) {
         topLimit: 10,
       }),
     ]);
-
-    const stocks = validScored
-      .map((scored: any) => {
+const stocks = (
+  await Promise.all(
+    validScored.map(async (scored: any) => {
         const sectorKey = getSectorKey(scored.code);
         const sectorLabel = getSectorLabel(scored.code);
 
@@ -698,8 +503,9 @@ export async function GET(req: Request) {
             topCount: 0,
             items: [],
           };
-                  const volatility = Math.abs(scored.changePercent ?? 0);
-        const volatilityBonus = getVolatilityBonus(volatility);
+        const volatility = Math.abs(scored.changePercent ?? 0);
+const volatilityLearning = await getLearningVolatilityBonus(volatility);
+const volatilityBonus = volatilityLearning.bonus;
 
         const eventType = detectEventType(scored);
         const eventBonus = getEventBonus(eventType);
@@ -727,9 +533,16 @@ export async function GET(req: Request) {
           similarExperienceBonus: similarExperience.bonus,
           experienceRankingBonus: experienceRanking.bonus,
         });
+const timeLearningReason =
+  timeLearning.bonus > 0
+    ? `時間帯学習 +${timeLearning.bonus}`
+    : timeLearning.bonus < 0
+    ? `時間帯学習 ${timeLearning.bonus}`
+    : "";
 
         const reasons = [
           scored.reason,
+          timeLearningReason,
         ].filter(Boolean);
 
         return {
@@ -742,6 +555,11 @@ export async function GET(req: Request) {
 
           score: finalScore,
           aiPower: finalScore,
+          timeSlot: timeLearning.timeSlot,
+timeBonusSource: timeLearning.source,
+timeWinRate: timeLearning.winRate,
+timeJudged: timeLearning.judged,
+timeConfidence: timeLearning.confidence,
 
           rank:
             finalScore >= 85
@@ -756,7 +574,9 @@ export async function GET(req: Request) {
             ...scored.scoreBreakdown,
             market: marketBonus,
             time: timeBonus,
+            timeLearning,
             volatility: volatilityBonus,
+            volatilityLearning,
             event: eventBonus,
             risk: riskBonus,
 
@@ -768,11 +588,11 @@ export async function GET(req: Request) {
             experienceRanking: experienceRanking.bonus,
           },
 
-          reason: reasons.join("・"),
+                   reason: reasons.join("・"),
         };
       })
-      .sort((a: any, b: any) => b.score - a.score);
-
+    )
+  ).sort((a: any, b: any) => b.score - a.score);
     cacheData = {
       timestamp: Date.now(),
       limit,

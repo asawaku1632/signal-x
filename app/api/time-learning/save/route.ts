@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
 
+function getCurrentTimeSlot(now: Date = new Date()) {
+  const hh = now.getHours();
+  const mm = now.getMinutes();
+  const time = hh * 100 + mm;
+
+  if (time >= 900 && time <= 1030) return "09:00-10:30";
+  if (time >= 1031 && time <= 1130) return "10:31-11:30";
+  if (time >= 1230 && time <= 1400) return "12:30-14:00";
+  if (time >= 1401 && time <= 1500) return "14:01-15:00";
+
+  return "OUT_OF_SESSION";
+}
+
 export async function GET(req: NextRequest) {
   const startedAt = Date.now();
 
@@ -10,15 +23,14 @@ export async function GET(req: NextRequest) {
 
     const timeSlot =
       url.searchParams.get("time") ??
-      new Date().toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
+      getCurrentTimeSlot();
 
-    const scanRes = await fetch(`${baseUrl}/api/scan?limit=1000`, {
-      cache: "no-store",
-    });
+    const scanRes = await fetch(
+      `${baseUrl}/api/scan?limit=1000`,
+      {
+        cache: "no-store",
+      }
+    );
 
     const scanData = await scanRes.json();
 
@@ -72,7 +84,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      aiPowerVersion: "V13.9_TIME_SAVE_WITH_ENTRY_PRICE",
+      aiPowerVersion: "V14.2_TIME_SAVE",
       learningDate: today,
       timeSlot,
       saved,
@@ -85,7 +97,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        aiPowerVersion: "V13.9_TIME_SAVE_WITH_ENTRY_PRICE",
+        aiPowerVersion: "V14.2_TIME_SAVE",
         error:
           error instanceof Error
             ? error.message
