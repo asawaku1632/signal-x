@@ -23,17 +23,18 @@ import {
 } from "@/app/lib/aiEngine";
 
 import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
-import { createExperienceKey } from "@/app/lib/experienceLearning";
-import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
-import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
-import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
+import {
+  buildExperienceKey,
+  buildExperienceKeys,
+  getExperienceLearningMaps,
+} from "@/app/lib/learning/experienceEngine";
 import { calculateFinalScoreContext } from "@/app/lib/learning/finalScoreEngine";
 import { buildScoreBreakdown } from "@/app/lib/learning/scoreBreakdownBuilder";
 
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V14_5_REFACTOR_LEARNING_0705";
+const DEBUG_VERSION = "AI_POWER_V15_EXPERIENCE_ENGINE_0705";
 
 type CacheData = {
   timestamp: number;
@@ -338,14 +339,10 @@ export async function GET(req: Request) {
     const patternKeys = validScored.map((stock) => stock.patternKey);
     const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
 
-    const experienceKeys = validScored.map((stock) => {
-      const sectorKey = getSectorKey(stock.code);
-
-      return createExperienceKey({
-        patternKey: stock.patternKey,
-        sectorKey,
-        marketPattern,
-      });
+    const experienceKeys = buildExperienceKeys({
+      stocks: validScored,
+      marketPattern,
+      getSectorKey,
     });
 
     const [
@@ -353,32 +350,27 @@ export async function GET(req: Request) {
       weightRuleMap,
       sectorStatsMap,
       sectorWeightRuleMap,
-      experienceBonusMap,
-      similarExperienceBonusMap,
-      experienceRankingMap,
+      experienceMaps,
     ] = await Promise.all([
       getPatternStatsMap(patternKeys),
       getWeightRuleMap(patternKeys),
       getSectorStatsMap(sectorKeys),
       getSectorWeightRuleMap(sectorKeys),
-      getExperienceBonusMap(experienceKeys),
-      getSimilarExperienceBonusMap(experienceKeys, {
-        minSimilarity: 70,
-        limit: 300,
-      }),
-      getExperienceRankingMap(experienceKeys, {
-        minSimilarity: 70,
-        candidateLimit: 500,
-        topLimit: 10,
-      }),
+      getExperienceLearningMaps(experienceKeys),
     ]);
+
+    const {
+      experienceBonusMap,
+      similarExperienceBonusMap,
+      experienceRankingMap,
+    } = experienceMaps;
     const stocks = (
       await Promise.all(
     validScored.map(async (scored: any) => {
         const sectorKey = getSectorKey(scored.code);
         const sectorLabel = getSectorLabel(scored.code);
 
-        const experienceKey = createExperienceKey({
+        const experienceKey = buildExperienceKey({
           patternKey: scored.patternKey,
           sectorKey,
           marketPattern,
