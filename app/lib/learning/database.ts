@@ -35,7 +35,22 @@ export type SectorStats = {
   lose: number;
 };
 
-export async function getLatestMarketPattern() {
+function toNumber(value: unknown, fallback = 0): number {
+  const num = Number(value ?? fallback);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function calcWinRate(win: number, lose: number): number {
+  const judged = win + lose;
+  if (judged <= 0) return 0;
+  return Math.round((win / judged) * 100);
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+export async function getLatestMarketPattern(): Promise<string> {
   const { rows } = await pool.query(`
     SELECT market_pattern
     FROM market_learning_logs
@@ -44,12 +59,14 @@ export async function getLatestMarketPattern() {
     LIMIT 1
   `);
 
-  return rows[0]?.market_pattern
-    ? String(rows[0].market_pattern)
-    : "NO_MARKET";
+  return rows[0]?.market_pattern ? String(rows[0].market_pattern) : "NO_MARKET";
 }
 
-export async function getLatestMarketBonus() {
+export async function getLatestMarketBonus(): Promise<{
+  bonus: number;
+  winRate: number;
+  confidence: number;
+}> {
   const { rows } = await pool.query(`
     SELECT
       ai_bonus,
@@ -62,16 +79,19 @@ export async function getLatestMarketBonus() {
   `);
 
   return {
-    bonus: Number(rows[0]?.ai_bonus ?? 0),
-    winRate: Number(rows[0]?.win_rate ?? 0),
-    confidence: Number(rows[0]?.confidence ?? 0),
+    bonus: toNumber(rows[0]?.ai_bonus),
+    winRate: toNumber(rows[0]?.win_rate),
+    confidence: toNumber(rows[0]?.confidence),
   };
 }
 
-export async function getLearningStatsMap(codes: string[]) {
+export async function getLearningStatsMap(
+  codes: string[]
+): Promise<Map<string, LearningStats>> {
   const map = new Map<string, LearningStats>();
+  const uniqueCodes = uniqueNonEmpty(codes);
 
-  if (codes.length === 0) return map;
+  if (uniqueCodes.length === 0) return map;
 
   const { rows } = await pool.query(
     `
@@ -83,30 +103,30 @@ export async function getLearningStatsMap(codes: string[]) {
     WHERE code = ANY($1)
     GROUP BY code
     `,
-    [codes]
+    [uniqueCodes]
   );
 
   for (const row of rows) {
     const code = String(row.code);
-    const win = Number(row.win || 0);
-    const lose = Number(row.lose || 0);
-    const judged = win + lose;
-    const winRate = judged === 0 ? 0 : Math.round((win / judged) * 100);
+    const win = toNumber(row.win);
+    const lose = toNumber(row.lose);
 
     map.set(code, {
       code,
       win,
       lose,
-      winRate,
+      winRate: calcWinRate(win, lose),
     });
   }
 
   return map;
 }
 
-export async function getPatternStatsMap(patternKeys: string[]) {
+export async function getPatternStatsMap(
+  patternKeys: string[]
+): Promise<Map<string, PatternStats>> {
   const map = new Map<string, PatternStats>();
-  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
+  const uniqueKeys = uniqueNonEmpty(patternKeys);
 
   if (uniqueKeys.length === 0) return map;
 
@@ -125,22 +145,22 @@ export async function getPatternStatsMap(patternKeys: string[]) {
 
   for (const row of rows) {
     const patternKey = String(row.pattern_key);
-    const win = Number(row.win || 0);
-    const lose = Number(row.lose || 0);
 
     map.set(patternKey, {
       patternKey,
-      win,
-      lose,
+      win: toNumber(row.win),
+      lose: toNumber(row.lose),
     });
   }
 
   return map;
 }
 
-export async function getWeightRuleMap(patternKeys: string[]) {
+export async function getWeightRuleMap(
+  patternKeys: string[]
+): Promise<Map<string, WeightRule>> {
   const map = new Map<string, WeightRule>();
-  const uniqueKeys = Array.from(new Set(patternKeys.filter(Boolean)));
+  const uniqueKeys = uniqueNonEmpty(patternKeys);
 
   if (uniqueKeys.length === 0) return map;
 
@@ -166,19 +186,21 @@ export async function getWeightRuleMap(patternKeys: string[]) {
 
     map.set(ruleKey, {
       ruleKey,
-      bonus: Number(row.bonus || 0),
-      winRate: Number(row.win_rate || 0),
-      sampleCount: Number(row.sample_count || 0),
-      confidence: Number(row.confidence || 0),
+      bonus: toNumber(row.bonus),
+      winRate: toNumber(row.win_rate),
+      sampleCount: toNumber(row.sample_count),
+      confidence: toNumber(row.confidence),
     });
   }
 
   return map;
 }
 
-export async function getSectorWeightRuleMap(sectorKeys: string[]) {
+export async function getSectorWeightRuleMap(
+  sectorKeys: string[]
+): Promise<Map<string, SectorWeightRule>> {
   const map = new Map<string, SectorWeightRule>();
-  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
+  const uniqueKeys = uniqueNonEmpty(sectorKeys);
 
   if (uniqueKeys.length === 0) return map;
 
@@ -204,19 +226,21 @@ export async function getSectorWeightRuleMap(sectorKeys: string[]) {
 
     map.set(ruleKey, {
       ruleKey,
-      bonus: Number(row.bonus || 0),
-      winRate: Number(row.win_rate || 0),
-      sampleCount: Number(row.sample_count || 0),
-      confidence: Number(row.confidence || 0),
+      bonus: toNumber(row.bonus),
+      winRate: toNumber(row.win_rate),
+      sampleCount: toNumber(row.sample_count),
+      confidence: toNumber(row.confidence),
     });
   }
 
   return map;
 }
 
-export async function getSectorStatsMap(sectorKeys: string[]) {
+export async function getSectorStatsMap(
+  sectorKeys: string[]
+): Promise<Map<string, SectorStats>> {
   const map = new Map<string, SectorStats>();
-  const uniqueKeys = Array.from(new Set(sectorKeys.filter(Boolean)));
+  const uniqueKeys = uniqueNonEmpty(sectorKeys);
 
   if (uniqueKeys.length === 0) return map;
 
@@ -238,8 +262,8 @@ export async function getSectorStatsMap(sectorKeys: string[]) {
 
     map.set(sectorKey, {
       sectorKey,
-      win: Number(row.win || 0),
-      lose: Number(row.lose || 0),
+      win: toNumber(row.win),
+      lose: toNumber(row.lose),
     });
   }
 
