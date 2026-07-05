@@ -12,10 +12,7 @@ import {
 } from "@/app/lib/learning/database";
   
 
-import {
-  getGlobalLearningContext,
-  getStockLearningContext,
-} from "@/app/lib/learning/learningEngine";
+import { getGlobalLearningContext } from "@/app/lib/learning/learningEngine";
 
 import {
   calculateAiScore,
@@ -28,13 +25,12 @@ import {
   buildExperienceKeys,
   getExperienceLearningMaps,
 } from "@/app/lib/learning/experienceEngine";
-import { calculateFinalScoreContext } from "@/app/lib/learning/finalScoreEngine";
-import { buildScoreBreakdown } from "@/app/lib/learning/scoreBreakdownBuilder";
+import { buildStockAiPowerResult } from "@/app/lib/learning/aiPowerEngine";
 
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V15_EXPERIENCE_ENGINE_0705";
+const DEBUG_VERSION = "AI_POWER_V15_AI_POWER_ENGINE_0705";
 
 type CacheData = {
   timestamp: number;
@@ -376,33 +372,16 @@ export async function GET(req: Request) {
           marketPattern,
         });
 
-        const volatility = Math.abs(scored.changePercent ?? 0);
-        const {
-          volatilityLearning,
-          volatilityBonus,
-          eventBonus,
-          eventKey,
-          eventLearning,
-          riskBonus,
-          riskKey,
-          riskLearning,
-        } = await getStockLearningContext({
-          scored,
-          volatility,
-        });
-
-        const {
-          learning,
-          finalPatternBonus,
-          finalSectorBonus,
-          experience,
-          similarExperience,
-          experienceRanking,
-          finalScore,
-        } = calculateFinalScoreContext({
+        return await buildStockAiPowerResult({
           scored,
           sectorKey,
+          sectorLabel,
           experienceKey,
+          marketPattern,
+          marketBonus,
+          marketLearning,
+          timeBonus,
+          timeLearning,
           learningStatsMap,
           patternStatsMap,
           weightRuleMap,
@@ -411,71 +390,7 @@ export async function GET(req: Request) {
           experienceBonusMap,
           similarExperienceBonusMap,
           experienceRankingMap,
-          marketBonus,
-          timeBonus,
-          volatilityBonus,
-          eventBonus: eventLearning.bonus,
-          riskBonus: riskLearning.bonus,
         });
-const timeLearningReason =
-          timeLearning.bonus > 0
-            ? `時間帯学習 +${timeLearning.bonus}`
-            : timeLearning.bonus < 0
-            ? `時間帯学習 ${timeLearning.bonus}`
-            : "";
-
-        const reasons = [
-          scored.reason,
-          timeLearningReason,
-        ].filter(Boolean);
-
-        return {
-          ...scored,
-
-          sectorKey,
-          sectorLabel,
-          experienceKey,
-          marketPattern,
-
-          score: finalScore,
-          aiPower: finalScore,
-          timeSlot: timeLearning.timeSlot,
-timeBonusSource: timeLearning.source,
-          timeWinRate: timeLearning.winRate,
-          timeJudged: timeLearning.judged,
-          timeConfidence: timeLearning.confidence,
-
-          rank:
-            finalScore >= 85
-              ? "S"
-              : finalScore >= 70
-              ? "A"
-              : finalScore >= 50
-              ? "B"
-              : "C",
-
-          scoreBreakdown: buildScoreBreakdown({
-            baseScoreBreakdown: scored.scoreBreakdown,
-            marketBonus,
-            marketLearning,
-            timeBonus,
-            timeLearning,
-            volatilityBonus,
-            volatilityLearning,
-            eventKey,
-            eventLearning,
-            riskKey,
-            riskLearning,
-            learning,
-            finalPatternBonus,
-            finalSectorBonus,
-            experience,
-            similarExperience,
-            experienceRanking,
-          }),
-
-          reason: reasons.join("・"),
-        };
       })
     )
   ).sort((a: any, b: any) => b.score - a.score);
