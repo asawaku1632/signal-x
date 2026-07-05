@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { STOCKS, type Stock } from "@/app/lib/stockList";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
-import { calculateFinalAiPower } from "@/app/lib/aiPowerEngine";
 import {
   getLatestMarketPattern,
   getLatestMarketBonus,
@@ -23,14 +22,13 @@ import {
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
 
-import { calculateLearningBonus } from "@/app/lib/learningBonus";
-import { calculatePatternBonus } from "@/app/lib/patternBonus";
-import { calculateSectorBonus } from "@/app/lib/sectorBonus";
 import { getSectorKey, getSectorLabel } from "@/app/lib/sectorMap";
 import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
 import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
 import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
+import { calculateFinalScoreContext } from "@/app/lib/learning/finalScoreEngine";
+import { buildScoreBreakdown } from "@/app/lib/learning/scoreBreakdownBuilder";
 
 
 export const dynamic = "force-dynamic";
@@ -386,83 +384,6 @@ export async function GET(req: Request) {
           marketPattern,
         });
 
-        const learningStats = learningStatsMap.get(scored.code);
-        const judgedLearning =
-          (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
-
-        const learning =
-          judgedLearning > 0
-            ? calculateLearningBonus(learningStats?.winRate)
-            : {
-                bonus: 0,
-                winRate: 0,
-              };
-
-        const patternStats = patternStatsMap.get(scored.patternKey);
-        const pattern = calculatePatternBonus({
-          win: patternStats?.win ?? 0,
-          lose: patternStats?.lose ?? 0,
-        });
-
-        const weightRule = weightRuleMap.get(scored.patternKey);
-        const weightRuleApplied = Boolean(weightRule);
-
-        const finalPatternBonus = weightRuleApplied
-          ? weightRule!.bonus
-          : pattern.bonus;
-
-        const sectorStats = sectorStatsMap.get(sectorKey);
-        const calculatedSector = calculateSectorBonus({
-          win: sectorStats?.win ?? 0,
-          lose: sectorStats?.lose ?? 0,
-        });
-
-        const sectorWeightRule = sectorWeightRuleMap.get(sectorKey);
-        const sectorWeightRuleApplied = Boolean(sectorWeightRule);
-
-        const finalSectorBonus = sectorWeightRuleApplied
-          ? sectorWeightRule!.bonus
-          : calculatedSector.bonus;
-
-        const experience =
-          experienceBonusMap.get(experienceKey) || {
-            bonus: 0,
-            winRate: 0,
-            total: 0,
-            win: 0,
-            lose: 0,
-            confidence: 0,
-          };
-
-        const similarExperience =
-          similarExperienceBonusMap.get(experienceKey) || {
-            bonus: 0,
-            baseBonus: 0,
-            winRate: 0,
-            total: 0,
-            win: 0,
-            lose: 0,
-            confidence: 0,
-            similarityRate: 0,
-            similarCount: 0,
-            averageSimilarity: 0,
-            items: [],
-          };
-
-        const experienceRanking =
-          experienceRankingMap.get(experienceKey) || {
-            bonus: 0,
-            winRate: 0,
-            total: 0,
-            win: 0,
-            lose: 0,
-            confidence: 0,
-            weightedWinRate: 0,
-            weightedTotal: 0,
-            averageSimilarity: 0,
-            topCount: 0,
-            items: [],
-          };
         const volatility = Math.abs(scored.changePercent ?? 0);
         const {
           volatilityLearning,
@@ -478,20 +399,31 @@ export async function GET(req: Request) {
           volatility,
         });
 
-        const finalScore = calculateFinalAiPower({
-          baseScore: scored.score,
+        const {
+          learning,
+          finalPatternBonus,
+          finalSectorBonus,
+          experience,
+          similarExperience,
+          experienceRanking,
+          finalScore,
+        } = calculateFinalScoreContext({
+          scored,
+          sectorKey,
+          experienceKey,
+          learningStatsMap,
+          patternStatsMap,
+          weightRuleMap,
+          sectorStatsMap,
+          sectorWeightRuleMap,
+          experienceBonusMap,
+          similarExperienceBonusMap,
+          experienceRankingMap,
           marketBonus,
           timeBonus,
           volatilityBonus,
           eventBonus: eventLearning.bonus,
           riskBonus: riskLearning.bonus,
-
-          learningBonus: learning.bonus,
-          patternBonus: finalPatternBonus,
-          sectorBonus: finalSectorBonus,
-          experienceBonus: experience.bonus,
-          similarExperienceBonus: similarExperience.bonus,
-          experienceRankingBonus: experienceRanking.bonus,
         });
 const timeLearningReason =
           timeLearning.bonus > 0
@@ -530,40 +462,25 @@ timeBonusSource: timeLearning.source,
               ? "B"
               : "C",
 
-          scoreBreakdown: {
-            ...scored.scoreBreakdown,
-            market: marketBonus,
+          scoreBreakdown: buildScoreBreakdown({
+            baseScoreBreakdown: scored.scoreBreakdown,
+            marketBonus,
             marketLearning,
-            time: timeBonus,
+            timeBonus,
             timeLearning,
-            volatility: volatilityBonus,
+            volatilityBonus,
             volatilityLearning,
-            event: eventLearning.bonus,
-            eventLearning: {
-              eventKey,
-              bonus: eventLearning.bonus,
-              winRate: eventLearning.winRate,
-              judged: eventLearning.judged,
-              confidence: eventLearning.confidence,
-              source: eventLearning.source,
-            },
-            risk: riskLearning.bonus,
-            riskLearning: {
-              riskKey,
-              bonus: riskLearning.bonus,
-              winRate: riskLearning.winRate,
-              judged: riskLearning.judged,
-              confidence: riskLearning.confidence,
-              source: riskLearning.source,
-            },
-
-            learning: learning.bonus,
-            patternLearning: finalPatternBonus,
-            sector: finalSectorBonus,
-            experience: experience.bonus,
-            similarExperience: similarExperience.bonus,
-            experienceRanking: experienceRanking.bonus,
-          },
+            eventKey,
+            eventLearning,
+            riskKey,
+            riskLearning,
+            learning,
+            finalPatternBonus,
+            finalSectorBonus,
+            experience,
+            similarExperience,
+            experienceRanking,
+          }),
 
           reason: reasons.join("・"),
         };
