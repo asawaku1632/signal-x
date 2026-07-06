@@ -13,6 +13,10 @@ import {
 import { getLearningTimeBonus } from "@/app/lib/learning";
 import { runAiPipeline } from "@/app/lib/learning/pipeline";
 import { analyzeStock } from "@/app/lib/learning/stockAnalyzer";
+import {
+  buildScanErrorPayload,
+  buildScanResponsePayload,
+} from "@/app/lib/learning/notificationEngine";
 import { getSectorKey } from "@/app/lib/sectorMap";
 import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
@@ -21,7 +25,8 @@ import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V17_STOCK_ANALYZER_0706";
+const DEBUG_VERSION = "AI_POWER_V18_NOTIFICATION_ENGINE_0706";
+const AI_POWER_VERSION = "V18.0";
 
 const BATCH_SIZE = 20;
 const CACHE_TIME = 60 * 1000;
@@ -30,6 +35,8 @@ type CacheData = {
   timestamp: number;
   limit: number;
   stocks: any[];
+  marketPattern?: string;
+  totalStockList?: number;
 };
 
 let cacheData: CacheData | null = null;
@@ -87,28 +94,18 @@ export async function GET(req: Request) {
       cacheData.limit === limit &&
       now - cacheData.timestamp < CACHE_TIME
     ) {
-      return NextResponse.json({
-        success: true,
-        cached: true,
-        debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V17.0",
-        learningBonusEnabled: true,
-        patternBonusEnabled: true,
-        weightRulesEnabled: true,
-        sectorEnabled: true,
-        sectorBonusEnabled: true,
-        sectorWeightRuleEnabled: true,
-        experienceBonusEnabled: true,
-        similarExperienceEnabled: true,
-        experienceRankingEnabled: true,
-        aiPipelineEnabled: true,
-        stockAnalyzerEnabled: true,
-        cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
-        count: cacheData.stocks.length,
-        requestedLimit: limit,
-        totalStockList: getUniqueStocks(STOCKS).length,
-        stocks: cacheData.stocks,
-      });
+      return NextResponse.json(
+        buildScanResponsePayload({
+          debugVersion: DEBUG_VERSION,
+          aiPowerVersion: AI_POWER_VERSION,
+          cached: true,
+          limit,
+          totalStockList: cacheData.totalStockList ?? getUniqueStocks(STOCKS).length,
+          stocks: cacheData.stocks,
+          marketPattern: cacheData.marketPattern,
+          cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
+        })
+      );
     }
 
     const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
@@ -190,57 +187,42 @@ export async function GET(req: Request) {
       timestamp: Date.now(),
       limit,
       stocks,
+      marketPattern,
+      totalStockList: uniqueStocks.length,
     };
 
-    const firstStock = stocks[0];
-    const marketLearning = firstStock?.scoreBreakdown?.marketLearning;
-    const timeLearningResult = firstStock?.scoreBreakdown?.timeLearning;
-
-    return NextResponse.json({
-      success: true,
-      cached: false,
-      debugVersion: DEBUG_VERSION,
-      aiPowerVersion: "V17.0",
-      stockAnalyzerEnabled: true,
-      marketPattern,
-      marketBonus: marketLearning?.bonus ?? 0,
-      marketWinRate: marketLearning?.winRate ?? 0,
-      marketConfidence: marketLearning?.confidence ?? 0,
-      marketBonusSource: marketLearning?.source ?? "fixed",
-      timeBonus: timeLearningResult?.bonus ?? 0,
-      count: stocks.length,
-      requestedLimit: limit,
-      totalStockList: uniqueStocks.length,
-      scanMs: Date.now() - startedAt,
-      batchSize: BATCH_SIZE,
-      stocks,
-    });
+    return NextResponse.json(
+      buildScanResponsePayload({
+        debugVersion: DEBUG_VERSION,
+        aiPowerVersion: AI_POWER_VERSION,
+        cached: false,
+        limit,
+        totalStockList: uniqueStocks.length,
+        stocks,
+        marketPattern,
+        scanMs: Date.now() - startedAt,
+        batchSize: BATCH_SIZE,
+      })
+    );
   } catch (error) {
     if (cacheData) {
-      return NextResponse.json({
-        success: true,
-        cached: true,
-        fallback: true,
-        debugVersion: DEBUG_VERSION,
-        aiPowerVersion: "V17.0",
-        stockAnalyzerEnabled: true,
-        error: String(error),
-        count: cacheData.stocks.length,
-        requestedLimit: cacheData.limit,
-        stocks: cacheData.stocks,
-      });
+      return NextResponse.json(
+        buildScanResponsePayload({
+          debugVersion: DEBUG_VERSION,
+          aiPowerVersion: AI_POWER_VERSION,
+          cached: true,
+          fallback: true,
+          limit: cacheData.limit,
+          totalStockList: cacheData.totalStockList,
+          stocks: cacheData.stocks,
+          marketPattern: cacheData.marketPattern,
+          error: String(error),
+        })
+      );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        cached: false,
-        debugVersion: DEBUG_VERSION,
-        stockAnalyzerEnabled: true,
-        stocks: [],
-        error: String(error),
-      },
-      { status: 500 }
-    );
+    return NextResponse.json(buildScanErrorPayload(DEBUG_VERSION, error), {
+      status: 500,
+    });
   }
 }
