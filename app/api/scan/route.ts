@@ -13,6 +13,7 @@ import {
 import { getLearningTimeBonus } from "@/app/lib/learning";
 import { runAiPipeline } from "@/app/lib/learning/pipeline";
 import { analyzeStock } from "@/app/lib/learning/stockAnalyzer";
+import { buildRanking } from "@/app/lib/learning/rankingEngine";
 import {
   buildScanErrorPayload,
   buildScanResponsePayload,
@@ -25,8 +26,8 @@ import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V18_NOTIFICATION_ENGINE_0706";
-const AI_POWER_VERSION = "V18.0";
+const DEBUG_VERSION = "AI_POWER_V19_RANKING_ENGINE_0706";
+const AI_POWER_VERSION = "V19.0";
 
 const BATCH_SIZE = 20;
 const CACHE_TIME = 60 * 1000;
@@ -35,6 +36,7 @@ type CacheData = {
   timestamp: number;
   limit: number;
   stocks: any[];
+  ranking?: any;
   marketPattern?: string;
   totalStockList?: number;
 };
@@ -100,8 +102,10 @@ export async function GET(req: Request) {
           aiPowerVersion: AI_POWER_VERSION,
           cached: true,
           limit,
-          totalStockList: cacheData.totalStockList ?? getUniqueStocks(STOCKS).length,
+          totalStockList:
+            cacheData.totalStockList ?? getUniqueStocks(STOCKS).length,
           stocks: cacheData.stocks,
+          ranking: cacheData.ranking,
           marketPattern: cacheData.marketPattern,
           cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         })
@@ -118,9 +122,13 @@ export async function GET(req: Request) {
     const latestMarketBonus = await getLatestMarketBonus();
     const timeLearning = await getLearningTimeBonus();
 
-    const rawScored = await runInBatches(targetStocks, BATCH_SIZE, async (stock) => {
-      return analyzeStock(stock);
-    });
+    const rawScored = await runInBatches(
+      targetStocks,
+      BATCH_SIZE,
+      async (stock) => {
+        return analyzeStock(stock);
+      }
+    );
 
     const validScored = rawScored.filter(Boolean) as any[];
 
@@ -162,31 +170,33 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    const stocks = (
-      await Promise.all(
-        validScored.map(async (scored: any) =>
-          runAiPipeline({
-            scored,
-            marketPattern,
-            latestMarketBonus,
-            timeLearning,
-            learningStatsMap,
-            patternStatsMap,
-            weightRuleMap,
-            sectorStatsMap,
-            sectorWeightRuleMap,
-            experienceBonusMap,
-            similarExperienceBonusMap,
-            experienceRankingMap,
-          })
-        )
+    const analyzedStocks = await Promise.all(
+      validScored.map(async (scored: any) =>
+        runAiPipeline({
+          scored,
+          marketPattern,
+          latestMarketBonus,
+          timeLearning,
+          learningStatsMap,
+          patternStatsMap,
+          weightRuleMap,
+          sectorStatsMap,
+          sectorWeightRuleMap,
+          experienceBonusMap,
+          similarExperienceBonusMap,
+          experienceRankingMap,
+        })
       )
-    ).sort((a: any, b: any) => b.score - a.score);
+    );
+
+    const ranking = buildRanking(analyzedStocks);
+    const stocks = ranking.rankedStocks;
 
     cacheData = {
       timestamp: Date.now(),
       limit,
       stocks,
+      ranking,
       marketPattern,
       totalStockList: uniqueStocks.length,
     };
@@ -199,6 +209,7 @@ export async function GET(req: Request) {
         limit,
         totalStockList: uniqueStocks.length,
         stocks,
+        ranking,
         marketPattern,
         scanMs: Date.now() - startedAt,
         batchSize: BATCH_SIZE,
@@ -215,6 +226,7 @@ export async function GET(req: Request) {
           limit: cacheData.limit,
           totalStockList: cacheData.totalStockList,
           stocks: cacheData.stocks,
+          ranking: cacheData.ranking,
           marketPattern: cacheData.marketPattern,
           error: String(error),
         })
