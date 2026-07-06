@@ -84,19 +84,17 @@ function createAiComment({
       "⚠️ AIは現在改善フェーズです。学習データを蓄積しながら精度向上を目指します。";
   }
 
-  return `
-AI勝率は${winRate}%です。
+ return `
+現在のAI勝率は${winRate}%です。
 
-${trendComment}
+これまで${judgedTotal}件の判定結果を学習し、
+${win}件の成功パターン（WIN）と${lose}件の失敗パターン（LOSE）を蓄積しました。
 
-現在のWIN/LOSE判定件数は${judgedTotal}件です。
+現在は${hold}件の保留データと${unknown}件の判定待ちデータを継続学習中です。
 
-WIN：${win}件
-LOSE：${lose}件
-HOLD：${hold}件
-判定待ち：${unknown}件
+学習データが増えるほどAI POWERの精度はさらに向上していきます。
 
-${levelComment}
+🚀 SIGNALXは、毎営業日学習を繰り返しながら成長する自己学習型AIです。
 `.trim();
 }
 
