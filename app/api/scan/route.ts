@@ -1,87 +1,30 @@
 import { NextResponse } from "next/server";
-import { STOCKS, type Stock } from "@/app/lib/stockList";
-import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
 import {
-  getLatestMarketPattern,
-  getLatestMarketBonus,
-  getLearningStatsMap,
-  getPatternStatsMap,
-  getWeightRuleMap,
-  getSectorWeightRuleMap,
-  getSectorStatsMap,
-} from "@/app/lib/learning/database";
-import { getLearningTimeBonus } from "@/app/lib/learning";
-import { runAiPipeline } from "@/app/lib/learning/pipeline";
-import { analyzeStock } from "@/app/lib/learning/stockAnalyzer";
-import { buildRanking } from "@/app/lib/learning/rankingEngine";
+  clampLimit,
+  getFallbackTotalStockList,
+  runScan,
+} from "@/app/lib/learning/scanEngine";
 import {
   buildScanErrorPayload,
   buildScanResponsePayload,
 } from "@/app/lib/learning/notificationEngine";
-import { getSectorKey } from "@/app/lib/sectorMap";
-import { createExperienceKey } from "@/app/lib/experienceLearning";
-import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
-import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
-import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 export const dynamic = "force-dynamic";
 
-const DEBUG_VERSION = "AI_POWER_V19_RANKING_ENGINE_0706";
-const AI_POWER_VERSION = "V19.0";
+const DEBUG_VERSION = "AI_POWER_V20_FINAL_ROUTE_REFACTOR_0706";
+const AI_POWER_VERSION = "V20.0";
 
-const BATCH_SIZE = 20;
 const CACHE_TIME = 60 * 1000;
 
 type CacheData = {
   timestamp: number;
   limit: number;
   stocks: any[];
-  ranking?: any;
   marketPattern?: string;
   totalStockList?: number;
 };
 
 let cacheData: CacheData | null = null;
-
-function getUniqueStocks(stocks: Stock[]) {
-  const map = new Map<string, Stock>();
-
-  for (const stock of stocks) {
-    if (!map.has(stock.code)) {
-      map.set(stock.code, stock);
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-function clampLimit(value: number) {
-  if (!Number.isFinite(value)) return 200;
-  if (value < 1) return 200;
-  if (value > 1000) return 1000;
-  return value;
-}
-
-async function runInBatches<T, R>(
-  items: T[],
-  batchSize: number,
-  fn: (item: T) => Promise<R>
-) {
-  const results: R[] = [];
-
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const settled = await Promise.allSettled(batch.map(fn));
-
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
-        results.push(result.value);
-      }
-    }
-  }
-
-  return results;
-}
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
@@ -103,102 +46,22 @@ export async function GET(req: Request) {
           cached: true,
           limit,
           totalStockList:
-            cacheData.totalStockList ?? getUniqueStocks(STOCKS).length,
+            cacheData.totalStockList ?? getFallbackTotalStockList(),
           stocks: cacheData.stocks,
-          ranking: cacheData.ranking,
           marketPattern: cacheData.marketPattern,
           cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         })
       );
     }
 
-    const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
-    const targetStocks = uniqueStocks.slice(0, limit);
-    const targetCodes = targetStocks.map((stock) => stock.code);
-
-    const learningStatsMap = await getLearningStatsMap(targetCodes);
-
-    const marketPattern = await getLatestMarketPattern();
-    const latestMarketBonus = await getLatestMarketBonus();
-    const timeLearning = await getLearningTimeBonus();
-
-    const rawScored = await runInBatches(
-      targetStocks,
-      BATCH_SIZE,
-      async (stock) => {
-        return analyzeStock(stock);
-      }
-    );
-
-    const validScored = rawScored.filter(Boolean) as any[];
-
-    const patternKeys = validScored.map((stock) => stock.patternKey);
-    const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
-
-    const experienceKeys = validScored.map((stock) => {
-      const sectorKey = getSectorKey(stock.code);
-
-      return createExperienceKey({
-        patternKey: stock.patternKey,
-        sectorKey,
-        marketPattern,
-      });
-    });
-
-    const [
-      patternStatsMap,
-      weightRuleMap,
-      sectorStatsMap,
-      sectorWeightRuleMap,
-      experienceBonusMap,
-      similarExperienceBonusMap,
-      experienceRankingMap,
-    ] = await Promise.all([
-      getPatternStatsMap(patternKeys),
-      getWeightRuleMap(patternKeys),
-      getSectorStatsMap(sectorKeys),
-      getSectorWeightRuleMap(sectorKeys),
-      getExperienceBonusMap(experienceKeys),
-      getSimilarExperienceBonusMap(experienceKeys, {
-        minSimilarity: 70,
-        limit: 300,
-      }),
-      getExperienceRankingMap(experienceKeys, {
-        minSimilarity: 70,
-        candidateLimit: 500,
-        topLimit: 10,
-      }),
-    ]);
-
-    const analyzedStocks = await Promise.all(
-      validScored.map(async (scored: any) =>
-        runAiPipeline({
-          scored,
-          marketPattern,
-          latestMarketBonus,
-          timeLearning,
-          learningStatsMap,
-          patternStatsMap,
-          weightRuleMap,
-          sectorStatsMap,
-          sectorWeightRuleMap,
-          experienceBonusMap,
-          similarExperienceBonusMap,
-          experienceRankingMap,
-        })
-      )
-    );
-
-    const ranking = buildRanking(analyzedStocks);
-    const stocks = ranking.rankedStocks;
+    const scanResult = await runScan(limit);
 
     cacheData = {
       timestamp: Date.now(),
-      limit,
-      stocks,
-      ranking,
-      marketPattern,
-      totalStockList: uniqueStocks.length,
+      limit: scanResult.limit,
+      stocks: scanResult.stocks,
+      marketPattern: scanResult.marketPattern,
+      totalStockList: scanResult.totalStockList,
     };
 
     return NextResponse.json(
@@ -206,13 +69,11 @@ export async function GET(req: Request) {
         debugVersion: DEBUG_VERSION,
         aiPowerVersion: AI_POWER_VERSION,
         cached: false,
-        limit,
-        totalStockList: uniqueStocks.length,
-        stocks,
-        ranking,
-        marketPattern,
+        limit: scanResult.limit,
+        totalStockList: scanResult.totalStockList,
+        stocks: scanResult.stocks,
+        marketPattern: scanResult.marketPattern,
         scanMs: Date.now() - startedAt,
-        batchSize: BATCH_SIZE,
       })
     );
   } catch (error) {
@@ -226,7 +87,6 @@ export async function GET(req: Request) {
           limit: cacheData.limit,
           totalStockList: cacheData.totalStockList,
           stocks: cacheData.stocks,
-          ranking: cacheData.ranking,
           marketPattern: cacheData.marketPattern,
           error: String(error),
         })
