@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAutoLearning } from "@/app/lib/learning/autoLearningRunner";
+import { createCronLearningLog } from "@/app/lib/learning/cronLearningLogRepository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const DEBUG_VERSION = "V22_1_DAILY_LEARNING_CRON_0707";
+const DEBUG_VERSION = "V22_2_DAILY_LEARNING_CRON_LOGS_0707";
 
 function isAuthorized(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -26,7 +27,18 @@ function isAuthorized(request: NextRequest): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
+function toSafeNumber(value: string | null, fallback: number): number {
+  const num = Number(value ?? fallback);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 export async function GET(request: NextRequest) {
+  const limit = toSafeNumber(request.nextUrl.searchParams.get("limit"), 300);
+  const minSampleCount = toSafeNumber(
+    request.nextUrl.searchParams.get("minSampleCount"),
+    3
+  );
+
   try {
     if (!isAuthorized(request)) {
       return NextResponse.json(
@@ -40,15 +52,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const limit = Number(request.nextUrl.searchParams.get("limit") ?? 300);
-    const minSampleCount = Number(
-      request.nextUrl.searchParams.get("minSampleCount") ?? 3
-    );
-
     const report = await runAutoLearning({
       mode: "execute",
       judgeLimit: Number.isFinite(limit) ? limit : 300,
       minSampleCount: Number.isFinite(minSampleCount) ? minSampleCount : 3,
+    });
+
+    const savedLog = await createCronLearningLog({
+      status: "SUCCESS",
+      debugVersion: DEBUG_VERSION,
+      mode: "execute",
+      judgeLimit: report.judgeLimit,
+      minSampleCount: report.minSampleCount,
+      processedCount: report.summary.processedCount,
+      updatedCount: report.summary.updatedCount,
+      winCount: report.summary.winCount,
+      loseCount: report.summary.loseCount,
+      holdCount: report.summary.holdCount,
+      unknownCount: report.summary.unknownCount,
+      errorCount: report.summary.errorCount,
+      weightRuleUpsertedCount: report.summary.weightRuleUpsertedCount,
+      rawReport: report,
     });
 
     return NextResponse.json({
@@ -58,19 +82,45 @@ export async function GET(request: NextRequest) {
       schedule: "Weekdays 15:40 JST / 06:40 UTC",
       autoLearning: report,
       summary: report.summary,
+      savedLog,
       nextAction:
-        "learning quality APIで品質スコア、判定済み件数、AI重みルール数を確認してください。",
+        "cron logs APIで実行履歴が保存されたか確認してください。",
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "daily learning cron failed";
+
+    let savedLog = null;
+
+    try {
+      savedLog = await createCronLearningLog({
+        status: "ERROR",
+        debugVersion: DEBUG_VERSION,
+        mode: "execute",
+        judgeLimit: Number.isFinite(limit) ? limit : 300,
+        minSampleCount: Number.isFinite(minSampleCount) ? minSampleCount : 3,
+        processedCount: 0,
+        updatedCount: 0,
+        winCount: 0,
+        loseCount: 0,
+        holdCount: 0,
+        unknownCount: 0,
+        errorCount: 1,
+        weightRuleUpsertedCount: 0,
+        errorMessage: message,
+        rawReport: { error: message },
+      });
+    } catch {
+      savedLog = null;
+    }
+
     return NextResponse.json(
       {
         success: false,
         debugVersion: DEBUG_VERSION,
         checkedAt: new Date().toISOString(),
-        error:
-          error instanceof Error
-            ? error.message
-            : "daily learning cron failed",
+        error: message,
+        savedLog,
       },
       { status: 500 }
     );
