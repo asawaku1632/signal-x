@@ -39,13 +39,6 @@ type VerificationResult = {
   error?: string;
 };
 
-function judgeColor(status?: string) {
-  if (status === "PASS") return "#16a34a";
-  if (status === "FAIL") return "#dc2626";
-  if (status === "NO_DATA") return "#f97316";
-  return "#f97316";
-}
-
 function recommendationColor(evaluation?: string) {
   if (evaluation === "STRONG_BUY") return "#16a34a";
   if (evaluation === "BUY") return "#22c55e";
@@ -86,12 +79,15 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setAiPowerResult(data);
+      return data;
     } catch {
-      setAiPowerResult({
+      const data = {
         success: false,
         status: "FAIL",
         error: "AI_POWER_VERIFICATION_FAILED",
-      });
+      };
+      setAiPowerResult(data);
+      return data;
     } finally {
       setAiPowerLoading(false);
     }
@@ -107,12 +103,15 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setLearningResult(data);
+      return data;
     } catch {
-      setLearningResult({
+      const data = {
         success: false,
         status: "FAIL",
         error: "LEARNING_VERIFICATION_FAILED",
-      });
+      };
+      setLearningResult(data);
+      return data;
     } finally {
       setLearningLoading(false);
     }
@@ -128,19 +127,27 @@ export default function VerificationPage() {
 
       const data = await res.json();
       setLineResult(data);
+      return data;
     } catch {
-      setLineResult({
+      const data = {
         success: false,
         status: "FAIL",
         error: "LINE_VERIFICATION_FAILED",
-      });
+      };
+      setLineResult(data);
+      return data;
     } finally {
       setLineLoading(false);
     }
   }
-    const runVerification = async () => {
+
+  const runVerification = async () => {
     setLoading(true);
     setResult(null);
+    setTechnicalResult(null);
+    setAiPowerResult(null);
+    setLearningResult(null);
+    setLineResult(null);
 
     try {
       const res = await fetch("/api/verification/run", {
@@ -178,6 +185,12 @@ export default function VerificationPage() {
 
       const reportData = await reportRes.json();
       setDailyReports(reportData.history ?? []);
+
+      await Promise.all([
+        runAiPowerVerification(),
+        runLearningVerification(),
+        runLineVerification(),
+      ]);
     } catch (error) {
       setResult({
         success: false,
@@ -331,168 +344,165 @@ export default function VerificationPage() {
             <p>{phase8Ok ? "✅" : "⏳"} Phase8：AI日次レポート</p>
           </div>
         </section>
-              {evolutionHistory.length > 0 && (
-        <section style={cardStyle}>
-          <h2>🧠 AI Evolution History</h2>
 
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>日時</th>
-                <th style={thStyle}>種類</th>
-                <th style={thStyle}>ルール</th>
-                <th style={thStyle}>変更</th>
-                <th style={thStyle}>勝率</th>
-                <th style={thStyle}>件数</th>
-              </tr>
-            </thead>
+        {evolutionHistory.length > 0 && (
+          <section style={cardStyle}>
+            <h2>🧠 AI Evolution History</h2>
 
-            <tbody>
-              {evolutionHistory.map((item) => (
-                <tr key={item.id}>
-                  <td style={tdStyle}>
-                    {new Date(item.applied_at).toLocaleString("ja-JP")}
-                  </td>
-                  <td style={tdStyle}>{item.rule_type}</td>
-                  <td style={tdStyle}>{item.rule_key}</td>
-                  <td style={tdStyle}>
-                    {item.old_bonus} → {item.new_bonus}
-                  </td>
-                  <td style={tdStyle}>{item.win_rate}%</td>
-                  <td style={tdStyle}>{item.sample_count}</td>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>日時</th>
+                  <th style={thStyle}>種類</th>
+                  <th style={thStyle}>ルール</th>
+                  <th style={thStyle}>変更</th>
+                  <th style={thStyle}>勝率</th>
+                  <th style={thStyle}>件数</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+              </thead>
 
-      {recommendations.length > 0 && (
-        <section style={cardStyle}>
-          <h2>🤖 Phase6：AI Recommendation</h2>
+              <tbody>
+                {evolutionHistory.map((item) => (
+                  <tr key={item.id}>
+                    <td style={tdStyle}>
+                      {new Date(item.applied_at).toLocaleString("ja-JP")}
+                    </td>
+                    <td style={tdStyle}>{item.rule_type}</td>
+                    <td style={tdStyle}>{item.rule_key}</td>
+                    <td style={tdStyle}>
+                      {item.old_bonus} → {item.new_bonus}
+                    </td>
+                    <td style={tdStyle}>{item.win_rate}%</td>
+                    <td style={tdStyle}>{item.sample_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>項目</th>
-                <th style={thStyle}>現在</th>
-                <th style={thStyle}>AI提案</th>
-                <th style={thStyle}>勝率</th>
-                <th style={thStyle}>件数</th>
-                <th style={thStyle}>評価</th>
-              </tr>
-            </thead>
+        {recommendations.length > 0 && (
+          <section style={cardStyle}>
+            <h2>🤖 Phase6：AI Recommendation</h2>
 
-            <tbody>
-              {recommendations.map((item) => (
-                <tr key={item.id}>
-                  <td style={tdStyle}>{item.pattern_key}</td>
-                  <td style={tdStyle}>{item.current_bonus}</td>
-
-                  <td
-                    style={{
-                      ...tdStyle,
-                      color:
-                        item.recommended_bonus > 0
-                          ? "#16a34a"
-                          : item.recommended_bonus < 0
-                          ? "#dc2626"
-                          : "#6b7280",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.recommended_bonus > 0 ? "+" : ""}
-                    {item.recommended_bonus}
-                  </td>
-
-                  <td style={tdStyle}>{item.win_rate}%</td>
-                  <td style={tdStyle}>{item.sample_count}</td>
-
-                  <td
-                    style={{
-                      ...tdStyle,
-                      color: recommendationColor(item.evaluation),
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.evaluation}
-                  </td>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>項目</th>
+                  <th style={thStyle}>現在</th>
+                  <th style={thStyle}>AI提案</th>
+                  <th style={thStyle}>勝率</th>
+                  <th style={thStyle}>件数</th>
+                  <th style={thStyle}>評価</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+              </thead>
 
-      {latestReport && (
-        <section style={cardStyle}>
-          <h2>📈 AI Daily Report</h2>
+              <tbody>
+                {recommendations.map((item) => (
+                  <tr key={item.id}>
+                    <td style={tdStyle}>{item.pattern_key}</td>
+                    <td style={tdStyle}>{item.current_bonus}</td>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4,1fr)",
-              gap: 16,
-              marginBottom: 20,
-            }}
-          >
-            <div style={statCard}>
-              <h3>🤖 Health</h3>
-              <h1>{latestReport.health_score}</h1>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        color:
+                          item.recommended_bonus > 0
+                            ? "#16a34a"
+                            : item.recommended_bonus < 0
+                            ? "#dc2626"
+                            : "#6b7280",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {item.recommended_bonus > 0 ? "+" : ""}
+                      {item.recommended_bonus}
+                    </td>
+
+                    <td style={tdStyle}>{item.win_rate}%</td>
+                    <td style={tdStyle}>{item.sample_count}</td>
+
+                    <td
+                      style={{
+                        ...tdStyle,
+                        color: recommendationColor(item.evaluation),
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {item.evaluation}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
+        {latestReport && (
+          <section style={cardStyle}>
+            <h2>📈 AI Daily Report</h2>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div style={statCard}>
+                <h3>🤖 Health</h3>
+                <h1>{latestReport.health_score}</h1>
+              </div>
+
+              <div style={statCard}>
+                <h3>📊 Acquisition</h3>
+                <h1>{latestReport.acquisition_rate}%</h1>
+              </div>
+
+              <div style={statCard}>
+                <h3>🧠 Evolution</h3>
+                <h1>{latestReport.evolution_count}</h1>
+              </div>
+
+              <div style={statCard}>
+                <h3>✅ QA</h3>
+                <h1>{latestReport.qa_status}</h1>
+              </div>
             </div>
 
-            <div style={statCard}>
-              <h3>📊 Acquisition</h3>
-              <h1>{latestReport.acquisition_rate}%</h1>
-            </div>
-
-            <div style={statCard}>
-              <h3>🧠 Evolution</h3>
-              <h1>{latestReport.evolution_count}</h1>
-            </div>
-
-            <div style={statCard}>
-              <h3>✅ QA</h3>
-              <h1>{latestReport.qa_status}</h1>
-            </div>
-          </div>
-
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>日付</th>
-                <th style={thStyle}>Health</th>
-                <th style={thStyle}>取得率</th>
-                <th style={thStyle}>提案</th>
-                <th style={thStyle}>反映</th>
-                <th style={thStyle}>進化</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {dailyReports.map((r) => (
-                <tr key={r.id}>
-                  <td style={tdStyle}>
-                    {new Date(r.report_date).toLocaleDateString("ja-JP")}
-                  </td>
-                  <td style={tdStyle}>{r.health_score}</td>
-                  <td style={tdStyle}>{r.acquisition_rate}%</td>
-                  <td style={tdStyle}>
-                    {r.generated_recommendations}
-                  </td>
-                  <td style={tdStyle}>
-                    {r.applied_recommendations}
-                  </td>
-                  <td style={tdStyle}>{r.evolution_count}</td>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>日付</th>
+                  <th style={thStyle}>Health</th>
+                  <th style={thStyle}>取得率</th>
+                  <th style={thStyle}>提案</th>
+                  <th style={thStyle}>反映</th>
+                  <th style={thStyle}>進化</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-    </div>
-  </main>
-);
+              </thead>
+
+              <tbody>
+                {dailyReports.map((r) => (
+                  <tr key={r.id}>
+                    <td style={tdStyle}>
+                      {new Date(r.report_date).toLocaleDateString("ja-JP")}
+                    </td>
+                    <td style={tdStyle}>{r.health_score}</td>
+                    <td style={tdStyle}>{r.acquisition_rate}%</td>
+                    <td style={tdStyle}>{r.generated_recommendations}</td>
+                    <td style={tdStyle}>{r.applied_recommendations}</td>
+                    <td style={tdStyle}>{r.evolution_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+      </div>
+    </main>
+  );
 }
 
 const cardStyle: CSSProperties = {

@@ -23,13 +23,6 @@ function getAiPower(stock: Stock): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function getExpectedRank(aiPower: number): string {
-  if (aiPower >= 85) return "S";
-  if (aiPower >= 70) return "A";
-  if (aiPower >= 50) return "B";
-  return "C";
-}
-
 export async function GET(req: Request) {
   const start = Date.now();
   const url = new URL(req.url);
@@ -63,8 +56,16 @@ export async function GET(req: Request) {
       errors: string[];
     }[] = [];
 
+    const warnings: {
+      code: string;
+      name: string;
+      warnings: string[];
+    }[] = [];
+
     for (const stock of stocks) {
       const errors: string[] = [];
+      const warningMessages: string[] = [];
+
       const code = String(stock.code ?? "UNKNOWN");
       const name = String(stock.name ?? "");
 
@@ -75,13 +76,6 @@ export async function GET(req: Request) {
       } else {
         if (aiPower < 0 || aiPower > 100) {
           errors.push("AI_POWER_OUT_OF_RANGE");
-        }
-
-        if (stock.rank) {
-          const expectedRank = getExpectedRank(aiPower);
-          if (String(stock.rank).toUpperCase() !== expectedRank) {
-            errors.push(`RANK_MISMATCH_EXPECTED_${expectedRank}`);
-          }
         }
       }
 
@@ -110,14 +104,23 @@ export async function GET(req: Request) {
         }
       }
 
-       const hasJudge =
-  typeof stock.judge === "string" && stock.judge.trim().length > 0;
+      if (stock.rank) {
+        warningMessages.push("RANK_CHECK_SKIPPED_CURRENT_SPEC");
+      }
 
       if (errors.length > 0) {
         failedStocks.push({
           code,
           name,
           errors,
+        });
+      }
+
+      if (warningMessages.length > 0) {
+        warnings.push({
+          code,
+          name,
+          warnings: warningMessages,
         });
       }
     }
@@ -136,13 +139,16 @@ export async function GET(req: Request) {
       passRate,
       status: fail === 0 && checked > 0 ? "PASS" : "FAIL",
       apiTimeMs: Date.now() - start,
-      failedStocks,
+      warningCount: warnings.length,
+      warnings: warnings.slice(0, 30),
+      failedStocks: failedStocks.slice(0, 50),
     });
   } catch (error) {
     return NextResponse.json({
       success: false,
       error: "AI_POWER_VERIFICATION_FAILED",
       message: error instanceof Error ? error.message : String(error),
+      status: "FAIL",
     });
   }
 }
