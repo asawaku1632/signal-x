@@ -11,6 +11,7 @@ import { calculateAiPower } from "./aiPowerEngine";
 import { buildScoreBreakdown } from "./scoreBreakdownBuilder";
 import { getLearningResult } from "./learningEngine";
 import { getExperienceResult } from "./experienceEngine";
+import { getExperienceReport } from "./experienceAiEngine";
 
 type PipelineParams = {
   scored: any;
@@ -30,6 +31,11 @@ type PipelineParams = {
   similarExperienceBonusMap: Map<string, any>;
   experienceRankingMap: Map<string, any>;
 };
+
+function toNumber(value: unknown, fallback = 0): number {
+  const num = Number(value ?? fallback);
+  return Number.isFinite(num) ? num : fallback;
+}
 
 export async function runAiPipeline(params: PipelineParams) {
   const {
@@ -127,6 +133,34 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceRankingMap,
   });
 
+  const experienceAiReport = await getExperienceReport({
+    patternKey: scored.patternKey,
+    minSampleCount: 3,
+  });
+
+  const experienceAiMatch = experienceAiReport.match;
+  const experienceAiBonus = toNumber(experienceAiMatch?.experienceBonus, 0);
+  const legacyExperienceBonus = toNumber(experienceResult.experience?.bonus, 0);
+  const finalExperienceBonus = legacyExperienceBonus + experienceAiBonus;
+
+  const mergedExperienceResult = {
+    ...experienceResult,
+    experience: {
+      ...experienceResult.experience,
+      bonus: finalExperienceBonus,
+      legacyBonus: legacyExperienceBonus,
+      experienceAiBonus,
+      experienceAiLabel: experienceAiMatch?.label ?? "NO_EXPERIENCE_MATCH",
+      experienceAiConfidence: experienceAiMatch?.confidence ?? 0,
+      experienceAiWinRate: experienceAiMatch?.winRate ?? 0,
+      experienceAiSampleCount: experienceAiMatch?.sampleCount ?? 0,
+      experienceAiHoldCount: experienceAiMatch?.holdCount ?? 0,
+      experienceAiReason:
+        experienceAiMatch?.reason ??
+        "完全一致するExperience AIの勝敗確定サンプルが不足しています。",
+    },
+  };
+
   const finalScore = calculateAiPower({
     baseScore: scored.score,
     marketBonus: learningResult.market.bonus,
@@ -137,7 +171,7 @@ export async function runAiPipeline(params: PipelineParams) {
     learningBonus: learning.bonus,
     patternBonus: finalPatternBonus,
     sectorBonus: finalSectorBonus,
-    experienceBonus: experienceResult.experience.bonus,
+    experienceBonus: finalExperienceBonus,
     similarExperienceBonus: experienceResult.similarExperience.bonus,
     experienceRankingBonus: experienceResult.experienceRanking.bonus,
   });
@@ -149,7 +183,16 @@ export async function runAiPipeline(params: PipelineParams) {
       ? `時間帯学習 ${learningResult.time.bonus}`
       : "";
 
-  const reasons = [scored.reason, timeLearningReason].filter(Boolean);
+  const experienceAiReason =
+    experienceAiBonus > 0
+      ? `経験AI +${experienceAiBonus}`
+      : experienceAiBonus < 0
+      ? `経験AI ${experienceAiBonus}`
+      : "";
+
+  const reasons = [scored.reason, timeLearningReason, experienceAiReason].filter(
+    Boolean
+  );
 
   const scoreBreakdown = buildScoreBreakdown({
     scored,
@@ -157,7 +200,7 @@ export async function runAiPipeline(params: PipelineParams) {
     learningBonus: learning.bonus,
     patternLearningBonus: finalPatternBonus,
     sectorBonus: finalSectorBonus,
-    experienceResult,
+    experienceResult: mergedExperienceResult,
   });
 
   return {
@@ -168,6 +211,17 @@ export async function runAiPipeline(params: PipelineParams) {
     marketPattern,
     score: finalScore,
     aiPower: finalScore,
+    experienceBonus: finalExperienceBonus,
+    legacyExperienceBonus,
+    experienceAiBonus,
+    experienceAiLabel: experienceAiMatch?.label ?? "NO_EXPERIENCE_MATCH",
+    experienceAiConfidence: experienceAiMatch?.confidence ?? 0,
+    experienceAiWinRate: experienceAiMatch?.winRate ?? 0,
+    experienceAiSampleCount: experienceAiMatch?.sampleCount ?? 0,
+    experienceAiHoldCount: experienceAiMatch?.holdCount ?? 0,
+    experienceAiReason:
+      experienceAiMatch?.reason ??
+      "完全一致するExperience AIの勝敗確定サンプルが不足しています。",
     timeSlot: learningResult.time.timeSlot,
     timeBonusSource: learningResult.time.source,
     timeWinRate: learningResult.time.winRate,

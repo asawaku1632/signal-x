@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAutoLearning } from "@/app/lib/learning/autoLearningRunner";
 import { createCronLearningLog } from "@/app/lib/learning/cronLearningLogRepository";
+import { runEvolutionLogger } from "@/app/lib/learning/evolutionLogger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const DEBUG_VERSION = "V22_2_DAILY_LEARNING_CRON_LOGS_0707";
+const DEBUG_VERSION = "V24_4_DAILY_LEARNING_CRON_EVOLUTION_0707";
 
 function isAuthorized(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -75,6 +76,13 @@ export async function GET(request: NextRequest) {
       rawReport: report,
     });
 
+    const evolutionLog = await runEvolutionLogger({
+      mode: "execute",
+      minJudgedCount: 5,
+      weightLimit: 100,
+      minSampleCount,
+    });
+
     return NextResponse.json({
       success: true,
       debugVersion: DEBUG_VERSION,
@@ -83,8 +91,9 @@ export async function GET(request: NextRequest) {
       autoLearning: report,
       summary: report.summary,
       savedLog,
+      evolutionLog,
       nextAction:
-        "cron logs APIで実行履歴が保存されたか確認してください。",
+        "Daily Learning → Cron Log → Accuracy → Weight Preview → Evolution Log 完了。",
     });
   } catch (error) {
     const message =

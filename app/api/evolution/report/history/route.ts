@@ -1,29 +1,42 @@
 import { NextResponse } from "next/server";
-import {
-  getEvolutionHistory,
-} from "@/app/lib/evolution/evolutionSummaryRepository";
-import {
-  getRecentCronLearningLogs,
-} from "@/app/lib/learning/cronLearningLogRepository";
+import { getEvolutionHistory } from "@/app/lib/evolution/evolutionSummaryRepository";
+import { getRecentCronLearningLogs } from "@/app/lib/learning/cronLearningLogRepository";
 import { generateAiComment } from "@/app/lib/evolution/generateAiComment";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const DEBUG_VERSION = "V26_2_AI_REPORT_HISTORY_0708";
+const DEBUG_VERSION = "V26_4_AI_REPORT_HISTORY_COMPARE_0708";
 
 export async function GET() {
   try {
     const summaries = await getEvolutionHistory(30);
     const cronLogs = await getRecentCronLearningLogs(30);
 
-    const reports = summaries.map((summary) => {
+    const reports = summaries.map((summary, index) => {
       const summaryDate = String(summary.createdAt).slice(0, 10);
+     const candidate = summaries[index + 1] ?? null;
+
+const previousSummary =
+  candidate &&
+  String(candidate.createdAt).slice(0, 10) !==
+    String(summary.createdAt).slice(0, 10)
+    ? candidate
+    : null;
 
       const matchedCron =
         cronLogs.find(
           (log) => String(log.createdAt).slice(0, 10) === summaryDate
         ) ?? null;
+
+      const previousCron =
+        previousSummary
+          ? cronLogs.find(
+              (log) =>
+                String(log.createdAt).slice(0, 10) ===
+                String(previousSummary.createdAt).slice(0, 10)
+            ) ?? null
+          : null;
 
       const processedCount = matchedCron?.processedCount ?? 0;
       const winCount = matchedCron?.winCount ?? 0;
@@ -39,6 +52,15 @@ export async function GET() {
         holdCount,
         changedWeight: summary.changedCount,
         patternCount: summary.patternCount,
+        previous: previousSummary
+          ? {
+              qualityScore: previousSummary.qualityScore,
+              overallWinRate: previousSummary.overallWinRate,
+              processedCount: previousCron?.processedCount ?? 0,
+              patternCount: previousSummary.patternCount,
+              changedWeight: previousSummary.changedCount,
+            }
+          : null,
       });
 
       return {
@@ -55,7 +77,6 @@ export async function GET() {
       };
     });
 
-    // 同じ日は最新1件だけ
     const latestByDate = new Map<string, (typeof reports)[number]>();
 
     for (const report of reports) {
@@ -63,8 +84,7 @@ export async function GET() {
     }
 
     const sortedReports = Array.from(latestByDate.values()).sort(
-      (a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
     return NextResponse.json({
@@ -74,8 +94,6 @@ export async function GET() {
       reports: sortedReports,
     });
   } catch (error) {
-    console.error(error);
-
     return NextResponse.json(
       {
         success: false,

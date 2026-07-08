@@ -212,12 +212,17 @@ export default function LearningPage() {
             <Mini label="TOTAL" value={`${data.total}`} color="text-blue-600" />
             <Mini label="WIN" value={`${data.win}`} color="text-green-600" />
             <Mini label="LOSE" value={`${data.lose}`} color="text-red-500" />
-            <Mini label="HOLD" value={`${data.hold}`} color="text-orange-500" />
             <Mini
-              label="WAIT"
-              value={`${data.pending}`}
-              color="text-slate-500"
-            />
+  label="観察中"
+  value={`${data.hold}`}
+  color="text-orange-500"
+/>
+
+<Mini
+  label="判定予定"
+  value={`${data.pending}`}
+  color="text-slate-500"
+/>
           </div>
         </section>
 
