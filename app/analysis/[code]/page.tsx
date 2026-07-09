@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Signal = {
@@ -16,6 +16,9 @@ type Signal = {
   reason?: string;
   takeProfit?: number;
   stopLoss?: number;
+  trend?: string;
+  patternSignal?: string;
+  patternScore?: number;
 };
 
 type HistoryStats = {
@@ -28,8 +31,14 @@ type HistoryStats = {
   winRate: number;
 };
 
-function yen(value?: number) {
-  if (value === undefined || value === null) return "-";
+type AiComment = {
+  icon: string;
+  title: string;
+  body: string;
+};
+
+function yen(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${Math.round(value).toLocaleString()}円`;
 }
 
@@ -38,32 +47,42 @@ function getPower(signal: Signal | null) {
 }
 
 function getJudge(power: number) {
-  if (power >= 80) return "買い候補";
+  if (power >= 95) return "大本命";
+  if (power >= 85) return "買い候補";
   if (power >= 75) return "押し目待ち";
   if (power >= 65) return "様子見";
   return "見送り";
 }
 
+function getJudgeIcon(power: number) {
+  if (power >= 95) return "👑";
+  if (power >= 85) return "🔥";
+  if (power >= 75) return "🟢";
+  if (power >= 65) return "🟡";
+  return "🔴";
+}
+
 function getJudgeColor(power: number) {
-  if (power >= 80) return "text-green-700 bg-green-100 border-green-300";
-  if (power >= 75) return "text-blue-700 bg-blue-100 border-blue-300";
-  if (power >= 65) return "text-yellow-700 bg-yellow-100 border-yellow-300";
-  return "text-red-700 bg-red-100 border-red-300";
+  if (power >= 95) return "border-yellow-200 bg-yellow-50 text-yellow-700";
+  if (power >= 85) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (power >= 75) return "border-blue-200 bg-blue-50 text-blue-700";
+  if (power >= 65) return "border-yellow-200 bg-yellow-50 text-yellow-700";
+  return "border-red-200 bg-red-50 text-red-700";
 }
 
 function getPowerColor(power: number) {
-  if (power >= 90) return "border-purple-500 bg-purple-50 text-purple-600";
-  if (power >= 80) return "border-green-500 bg-green-50 text-green-600";
-  if (power >= 70) return "border-blue-500 bg-blue-50 text-blue-600";
-  if (power >= 60) return "border-yellow-500 bg-yellow-50 text-yellow-600";
-  return "border-red-500 bg-red-50 text-red-600";
+  if (power >= 95) return "text-yellow-500";
+  if (power >= 85) return "text-emerald-500";
+  if (power >= 75) return "text-blue-500";
+  if (power >= 65) return "text-yellow-500";
+  return "text-red-500";
 }
 
 function getPowerBarColor(power: number) {
-  if (power >= 90) return "bg-purple-500";
-  if (power >= 80) return "bg-green-500";
-  if (power >= 70) return "bg-blue-500";
-  if (power >= 60) return "bg-yellow-500";
+  if (power >= 95) return "bg-yellow-400";
+  if (power >= 85) return "bg-emerald-500";
+  if (power >= 75) return "bg-blue-500";
+  if (power >= 65) return "bg-yellow-500";
   return "bg-red-500";
 }
 
@@ -73,16 +92,14 @@ function getPowerBars(power: number) {
 }
 
 function getRankStyle(rank: number) {
-  if (rank === 1) return "bg-yellow-400 text-white";
-  if (rank <= 10) return "bg-green-500 text-white";
-  if (rank <= 50) return "bg-blue-500 text-white";
-  return "bg-slate-300 text-white";
+  if (rank === 1) return "bg-yellow-400 text-white shadow-yellow-200";
+  if (rank <= 10) return "bg-emerald-500 text-white shadow-emerald-200";
+  if (rank <= 50) return "bg-blue-500 text-white shadow-blue-200";
+  return "bg-slate-300 text-white shadow-slate-200";
 }
 
 function getRankLabel(rank: number) {
-  if (rank === 1) return " 1位";
-  if (rank <= 10) return ` ${rank}位`;
-  if (rank <= 50) return ` ${rank}位`;
+  if (!rank) return "-";
   return `${rank}位`;
 }
 
@@ -94,7 +111,7 @@ function getRsiComment(rsi: number) {
 
 function getRsiColor(rsi: number) {
   if (rsi >= 70) return "text-red-600";
-  if (rsi <= 30) return "text-green-600";
+  if (rsi <= 30) return "text-emerald-600";
   return "text-blue-600";
 }
 
@@ -109,6 +126,33 @@ function getAiTrust(power: number, total: number, winRate: number) {
 function getRankPercent(rank: number, total: number) {
   if (!rank || !total) return "-";
   return `${((rank / total) * 100).toFixed(1)}%`;
+}
+
+function getPatternText(pattern?: string) {
+  if (pattern === "W_BOTTOM_BREAK") return "Wボトム突破";
+  if (pattern === "W_BOTTOM") return "Wボトム候補";
+  return "通常";
+}
+
+function getRiskReward(profitYen: number, lossYen: number) {
+  if (lossYen <= 0) return "-";
+  return `${(profitYen / lossYen).toFixed(1)}`;
+}
+
+function getLearningMessage(total: number, winRate: number) {
+  if (total < 10) {
+    return "まだ検証数が少ないため、AIは学習中です。判断材料のひとつとして見ましょう。";
+  }
+
+  if (winRate >= 70) {
+    return "この銘柄は過去実績が良く、AIが得意な可能性があります。";
+  }
+
+  if (winRate < 50) {
+    return "この銘柄は過去実績が弱く、慎重に見るべきです。";
+  }
+
+  return "標準的な成績です。今後のデータ蓄積で精度を高めます。";
 }
 
 function buildAiComments({
@@ -130,11 +174,7 @@ function buildAiComments({
   takeProfit: number;
   stopLoss: number;
 }) {
-  const comments: {
-    icon: string;
-    title: string;
-    body: string;
-  }[] = [];
+  const comments: AiComment[] = [];
 
   comments.push({
     icon: "🤖",
@@ -149,8 +189,8 @@ function buildAiComments({
       rsi >= 70
         ? `RSIは${rsi}で高めです。買われ過ぎに注意しましょう。`
         : rsi <= 30
-        ? `RSIは${rsi}で低めです。反発の可能性があります。`
-        : `RSIは${rsi}で、過熱感は中立です。`,
+          ? `RSIは${rsi}で低めです。反発の可能性があります。`
+          : `RSIは${rsi}で、過熱感は中立です。`,
   });
 
   comments.push({
@@ -158,10 +198,10 @@ function buildAiComments({
     title: "出来高",
     body:
       volumeRatio >= 2
-        ? `出来高倍率は${volumeRatio}倍で、出来高が急増しています。`
+        ? `出来高倍率は${volumeRatio}倍で、出来高が急増しています。注目度が高い状態です。`
         : volumeRatio >= 1.3
-        ? `出来高倍率は${volumeRatio}倍で、やや注目されています。`
-        : `出来高倍率は${volumeRatio}倍です。`,
+          ? `出来高倍率は${volumeRatio}倍で、やや注目されています。`
+          : `出来高倍率は${volumeRatio}倍です。急な過熱感は控えめです。`,
   });
 
   comments.push({
@@ -169,18 +209,18 @@ function buildAiComments({
     title: "値動き",
     body:
       changePercent >= 3
-        ? `本日の変化率は+${changePercent}%です。急騰気味なので飛び乗り注意です。`
+        ? `本日の変化率は+${changePercent}%です。急騰気味なので飛び乗りには注意しましょう。`
         : changePercent > 0
-        ? `本日の変化率は+${changePercent}%です。上昇基調です。`
-        : changePercent < 0
-        ? `本日の変化率は${changePercent}%です。下落中のため慎重に見ましょう。`
-        : "本日の変化率は0%付近です。方向感を確認しましょう。",
+          ? `本日の変化率は+${changePercent}%です。上昇基調です。`
+          : changePercent < 0
+            ? `本日の変化率は${changePercent}%です。下落中のため慎重に見ましょう。`
+            : "本日の変化率は0%付近です。方向感を確認しましょう。",
   });
 
   comments.push({
     icon: "🎯",
     title: "売買ライン",
-    body: `利確目安は${yen(takeProfit)}、損切目安は${yen(stopLoss)}です。`,
+    body: `利確目安は${yen(takeProfit)}、損切目安は${yen(stopLoss)}です。利益幅と損失幅を確認してから判断しましょう。`,
   });
 
   return comments;
@@ -205,7 +245,9 @@ export default function AnalysisPage() {
         });
 
         const scanJson = await scanRes.json();
-        const stocks: Signal[] = scanJson.stocks || [];
+        const stocks: Signal[] = Array.isArray(scanJson)
+          ? scanJson
+          : scanJson.stocks || [];
 
         const target = stocks.find((item) => item.code === code) || null;
         setSignal(target);
@@ -256,11 +298,12 @@ export default function AnalysisPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] text-slate-900 p-4">
-        <div className="mx-auto max-w-md">
-          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-            <p className="font-bold text-slate-500">
-              分析データを読み込み中...
+      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
+        <div className="mx-auto max-w-md pt-10">
+          <div className="rounded-[2rem] border border-white bg-white p-6 text-center shadow-sm">
+            <p className="text-2xl font-black">分析データを読み込み中...</p>
+            <p className="mt-2 text-sm font-bold text-slate-500">
+              AI POWER・利確ライン・学習データを取得しています。
             </p>
           </div>
         </div>
@@ -270,15 +313,15 @@ export default function AnalysisPage() {
 
   if (!signal) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] text-slate-900 p-4">
-        <div className="mx-auto max-w-md">
-          <Link href="/today-market" className="text-blue-600 font-black">
-            ← 今日の市場へ戻る
+      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
+        <div className="mx-auto max-w-md pt-5">
+          <Link href="/scan-mobile" className="font-black text-blue-600">
+            ← AIランキングへ戻る
           </Link>
 
-          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm mt-4">
+          <div className="mt-4 rounded-[2rem] border border-white bg-white p-6 shadow-sm">
             <h1 className="text-2xl font-black">銘柄が見つかりません</h1>
-            <p className="text-slate-500 mt-2">CODE {code}</p>
+            <p className="mt-2 text-sm font-bold text-slate-500">CODE {code}</p>
           </div>
         </div>
       </main>
@@ -287,6 +330,7 @@ export default function AnalysisPage() {
 
   const power = getPower(signal);
   const judge = getJudge(power);
+  const judgeIcon = getJudgeIcon(power);
 
   const takeProfit = signal.takeProfit ?? Math.round(signal.price * 1.03);
   const stopLoss = signal.stopLoss ?? Math.round(signal.price * 0.98);
@@ -313,196 +357,253 @@ export default function AnalysisPage() {
 
   const aiTrust = getAiTrust(power, total, winRate);
   const rankPercent = getRankPercent(aiRank, totalRank);
+  const riskReward = getRiskReward(profitYen, lossYen);
 
-  const aiComments = buildAiComments({
-    reason: signal.reason,
-    power,
-    judge,
-    rsi,
-    volumeRatio,
-    changePercent,
-    takeProfit,
-    stopLoss,
-  });
+  const aiComments = useMemo(
+    () =>
+      buildAiComments({
+        reason: signal.reason,
+        power,
+        judge,
+        rsi,
+        volumeRatio,
+        changePercent,
+        takeProfit,
+        stopLoss,
+      }),
+    [
+      signal.reason,
+      power,
+      judge,
+      rsi,
+      volumeRatio,
+      changePercent,
+      takeProfit,
+      stopLoss,
+    ],
+  );
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
+    <main className="min-h-screen bg-[#f7f9fc] pb-28 text-slate-900">
       <div className="mx-auto max-w-md px-4 pt-4">
-        <header className="flex items-center justify-between mb-4">
-          <Link
-            href="/today-market"
-            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
-          >
-            ‹
-          </Link>
+        <header className="sticky top-0 z-30 -mx-4 border-b border-white/70 bg-[#f7f9fc]/85 px-4 pb-3 pt-3 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/scan-mobile"
+              className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-2xl font-black shadow-sm transition active:scale-95"
+              aria-label="AIランキングへ戻る"
+            >
+              ‹
+            </Link>
 
-          <div className="text-center">
-            <div className="text-3xl font-black">
-              SIGNAL<span className="text-blue-600">X</span>
+            <div className="text-center">
+              <div className="text-3xl font-black tracking-tight">
+                SIGNAL<span className="text-blue-600">X</span>
+              </div>
+              <div className="text-[10px] font-black tracking-[0.22em] text-slate-500">
+                AI ANALYSIS
+              </div>
             </div>
-            <div className="text-xs font-black tracking-[0.22em] text-slate-500">
-              AI ANALYSIS
-            </div>
+
+            <button
+              onClick={toggleFavorite}
+              className={`grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-sm transition active:scale-95 ${
+                isFavorite
+                  ? "bg-yellow-400 text-white"
+                  : "border border-slate-200 bg-white text-yellow-500"
+              }`}
+              aria-label="お気に入り"
+            >
+              {isFavorite ? "★" : "☆"}
+            </button>
           </div>
-
-          <button
-            onClick={toggleFavorite}
-            className={`w-11 h-11 rounded-2xl shadow flex items-center justify-center text-2xl transition ${
-              isFavorite
-                ? "bg-yellow-400 text-white"
-                : "bg-white text-yellow-500"
-            }`}
-          >
-            {isFavorite ? "★" : "☆"}
-          </button>
         </header>
 
-        <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
-          <div className="flex justify-between items-start mb-3">
+        <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-2xl shadow-blue-200">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-black text-blue-600">AI銘柄分析</p>
-              <h1 className="text-4xl font-black leading-tight mt-1">
+              <p className="text-xs font-black tracking-[0.18em] text-blue-200">
+                AI STOCK ANALYSIS
+              </p>
+
+              <h1 className="mt-3 text-5xl font-black leading-none">
                 {signal.code}
               </h1>
-              <p className="text-2xl font-black">{signal.name}</p>
+
+              <p className="mt-2 text-2xl font-black leading-tight">
+                {signal.name}
+              </p>
             </div>
 
             <div
-              className={`px-3 py-2 rounded-xl border font-black text-sm ${getJudgeColor(
-                power
-              )}`}
+              className={`rounded-3xl border px-4 py-3 text-center font-black ${getJudgeColor(power)}`}
             >
-              {judge}
+              <p className="text-2xl">{judgeIcon}</p>
+              <p className="mt-1 text-sm">{judge}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="rounded-2xl bg-white border border-slate-100 p-4 text-center">
-              <p className="text-xs font-black text-slate-500">AI POWER</p>
+          <p className="mt-5 text-sm font-bold leading-7 text-blue-100">
+            {signal.reason || "AI理由なし"}
+          </p>
 
-              <div
-                className={`relative mx-auto mt-3 w-24 h-24 rounded-full border-[10px] flex items-center justify-center ${getPowerColor(
-                  power
-                )}`}
-              >
-                <div>
-                  <p className="text-4xl font-black leading-none">{power}</p>
-                  <p className="text-[10px] text-slate-400 font-bold">/100</p>
-                </div>
-              </div>
-
-              <div className="flex justify-center gap-1 mt-3">
-                {getPowerBars(power).map((filled, index) => (
-                  <span
-                    key={index}
-                    className={`w-2 h-5 rounded-full ${
-                      filled ? getPowerBarColor(power) : "bg-slate-200"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-white border border-slate-100 p-4 text-center">
-              <p className="text-xs font-black text-slate-500">AI順位</p>
-
-              <div
-                className={`mx-auto mt-3 w-24 h-24 rounded-full flex items-center justify-center ${getRankStyle(
-                  aiRank
-                )}`}
-              >
-                <p className="text-3xl font-black">{getRankLabel(aiRank)}</p>
-              </div>
-
-              <p className="text-xs text-slate-400 font-bold mt-3">
-                /{totalRank}銘柄中
-              </p>
-              <p className="text-xs text-yellow-600 font-black mt-1">
-                上位 {rankPercent}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-2xl bg-green-50 border border-green-100 p-4 text-center">
-            <p className="text-xs font-black text-slate-500">AI信頼度</p>
-            <p className="text-4xl font-black text-green-600 mt-1">
-              {aiTrust}%
-            </p>
-            <p className="text-xs font-bold text-slate-500 mt-1">
-              AI POWER・勝率・検証数から算出
-            </p>
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <GlassMini label="AI POWER" value={power} />
+            <GlassMini label="AI順位" value={getRankLabel(aiRank)} />
+            <GlassMini label="信頼度" value={`${aiTrust}%`} />
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">💰 価格情報</h2>
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                AI POWER
+              </p>
+              <h2 className="mt-2 text-2xl font-black">AI総合スコア</h2>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
+            <p className={`text-5xl font-black ${getPowerColor(power)}`}>
+              {power}
+            </p>
+          </div>
+
+          <div className="mt-5 flex justify-center gap-1.5">
+            {getPowerBars(power).map((filled, index) => (
+              <span
+                key={index}
+                className={`h-8 w-3 rounded-full ${
+                  filled ? getPowerBarColor(power) : "bg-slate-200"
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-3xl bg-slate-50 p-4 text-center">
+              <p className="text-xs font-black text-slate-400">AI順位</p>
+              <div
+                className={`mx-auto mt-3 grid h-20 w-20 place-items-center rounded-full text-2xl font-black shadow-lg ${getRankStyle(
+                  aiRank,
+                )}`}
+              >
+                {getRankLabel(aiRank)}
+              </div>
+              <p className="mt-3 text-xs font-bold text-slate-500">
+                / {totalRank.toLocaleString()}銘柄中
+              </p>
+              <p className="mt-1 text-xs font-black text-yellow-600">
+                上位 {rankPercent}
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-emerald-50 p-4 text-center">
+              <p className="text-xs font-black text-emerald-600">AI信頼度</p>
+              <p className="mt-4 text-5xl font-black text-emerald-600">
+                {aiTrust}%
+              </p>
+              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+                AI POWER・勝率・検証数から算出
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+            PRICE
+          </p>
+          <h2 className="mt-2 text-2xl font-black">価格情報</h2>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
             <Info label="現在値" value={yen(signal.price)} />
             <Info label="必要資金" value={yen(requiredMoney)} />
             <Info
               label="本日変化率"
-              value={`${changePercent}%`}
-              green={changePercent >= 0}
+              value={`${changePercent >= 0 ? "+" : ""}${changePercent}%`}
+              valueClass={
+                changePercent >= 0 ? "text-red-500" : "text-emerald-600"
+              }
             />
             <Info label="出来高倍率" value={`${volumeRatio}倍`} />
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-[24px] bg-green-50 border border-green-300 p-4 shadow-sm text-center">
-            <p className="text-sm font-black text-green-700">🎯 利確目標</p>
-            <p className="text-3xl font-black text-green-600 mt-2">
-              {yen(takeProfit)}
-            </p>
-            <p className="text-xs font-bold text-green-700 mt-1">
-              +{profitRate.toFixed(2)}% / +{yen(profitYen)}
-            </p>
-          </div>
+        <section className="mt-5 grid grid-cols-2 gap-3">
+          <TradeLineCard
+            tone="profit"
+            title="🎯 利確目標"
+            value={yen(takeProfit)}
+            sub={`+${profitRate.toFixed(2)}% / +${yen(profitYen)}`}
+          />
 
-          <div className="rounded-[24px] bg-red-50 border border-red-300 p-4 shadow-sm text-center">
-            <p className="text-sm font-black text-red-700">🛡 損切ライン</p>
-            <p className="text-3xl font-black text-red-600 mt-2">
-              {yen(stopLoss)}
-            </p>
-            <p className="text-xs font-bold text-red-700 mt-1">
-              -{lossRate.toFixed(2)}% / -{yen(lossYen)}
-            </p>
-          </div>
+          <TradeLineCard
+            tone="loss"
+            title="🛡 損切ライン"
+            value={yen(stopLoss)}
+            sub={`-${lossRate.toFixed(2)}% / -${yen(lossYen)}`}
+          />
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">📊 テクニカル</h2>
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+            RISK REWARD
+          </p>
+          <h2 className="mt-2 text-2xl font-black">リスク・リワード</h2>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-center">
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <Mini label="期待利益" value={`+${yen(profitYen)}`} />
+            <Mini label="想定損失" value={`-${yen(lossYen)}`} />
+            <Mini label="RR比" value={riskReward} />
+          </div>
+
+          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
+            利確と損切の幅を比較して、無理のないエントリーか確認しましょう。
+          </p>
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+            TECHNICAL
+          </p>
+          <h2 className="mt-2 text-2xl font-black">テクニカル</h2>
+
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="rounded-3xl bg-slate-50 p-4 text-center">
               <p className="text-xs font-black text-slate-500">RSI</p>
-              <p className={`text-xl font-black mt-1 ${getRsiColor(rsi)}`}>
+              <p className={`mt-2 text-2xl font-black ${getRsiColor(rsi)}`}>
                 {rsi}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 mt-1">
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
                 {getRsiComment(rsi)}
               </p>
             </div>
 
             <Mini label="出来高" value={`${volumeRatio}倍`} />
-            <Mini label="変化率" value={`${changePercent}%`} />
+            <Mini
+              label="形状"
+              value={getPatternText(signal.patternSignal)}
+              compact
+            />
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
+        <section className="mt-5 rounded-[2rem] border border-blue-100 bg-blue-50 p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-700">
+            AI COMMENT
+          </p>
+          <h2 className="mt-2 text-2xl font-black">AIコメント</h2>
 
-          <div className="space-y-3">
+          <div className="mt-4 space-y-3">
             {aiComments.map((comment) => (
               <div
                 key={`${comment.title}-${comment.body}`}
-                className="rounded-2xl bg-white/80 border border-blue-100 p-3"
+                className="rounded-3xl border border-blue-100 bg-white/85 p-4"
               >
                 <p className="text-sm font-black text-blue-700">
                   {comment.icon} {comment.title}
                 </p>
-                <p className="text-sm leading-6 font-bold mt-1">
+                <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
                   {comment.body}
                 </p>
               </div>
@@ -512,49 +613,65 @@ export default function AnalysisPage() {
 
         <Link
           href={`/chart/${signal.code}`}
-          className="block rounded-[24px] bg-slate-900 text-white p-5 mb-4 shadow-sm active:scale-[0.98] transition"
+          className="mt-5 block rounded-[2rem] bg-slate-950 p-5 text-white shadow-xl shadow-slate-300 transition active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-black text-blue-300">
                 📈 AIチャート分析
               </p>
-              <p className="text-2xl font-black mt-1">チャートを見る</p>
-              <p className="text-xs text-slate-300 font-bold mt-1">
+              <p className="mt-1 text-2xl font-black">チャートを見る</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-slate-300">
                 利確ライン・損切ライン・AI判断を確認
               </p>
             </div>
-            <div className="text-3xl">›</div>
+            <div className="text-4xl">›</div>
           </div>
         </Link>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">🧠 AI学習データ</h2>
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+            AI LEARNING
+          </p>
+          <h2 className="mt-2 text-2xl font-black">AI学習データ</h2>
 
-          <div className="grid grid-cols-4 gap-2">
-            <Mini label="検証" value={`${total}回`} />
-            <Mini label="WIN" value={`${win}`} />
-            <Mini label="LOSE" value={`${lose}`} />
-            <Mini label="HOLD" value={`${hold}`} />
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            <Mini label="検証" value={`${total}回`} compact />
+            <Mini label="WIN" value={`${win}`} compact />
+            <Mini label="LOSE" value={`${lose}`} compact />
+            <Mini label="HOLD" value={`${hold}`} compact />
           </div>
 
-          <div className="mt-3 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-center">
+          <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
             <p className="text-xs font-black text-slate-500">AI勝率</p>
-            <p className="text-4xl font-black text-blue-600 mt-1">
-              {winRate}%
-            </p>
+            <p className="mt-1 text-5xl font-black text-blue-600">{winRate}%</p>
           </div>
 
-          <p className="text-sm text-slate-500 font-bold leading-6 mt-4">
-            {total < 10
-              ? "まだ検証数が少ないため、AIは学習中です。"
-              : winRate >= 70
-              ? "この銘柄は過去実績が良く、AIが得意な可能性があります。"
-              : winRate < 50
-              ? "この銘柄は過去実績が弱く、慎重に見るべきです。"
-              : "標準的な成績です。今後のデータ蓄積で精度を高めます。"}
+          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
+            {getLearningMessage(total, winRate)}
           </p>
         </section>
+
+        <section className="mt-5 rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
+          <p className="text-sm font-black text-amber-800">ご利用前の注意</p>
+          <p className="mt-2 text-xs font-bold leading-6 text-amber-900">
+            SIGNALXは投資判断をサポートする情報提供サービスです。AI判定・スコア・利確/損切ラインは将来の利益を保証するものではありません。最終判断はご自身の責任で行ってください。
+          </p>
+        </section>
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+            <BottomNavItem href="/" icon="🏠" label="Home" />
+            <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" />
+            <BottomNavItem
+              href={`/analysis/${signal.code}`}
+              icon="🤖"
+              label="AI"
+              active
+            />
+            <BottomNavItem href="/evolution" icon="🧠" label="Learn" />
+          </div>
+        </nav>
       </div>
     </main>
   );
@@ -563,27 +680,101 @@ export default function AnalysisPage() {
 function Info({
   label,
   value,
-  green,
+  valueClass = "",
 }: {
   label: string;
   value: string;
-  green?: boolean;
+  valueClass?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+    <div className="rounded-3xl bg-slate-50 p-4">
       <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className={`text-xl font-black mt-1 ${green ? "text-red-500" : ""}`}>
+      <p className={`mt-2 text-xl font-black ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function Mini({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="rounded-3xl bg-slate-50 p-3 text-center">
+      <p className="text-xs font-black text-slate-500">{label}</p>
+      <p className={`${compact ? "text-base" : "text-xl"} mt-1 font-black`}>
         {value}
       </p>
     </div>
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
+function GlassMini({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-center">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="text-xl font-black mt-1">{value}</p>
+    <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
+      <p className="text-xs font-black text-blue-100">{label}</p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
+  );
+}
+
+function TradeLineCard({
+  tone,
+  title,
+  value,
+  sub,
+}: {
+  tone: "profit" | "loss";
+  title: string;
+  value: string;
+  sub: string;
+}) {
+  const style =
+    tone === "profit"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-red-200 bg-red-50 text-red-700";
+
+  return (
+    <div className={`rounded-[2rem] border p-4 text-center shadow-sm ${style}`}>
+      <p className="text-sm font-black">{title}</p>
+      <p className="mt-2 text-2xl font-black">{value}</p>
+      <p className="mt-1 text-xs font-bold">{sub}</p>
+    </div>
+  );
+}
+
+function BottomNavItem({
+  href,
+  icon,
+  label,
+  active = false,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-2xl px-3 py-2 text-center text-xs font-black transition ${
+        active
+          ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
+          : "text-slate-500"
+      }`}
+    >
+      <div className="text-lg">{icon}</div>
+      <div className="mt-1">{label}</div>
+    </Link>
   );
 }

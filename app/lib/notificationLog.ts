@@ -19,12 +19,16 @@ export type NotificationLog = {
 const filePath = path.join(process.cwd(), "data", "notification-logs.json");
 
 async function ensureFile() {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-
   try {
-    await fs.access(filePath);
-  } catch {
-    await fs.writeFile(filePath, "[]", "utf-8");
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+
+    try {
+      await fs.access(filePath);
+    } catch {
+      await fs.writeFile(filePath, "[]", "utf-8");
+    }
+  } catch (error) {
+    console.warn("Notification log file is not writable:", error);
   }
 }
 
@@ -38,10 +42,15 @@ function getJapanDateKey(dateString: string) {
 }
 
 export async function getNotificationLogs(): Promise<NotificationLog[]> {
-  await ensureFile();
+  try {
+    await ensureFile();
 
-  const text = await fs.readFile(filePath, "utf-8");
-  return JSON.parse(text || "[]");
+    const text = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(text || "[]");
+  } catch (error) {
+    console.warn("Failed to read notification logs:", error);
+    return [];
+  }
 }
 
 export async function saveNotificationLog(
@@ -79,7 +88,17 @@ export async function saveNotificationLog(
 
   logs.unshift(newLog);
 
-  await fs.writeFile(filePath, JSON.stringify(logs, null, 2), "utf-8");
+  try {
+    await fs.writeFile(filePath, JSON.stringify(logs, null, 2), "utf-8");
+  } catch (error) {
+    console.warn("Failed to save notification log:", error);
+
+    return {
+      ...newLog,
+      logSaveFailed: true,
+      reason: "notification sent but log save failed",
+    };
+  }
 
   return newLog;
 }
@@ -94,14 +113,24 @@ export async function updateNotificationLog(
     log.id === id ? { ...log, ...updates } : log
   );
 
-  await fs.writeFile(filePath, JSON.stringify(updatedLogs, null, 2), "utf-8");
+  try {
+    await fs.writeFile(filePath, JSON.stringify(updatedLogs, null, 2), "utf-8");
+  } catch (error) {
+    console.warn("Failed to update notification log:", error);
+    return undefined;
+  }
 
   return updatedLogs.find((log) => log.id === id);
 }
-export async function overwriteNotificationLogs(logs: NotificationLog[]) {
-  await ensureFile();
 
-  await fs.writeFile(filePath, JSON.stringify(logs, null, 2), "utf-8");
+export async function overwriteNotificationLogs(logs: NotificationLog[]) {
+  try {
+    await ensureFile();
+
+    await fs.writeFile(filePath, JSON.stringify(logs, null, 2), "utf-8");
+  } catch (error) {
+    console.warn("Failed to overwrite notification logs:", error);
+  }
 
   return logs;
 }
