@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { runAutoLearning } from "@/app/lib/learning/autoLearningRunner";
 import { createCronLearningLog } from "@/app/lib/learning/cronLearningLogRepository";
 import { runEvolutionLogger } from "@/app/lib/learning/evolutionLogger";
+import { createEvolutionSummaryFromLatestLog } from "@/app/lib/evolution/evolutionSummaryRepository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const DEBUG_VERSION = "V24_4_DAILY_LEARNING_CRON_EVOLUTION_0707";
+const DEBUG_VERSION = "V24_5_DAILY_LEARNING_CRON_SUMMARY_0710";
 
 function isAuthorized(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -22,7 +23,11 @@ function isAuthorized(request: NextRequest): boolean {
   const querySecret = request.nextUrl.searchParams.get("secret") ?? "";
 
   if (cronSecret) {
-    return bearerToken === cronSecret || querySecret === cronSecret || isVercelCron;
+    return (
+      bearerToken === cronSecret ||
+      querySecret === cronSecret ||
+      isVercelCron
+    );
   }
 
   return process.env.NODE_ENV !== "production";
@@ -83,6 +88,8 @@ export async function GET(request: NextRequest) {
       minSampleCount,
     });
 
+    const evolutionSummary = await createEvolutionSummaryFromLatestLog();
+
     return NextResponse.json({
       success: true,
       debugVersion: DEBUG_VERSION,
@@ -92,8 +99,9 @@ export async function GET(request: NextRequest) {
       summary: report.summary,
       savedLog,
       evolutionLog,
+      evolutionSummary,
       nextAction:
-        "Daily Learning → Cron Log → Accuracy → Weight Preview → Evolution Log 完了。",
+        "Daily Learning → Cron Log → Evolution Log → Evolution Summary 完了。",
     });
   } catch (error) {
     const message =
