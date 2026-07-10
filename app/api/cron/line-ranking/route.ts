@@ -87,15 +87,19 @@ export async function GET(req: Request) {
     const expectedLoss = (price - stopLoss) * 100;
 
     const top3 = ranking
-      .slice(0, 3)
-      .map((stock, index) => {
-        const rank = index === 0 ? "①" : index === 1 ? "②" : "③";
-        const s = aiScore(stock);
+  .slice(0, 3)
+  .map((stock, index) => {
+    const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
+    const s = aiScore(stock);
 
-        return `${rank} ${stock.code} ${stock.name}
-信頼度 ${s}% / ${tradeDecision(s)}`;
-      })
-      .join("\n\n");
+    return `${medal} ${stock.code} ${stock.name}
+${tradeDecision(s)}
+AI POWER ${s}%
+
+👉 個別AI解析
+${publicUrl}/analysis/${stock.code}`;
+  })
+  .join("\n\n");
 
     const message = `━━━━━━━━━━━━━━
 🏆 本日の大本命
