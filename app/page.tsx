@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import Image from "next/image";
 
@@ -84,8 +83,8 @@ const features = [
 const navLinks = [
   ["AIランキング", "/scan-mobile"],
   ["AI分析", "/analysis"],
-  ["進化履歴", "/evolution"],
-  ["品質保証", "/admin/verification"],
+  ["🛡 AI品質", "/trust"],
+  ["AI進化", "/admin/evolution"],
 ];
 
 export default function HomePage() {
@@ -144,7 +143,7 @@ export default function HomePage() {
                 難しいチャート判断を、初心者でも行動しやすい言葉に翻訳します。
               </p>
 
-              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
                 <Link
                   href="/scan-mobile"
                   className="rounded-full bg-blue-600 px-9 py-4 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
@@ -157,6 +156,13 @@ export default function HomePage() {
                   className="rounded-full border border-slate-200 bg-white px-9 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600"
                 >
                   AI分析を見る
+                </Link>
+
+                <Link
+                  href="/trust"
+                  className="rounded-full border border-blue-200 bg-blue-50 px-9 py-4 text-sm font-black text-blue-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-100"
+                >
+                  🛡 AI品質を見る
                 </Link>
               </div>
 
@@ -273,6 +279,32 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+
+            <Link
+              href="/trust"
+              className="mt-5 flex flex-col gap-4 rounded-[2rem] border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl text-white shadow-lg shadow-blue-200">
+                  🛡️
+                </div>
+                <div>
+                  <p className="text-xs font-black tracking-[0.16em] text-blue-600">
+                    AI TRUST CENTER
+                  </p>
+                  <h3 className="mt-1 text-xl font-black text-slate-950">
+                    AI品質 100点・毎営業日学習中
+                  </h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                    学習件数・的中率・改善状況を一般ユーザー向けに公開しています。
+                  </p>
+                </div>
+              </div>
+
+              <span className="shrink-0 text-sm font-black text-blue-600">
+                詳しく見る →
+              </span>
+            </Link>
           </div>
         </div>
       </section>
@@ -564,10 +596,10 @@ export default function HomePage() {
               </p>
 
               <Link
-                href="/admin/verification"
+                href="/trust"
                 className="mt-7 inline-flex rounded-full bg-slate-950 px-7 py-4 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:bg-blue-600"
               >
-                品質保証を見る
+                AI品質を見る
               </Link>
             </div>
           </div>
