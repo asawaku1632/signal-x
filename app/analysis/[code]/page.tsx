@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Signal = {
@@ -359,29 +359,16 @@ export default function AnalysisPage() {
   const rankPercent = getRankPercent(aiRank, totalRank);
   const riskReward = getRiskReward(profitYen, lossYen);
 
-  const aiComments = useMemo(
-    () =>
-      buildAiComments({
-        reason: signal.reason,
-        power,
-        judge,
-        rsi,
-        volumeRatio,
-        changePercent,
-        takeProfit,
-        stopLoss,
-      }),
-    [
-      signal.reason,
-      power,
-      judge,
-      rsi,
-      volumeRatio,
-      changePercent,
-      takeProfit,
-      stopLoss,
-    ],
-  );
+  const aiComments = buildAiComments({
+    reason: signal.reason,
+    power,
+    judge,
+    rsi,
+    volumeRatio,
+    changePercent,
+    takeProfit,
+    stopLoss,
+  });
 
   return (
     <main className="min-h-screen bg-[#f7f9fc] pb-28 text-slate-900">
