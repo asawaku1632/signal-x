@@ -63,6 +63,7 @@ export async function GET(req: Request) {
           totalStockList:
             cacheData.totalStockList ?? getFallbackTotalStockList(),
           stocks: responseStocks,
+          summaryStocks: cacheData.stocks,
           marketPattern: cacheData.marketPattern,
           cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         })
@@ -89,6 +90,7 @@ export async function GET(req: Request) {
         limit: top ?? scanResult.limit,
         totalStockList: scanResult.totalStockList,
         stocks: responseStocks,
+        summaryStocks: scanResult.stocks,
         marketPattern: scanResult.marketPattern,
         scanMs: Date.now() - startedAt,
       })
@@ -108,6 +110,7 @@ export async function GET(req: Request) {
           limit: top ?? cacheData.limit,
           totalStockList: cacheData.totalStockList,
           stocks: responseStocks,
+          summaryStocks: cacheData.stocks,
           marketPattern: cacheData.marketPattern,
           error: String(error),
         })

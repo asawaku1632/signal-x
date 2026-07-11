@@ -4,13 +4,54 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-const todayStats = [
-  ["1006", "監視銘柄", "AIが毎日チェックする日本株"],
-  ["952", "取得済み", "本日のデータ取得済み"],
-  ["40", "激熱候補", "AI POWER 85以上"],
-  ["158", "本命候補", "AI POWER 70以上"],
-  ["最新", "AI ENGINE", "毎営業日進化する判定エンジン"],
-];
+type HomeMarketData = {
+  totalStockList: number;
+  scannedCount: number;
+  hotCount: number;
+  strongCount: number;
+  watchCount: number;
+  aiPowerVersion: string;
+  marketPattern: string;
+};
+
+const initialMarketData: HomeMarketData = {
+  totalStockList: 1006,
+  scannedCount: 0,
+  hotCount: 0,
+  strongCount: 0,
+  watchCount: 0,
+  aiPowerVersion: "最新",
+  marketPattern: "NEUTRAL",
+};
+
+function getMarketView(pattern: string, hotCount: number) {
+  const normalized = pattern.toUpperCase();
+
+  if (normalized.includes("BULL")) {
+    return {
+      badge: "🟢 強気",
+      badgeClass: "bg-emerald-50 text-emerald-700",
+      phoneBadgeClass: "bg-emerald-400/15 text-emerald-300",
+      comment: `強気寄りの市場です。AI POWER 85以上は${hotCount}銘柄。上位銘柄を中心に確認しましょう。`,
+    };
+  }
+
+  if (normalized.includes("BEAR")) {
+    return {
+      badge: "🔴 弱気",
+      badgeClass: "bg-red-50 text-red-700",
+      phoneBadgeClass: "bg-red-400/15 text-red-300",
+      comment: `慎重さが必要な市場です。AI POWER 85以上は${hotCount}銘柄。無理な追いかけは避けましょう。`,
+    };
+  }
+
+  return {
+    badge: "🟡 中立",
+    badgeClass: "bg-amber-50 text-amber-700",
+    phoneBadgeClass: "bg-amber-400/15 text-amber-300",
+    comment: `方向感を見極める市場です。AI POWER 85以上は${hotCount}銘柄。上位候補を選別して確認しましょう。`,
+  };
+}
 
 type ApiStock = {
   code?: string | number;
@@ -156,6 +197,7 @@ export default function HomePage() {
   const [topStocks, setTopStocks] = useState<TopStock[]>([]);
   const [topStocksLoading, setTopStocksLoading] = useState(true);
   const [topStocksError, setTopStocksError] = useState(false);
+  const [marketData, setMarketData] = useState<HomeMarketData>(initialMarketData);
 
   useEffect(() => {
     let active = true;
@@ -170,6 +212,17 @@ export default function HomePage() {
         const normalized = normalizeTopStocks(stocks);
 
         if (!active) return;
+
+        const summary = data?.notificationSummary ?? {};
+        setMarketData({
+          totalStockList: Number(data?.totalStockList ?? 1006),
+          scannedCount: Number(data?.scannedCount ?? 0),
+          hotCount: Number(summary?.hotCount ?? 0),
+          strongCount: Number(summary?.strongCount ?? 0),
+          watchCount: Number(summary?.watchCount ?? 0),
+          aiPowerVersion: String(data?.aiPowerVersion ?? "最新"),
+          marketPattern: String(data?.marketPattern ?? "NEUTRAL"),
+        });
         setTopStocks(normalized);
         setTopStocksError(normalized.length === 0);
       } catch (error) {
@@ -190,6 +243,39 @@ export default function HomePage() {
       window.clearInterval(timer);
     };
   }, []);
+
+  const marketView = getMarketView(
+    marketData.marketPattern,
+    marketData.hotCount
+  );
+  const mainCandidateCount = marketData.hotCount + marketData.strongCount;
+  const todayStats = [
+    [
+      marketData.totalStockList.toLocaleString(),
+      "監視銘柄",
+      "AIが毎日チェックする日本株",
+    ],
+    [
+      marketData.scannedCount.toLocaleString(),
+      "取得済み",
+      "本日の分析完了銘柄",
+    ],
+    [
+      marketData.hotCount.toLocaleString(),
+      "激熱候補",
+      "AI POWER 85以上",
+    ],
+    [
+      mainCandidateCount.toLocaleString(),
+      "本命候補",
+      "AI POWER 70以上",
+    ],
+    [
+      marketData.aiPowerVersion,
+      "AI ENGINE",
+      "現在稼働中の判定エンジン",
+    ],
+  ];
 
   return (
     <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-950 md:pb-0">
@@ -293,8 +379,8 @@ export default function HomePage() {
                       <p className="text-xs font-black text-blue-200">
                         今日のSIGNALX
                       </p>
-                      <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black text-emerald-300">
-                        🟢 強気
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${marketView.phoneBadgeClass}`}>
+                        {marketView.badge}
                       </span>
                     </div>
 
@@ -305,7 +391,7 @@ export default function HomePage() {
                     </h2>
 
                     <p className="mt-3 text-sm leading-6 text-slate-300">
-                      AI上位のSランク・Aランクを中心に、相場状況を確認。
+                      {marketView.comment}
                     </p>
                   </div>
 
@@ -356,13 +442,14 @@ export default function HomePage() {
                   今日のAI市場スキャン状況
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                  AI POWER上位の銘柄を中心に、市場の強さとリスクを確認しながら
-                  無理のない範囲で監視していきましょう。
+                  {marketView.comment}
                 </p>
               </div>
 
-              <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700">
-                🟢 強気
+              <span
+                className={`w-fit rounded-full px-4 py-2 text-sm font-black ${marketView.badgeClass}`}
+              >
+                {marketView.badge}
               </span>
             </div>
 

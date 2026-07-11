@@ -28,6 +28,7 @@ export type ScanResponsePayloadParams = {
   limit: number;
   totalStockList?: number;
   stocks: any[];
+  summaryStocks?: any[];
   marketPattern?: string;
   scanMs?: number;
   batchSize?: number;
@@ -65,24 +66,33 @@ export function buildNotificationCandidate(stock: any): NotificationCandidate {
 }
 
 export function buildNotificationSummary(stocks: any[]): NotificationSummary {
-  const candidates = stocks
+  const allCandidates = stocks
     .map(buildNotificationCandidate)
-    .filter((candidate) => candidate.level !== "NO_ACTION")
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 20);
+    .sort((a, b) => b.score - a.score);
+
+  const actionableCandidates = allCandidates.filter(
+    (candidate) => candidate.level !== "NO_ACTION"
+  );
 
   return {
     enabled: true,
-    hotCount: candidates.filter((candidate) => candidate.level === "HOT").length,
-    strongCount: candidates.filter((candidate) => candidate.level === "STRONG").length,
-    watchCount: candidates.filter((candidate) => candidate.level === "WATCH").length,
-    topCandidate: candidates[0] ?? null,
-    candidates,
+    hotCount: allCandidates.filter(
+      (candidate) => candidate.level === "HOT"
+    ).length,
+    strongCount: allCandidates.filter(
+      (candidate) => candidate.level === "STRONG"
+    ).length,
+    watchCount: allCandidates.filter(
+      (candidate) => candidate.level === "WATCH"
+    ).length,
+    topCandidate: actionableCandidates[0] ?? null,
+    candidates: actionableCandidates.slice(0, 20),
   };
 }
 
 export function buildScanResponsePayload(params: ScanResponsePayloadParams) {
-  const firstStock = params.stocks[0];
+  const summaryStocks = params.summaryStocks ?? params.stocks;
+  const firstStock = summaryStocks[0] ?? params.stocks[0];
   const marketLearning = firstStock?.scoreBreakdown?.marketLearning;
   const timeLearningResult = firstStock?.scoreBreakdown?.timeLearning;
 
@@ -113,11 +123,12 @@ export function buildScanResponsePayload(params: ScanResponsePayloadParams) {
     cacheAge: params.cacheAge,
     error: params.error,
     count: params.stocks.length,
+    scannedCount: summaryStocks.length,
     requestedLimit: params.limit,
     totalStockList: params.totalStockList,
     scanMs: params.scanMs,
     batchSize: params.batchSize,
-    notificationSummary: buildNotificationSummary(params.stocks),
+    notificationSummary: buildNotificationSummary(summaryStocks),
     stocks: params.stocks,
   };
 }
@@ -129,6 +140,7 @@ export function buildScanErrorPayload(debugVersion: string, error: unknown) {
     debugVersion,
     stockAnalyzerEnabled: true,
     notificationEngineEnabled: true,
+    scannedCount: 0,
     stocks: [],
     error: String(error),
   };
