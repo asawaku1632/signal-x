@@ -19,6 +19,18 @@ type Signal = {
   trend?: string;
   patternSignal?: string;
   patternScore?: number;
+  supportPrice?: number | null;
+  resistancePrice?: number | null;
+  supportDistancePercent?: number | null;
+  resistanceDistancePercent?: number | null;
+  supportResistanceStatus?:
+    | "BREAKOUT"
+    | "NEAR_RESISTANCE"
+    | "NEAR_SUPPORT"
+    | "BETWEEN_LEVELS"
+    | "BREAKDOWN_RISK"
+    | "NO_DATA";
+  breakoutExpectation?: number;
 };
 
 type HistoryStats = {
@@ -40,6 +52,17 @@ type AiComment = {
 function yen(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${Math.round(value).toLocaleString()}円`;
+}
+
+function levelYen(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+
+  const rounded = Number(value.toFixed(1));
+
+  return `${rounded.toLocaleString("ja-JP", {
+    minimumFractionDigits: Number.isInteger(rounded) ? 0 : 1,
+    maximumFractionDigits: 1,
+  })}円`;
 }
 
 function getPower(signal: Signal | null) {
@@ -134,6 +157,102 @@ function getPatternText(pattern?: string) {
   return "通常";
 }
 
+function getSupportResistanceLabel(status?: Signal["supportResistanceStatus"]) {
+  if (status === "BREAKOUT") return "抵抗線を突破";
+  if (status === "NEAR_RESISTANCE") return "抵抗線付近";
+  if (status === "NEAR_SUPPORT") return "支持線付近";
+  if (status === "BREAKDOWN_RISK") return "支持線割れ注意";
+  if (status === "BETWEEN_LEVELS") return "支持線と抵抗線の間";
+  return "判定データなし";
+}
+
+function getSupportResistanceStyle(status?: Signal["supportResistanceStatus"]) {
+  if (status === "BREAKOUT") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "NEAR_SUPPORT") {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+
+  if (status === "NEAR_RESISTANCE") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (status === "BREAKDOWN_RISK") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function getBreakoutLabel(expectation: number) {
+  if (expectation >= 75) return "かなり高い";
+  if (expectation >= 55) return "高め";
+  if (expectation >= 35) return "中程度";
+  if (expectation >= 20) return "低め";
+  return "かなり低い";
+}
+
+function getSupportResistanceComment({
+  status,
+  supportPrice,
+  resistancePrice,
+  supportDistancePercent,
+  resistanceDistancePercent,
+  breakoutExpectation,
+}: {
+  status?: Signal["supportResistanceStatus"];
+  supportPrice?: number | null;
+  resistancePrice?: number | null;
+  supportDistancePercent?: number | null;
+  resistanceDistancePercent?: number | null;
+  breakoutExpectation: number;
+}) {
+  if (!supportPrice && !resistancePrice) {
+    return "支持線・抵抗線を判定できるだけの価格データがありません。";
+  }
+
+  const supportText =
+    supportDistancePercent !== undefined &&
+    supportDistancePercent !== null &&
+    supportPrice
+      ? `支持線は${levelYen(supportPrice)}で、現在値から約${supportDistancePercent.toFixed(
+          2,
+        )}%下です。`
+      : "";
+
+  const resistanceText =
+    resistanceDistancePercent !== undefined &&
+    resistanceDistancePercent !== null &&
+    resistancePrice
+      ? `抵抗線は${levelYen(
+          resistancePrice,
+        )}で、現在値から約${resistanceDistancePercent.toFixed(2)}%上です。`
+      : "";
+
+  let actionText =
+    "現在値は支持線と抵抗線の間にあります。値動きの方向を確認しましょう。";
+
+  if (status === "BREAKOUT") {
+    actionText =
+      "抵抗線を上抜けています。出来高を伴って上昇が続くか確認しましょう。";
+  } else if (status === "NEAR_RESISTANCE") {
+    actionText =
+      "抵抗線が近いため、高値追いには注意が必要です。突破できるかを見極めましょう。";
+  } else if (status === "NEAR_SUPPORT") {
+    actionText =
+      "支持線付近です。下げ止まり候補ですが、反発を確認してから判断しましょう。";
+  } else if (status === "BREAKDOWN_RISK") {
+    actionText =
+      "支持線を下回る可能性があります。損切ラインを意識して慎重に見ましょう。";
+  }
+
+  return `${supportText}${resistanceText}${actionText} ブレイク期待度は${breakoutExpectation}%（${getBreakoutLabel(
+    breakoutExpectation,
+  )}）です。`;
+}
+
 function getRiskReward(profitYen: number, lossYen: number) {
   if (lossYen <= 0) return "-";
   return `${(profitYen / lossYen).toFixed(1)}`;
@@ -164,6 +283,12 @@ function buildAiComments({
   changePercent,
   takeProfit,
   stopLoss,
+  supportPrice,
+  resistancePrice,
+  supportDistancePercent,
+  resistanceDistancePercent,
+  supportResistanceStatus,
+  breakoutExpectation,
 }: {
   reason?: string;
   power: number;
@@ -173,6 +298,12 @@ function buildAiComments({
   changePercent: number;
   takeProfit: number;
   stopLoss: number;
+  supportPrice?: number | null;
+  resistancePrice?: number | null;
+  supportDistancePercent?: number | null;
+  resistanceDistancePercent?: number | null;
+  supportResistanceStatus?: Signal["supportResistanceStatus"];
+  breakoutExpectation: number;
 }) {
   const comments: AiComment[] = [];
 
@@ -215,6 +346,19 @@ function buildAiComments({
           : changePercent < 0
             ? `本日の変化率は${changePercent}%です。下落中のため慎重に見ましょう。`
             : "本日の変化率は0%付近です。方向感を確認しましょう。",
+  });
+
+  comments.push({
+    icon: "🧱",
+    title: "支持線・抵抗線",
+    body: getSupportResistanceComment({
+      status: supportResistanceStatus,
+      supportPrice,
+      resistancePrice,
+      supportDistancePercent,
+      resistanceDistancePercent,
+      breakoutExpectation,
+    }),
   });
 
   comments.push({
@@ -359,6 +503,14 @@ export default function AnalysisPage() {
   const rankPercent = getRankPercent(aiRank, totalRank);
   const riskReward = getRiskReward(profitYen, lossYen);
 
+  const supportPrice = signal.supportPrice ?? null;
+  const resistancePrice = signal.resistancePrice ?? null;
+  const supportDistancePercent = signal.supportDistancePercent ?? null;
+  const resistanceDistancePercent = signal.resistanceDistancePercent ?? null;
+  const supportResistanceStatus =
+    signal.supportResistanceStatus ?? "NO_DATA";
+  const breakoutExpectation = signal.breakoutExpectation ?? 0;
+
   const aiComments = buildAiComments({
     reason: signal.reason,
     power,
@@ -368,6 +520,12 @@ export default function AnalysisPage() {
     changePercent,
     takeProfit,
     stopLoss,
+    supportPrice,
+    resistancePrice,
+    supportDistancePercent,
+    resistanceDistancePercent,
+    supportResistanceStatus,
+    breakoutExpectation,
   });
 
   return (
@@ -516,6 +674,97 @@ export default function AnalysisPage() {
           </div>
         </section>
 
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                SUPPORT & RESISTANCE
+              </p>
+              <h2 className="mt-2 text-2xl font-black">支持線・抵抗線</h2>
+            </div>
+
+            <div
+              className={`rounded-2xl border px-3 py-2 text-center text-xs font-black ${getSupportResistanceStyle(
+                supportResistanceStatus,
+              )}`}
+            >
+              {getSupportResistanceLabel(supportResistanceStatus)}
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
+              <p className="text-xs font-black text-blue-600">支持線</p>
+              <p className="mt-2 text-lg font-black text-blue-700">
+                {levelYen(supportPrice)}
+              </p>
+              <p className="mt-1 text-[10px] font-bold text-blue-500">
+                {supportDistancePercent !== null
+                  ? `現在値より -${supportDistancePercent.toFixed(2)}%`
+                  : "距離データなし"}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <p className="text-xs font-black text-slate-500">現在値</p>
+              <p className="mt-2 text-lg font-black text-slate-900">
+                {levelYen(signal.price)}
+              </p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                現在の株価
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4 text-center">
+              <p className="text-xs font-black text-amber-600">抵抗線</p>
+              <p className="mt-2 text-lg font-black text-amber-700">
+                {levelYen(resistancePrice)}
+              </p>
+              <p className="mt-1 text-[10px] font-bold text-amber-500">
+                {resistanceDistancePercent !== null
+                  ? `現在値より +${resistanceDistancePercent.toFixed(2)}%`
+                  : "距離データなし"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-3xl bg-slate-950 p-4 text-white">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black tracking-[0.14em] text-blue-300">
+                  BREAKOUT EXPECTATION
+                </p>
+                <p className="mt-1 text-lg font-black">ブレイク期待度</p>
+              </div>
+
+              <p className="text-4xl font-black">
+                {breakoutExpectation}
+                <span className="text-lg">%</span>
+              </p>
+            </div>
+
+            <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/15">
+              <div
+                className="h-full rounded-full bg-blue-400 transition-all"
+                style={{
+                  width: `${Math.min(Math.max(breakoutExpectation, 0), 100)}%`,
+                }}
+              />
+            </div>
+
+            <p className="mt-3 text-xs font-bold leading-6 text-slate-300">
+              {getSupportResistanceComment({
+                status: supportResistanceStatus,
+                supportPrice,
+                resistancePrice,
+                supportDistancePercent,
+                resistanceDistancePercent,
+                breakoutExpectation,
+              })}
+            </p>
+          </div>
+        </section>
+
         <section className="mt-5 grid grid-cols-2 gap-3">
           <TradeLineCard
             tone="profit"
@@ -656,7 +905,7 @@ export default function AnalysisPage() {
               label="AI"
               active
             />
-            <BottomNavItem href="/evolution" icon="🧠" label="Learn" />
+            <BottomNavItem href="/learning" icon="🧠" label="Learn" />
           </div>
         </nav>
       </div>

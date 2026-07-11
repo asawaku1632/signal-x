@@ -755,7 +755,7 @@ function ScanMobileContent() {
           <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
             <BottomNavItem href="/" icon="🏠" label="Home" />
             <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" active />
-            <BottomNavItem href="/evolution" icon="🧠" label="AI" />
+            <BottomNavItem href="/learning" icon="🧠" label="AI" />
             <BottomNavItem href="/admin/verification" icon="✅" label="QA" />
           </div>
         </nav>
