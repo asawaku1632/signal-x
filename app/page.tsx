@@ -14,6 +14,27 @@ type HomeMarketData = {
   marketPattern: string;
 };
 
+
+type HomeTrustData = {
+  qualityScore: number | null;
+  judgedRecords: number | null;
+  overallWinRate: number | null;
+  activeWeightRules: number | null;
+  changedCount: number | null;
+  patternCount: number | null;
+  cronStatus: string;
+};
+
+const initialTrustData: HomeTrustData = {
+  qualityScore: null,
+  judgedRecords: null,
+  overallWinRate: null,
+  activeWeightRules: null,
+  changedCount: null,
+  patternCount: null,
+  cronStatus: "CHECKING",
+};
+
 const initialMarketData: HomeMarketData = {
   totalStockList: 1006,
   scannedCount: 0,
@@ -145,7 +166,7 @@ function normalizeTopStocks(stocks: ApiStock[]): TopStock[] {
 const screens = [
   {
     title: "📱 AIランキング",
-    text: "1006銘柄からAIが注目銘柄を抽出",
+    text: "{marketData.totalStockList.toLocaleString()}銘柄からAIが注目銘柄を抽出",
     image: "/images/ranking.png",
     alt: "AIランキング画面",
   },
@@ -171,7 +192,7 @@ const problems = [
 ];
 
 const solutions = [
-  ["🤖 1006銘柄をAI分析", "毎日多数の日本株をAIが自動でチェックします。"],
+  ["🤖 {marketData.totalStockList.toLocaleString()}銘柄をAI分析", "毎日多数の日本株をAIが自動でチェックします。"],
   ["📈 注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
   ["📊 複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
   ["💬 初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
@@ -193,11 +214,20 @@ const navLinks = [
   ["AI進化", "/admin/evolution"],
 ];
 
+
+
+function trustNumber(value: number | null, suffix = "") {
+  if (value === null || Number.isNaN(value)) return "確認中";
+  return `${Math.round(value).toLocaleString("ja-JP")}${suffix}`;
+}
+
 export default function HomePage() {
   const [topStocks, setTopStocks] = useState<TopStock[]>([]);
   const [topStocksLoading, setTopStocksLoading] = useState(true);
   const [topStocksError, setTopStocksError] = useState(false);
   const [marketData, setMarketData] = useState<HomeMarketData>(initialMarketData);
+  const [trustData, setTrustData] = useState<HomeTrustData>(initialTrustData);
+  const [trustLoading, setTrustLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -241,6 +271,67 @@ export default function HomePage() {
     return () => {
       active = false;
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTrustData() {
+      try {
+        const response = await fetch("/api/evolution/summary?limit=30", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Evolution summary request failed: ${response.status}`
+          );
+        }
+
+        const json = await response.json();
+        const latest = json?.latest ?? json?.history?.[0] ?? null;
+
+        if (!active) return;
+
+        setTrustData({
+          qualityScore:
+            typeof latest?.qualityScore === "number"
+              ? latest.qualityScore
+              : null,
+          judgedRecords:
+            typeof latest?.judgedRecords === "number"
+              ? latest.judgedRecords
+              : null,
+          overallWinRate:
+            typeof latest?.overallWinRate === "number"
+              ? latest.overallWinRate
+              : null,
+          activeWeightRules:
+            typeof latest?.activeWeightRules === "number"
+              ? latest.activeWeightRules
+              : null,
+          changedCount:
+            typeof latest?.changedCount === "number"
+              ? latest.changedCount
+              : null,
+          patternCount:
+            typeof latest?.patternCount === "number"
+              ? latest.patternCount
+              : null,
+          cronStatus: String(latest?.cronStatus ?? "UNKNOWN"),
+        });
+      } catch (error) {
+        console.error("home trust summary fetch error:", error);
+      } finally {
+        if (active) setTrustLoading(false);
+      }
+    }
+
+    loadTrustData();
+
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -474,28 +565,108 @@ export default function HomePage() {
 
             <Link
               href="/trust"
-              className="mt-5 flex flex-col gap-4 rounded-[2rem] border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+              className="mt-5 block rounded-[2rem] border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl text-white shadow-lg shadow-blue-200">
-                  🛡️
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl text-white shadow-lg shadow-blue-200">
+                      🛡️
+                    </div>
+                    <div>
+                      <p className="text-xs font-black tracking-[0.16em] text-blue-600">
+                        AI TRUST CENTER
+                      </p>
+                      <h3 className="mt-1 text-xl font-black text-slate-950">
+                        AI品質を実データで公開
+                      </h3>
+                      <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                        AI成長センターと同じ最新サマリーを表示しています。
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="shrink-0 text-sm font-black text-blue-600">
+                    詳しく見る →
+                  </span>
                 </div>
-                <div>
-                  <p className="text-xs font-black tracking-[0.16em] text-blue-600">
-                    AI TRUST CENTER
-                  </p>
-                  <h3 className="mt-1 text-xl font-black text-slate-950">
-                    AI品質 100点・毎営業日学習中
-                  </h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-                    学習件数・的中率・改善状況を一般ユーザー向けに公開しています。
-                  </p>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-500">AI品質</p>
+                    <p className="mt-2 text-2xl font-black text-blue-700">
+                      {trustLoading
+                        ? "確認中"
+                        : trustNumber(trustData.qualityScore, "点")}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-500">
+                      学習済み
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">
+                      {trustLoading
+                        ? "確認中"
+                        : trustNumber(trustData.judgedRecords, "件")}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-500">
+                      予測的中率
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-emerald-700">
+                      {trustLoading || trustData.overallWinRate === null
+                        ? "確認中"
+                        : `${trustData.overallWinRate.toFixed(1)}%`}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-500">
+                      勝ちパターン
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">
+                      {trustLoading
+                        ? "確認中"
+                        : trustNumber(trustData.activeWeightRules, "種類")}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
+                    <p className="text-xs font-black text-slate-500">
+                      改善数
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">
+                      {trustLoading
+                        ? "確認中"
+                        : trustNumber(trustData.changedCount, "ヶ所")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs font-black">
+                  <span
+                    className={`rounded-full px-3 py-2 ${
+                      trustData.cronStatus === "SUCCESS"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {trustLoading
+                      ? "自動学習を確認中"
+                      : trustData.cronStatus === "SUCCESS"
+                      ? "自動学習 正常"
+                      : `自動学習 ${trustData.cronStatus}`}
+                  </span>
+
+                  <span className="rounded-full bg-blue-100 px-3 py-2 text-blue-700">
+                    判定済みパターン{" "}
+                    {trustNumber(trustData.patternCount, "件")}
+                  </span>
                 </div>
               </div>
-
-              <span className="shrink-0 text-sm font-black text-blue-600">
-                詳しく見る →
-              </span>
             </Link>
           </div>
         </div>
@@ -896,7 +1067,7 @@ export default function HomePage() {
           </h2>
 
           <p className="mt-3 text-sm font-bold text-slate-500">
-            AIが1006銘柄を毎日分析する日本株AI分析サービス
+            AIが{marketData.totalStockList.toLocaleString()}銘柄を毎営業日分析する日本株AI分析サービス
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm font-bold">
