@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -6,35 +9,97 @@ const todayStats = [
   ["952", "取得済み", "本日のデータ取得済み"],
   ["40", "激熱候補", "AI POWER 85以上"],
   ["158", "本命候補", "AI POWER 70以上"],
-  ["V3", "AI POWER", "現在のAI判定エンジン"],
+  ["最新", "AI ENGINE", "毎営業日進化する判定エンジン"],
 ];
 
-const topStocks = [
-  {
-    rank: "🥇",
-    code: "2501",
-    name: "サッポロHD",
-    score: 100,
-    label: "🔥 激熱候補",
-    comment: "EMA・VWAP・MACDが強く、上昇トレンド継続に注目。",
-  },
-  {
-    rank: "🥈",
-    code: "9413",
-    name: "テレビ東京HD",
-    score: 99,
-    label: "🔥 激熱候補",
-    comment: "出来高と上昇率が強く、AI POWER上位を維持。",
-  },
-  {
-    rank: "🥉",
-    code: "8802",
-    name: "三菱地所",
-    score: 98,
-    label: "🔥 激熱候補",
-    comment: "VWAP上で推移し、Wボトム突破にも注目。",
-  },
-];
+type ApiStock = {
+  code?: string | number;
+  name?: string;
+  score?: number;
+  aiPower?: number;
+  comment?: string;
+  reason?: string;
+  reasons?: string[];
+  patternReasons?: string[];
+  trend?: string;
+  changePercent?: number;
+  volumeRatio?: number;
+};
+
+type TopStock = {
+  rank: string;
+  code: string;
+  name: string;
+  score: number;
+  label: string;
+  labelClass: string;
+  comment: string;
+};
+
+const rankIcons = ["🥇", "🥈", "🥉"];
+
+function getStockLabel(score: number) {
+  if (score >= 85) {
+    return {
+      label: "🔥 激熱候補",
+      labelClass: "bg-red-50 text-red-600",
+    };
+  }
+
+  if (score >= 70) {
+    return {
+      label: "⭐ 本命候補",
+      labelClass: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  return {
+    label: "👀 注目候補",
+    labelClass: "bg-blue-50 text-blue-700",
+  };
+}
+
+function buildStockComment(stock: ApiStock, score: number) {
+  const directComment = stock.comment?.trim() || stock.reason?.trim();
+  if (directComment) return directComment;
+
+  const reasons = [
+    ...(Array.isArray(stock.reasons) ? stock.reasons : []),
+    ...(Array.isArray(stock.patternReasons) ? stock.patternReasons : []),
+  ].filter(Boolean);
+
+  if (reasons.length > 0) return reasons.slice(0, 2).join("・");
+
+  const notes: string[] = [];
+  if (typeof stock.changePercent === "number") {
+    notes.push(`本日変化率 ${stock.changePercent >= 0 ? "+" : ""}${stock.changePercent.toFixed(2)}%`);
+  }
+  if (typeof stock.volumeRatio === "number") {
+    notes.push(`出来高 ${stock.volumeRatio.toFixed(2)}倍`);
+  }
+  if (stock.trend) notes.push(`トレンド ${stock.trend}`);
+
+  if (notes.length > 0) return notes.slice(0, 2).join("・");
+  return `AI POWER ${score}。詳細画面で判定理由を確認できます。`;
+}
+
+function normalizeTopStocks(stocks: ApiStock[]): TopStock[] {
+  return stocks.slice(0, 3).map((stock, index) => {
+    const score = Math.max(0, Math.min(100, Number(stock.score ?? stock.aiPower ?? 0)));
+    const status = getStockLabel(score);
+
+    return {
+      rank: rankIcons[index] ?? `${index + 1}位`,
+      code: String(stock.code ?? ""),
+      name: stock.name?.trim() || "銘柄名取得中",
+      score: Math.round(score),
+      label: status.label,
+      labelClass: status.labelClass,
+      comment: buildStockComment(stock, score),
+    };
+  });
+}
+
 
 const screens = [
   {
@@ -88,15 +153,53 @@ const navLinks = [
 ];
 
 export default function HomePage() {
+  const [topStocks, setTopStocks] = useState<TopStock[]>([]);
+  const [topStocksLoading, setTopStocksLoading] = useState(true);
+  const [topStocksError, setTopStocksError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTopStocks() {
+      try {
+        const res = await fetch("/api/scan?limit=3", { cache: "no-store" });
+        if (!res.ok) throw new Error(`scan api error: ${res.status}`);
+
+        const data = await res.json();
+        const stocks = Array.isArray(data?.stocks) ? data.stocks : [];
+        const normalized = normalizeTopStocks(stocks);
+
+        if (!active) return;
+        setTopStocks(normalized);
+        setTopStocksError(normalized.length === 0);
+      } catch (error) {
+        console.error("Home top stocks fetch failed", error);
+        if (!active) return;
+        setTopStocks([]);
+        setTopStocksError(true);
+      } finally {
+        if (active) setTopStocksLoading(false);
+      }
+    }
+
+    loadTopStocks();
+    const timer = window.setInterval(loadTopStocks, 60_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   return (
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-950">
+    <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-950 md:pb-0">
       {/* HERO */}
       <section className="relative overflow-hidden px-5 pb-14 pt-5 text-slate-950">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_36%),radial-gradient(circle_at_top_right,#dcfce7,transparent_32%),linear-gradient(180deg,#ffffff_0%,#f7f9fc_72%)]" />
 
         <div className="relative mx-auto max-w-6xl">
           <header className="mb-8 flex items-center justify-between rounded-full border border-white/80 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-xl">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" aria-label="SIGNALX Home" className="flex items-center gap-2">
               <span className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-200">
                 X
               </span>
@@ -124,7 +227,8 @@ export default function HomePage() {
               Googleログイン
             </Link>
           </header>
-                    <div className="grid items-center gap-10 lg:grid-cols-[1.06fr_0.94fr]">
+
+          <div className="grid items-center gap-10 lg:grid-cols-[1.06fr_0.94fr]">
             <div className="text-center lg:text-left">
               <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-black text-blue-600 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
@@ -148,7 +252,7 @@ export default function HomePage() {
                   href="/scan-mobile"
                   className="rounded-full bg-blue-600 px-9 py-4 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
                 >
-                  無料で試してみる
+                  AIランキングを見る
                 </Link>
 
                 <Link
@@ -201,7 +305,7 @@ export default function HomePage() {
                     </h2>
 
                     <p className="mt-3 text-sm leading-6 text-slate-300">
-                      今日は攻められる相場。Sランク・Aランクを中心に監視。
+                      AI上位のSランク・Aランクを中心に、相場状況を確認。
                     </p>
                   </div>
 
@@ -222,7 +326,7 @@ export default function HomePage() {
                   <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-black text-blue-700">
-                        AI POWER V3
+                        AI POWER ENGINE
                       </p>
                       <span className="text-xs font-black text-blue-700">
                         ACTIVE
@@ -238,7 +342,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-            {/* TODAY */}
+
+      {/* TODAY */}
       <section className="px-5 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="rounded-[2.5rem] border border-white bg-white p-6 shadow-sm md:p-8">
@@ -251,8 +356,8 @@ export default function HomePage() {
                   今日のAI市場スキャン状況
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                  今日は攻められる相場です。AI POWER上位の銘柄を中心に、
-                  無理なく監視していきましょう。
+                  AI POWER上位の銘柄を中心に、市場の強さとリスクを確認しながら
+                  無理のない範囲で監視していきましょう。
                 </p>
               </div>
 
@@ -310,7 +415,7 @@ export default function HomePage() {
       </section>
 
       {/* TOP STOCKS */}
-      <section className="px-5 py-14">
+      <section className="px-5 py-12 md:py-14">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
@@ -319,7 +424,7 @@ export default function HomePage() {
                 今日のAI注目銘柄
               </h2>
               <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                AI POWER V3が注目する銘柄をランキング形式で表示します。
+                AIが注目する銘柄をランキング形式で表示します。
                 まずは上位銘柄から確認するだけでOKです。
               </p>
             </div>
@@ -333,50 +438,89 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {topStocks.map((stock) => (
-              <div
-                key={stock.code}
-                className="rounded-[2rem] border border-white bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-4xl">{stock.rank}</span>
-                  <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
-                    {stock.label}
-                  </span>
-                </div>
-
-                <p className="mt-6 text-sm font-black text-slate-500">
-                  {stock.code}
-                </p>
-                <h3 className="mt-1 text-2xl font-black">{stock.name}</h3>
-
-                <div className="mt-5 rounded-[1.5rem] bg-slate-950 p-5 text-white">
-                  <p className="text-xs font-black text-blue-300">AI POWER</p>
-                  <div className="mt-2 flex items-end justify-between">
-                    <p className="text-5xl font-black">{stock.score}</p>
-                    <p className="pb-1 text-xs font-bold text-slate-400">
-                      / 100
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
-                  {stock.comment}
-                </p>
-
-                <Link
-                  href={`/analysis/${stock.code}`}
-                  className="mt-5 inline-flex rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+            {topStocksLoading &&
+              Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`top-stock-loading-${index}`}
+                  className="animate-pulse rounded-[2rem] border border-white bg-white p-6 shadow-sm"
                 >
-                  詳しく見る
+                  <div className="flex items-center justify-between">
+                    <div className="h-10 w-10 rounded-full bg-slate-200" />
+                    <div className="h-6 w-24 rounded-full bg-slate-200" />
+                  </div>
+                  <div className="mt-6 h-4 w-16 rounded bg-slate-200" />
+                  <div className="mt-3 h-7 w-40 rounded bg-slate-200" />
+                  <div className="mt-5 h-28 rounded-[1.5rem] bg-slate-200" />
+                  <div className="mt-4 h-16 rounded bg-slate-100" />
+                </div>
+              ))}
+
+            {!topStocksLoading &&
+              topStocks.map((stock) => (
+                <div
+                  key={stock.code}
+                  className="rounded-[2rem] border border-white bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-4xl">{stock.rank}</span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${stock.labelClass}`}
+                    >
+                      {stock.label}
+                    </span>
+                  </div>
+
+                  <p className="mt-6 text-sm font-black text-slate-500">
+                    {stock.code}
+                  </p>
+                  <h3 className="mt-1 text-2xl font-black">{stock.name}</h3>
+
+                  <div className="mt-5 rounded-[1.5rem] bg-slate-950 p-5 text-white">
+                    <p className="text-xs font-black text-blue-300">AI POWER</p>
+                    <div className="mt-2 flex items-end justify-between">
+                      <p className="text-5xl font-black">{stock.score}</p>
+                      <p className="pb-1 text-xs font-bold text-slate-400">
+                        / 100
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
+                    {stock.comment}
+                  </p>
+
+                  <Link
+                    href={`/analysis/${stock.code}`}
+                    className="mt-5 inline-flex rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+                  >
+                    詳しく見る
+                  </Link>
+                </div>
+              ))}
+
+            {!topStocksLoading && topStocksError && (
+              <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-7 md:col-span-3">
+                <p className="text-lg font-black text-amber-900">
+                  最新ランキングを取得できませんでした
+                </p>
+                <p className="mt-2 text-sm font-medium leading-7 text-amber-800">
+                  固定のサンプル値は表示せず、実際のAIランキングだけを表示しています。
+                  ランキング画面で最新結果を確認してください。
+                </p>
+                <Link
+                  href="/scan-mobile"
+                  className="mt-5 inline-flex rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-600"
+                >
+                  AIランキングを開く
                 </Link>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
-            {/* SCREEN */}
-      <section className="bg-white px-5 py-16">
+
+      {/* SCREEN */}
+      <section className="bg-white px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-black text-blue-600">APP PREVIEW</p>
@@ -403,6 +547,7 @@ export default function HomePage() {
                     alt={screen.alt}
                     width={420}
                     height={820}
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="h-80 w-full object-cover transition duration-300 group-hover:scale-105"
                   />
                 </div>
@@ -421,7 +566,7 @@ export default function HomePage() {
       </section>
 
       {/* PROBLEM */}
-      <section className="bg-slate-50 px-5 py-16">
+      <section className="bg-slate-50 px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-black text-blue-600">
@@ -453,7 +598,7 @@ export default function HomePage() {
       </section>
 
       {/* SOLUTION */}
-      <section className="px-5 py-16">
+      <section className="px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-black text-blue-600">
@@ -461,12 +606,12 @@ export default function HomePage() {
             </p>
 
             <h2 className="mt-2 text-4xl font-black">
-              SIGNALXがすべて解決します
+              SIGNALXが投資判断をサポートします
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
               AIが毎朝1000銘柄以上を分析。
-              必要なのはランキングを見るだけです。
+              注目銘柄を絞り込み、確認の負担を減らします。
             </p>
           </div>
 
@@ -490,7 +635,7 @@ export default function HomePage() {
       </section>
 
       {/* FEATURES */}
-      <section className="bg-slate-50 px-5 py-16">
+      <section className="bg-slate-50 px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-black text-blue-600">
@@ -524,8 +669,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-            {/* BETA */}
-      <section className="px-5 py-16">
+
+      {/* BETA */}
+      <section className="px-5 py-12 md:py-16">
         <div className="mx-auto max-w-4xl rounded-[2.5rem] bg-slate-950 p-8 text-center text-white shadow-2xl shadow-slate-300 md:p-10">
           <p className="text-sm font-black text-blue-300">BETA RELEASE</p>
 
@@ -542,13 +688,13 @@ export default function HomePage() {
             href="/scan-mobile"
             className="mt-8 inline-flex rounded-full bg-white px-9 py-4 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
           >
-            SIGNALXを試す
+            AIランキングを見る
           </Link>
         </div>
       </section>
 
       {/* PRICE */}
-      <section className="bg-white px-5 py-16">
+      <section className="bg-white px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-black text-blue-600">PRICE</p>
@@ -607,7 +753,7 @@ export default function HomePage() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="px-5 py-16">
+      <section className="px-5 py-12 md:py-16">
         <div className="mx-auto max-w-5xl rounded-[2.5rem] bg-gradient-to-br from-blue-600 to-emerald-500 p-8 text-center text-white shadow-2xl shadow-blue-200 md:p-12">
           <p className="text-sm font-black text-blue-100">START SIGNALX</p>
 
