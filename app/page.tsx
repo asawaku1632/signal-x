@@ -162,7 +162,7 @@ export default function HomePage() {
 
     async function loadTopStocks() {
       try {
-        const res = await fetch("/api/scan?limit=3", { cache: "no-store" });
+        const res = await fetch("/api/scan?limit=1200&top=3", { cache: "no-store" });
         if (!res.ok) throw new Error(`scan api error: ${res.status}`);
 
         const data = await res.json();

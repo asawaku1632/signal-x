@@ -20,6 +20,7 @@ import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
 import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
 
 const BATCH_SIZE = 20;
+const MAX_SCAN_LIMIT = 1200;
 
 export type ScanResult = {
   limit: number;
@@ -45,7 +46,7 @@ export function getUniqueStocks(stocks: Stock[]) {
 export function clampLimit(value: number) {
   if (!Number.isFinite(value)) return 200;
   if (value < 1) return 200;
-  if (value > 1000) return 1000;
+  if (value > MAX_SCAN_LIMIT) return MAX_SCAN_LIMIT;
   return value;
 }
 
