@@ -166,7 +166,7 @@ function normalizeTopStocks(stocks: ApiStock[]): TopStock[] {
 const screens = [
   {
     title: "📱 AIランキング",
-    text: "{marketData.totalStockList.toLocaleString()}銘柄からAIが注目銘柄を抽出",
+    text: "AIが注目銘柄を抽出",
     image: "/images/ranking.png",
     alt: "AIランキング画面",
   },
@@ -192,7 +192,7 @@ const problems = [
 ];
 
 const solutions = [
-  ["🤖 {marketData.totalStockList.toLocaleString()}銘柄をAI分析", "毎日多数の日本株をAIが自動でチェックします。"],
+  ["🤖 AIが監視銘柄を分析","毎日多数の日本株をAIが自動でチェックします。"],
   ["📈 注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
   ["📊 複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
   ["💬 初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
@@ -433,11 +433,11 @@ export default function HomePage() {
                 </Link>
 
                 <Link
-                  href="/analysis"
-                  className="rounded-full border border-slate-200 bg-white px-9 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600"
-                >
-                  AI分析を見る
-                </Link>
+  href={topStocks.length > 0 ? `/analysis/${topStocks[0].code}` : "/scan-mobile"}
+  className="rounded-full border border-slate-200 bg-white px-9 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600"
+>
+  AI分析を見る
+</Link>
 
                 <Link
                   href="/trust"
@@ -868,7 +868,7 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-              AIが毎朝1000銘柄以上を分析。
+              AIが毎営業日、監視対象銘柄を分析。
               注目銘柄を絞り込み、確認の負担を減らします。
             </p>
           </div>
@@ -934,7 +934,7 @@ export default function HomePage() {
           <p className="text-sm font-black text-blue-300">BETA RELEASE</p>
 
           <h2 className="mt-3 text-4xl font-black tracking-tight">
-            SIGNALXは現在β版です
+           SIGNALX Ver1.0 正式リリース
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-8 text-slate-300">
