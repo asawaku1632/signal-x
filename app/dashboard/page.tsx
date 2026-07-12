@@ -40,6 +40,22 @@ type TodayMarketData = {
 
 
 
+
+type LearningDashboard = {
+  success: boolean;
+  total: number;
+  win: number;
+  lose: number;
+  hold: number;
+  pending: number;
+  winRate: number;
+  previousWinRate: number;
+  diff: number;
+  growth: number;
+  dateCount: number;
+  updatedAt: string;
+};
+
 type Stock = {
 
   code: string;
@@ -118,47 +134,70 @@ export default function HomePage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loadingScan, setLoadingScan] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [learningData, setLearningData] =
+    useState<LearningDashboard | null>(null);
+  const [loadingLearning, setLoadingLearning] = useState(true);
 
 
 
   useEffect(() => {
+    let active = true;
 
-    fetch("/api/today-market", { cache: "no-store" })
+    async function loadDashboardData() {
+      try {
+        const [marketResponse, scanResponse, learningResponse] =
+          await Promise.all([
+            fetch("/api/today-market", { cache: "no-store" }),
+            fetch("/api/scan?limit=20", { cache: "no-store" }),
+            fetch("/api/learning/dashboard", { cache: "no-store" }),
+          ]);
 
-      .then((res) => res.json())
+        if (!marketResponse.ok) {
+          throw new Error(`today-market api error: ${marketResponse.status}`);
+        }
 
-      .then((data) => setMarketData(data))
+        if (!scanResponse.ok) {
+          throw new Error(`scan api error: ${scanResponse.status}`);
+        }
 
-      .catch(console.error);
+        if (!learningResponse.ok) {
+          throw new Error(
+            `learning dashboard api error: ${learningResponse.status}`
+          );
+        }
 
+        const [marketJson, scanJson, learningJson] = await Promise.all([
+          marketResponse.json(),
+          scanResponse.json(),
+          learningResponse.json(),
+        ]);
 
+        if (!active) return;
 
-    fetch("/api/scan?limit=20", { cache: "no-store" })
-
-      .then((res) => res.json())
-
-      .then((json) => {
-
-        const list: Stock[] = Array.isArray(json)
-
-          ? json
-
-          : Array.isArray(json.stocks)
-
-          ? json.stocks
-
+        const list: Stock[] = Array.isArray(scanJson)
+          ? scanJson
+          : Array.isArray(scanJson.stocks)
+          ? scanJson.stocks
           : [];
 
-
-
+        setMarketData(marketJson);
         setStocks(list);
+        setLearningData(learningJson);
+      } catch (error) {
+        console.error("dashboard fetch error:", error);
+      } finally {
+        if (active) {
+          setLoadingScan(false);
+          setLoadingLearning(false);
+        }
+      }
+    }
 
-      })
+    loadDashboardData();
 
-      .catch(console.error)
-
-      .finally(() => setLoadingScan(false));
-
+    return () => {
+      active = false;
+    };
   }, []);
 
 
@@ -607,53 +646,92 @@ export default function HomePage() {
 
 
         <Link
-
           href="/learning"
-
           className="block rounded-2xl bg-blue-50 border border-blue-100 px-3 py-3 mb-3 shadow-sm"
-
         >
-
           <div className="flex items-center justify-between mb-2">
-
             <h2 className="text-base font-black">🧠 AI学習状況</h2>
-
             <p className="text-xs text-slate-500 font-bold">詳細へ ›</p>
-
           </div>
-
-
 
           <div className="grid grid-cols-4 gap-2">
+            <MiniStat
+              label="累計"
+              value={
+                loadingLearning
+                  ? "--"
+                  : (learningData?.total ?? 0).toLocaleString()
+              }
+              color="text-blue-600"
+            />
 
-            <MiniStat label="学習" value="962" color="text-blue-600" />
+            <MiniStat
+              label="WIN"
+              value={
+                loadingLearning
+                  ? "--"
+                  : (learningData?.win ?? 0).toLocaleString()
+              }
+              color="text-green-600"
+            />
 
-            <MiniStat label="WIN" value="0" color="text-slate-900" />
+            <MiniStat
+              label="LOSE"
+              value={
+                loadingLearning
+                  ? "--"
+                  : (learningData?.lose ?? 0).toLocaleString()
+              }
+              color="text-red-500"
+            />
 
-            <MiniStat label="LOSE" value="1" color="text-red-500" />
-
-            <MiniStat label="HOLD" value="961" color="text-slate-900" />
-
+            <MiniStat
+              label="観察中"
+              value={
+                loadingLearning
+                  ? "--"
+                  : (learningData?.hold ?? 0).toLocaleString()
+              }
+              color="text-orange-500"
+            />
           </div>
 
-
-
-          <div className="mt-2 flex justify-between bg-white/80 rounded-xl px-3 py-1.5 text-xs font-bold">
-
+          <div className="mt-2 flex justify-between gap-3 bg-white/80 rounded-xl px-3 py-2 text-xs font-bold">
             <span>
-
-              学習日数 <b className="text-blue-600">1日</b>
-
+              学習日数{" "}
+              <b className="text-blue-600">
+                {loadingLearning ? "--" : `${learningData?.dateCount ?? 0}日`}
+              </b>
             </span>
 
             <span>
-
-              AI勝率 <b className="text-blue-600">0%</b>
-
+              AI勝率{" "}
+              <b className="text-blue-600">
+                {loadingLearning
+                  ? "--"
+                  : `${learningData?.winRate ?? 0}%`}
+              </b>
             </span>
-
           </div>
 
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-white/60 px-3 py-2 text-[11px] font-bold text-slate-500">
+            <span>
+              判定済み{" "}
+              {loadingLearning
+                ? "--"
+                : (
+                    (learningData?.win ?? 0) + (learningData?.lose ?? 0)
+                  ).toLocaleString()}
+              件
+            </span>
+            <span>
+              判定予定{" "}
+              {loadingLearning
+                ? "--"
+                : (learningData?.pending ?? 0).toLocaleString()}
+              件
+            </span>
+          </div>
         </Link>
 
 
