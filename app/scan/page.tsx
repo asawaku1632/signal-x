@@ -44,7 +44,7 @@ type ScanResponse = {
 };
 
 const REFRESH_MS = 60_000;
-const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = 30_000;
 
 function normalizeStocks(input: ApiStock[]): Stock[] {
   return input.map((stock) => ({
@@ -99,7 +99,7 @@ export default function ScanPage() {
     try {
       setErrorText("");
 
-      const res = await fetch("/api/scan?limit=1200&top=100", {
+      const res = await fetch("/api/scan?limit=100&top=100", {
         cache: "no-store",
         signal: controller.signal,
       });

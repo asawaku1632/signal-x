@@ -65,11 +65,11 @@ export default function RankingPage() {
         const controller = new AbortController();
         const timeoutId = window.setTimeout(
           () => controller.abort(),
-          15_000
+          30_000
         );
 
         try {
-          const res = await fetch("/api/scan?limit=1200&top=100", {
+          const res = await fetch("/api/scan?limit=100&top=100", {
             cache: "no-store",
             signal: controller.signal,
           });
