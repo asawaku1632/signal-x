@@ -62,23 +62,37 @@ export default function RankingPage() {
   useEffect(() => {
     const fetchRanking = async () => {
       try {
-        const res = await fetch("/api/ranking", {
-          cache: "no-store",
-        });
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(
+          () => controller.abort(),
+          15_000
+        );
 
-        const json = await res.json();
+        try {
+          const res = await fetch("/api/scan?limit=1200&top=100", {
+            cache: "no-store",
+            signal: controller.signal,
+          });
 
-        const list: Stock[] = Array.isArray(json)
-          ? json
-          : Array.isArray(json.ranking)
-          ? json.ranking
-          : Array.isArray(json.stocks)
-          ? json.stocks
-          : [];
+          if (!res.ok) {
+            throw new Error(`scan api error: ${res.status}`);
+          }
 
-        setStocks(list);
+          const json = await res.json();
+
+          const list: Stock[] = Array.isArray(json)
+            ? json
+            : Array.isArray(json?.stocks)
+              ? json.stocks
+              : [];
+
+          setStocks(list);
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
       } catch (error) {
         console.error("ranking fetch error:", error);
+        setStocks([]);
       } finally {
         setLoading(false);
       }

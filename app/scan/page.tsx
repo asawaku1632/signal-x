@@ -1,312 +1,334 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type ApiStock = {
+  code?: string | number;
+  name?: string;
+  price?: number;
+  currentPrice?: number;
+  score?: number;
+  aiPower?: number;
+  changePercent?: number;
+  rsi?: number;
+  volumeRatio?: number;
+  reason?: string;
+  patternSignal?: string;
+  signal?: string;
+  notificationLevel?: string;
+  takeProfit?: number;
+  stopLoss?: number;
+};
 
 type Stock = {
   code: string;
   name: string;
   price: number;
-  changeRate: number;
+  changePercent: number;
   rsi: number;
   volumeRatio: number;
-  breakout: boolean;
-  lowerWick: boolean;
-  doubleBottom: boolean;
-  signalScore: number;
-  signal: string;
-  reasons: string[];
+  score: number;
+  reason: string;
+  patternSignal: string;
   notificationLevel: string;
-  pattern: string;
-  shouldNotify: boolean;
+  takeProfit?: number;
+  stopLoss?: number;
 };
+
+type ScanResponse = {
+  success?: boolean;
+  totalStockList?: number;
+  scannedCount?: number;
+  stocks?: ApiStock[];
+};
+
+const REFRESH_MS = 60_000;
+const FETCH_TIMEOUT_MS = 15_000;
+
+function normalizeStocks(input: ApiStock[]): Stock[] {
+  return input.map((stock) => ({
+    code: String(stock.code ?? ""),
+    name: String(stock.name ?? "名称不明"),
+    price: Number(stock.price ?? stock.currentPrice ?? 0),
+    changePercent: Number(stock.changePercent ?? 0),
+    rsi: Number(stock.rsi ?? 0),
+    volumeRatio: Number(stock.volumeRatio ?? 0),
+    score: Number(stock.score ?? stock.aiPower ?? 0),
+    reason: String(stock.reason ?? ""),
+    patternSignal: String(stock.patternSignal ?? "NONE"),
+    notificationLevel: String(stock.notificationLevel ?? ""),
+    takeProfit:
+      typeof stock.takeProfit === "number" ? stock.takeProfit : undefined,
+    stopLoss:
+      typeof stock.stopLoss === "number" ? stock.stopLoss : undefined,
+  }));
+}
+
+function getSignal(score: number) {
+  if (score >= 95) return "大本命";
+  if (score >= 85) return "激熱";
+  if (score >= 70) return "買い候補";
+  if (score >= 50) return "静観";
+  return "見送り";
+}
+
+function getNotificationLevel(stock: Stock) {
+  if (stock.notificationLevel) return stock.notificationLevel;
+  if (stock.score >= 95) return "今すぐ確認";
+  if (stock.score >= 85) return "激熱候補";
+  if (stock.score >= 70) return "買い候補";
+  return "監視";
+}
 
 export default function ScanPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
-  const [flashAlert, setFlashAlert] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [totalStockList, setTotalStockList] = useState(0);
+  const [scannedCount, setScannedCount] = useState(0);
   const [alerts, setAlerts] = useState<string[]>([]);
 
   async function fetchStocks() {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      FETCH_TIMEOUT_MS
+    );
+
     try {
-      const res = await fetch("/api/scan");
+      setErrorText("");
 
-      const data = await res.json();
+      const res = await fetch("/api/scan?limit=1200&top=100", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
 
-      setStocks(data);
+      if (!res.ok) {
+        throw new Error(`scan api error: ${res.status}`);
+      }
 
-      const newAlerts = data.filter(
-        (s: Stock) => s.notificationLevel === "今すぐ見ろ"
-      );
+      const data: ScanResponse | ApiStock[] = await res.json();
 
-      if (newAlerts.length > 0) {
-        playAlertSound();
+      const rawStocks = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.stocks)
+          ? data.stocks
+          : [];
 
-        setFlashAlert(true);
+      const normalized = normalizeStocks(rawStocks);
+      setStocks(normalized);
 
-        setTimeout(() => {
-          setFlashAlert(false);
-        }, 3000);
+      if (!Array.isArray(data)) {
+        setTotalStockList(Number(data.totalStockList ?? normalized.length));
+        setScannedCount(Number(data.scannedCount ?? normalized.length));
+      } else {
+        setTotalStockList(normalized.length);
+        setScannedCount(normalized.length);
+      }
 
-        const alertMessages = newAlerts.map(
-          (s: Stock) =>
-            `${new Date().toLocaleTimeString()} ${s.name} 今すぐ見ろ`
+      const newAlerts = normalized
+        .filter((stock) => stock.score >= 95)
+        .map(
+          (stock) =>
+            `${new Date().toLocaleTimeString("ja-JP")} ${stock.code} ${stock.name} AI ${stock.score}`
         );
 
-        setAlerts((prev) => [...alertMessages, ...prev].slice(0, 10));
+      if (newAlerts.length > 0) {
+        setAlerts((prev) => [...newAlerts, ...prev].slice(0, 10));
       }
     } catch (error) {
-      console.error(error);
+      const message =
+        error instanceof Error && error.name === "AbortError"
+          ? "スキャンAPIがタイムアウトしました。少し待って再読み込みしてください。"
+          : "スキャンデータを取得できませんでした。";
+
+      console.error("scan fetch error:", error);
+      setErrorText(message);
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchStocks();
+    void fetchStocks();
 
-    const interval = setInterval(() => {
-      fetchStocks();
-    }, 5000);
+    const intervalId = window.setInterval(() => {
+      void fetchStocks();
+    }, REFRESH_MS);
 
-    return () => clearInterval(interval);
+    return () => window.clearInterval(intervalId);
   }, []);
 
-  function playAlertSound() {
-    const audio = new Audio(
-      "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA="
-    );
+  const stats = useMemo(() => {
+    const hot = stocks.filter((stock) => stock.score >= 85).length;
+    const strong = stocks.filter(
+      (stock) => stock.score >= 70 && stock.score < 85
+    ).length;
+    const average =
+      stocks.length > 0
+        ? Math.round(
+            stocks.reduce((sum, stock) => sum + stock.score, 0) /
+              stocks.length
+          )
+        : 0;
 
-    audio.play().catch(() => {});
-  }
+    return { hot, strong, average };
+  }, [stocks]);
 
   return (
-    <div className="min-h-screen bg-black text-white flex">
-      {/* サイドバー */}
-      <div className="w-64 bg-[#050816] border-r border-blue-900 p-6 hidden md:block">
-        <h1 className="text-3xl font-black text-green-400 mb-10">
-          SIGNALX
-        </h1>
-
-        <div className="space-y-4 text-gray-300">
-          <div className="text-green-400 font-bold">全銘柄スキャン</div>
-          <div>ダッシュボード</div>
-          <div>戦略AI</div>
-          <div>チャート分析</div>
-          <div>レーダー監視</div>
-          <div>アラート履歴</div>
-        </div>
-      </div>
-
-      {/* メイン */}
-      <div className="flex-1 p-6">
-        {/* タイトル */}
-        <div className="flex items-start justify-between mb-8">
+    <main className="min-h-screen bg-black pb-24 text-white">
+      <div className="mx-auto max-w-6xl p-5 md:p-8">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-5xl font-black mb-2">
+            <Link
+              href="/dashboard"
+              className="mb-3 inline-flex text-sm font-black text-blue-300"
+            >
+              ← Dashboard
+            </Link>
+            <h1 className="text-4xl font-black md:text-5xl">
               全銘柄スキャン
             </h1>
-
-            <p className="text-gray-400">
-              実際の日本株データを監視中...
+            <p className="mt-2 text-sm text-slate-400">
+              日本株をAIが監視。表示はAI POWER上位100銘柄です。
             </p>
           </div>
 
-          <div className="text-right">
-            <div className="text-gray-400 text-sm">
-              自動更新: 5秒
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => void fetchStocks()}
+            className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black"
+          >
+            再読み込み
+          </button>
         </div>
 
-        {/* 上部ステータス */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-[#07111f] border border-blue-900 rounded-2xl p-5">
-            <p className="text-gray-400 mb-2">監視銘柄数</p>
+        <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <Stat label="監視対象銘柄" value={totalStockList} />
+          <Stat label="取得済み" value={scannedCount} />
+          <Stat label="激熱候補" value={stats.hot} />
+          <Stat label="買い候補" value={stats.strong} />
+          <Stat label="平均AI" value={stats.average} />
+        </section>
 
-            <p className="text-5xl font-black text-green-400">
-              {stocks.length}
-            </p>
+        {loading && (
+          <div className="rounded-3xl border border-blue-900 bg-[#07111f] p-8 text-center font-black">
+            AIランキングを読み込み中...
           </div>
+        )}
 
-          <div className="bg-[#07111f] border border-blue-900 rounded-2xl p-5">
-            <p className="text-gray-400 mb-2">強い通知候補</p>
-
-            <p className="text-5xl font-black text-green-400">
-              {
-                stocks.filter(
-                  (s) => s.notificationLevel === "買い候補"
-                ).length
-              }
-            </p>
+        {!loading && errorText && (
+          <div className="rounded-3xl border border-red-900 bg-red-950/40 p-6">
+            <p className="font-black text-red-300">{errorText}</p>
           </div>
+        )}
 
-          <div className="bg-[#07111f] border border-red-900 rounded-2xl p-5">
-            <p className="text-gray-400 mb-2">激アツ</p>
-
-            <p className="text-5xl font-black text-red-400">
-              {
-                stocks.filter((s) => s.signal === "激アツ")
-                  .length
-              }
-            </p>
-          </div>
-
-          <div className="bg-[#07111f] border border-yellow-700 rounded-2xl p-5">
-            <p className="text-gray-400 mb-2">平均スコア</p>
-
-            <p className="text-5xl font-black text-yellow-400">
-              {stocks.length > 0
-                ? Math.round(
-                    stocks.reduce(
-                      (sum, s) => sum + s.signalScore,
-                      0
-                    ) / stocks.length
-                  )
-                : 0}
-            </p>
-          </div>
-        </div>
-
-        {/* テーブル */}
-        <div className="overflow-x-auto rounded-2xl border border-blue-900">
-          <table className="w-full">
-            <thead className="bg-blue-700">
-              <tr className="text-left text-white">
-                <th className="p-4">コード</th>
-                <th className="p-4">銘柄名</th>
-                <th className="p-4">株価</th>
-                <th className="p-4">変化率</th>
-                <th className="p-4">検知パターン</th>
-                <th className="p-4">RSI</th>
-                <th className="p-4">出来高倍率</th>
-                <th className="p-4">スコア</th>
-                <th className="p-4">判定</th>
-                <th className="p-4">通知</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={10} className="p-10 text-center">
-                    読み込み中...
-                  </td>
+        {!loading && !errorText && (
+          <div className="overflow-x-auto rounded-3xl border border-blue-900">
+            <table className="w-full min-w-[950px]">
+              <thead className="bg-blue-700">
+                <tr className="text-left">
+                  <th className="p-4">順位</th>
+                  <th className="p-4">コード</th>
+                  <th className="p-4">銘柄名</th>
+                  <th className="p-4">株価</th>
+                  <th className="p-4">変化率</th>
+                  <th className="p-4">RSI</th>
+                  <th className="p-4">出来高</th>
+                  <th className="p-4">AI</th>
+                  <th className="p-4">判定</th>
+                  <th className="p-4">詳細</th>
                 </tr>
-              ) : (
-                stocks.map((stock) => (
-                  <tr
-                    key={stock.code}
-                    className="border-b border-gray-900 hover:bg-[#07111f]"
-                  >
-                    <td className="p-4">{stock.code}</td>
+              </thead>
 
-                    <td className="p-4 font-bold">
-                      {stock.name}
-                    </td>
+              <tbody>
+                {stocks.map((stock, index) => {
+                  const signal = getSignal(stock.score);
+                  const notification = getNotificationLevel(stock);
 
-                    <td className="p-4">
-                      {stock.price.toLocaleString()}円
-                    </td>
-
-                    <td
-                      className={`p-4 font-bold ${
-                        stock.changeRate >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
+                  return (
+                    <tr
+                      key={stock.code}
+                      className="border-b border-slate-900 hover:bg-[#07111f]"
                     >
-                      {stock.changeRate}%
-                    </td>
-
-                    <td className="p-4 text-green-400">
-                      {stock.pattern}
-                    </td>
-
-                    <td className="p-4 text-red-400">
-                      {stock.rsi}
-                    </td>
-
-                    <td className="p-4 text-pink-400">
-                      {stock.volumeRatio}倍
-                    </td>
-
-                    <td className="p-4">
-                      <span className="bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full">
-                        {stock.signalScore}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          stock.signal === "激アツ"
-                            ? "bg-red-500/20 text-red-400"
-                            : stock.signal === "強い買い"
-                            ? "bg-green-500/20 text-green-400"
-                            : stock.signal === "買い候補"
-                            ? "bg-yellow-500/20 text-yellow-300"
-                            : "bg-gray-500/20 text-gray-300"
+                      <td className="p-4 font-black">{index + 1}</td>
+                      <td className="p-4">{stock.code}</td>
+                      <td className="p-4 font-black">{stock.name}</td>
+                      <td className="p-4">
+                        {Math.round(stock.price).toLocaleString()}円
+                      </td>
+                      <td
+                        className={`p-4 font-black ${
+                          stock.changePercent >= 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
                         }`}
                       >
-                        {stock.signal}
-                      </span>
-                    </td>
+                        {stock.changePercent.toFixed(2)}%
+                      </td>
+                      <td className="p-4">{stock.rsi || "-"}</td>
+                      <td className="p-4">
+                        {stock.volumeRatio
+                          ? `${stock.volumeRatio.toFixed(2)}倍`
+                          : "-"}
+                      </td>
+                      <td className="p-4 text-2xl font-black text-blue-300">
+                        {stock.score}
+                      </td>
+                      <td className="p-4">
+                        <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-black">
+                          {signal} / {notification}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <Link
+                          href={`/analysis/${stock.code}`}
+                          className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black"
+                        >
+                          AI分析
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-                    <td className="p-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          stock.notificationLevel === "今すぐ見ろ"
-                            ? "bg-red-600 text-white"
-                            : stock.notificationLevel ===
-                              "買い候補"
-                            ? "bg-yellow-500 text-black"
-                            : "bg-blue-500 text-white"
-                        }`}
-                      >
-                        {stock.notificationLevel}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 右通知 */}
-      <div className="w-80 p-5 hidden xl:block">
-        <div
-          className={`bg-[#07111f] border rounded-2xl p-5 transition-all ${
-            flashAlert
-              ? "border-red-500 shadow-lg shadow-red-500/50"
-              : "border-gray-800"
-          }`}
-        >
-          <h2 className="text-2xl font-black mb-5">
-            🔥 シグナルアラート
-          </h2>
-
-          <div className="space-y-3">
+        <aside className="mt-8 rounded-3xl border border-slate-800 bg-[#07111f] p-5">
+          <h2 className="text-xl font-black">🔥 シグナルアラート</h2>
+          <div className="mt-4 space-y-2">
             {alerts.length === 0 ? (
-              <p className="text-gray-500">
-                条件を満たす通知はまだありません
+              <p className="text-sm text-slate-500">
+                現在、新しい大本命通知はありません。
               </p>
             ) : (
               alerts.map((alert, index) => (
-                <div
-                  key={index}
-                  className="bg-black/50 rounded-xl p-3 border border-red-900"
+                <p
+                  key={`${alert}-${index}`}
+                  className="rounded-xl bg-black/40 p-3 text-sm font-bold text-red-300"
                 >
-                  <p className="text-red-400 font-bold">
-                    {alert}
-                  </p>
-                </div>
+                  {alert}
+                </p>
               ))
             )}
           </div>
-        </div>
+        </aside>
       </div>
+    </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-blue-900 bg-[#07111f] p-4">
+      <p className="text-xs font-black text-slate-400">{label}</p>
+      <p className="mt-2 text-3xl font-black text-blue-300">
+        {value.toLocaleString()}
+      </p>
     </div>
   );
 }
