@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 type StockStats = {
   code: string;
   name: string;
@@ -21,19 +23,13 @@ type TrendItem = {
   winRate: number;
 };
 
-function formatDate(value: unknown) {
-  const date = new Date(String(value));
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().slice(0, 10);
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function createAiComment({
   winRate,
-  previousWinRate,
   diff,
   judgedTotal,
   win,
@@ -42,7 +38,6 @@ function createAiComment({
   unknown,
 }: {
   winRate: number;
-  previousWinRate: number;
   diff: number;
   judgedTotal: number;
   win: number;
@@ -55,47 +50,24 @@ function createAiComment({
   }
 
   if (judgedTotal === 0) {
-    return `現在は学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。`;
+    return "現在は学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。";
   }
 
-  let trendComment = "";
+  const trendComment =
+    diff > 0
+      ? `前営業日より${diff}%改善しました。`
+      : diff < 0
+        ? `前営業日より${Math.abs(diff)}%低下しました。`
+        : "前営業日と同水準です。";
 
-  if (diff > 0) {
-    trendComment = `前営業日より${diff}%改善しました。`;
-  } else if (diff < 0) {
-    trendComment = `前営業日より${Math.abs(diff)}%低下しました。`;
-  } else {
-    trendComment = "前営業日と同水準です。";
-  }
-
-  let levelComment = "";
-
-  if (winRate >= 80) {
-    levelComment =
-      "🔥 AIは非常に高い精度を維持しています。現在の市場との相性も良好です。";
-  } else if (winRate >= 60) {
-    levelComment =
-      "📈 AIは安定した学習を継続しています。精度は順調に向上しています。";
-  } else if (winRate >= 40) {
-    levelComment =
-      "⚖️ AIは改善途中です。苦手パターンを分析しながら精度を高めています。";
-  } else {
-    levelComment =
-      "⚠️ AIは現在改善フェーズです。学習データを蓄積しながら精度向上を目指します。";
-  }
-
- return `
-現在のAI勝率は${winRate}%です。
+  return `
+現在のAI勝率は${winRate}%です。${trendComment}
 
 これまで${judgedTotal}件の判定結果を学習し、
 ${win}件の成功パターン（WIN）と${lose}件の失敗パターン（LOSE）を蓄積しました。
 
-現在も
-
 📚 継続観察中：${hold}件
 ⏳ 次回判定予定：${unknown}件
-
-のデータをもとに、AIは毎営業日学習を続けています。
 
 学習データが増えるほどAI POWERの精度はさらに向上していきます。
 
@@ -105,61 +77,70 @@ ${win}件の成功パターン（WIN）と${lose}件の失敗パターン（LOSE
 
 export async function GET() {
   try {
-    const { rows } = await pool.query(`
-      SELECT *
-      FROM daily_stock_results
-      ORDER BY created_at ASC
-    `);
+    const [summaryResult, stockResult, trendResult] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold,
+          COUNT(*) FILTER (WHERE result = 'UNKNOWN')::int AS unknown
+        FROM daily_stock_results
+      `),
+      pool.query(`
+        SELECT
+          code,
+          COALESCE(MAX(name), code) AS name,
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold,
+          COUNT(*) FILTER (WHERE result = 'UNKNOWN')::int AS unknown
+        FROM daily_stock_results
+        WHERE code IS NOT NULL
+        GROUP BY code
+      `),
+      pool.query(`
+        SELECT
+          TO_CHAR(created_at::date, 'YYYY-MM-DD') AS date,
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
+        FROM daily_stock_results
+        GROUP BY created_at::date
+        ORDER BY created_at::date ASC
+      `),
+    ]);
 
-    const total = rows.length;
-
-    const win = rows.filter((row) => row.result === "WIN").length;
-    const lose = rows.filter((row) => row.result === "LOSE").length;
-    const hold = rows.filter((row) => row.result === "HOLD").length;
-    const unknown = rows.filter((row) => row.result === "UNKNOWN").length;
+    const summary = summaryResult.rows[0] ?? {};
+    const total = toNumber(summary.total);
+    const win = toNumber(summary.win);
+    const lose = toNumber(summary.lose);
+    const hold = toNumber(summary.hold);
+    const unknown = toNumber(summary.unknown);
 
     const judgedTotal = win + lose;
-
     const winRate =
       judgedTotal === 0 ? 0 : Math.round((win / judgedTotal) * 100);
 
-    const stockMap = new Map<string, StockStats>();
+    const stockStats: StockStats[] = stockResult.rows.map((row) => {
+      const stockWin = toNumber(row.win);
+      const stockLose = toNumber(row.lose);
+      const judged = stockWin + stockLose;
 
-    for (const row of rows) {
-      const code = String(row.code || "");
-      if (!code) continue;
-
-      const name = String(row.name || code);
-
-      const current =
-        stockMap.get(code) || {
-          code,
-          name,
-          total: 0,
-          win: 0,
-          lose: 0,
-          hold: 0,
-          unknown: 0,
-          winRate: 0,
-        };
-
-      current.total += 1;
-
-      if (row.result === "WIN") current.win += 1;
-      if (row.result === "LOSE") current.lose += 1;
-      if (row.result === "HOLD") current.hold += 1;
-      if (row.result === "UNKNOWN") current.unknown += 1;
-
-      const judged = current.win + current.lose;
-      current.winRate =
-        judged === 0 ? 0 : Math.round((current.win / judged) * 100);
-
-      stockMap.set(code, current);
-    }
-
-    const stockStats = Array.from(stockMap.values()).filter(
-      (stock) => stock.total >= 1
-    );
+      return {
+        code: String(row.code ?? ""),
+        name: String(row.name ?? row.code ?? ""),
+        total: toNumber(row.total),
+        win: stockWin,
+        lose: stockLose,
+        hold: toNumber(row.hold),
+        unknown: toNumber(row.unknown),
+        winRate:
+          judged === 0 ? 0 : Math.round((stockWin / judged) * 100),
+      };
+    });
 
     const bestStocks = [...stockStats]
       .filter((stock) => stock.win + stock.lose > 0)
@@ -171,36 +152,21 @@ export async function GET() {
       .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
       .slice(0, 5);
 
-    const trendMap = new Map<string, TrendItem>();
+    const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
+      const trendWin = toNumber(row.win);
+      const trendLose = toNumber(row.lose);
+      const judged = trendWin + trendLose;
 
-    for (const row of rows) {
-      const date = formatDate(row.created_at);
-      if (!date) continue;
-
-      const current =
-        trendMap.get(date) || {
-          date,
-          total: 0,
-          win: 0,
-          lose: 0,
-          hold: 0,
-          winRate: 0,
-        };
-
-      current.total += 1;
-
-      if (row.result === "WIN") current.win += 1;
-      if (row.result === "LOSE") current.lose += 1;
-      if (row.result === "HOLD") current.hold += 1;
-
-      const judged = current.win + current.lose;
-      current.winRate =
-        judged === 0 ? 0 : Math.round((current.win / judged) * 100);
-
-      trendMap.set(date, current);
-    }
-
-    const winRateTrend = Array.from(trendMap.values());
+      return {
+        date: String(row.date ?? ""),
+        total: toNumber(row.total),
+        win: trendWin,
+        lose: trendLose,
+        hold: toNumber(row.hold),
+        winRate:
+          judged === 0 ? 0 : Math.round((trendWin / judged) * 100),
+      };
+    });
 
     const judgedTrend = winRateTrend.filter(
       (item) => item.win + item.lose > 0
@@ -214,10 +180,8 @@ export async function GET() {
     const diff = winRate - previousWinRate;
 
     let cumulativeTotal = 0;
-
     const growthTrend = winRateTrend.map((item) => {
       cumulativeTotal += item.total;
-
       return {
         date: item.date,
         total: cumulativeTotal,
@@ -233,7 +197,6 @@ export async function GET() {
 
     const comment = createAiComment({
       winRate,
-      previousWinRate,
       diff,
       judgedTotal,
       win,
@@ -244,7 +207,6 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-
       total,
       win,
       lose,
@@ -253,19 +215,14 @@ export async function GET() {
       winRate,
       previousWinRate,
       diff,
-
       growth: total,
       dateCount: winRateTrend.length,
-
       bestStocks,
       worstStocks,
-
       winRateTrend,
       growthTrend,
       resultPie,
-
       comment,
-
       updatedAt: new Date().toLocaleString("ja-JP", {
         month: "2-digit",
         day: "2-digit",
@@ -276,25 +233,28 @@ export async function GET() {
   } catch (error) {
     console.error("learning dashboard error:", error);
 
-    return NextResponse.json({
-      success: false,
-      total: 0,
-      win: 0,
-      lose: 0,
-      hold: 0,
-      pending: 0,
-      winRate: 0,
-      previousWinRate: 0,
-      diff: 0,
-      growth: 0,
-      dateCount: 0,
-      bestStocks: [],
-      worstStocks: [],
-      winRateTrend: [],
-      growthTrend: [],
-      resultPie: [],
-      comment: "AI学習データの取得に失敗しました。",
-      updatedAt: new Date().toLocaleString("ja-JP"),
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        total: 0,
+        win: 0,
+        lose: 0,
+        hold: 0,
+        pending: 0,
+        winRate: 0,
+        previousWinRate: 0,
+        diff: 0,
+        growth: 0,
+        dateCount: 0,
+        bestStocks: [],
+        worstStocks: [],
+        winRateTrend: [],
+        growthTrend: [],
+        resultPie: [],
+        comment: "AI学習データの取得に失敗しました。",
+        updatedAt: new Date().toLocaleString("ja-JP"),
+      },
+      { status: 500 }
+    );
   }
 }

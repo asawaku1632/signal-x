@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 
 
 type TodayMarketData = {
+  success?: boolean;
+  stocks?: Stock[];
 
   grade: string;
 
@@ -143,22 +145,44 @@ export default function HomePage() {
   useEffect(() => {
     let active = true;
 
-    async function loadDashboardData() {
+    async function loadMarketData() {
       try {
-        const [marketResponse, scanResponse, learningResponse] =
-          await Promise.all([
-            fetch("/api/today-market", { cache: "no-store" }),
-            fetch("/api/scan?limit=20", { cache: "no-store" }),
-            fetch("/api/learning/dashboard", { cache: "no-store" }),
-          ]);
+        const marketResponse = await fetch("/api/today-market", {
+          cache: "no-store",
+        });
 
         if (!marketResponse.ok) {
-          throw new Error(`today-market api error: ${marketResponse.status}`);
+          throw new Error(
+            `today-market api error: ${marketResponse.status}`
+          );
         }
 
-        if (!scanResponse.ok) {
-          throw new Error(`scan api error: ${scanResponse.status}`);
-        }
+        const marketJson: TodayMarketData = await marketResponse.json();
+
+        if (!active) return;
+
+        const list = Array.isArray(marketJson.stocks)
+          ? marketJson.stocks
+          : [];
+
+        setMarketData(marketJson);
+        setStocks(list);
+      } catch (error) {
+        console.error("dashboard market fetch error:", error);
+        if (!active) return;
+        setMarketData(null);
+        setStocks([]);
+      } finally {
+        if (active) setLoadingScan(false);
+      }
+    }
+
+    async function loadLearningData() {
+      try {
+        const learningResponse = await fetch(
+          "/api/learning/dashboard",
+          { cache: "no-store" }
+        );
 
         if (!learningResponse.ok) {
           throw new Error(
@@ -166,34 +190,22 @@ export default function HomePage() {
           );
         }
 
-        const [marketJson, scanJson, learningJson] = await Promise.all([
-          marketResponse.json(),
-          scanResponse.json(),
-          learningResponse.json(),
-        ]);
+        const learningJson: LearningDashboard =
+          await learningResponse.json();
 
         if (!active) return;
-
-        const list: Stock[] = Array.isArray(scanJson)
-          ? scanJson
-          : Array.isArray(scanJson.stocks)
-          ? scanJson.stocks
-          : [];
-
-        setMarketData(marketJson);
-        setStocks(list);
         setLearningData(learningJson);
       } catch (error) {
-        console.error("dashboard fetch error:", error);
+        console.error("dashboard learning fetch error:", error);
+        if (!active) return;
+        setLearningData(null);
       } finally {
-        if (active) {
-          setLoadingScan(false);
-          setLoadingLearning(false);
-        }
+        if (active) setLoadingLearning(false);
       }
     }
 
-    loadDashboardData();
+    void loadMarketData();
+    void loadLearningData();
 
     return () => {
       active = false;
@@ -393,7 +405,7 @@ export default function HomePage() {
     </Link>
 
     <Link
-      href="/scan-mobile?budget=100000"
+      href="/scan-mobile?budget=1000000"
       className="rounded-2xl bg-purple-500 p-4 text-center font-black text-white shadow"
     >
       💴
