@@ -358,21 +358,25 @@ export async function fetchYahooChart(
     interval: string,
     sliceLimit: number
   ): Promise<ChartData | null> {
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-        symbol
-      )}?range=${range}&interval=${interval}`,
-      {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+      symbol
+    )}?range=${range}&interval=${interval}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    try {
+      const res = await fetch(url, {
         cache: "no-store",
+        signal: controller.signal,
         headers: {
           "User-Agent": "Mozilla/5.0",
         },
-      }
-    );
+      });
 
-    if (!res.ok) return null;
+      if (!res.ok) return null;
 
-    const data = await res.json();
+      const data = await res.json();
     const result = data.chart?.result?.[0];
 
     if (!result) return null;
@@ -396,17 +400,34 @@ export async function fetchYahooChart(
     const closes = candles.map((candle) => candle.close);
     const currentPrice = closes[closes.length - 1] ?? null;
 
-    if (!currentPrice) return null;
+      if (!currentPrice) return null;
 
-    return {
-      candles,
-      closes,
-      currentPrice,
-    };
+      return {
+        candles,
+        closes,
+        currentPrice,
+      };
+    } catch (error) {
+      const isAbortError =
+        error instanceof Error && error.name === "AbortError";
+
+      if (!isAbortError) {
+        console.warn(
+          `Yahoo chart fetch failed: ${symbol} ${range}/${interval}`,
+          error
+        );
+      }
+
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  const intradayChart = await fetchChart("1d", "5m", 60);
-  const dailyChart = await fetchChart("3mo", "1d", 90);
+  const [intradayChart, dailyChart] = await Promise.all([
+    fetchChart("1d", "5m", 60),
+    fetchChart("3mo", "1d", 90),
+  ]);
 
   let chartData = intradayChart;
   let dataSource = "intraday";
