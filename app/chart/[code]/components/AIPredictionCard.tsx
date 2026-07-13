@@ -23,6 +23,11 @@ type AIPredictionCardProps = {
   resistancePrice: number | null;
   supportPrice: number | null;
   candles: Candle[];
+  takeProfit: number;
+  stopLoss: number;
+  takeProfitMoney: number;
+  stopLossMoney: number;
+  requiredMoney: number;
 };
 
 type Scenario = {
@@ -197,6 +202,31 @@ function buildReasons(props: AIPredictionCardProps) {
   return reasons.slice(0, 6);
 }
 
+
+function getActionLabel(up: number, side: number, down: number) {
+  if (up >= 65) return "買い継続";
+  if (up >= 50) return "押し目待ち";
+  if (down >= 50) return "見送り";
+  if (side >= 45) return "様子見";
+  return "慎重に監視";
+}
+
+function getActionTone(action: string) {
+  if (action === "買い継続") return { border: "border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-700", icon: "🟢" };
+  if (action === "押し目待ち") return { border: "border-blue-200", bg: "bg-blue-50", text: "text-blue-700", icon: "🔵" };
+  if (action === "見送り") return { border: "border-red-200", bg: "bg-red-50", text: "text-red-700", icon: "🔴" };
+  return { border: "border-amber-200", bg: "bg-amber-50", text: "text-amber-700", icon: "🟡" };
+}
+
+function getStarRating(value: number) {
+  const stars = clamp(Math.round(value / 20), 1, 5);
+  return "★".repeat(stars) + "☆".repeat(5 - stars);
+}
+
+function probabilityBarClass(tone: "profit" | "loss") {
+  return tone === "profit" ? "bg-emerald-500" : "bg-red-500";
+}
+
 export default function AIPredictionCard(props: AIPredictionCardProps) {
   let upScore = 38;
   let downScore = 27;
@@ -324,6 +354,85 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
     (a, b) => b.probability - a.probability,
   )[0];
   const reasons = buildReasons(props);
+
+  const confidence = clamp(
+    Math.round(
+      props.aiPower * 0.42 +
+        props.breakoutExpectation * 0.33 +
+        probabilities.up * 0.25,
+    ),
+    35,
+    95,
+  );
+
+  const takeProfitDistance = Math.max(
+    ((props.takeProfit - props.currentPrice) / Math.max(props.currentPrice, 1)) * 100,
+    0,
+  );
+  const stopLossDistance = Math.max(
+    ((props.currentPrice - props.stopLoss) / Math.max(props.currentPrice, 1)) * 100,
+    0,
+  );
+
+  const takeProfitProbability = clamp(
+    Math.round(
+      probabilities.up * 0.72 +
+        props.breakoutExpectation * 0.2 +
+        props.aiPower * 0.08 -
+        takeProfitDistance * 4.5,
+    ),
+    5,
+    95,
+  );
+
+  const stopLossProbability = clamp(
+    Math.round(
+      probabilities.down * 0.72 +
+        (100 - props.breakoutExpectation) * 0.18 +
+        (100 - props.aiPower) * 0.1 -
+        stopLossDistance * 2.5,
+    ),
+    3,
+    90,
+  );
+
+  const action = getActionLabel(probabilities.up, probabilities.side, probabilities.down);
+  const actionTone = getActionTone(action);
+  const expectation = clamp(
+    Math.round((takeProfitProbability + confidence + props.breakoutExpectation - stopLossProbability) / 3),
+    20,
+    95,
+  );
+
+  const ma20TouchProbability = props.ma20 === null
+    ? 0
+    : clamp(
+        Math.round(76 - (Math.abs(props.currentPrice - props.ma20) / Math.max(props.currentPrice, 1)) * 900),
+        10,
+        92,
+      );
+
+  const resistanceBreakProbability = props.resistancePrice === null
+    ? props.breakoutExpectation
+    : clamp(
+        Math.round(
+          props.breakoutExpectation -
+            Math.max(((props.resistancePrice - props.currentPrice) / Math.max(props.currentPrice, 1)) * 100, 0) * 2,
+        ),
+        5,
+        95,
+      );
+
+  const futureHigh = Math.max(...paths.upward);
+  const futureLow = Math.min(...paths.downward);
+
+  const storyParts = [
+    `現在は${props.trend === "UPTREND" ? "上昇トレンド" : props.trend === "DOWNTREND" ? "下降トレンド" : "横ばい"}です。`,
+    props.macdHistogram !== null ? `MACDモメンタムは${props.macdHistogram >= 0 ? "プラス" : "マイナス"}です。` : "",
+    props.vwap !== null ? `現在値はVWAPより${props.currentPrice >= props.vwap ? "上" : "下"}にあります。` : "",
+    `次の5本では${yen(futureLow)}〜${yen(futureHigh)}の範囲を試すシナリオを想定しています。`,
+    props.resistancePrice !== null ? `${yen(props.resistancePrice)}を突破すると、上昇加速シナリオへ移行する可能性があります。` : "",
+  ].filter(Boolean);
 
   return (
     <section className="rounded-[28px] border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-4 shadow-sm md:p-6">
@@ -509,6 +618,64 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
         </svg>
       </div>
 
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className={`rounded-[24px] border p-5 ${actionTone.border} ${actionTone.bg}`}>
+          <p className="text-xs font-black tracking-[0.18em] text-slate-500">AI FINAL JUDGEMENT</p>
+          <div className="mt-3 flex items-start justify-between gap-4">
+            <div>
+              <p className={`text-2xl font-black ${actionTone.text}`}>{actionTone.icon} AI最終判断</p>
+              <p className="mt-2 text-4xl font-black text-slate-950">{action}</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-4 py-3 text-right shadow-sm">
+              <p className="text-[10px] font-black text-slate-400">信頼度</p>
+              <p className={`text-3xl font-black ${actionTone.text}`}>{confidence}%</p>
+            </div>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm">
+              <p className="text-xs font-black text-slate-500">AI推奨度</p>
+              <p className="mt-1 text-xl font-black text-amber-500">{getStarRating(expectation)}</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm">
+              <p className="text-xs font-black text-slate-500">期待値</p>
+              <p className={`mt-1 text-3xl font-black ${actionTone.text}`}>{expectation}%</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[24px] border border-slate-200 bg-white p-5">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">TARGET SIMULATION</p>
+          <h3 className="mt-2 text-2xl font-black">🎯 到達確率</h3>
+          <ProbabilityRow label="利確到達" probability={takeProfitProbability} price={props.takeProfit} money={props.takeProfitMoney} tone="profit" />
+          <ProbabilityRow label="損切到達" probability={stopLossProbability} price={props.stopLoss} money={props.stopLossMoney} tone="loss" />
+          <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-center">
+            <p className="text-xs font-black text-slate-500">必要資金</p>
+            <p className="mt-1 text-xl font-black text-slate-900">{yen(props.requiredMoney)}</p>
+          </div>
+        </section>
+      </div>
+
+      <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5">
+        <p className="text-xs font-black tracking-[0.18em] text-violet-600">NEXT EVENTS</p>
+        <h3 className="mt-2 text-2xl font-black">📅 次に起こりそうなイベント</h3>
+        <div className="mt-4 space-y-3">
+          <EventRow label="MA20タッチ" probability={ma20TouchProbability} />
+          <EventRow label="抵抗線突破" probability={resistanceBreakProbability} />
+          <EventRow label="利確到達" probability={takeProfitProbability} />
+          <EventRow label="損切到達" probability={stopLossProbability} />
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
+        <p className="text-xs font-black tracking-[0.18em] text-blue-600">AI STORY</p>
+        <h3 className="mt-2 text-2xl font-black">🧠 AIストーリー</h3>
+        <div className="mt-4 space-y-2">
+          {storyParts.map((part) => (
+            <p key={part} className="text-sm font-bold leading-7 text-slate-700">{part}</p>
+          ))}
+        </div>
+      </section>
+
       <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-4">
         <p className="text-sm font-black text-slate-900">予測根拠</p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -531,5 +698,38 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
         </p>
       </div>
     </section>
+  );
+}
+
+function ProbabilityRow({ label, probability, price, money, tone }: { label: string; probability: number; price: number; money: number; tone: "profit" | "loss"; }) {
+  return (
+    <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-slate-700">{label}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{yen(price)} / 100株 {money >= 0 ? "+" : ""}{yen(money)}</p>
+        </div>
+        <p className={`text-3xl font-black ${tone === "profit" ? "text-emerald-600" : "text-red-500"}`}>{probability}%</p>
+      </div>
+      <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
+        <div className={`h-full rounded-full ${probabilityBarClass(tone)}`} style={{ width: `${probability}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function EventRow({ label, probability }: { label: string; probability: number; }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+      <div className="flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-black text-slate-700">{label}</p>
+          <p className="text-lg font-black text-violet-600">{probability}%</p>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-violet-500" style={{ width: `${probability}%` }} />
+        </div>
+      </div>
+    </div>
   );
 }

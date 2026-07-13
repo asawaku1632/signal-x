@@ -421,20 +421,28 @@ export default function ChartPage() {
           </section>
 
           <AIPredictionCard
-            currentPrice={currentPrice}
-            aiPower={power}
-            trend={chart.trend}
-            ma20={chart.ma20}
-            ema20={chart.ema20}
-            vwap={chart.vwap}
-            macdHistogram={chart.macdHistogram}
-            rsi={stock.rsi}
-            volumeRatio={stock.volumeRatio}
-            breakoutExpectation={breakoutExpectation}
-            resistancePrice={resistancePrice}
-            supportPrice={supportPrice}
-            candles={chart.candles}
-          />
+  currentPrice={currentPrice}
+  aiPower={power}
+  trend={chart.trend}
+  ma20={chart.ma20}
+  ema20={chart.ema20}
+  vwap={chart.vwap}
+  macdHistogram={chart.macdHistogram}
+  rsi={stock.rsi}
+  volumeRatio={stock.volumeRatio}
+  breakoutExpectation={breakoutExpectation}
+  resistancePrice={resistancePrice}
+  supportPrice={supportPrice}
+  candles={chart.candles}
+
+  takeProfit={takeProfit}
+  stopLoss={stopLoss}
+
+  takeProfitMoney={takeProfitMoney}
+  stopLossMoney={stopLossMoney}
+
+  requiredMoney={requiredMoney}
+/>
 
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ActionCard
