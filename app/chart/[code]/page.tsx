@@ -10,6 +10,7 @@ import ChartHeader from "./components/ChartHeader";
 import SupportResistanceCard from "./components/SupportResistanceCard";
 import AnalysisCard from "./components/AnalysisCard";
 import AICommentCard from "./components/AICommentCard";
+import AIPredictionCard from "./components/AIPredictionCard";
 
 type SupportResistanceStatus =
   | "BREAKOUT"
@@ -309,8 +310,7 @@ export default function ChartPage() {
   const stopLoss = stock.stopLoss ?? Math.round(currentPrice * 0.98);
 
   const supportPrice = chart.supportPrice ?? stock.supportPrice ?? null;
-  const resistancePrice =
-    chart.resistancePrice ?? stock.resistancePrice ?? null;
+  const resistancePrice = chart.resistancePrice ?? stock.resistancePrice ?? null;
 
   const supportResistanceStatus =
     chart.supportResistanceStatus ??
@@ -364,7 +364,7 @@ export default function ChartPage() {
                 SIGNAL<span className="text-blue-600">X</span>
               </div>
               <div className="text-[10px] font-black tracking-[0.24em] text-slate-500">
-                REAL CHART V3.2 FINAL
+                REAL CHART V3.3 AI FORECAST
               </div>
             </div>
 
@@ -420,6 +420,22 @@ export default function ChartPage() {
             </div>
           </section>
 
+          <AIPredictionCard
+            currentPrice={currentPrice}
+            aiPower={power}
+            trend={chart.trend}
+            ma20={chart.ma20}
+            ema20={chart.ema20}
+            vwap={chart.vwap}
+            macdHistogram={chart.macdHistogram}
+            rsi={stock.rsi}
+            volumeRatio={stock.volumeRatio}
+            breakoutExpectation={breakoutExpectation}
+            resistancePrice={resistancePrice}
+            supportPrice={supportPrice}
+            candles={chart.candles}
+          />
+
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ActionCard
               title="🎯 利確目標"
@@ -447,9 +463,7 @@ export default function ChartPage() {
               resistancePrice={resistancePrice}
               supportDiff={supportDiff}
               resistanceDiff={resistanceDiff}
-              statusLabel={getSupportResistanceLabel(
-                supportResistanceStatus,
-              )}
+              statusLabel={getSupportResistanceLabel(supportResistanceStatus)}
               breakoutExpectation={breakoutExpectation}
               comment={supportResistanceComment}
             />
