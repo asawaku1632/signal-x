@@ -63,10 +63,7 @@ export default function RankingPage() {
     const fetchRanking = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = window.setTimeout(
-          () => controller.abort(),
-          30_000
-        );
+        const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
 
         try {
           const res = await fetch("/api/scan?limit=100&top=100", {
@@ -83,8 +80,8 @@ export default function RankingPage() {
           const list: Stock[] = Array.isArray(json)
             ? json
             : Array.isArray(json?.stocks)
-              ? json.stocks
-              : [];
+            ? json.stocks
+            : [];
 
           setStocks(list);
         } finally {

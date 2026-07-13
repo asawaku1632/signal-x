@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -163,26 +162,36 @@ function ScanMobileContent() {
   };
 
   async function fetchStocks() {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+
     try {
       setLoading(true);
 
-      const res = await fetch("/api/scan?limit=1000", {
+      const res = await fetch("/api/scan?limit=100&top=100", {
         cache: "no-store",
+        signal: controller.signal,
       });
+
+      if (!res.ok) {
+        throw new Error(`scan api error: ${res.status}`);
+      }
 
       const json = await res.json();
 
       const list: Stock[] = Array.isArray(json)
         ? json
-        : Array.isArray(json.stocks)
+        : Array.isArray(json?.stocks)
         ? json.stocks
         : [];
 
       setStocks(list);
-      setTotalStocks(json.totalStockList ?? list.length);
+      setTotalStocks(Number(json?.totalStockList ?? list.length));
     } catch (error) {
       console.error("scan-mobile fetch error:", error);
+      setStocks([]);
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   }
@@ -345,7 +354,7 @@ function ScanMobileContent() {
               </h2>
 
               <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
-                1000銘柄以上を自動スキャン。
+                監視対象の日本株を自動スキャン。
                 迷ったらAI POWER上位から確認。
               </p>
             </div>
@@ -588,7 +597,7 @@ function ScanMobileContent() {
             <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center">
               <p className="text-2xl font-black">読み込み中...</p>
               <p className="mt-2 text-sm font-bold text-slate-500">
-                AIが1000銘柄をスキャンしています。
+                AIが監視対象銘柄をスキャンしています。
               </p>
             </div>
           ) : filteredStocks.length === 0 ? (
@@ -714,7 +723,7 @@ function ScanMobileContent() {
 
           <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
             <p className="text-sm font-black text-blue-700">
-              60秒ごとに自動更新 / AI POWER V3で解析
+              60秒ごとに自動更新 / AI POWER V20で解析
             </p>
           </div>
         </section>

@@ -10,6 +10,8 @@ type DashboardData = {
   lose: number;
   hold: number;
   winRate: number;
+  previousWinRate: number;
+  diff: number;
   growth: number;
   dateCount: number;
   bestStocks: {
@@ -25,8 +27,12 @@ type DashboardData = {
     total: number;
   }[];
   winRateTrend: {
-    label: string;
-    value: number;
+    date: string;
+    total: number;
+    win: number;
+    lose: number;
+    hold: number;
+    winRate: number;
   }[];
   comment: string;
   updatedAt: string;
@@ -48,7 +54,16 @@ export default function ResultStatsPage() {
           cache: "no-store",
         });
 
+        if (!res.ok) {
+          throw new Error(`learning dashboard api error: ${res.status}`);
+        }
+
         const json = await res.json();
+
+        if (!json?.success) {
+          throw new Error("learning dashboard returned success=false");
+        }
+
         setData(json);
       } catch (error) {
         console.error("result stats fetch error:", error);
@@ -168,24 +183,29 @@ export default function ResultStatsPage() {
             <section className="mt-4 rounded-[24px] bg-white border border-slate-200 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-black">📈 勝率推移</h2>
-                <p className="text-sm font-black text-green-600">
-                  +{data.growth}%
+                <p
+                  className={`text-sm font-black ${
+                    data.diff >= 0 ? "text-green-600" : "text-red-500"
+                  }`}
+                >
+                  {data.diff >= 0 ? "+" : ""}
+                  {data.diff}%
                 </p>
               </div>
 
               <div className="space-y-3">
                 {(data.winRateTrend ?? []).map((item) => (
-                  <div key={item.label}>
+                  <div key={item.date}>
                     <div className="flex justify-between text-xs font-bold mb-1">
-                      <span>{item.label}</span>
-                      <span>{item.value}%</span>
+                      <span>{item.date}</span>
+                      <span>{item.winRate}%</span>
                     </div>
 
                     <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-green-500"
                         style={{
-                          width: `${Math.min(item.value, 100)}%`,
+                          width: `${Math.min(Math.max(item.winRate, 0), 100)}%`,
                         }}
                       />
                     </div>
