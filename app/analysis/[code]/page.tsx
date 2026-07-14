@@ -43,6 +43,37 @@ type HistoryStats = {
   winRate: number;
 };
 
+type PerformanceSummary = {
+  success: boolean;
+  stock: {
+    code: string;
+    name: string;
+  };
+  recent3Days: {
+    date: string;
+    result: "WIN" | "LOSE" | "HOLD";
+    profitYen: number;
+  }[];
+  summary30Days: {
+    total: number;
+    judgedTotal: number;
+    wins: number;
+    losses: number;
+    holds: number;
+    winRate: number;
+    averageProfitRate: number;
+    averageLossRate: number;
+    totalProfitYen: number;
+  };
+  reliability: {
+    score: number;
+    rank: string;
+    currentWinStreak: number;
+    maxWinStreak: number;
+    maxLoseStreak: number;
+  };
+};
+
 type AiComment = {
   icon: string;
   title: string;
@@ -376,6 +407,8 @@ export default function AnalysisPage() {
 
   const [signal, setSignal] = useState<Signal | null>(null);
   const [historyStats, setHistoryStats] = useState<HistoryStats | null>(null);
+  const [performance, setPerformance] =
+    useState<PerformanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiRank, setAiRank] = useState(0);
   const [totalRank, setTotalRank] = useState(0);
@@ -406,6 +439,18 @@ export default function AnalysisPage() {
 
         const historyJson = await historyRes.json();
         setHistoryStats(historyJson);
+
+        const performanceRes = await fetch(
+          `/api/performance/stock/${code}`,
+          {
+            cache: "no-store",
+          },
+        );
+
+        if (performanceRes.ok) {
+          const performanceJson = await performanceRes.json();
+          setPerformance(performanceJson);
+        }
       } catch (error) {
         console.error(error);
       } finally {
@@ -595,7 +640,7 @@ export default function AnalysisPage() {
           <div className="mt-6 grid grid-cols-3 gap-3">
             <GlassMini label="AI POWER" value={power} />
             <GlassMini label="AI順位" value={getRankLabel(aiRank)} />
-            <GlassMini label="信頼度" value={`${aiTrust}%`} />
+            <GlassMini label="現在信頼度" value={`${aiTrust}%`} />
           </div>
         </section>
 
@@ -643,12 +688,12 @@ export default function AnalysisPage() {
             </div>
 
             <div className="rounded-3xl bg-emerald-50 p-4 text-center">
-              <p className="text-xs font-black text-emerald-600">AI信頼度</p>
+              <p className="text-xs font-black text-emerald-600">現在判断の信頼度</p>
               <p className="mt-4 text-5xl font-black text-emerald-600">
                 {aiTrust}%
               </p>
               <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
-                AI POWER・勝率・検証数から算出
+                今日のAI POWER・過去勝率・検証数から算出
               </p>
             </div>
           </div>
@@ -847,6 +892,91 @@ export default function AnalysisPage() {
           </div>
         </section>
 
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-sm">
+          <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 p-5 text-white">
+            <p className="text-xs font-black tracking-[0.18em] text-blue-100">
+              AI PERFORMANCE
+            </p>
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-black">AI実績</h2>
+                <p className="mt-1 text-xs font-bold text-blue-100">
+                  過去の判定結果を実データで確認
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white/15 px-3 py-2 text-center backdrop-blur">
+                <p className="text-[10px] font-black text-blue-100">
+                  過去実績スコア
+                </p>
+                <p className="mt-1 text-2xl font-black">
+                  {performance?.reliability.score ?? "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="grid grid-cols-3 gap-2">
+              <PerformanceMini
+                label="直近3件"
+                value={
+                  performance
+                    ? `${performance.recent3Days.filter((item) => item.result === "WIN").length}勝${
+                        performance.recent3Days.filter(
+                          (item) => item.result === "LOSE",
+                        ).length
+                      }敗`
+                    : "集計中"
+                }
+              />
+              <PerformanceMini
+                label="累計損益"
+                value={
+                  performance
+                    ? `${performance.summary30Days.totalProfitYen >= 0 ? "+" : ""}${yen(
+                        performance.summary30Days.totalProfitYen,
+                      )}`
+                    : "-"
+                }
+                valueClass={
+                  (performance?.summary30Days.totalProfitYen ?? 0) >= 0
+                    ? "text-emerald-600"
+                    : "text-red-500"
+                }
+              />
+              <PerformanceMini
+                label="30日勝率"
+                value={
+                  performance
+                    ? `${performance.summary30Days.winRate}%`
+                    : "-"
+                }
+                valueClass="text-blue-600"
+              />
+            </div>
+
+            <p className="mt-4 text-xs font-bold leading-6 text-slate-500">
+              直近3件の判定済み実績を表示しています。WINは翌日騰落率+2%以上、LOSEは-2%以下で判定しています。
+              判定数が少ない間は「データ蓄積中」として表示します。
+            </p>
+
+            <Link
+              href={`/analysis/${signal.code}/performance`}
+              className="mt-4 flex items-center justify-between rounded-3xl bg-slate-950 px-5 py-4 text-white transition active:scale-[0.98]"
+            >
+              <div>
+                <p className="text-sm font-black text-cyan-300">
+                  AI PERFORMANCE CENTER
+                </p>
+                <p className="mt-1 text-lg font-black">
+                  詳しいAI実績を見る
+                </p>
+              </div>
+              <span className="text-3xl">›</span>
+            </Link>
+          </div>
+        </section>
+
         <Link
           href={`/chart/${signal.code}`}
           className="mt-5 block rounded-[2rem] bg-slate-950 p-5 text-white shadow-xl shadow-slate-300 transition active:scale-[0.98]"
@@ -985,6 +1115,23 @@ function TradeLineCard({
       <p className="text-sm font-black">{title}</p>
       <p className="mt-2 text-2xl font-black">{value}</p>
       <p className="mt-1 text-xs font-bold">{sub}</p>
+    </div>
+  );
+}
+
+function PerformanceMini({
+  label,
+  value,
+  valueClass = "",
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-3xl bg-slate-50 p-3 text-center">
+      <p className="text-[10px] font-black text-slate-500">{label}</p>
+      <p className={`mt-2 text-base font-black ${valueClass}`}>{value}</p>
     </div>
   );
 }
