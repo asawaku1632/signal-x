@@ -690,7 +690,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/scan-mobile"
+              href="/scan-mobile?budget=all"
               className="w-fit rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:bg-blue-600"
             >
               ランキング一覧へ

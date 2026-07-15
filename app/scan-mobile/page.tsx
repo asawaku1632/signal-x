@@ -147,11 +147,15 @@ function ScanMobileContent() {
   const [loading, setLoading] = useState(true);
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
 
-  const initialBudget = Number(searchParams.get("budget")) || 100000;
+  const budgetParam = searchParams.get("budget");
 
-  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(
-    initialBudget as BudgetFilter
-  );
+  const initialBudget: BudgetFilter =
+    budgetParam === "all"
+      ? "all"
+      : (Number(budgetParam) || 100000) as BudgetFilter;
+
+  const [budgetFilter, setBudgetFilter] =
+    useState<BudgetFilter>(initialBudget);
 
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
