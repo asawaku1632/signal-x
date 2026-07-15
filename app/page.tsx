@@ -209,8 +209,8 @@ const features = [
 
 const navLinks = [
   ["AIランキング", "/scan-mobile"],
-  ["AI分析", "/analysis"],
-  ["🛡 AI品質", "/trust"],
+  ["AI分析", "/scan-mobile"],
+  ["AI実績・品質", "/trust"],
   ["AI進化", "/admin/evolution"],
 ];
 
@@ -409,19 +409,19 @@ export default function HomePage() {
             <div className="text-center lg:text-left">
               <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-black text-blue-600 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
-                SIGNALX β版 公開中
+                SIGNALX Ver1.0 公開準備中
               </p>
 
               <h1 className="text-5xl font-black tracking-tight text-slate-950 md:text-7xl">
-                AIが日本株を分析。
+                AIの予測だけじゃない。
                 <span className="mt-2 block bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
-                  あなたは選ぶだけ。
+                  過去の実績まで、すべて公開。
                 </span>
               </h1>
 
               <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-8 text-slate-600 md:text-lg lg:mx-0">
-                EMA・VWAP・MACD・RSIなど複数の指標をAIが総合判定。
-                難しいチャート判断を、初心者でも行動しやすい言葉に翻訳します。
+                SIGNALXは、AI POWER・勝率・過去の判定実績を公開する、
+                透明性重視の日本株AI分析サービスです。
               </p>
 
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
@@ -931,15 +931,15 @@ export default function HomePage() {
       {/* BETA */}
       <section className="px-5 py-12 md:py-16">
         <div className="mx-auto max-w-4xl rounded-[2.5rem] bg-slate-950 p-8 text-center text-white shadow-2xl shadow-slate-300 md:p-10">
-          <p className="text-sm font-black text-blue-300">BETA RELEASE</p>
+          <p className="text-sm font-black text-blue-300">VER1.0 RELEASE</p>
 
           <h2 className="mt-3 text-4xl font-black tracking-tight">
            SIGNALX Ver1.0 正式リリース
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-8 text-slate-300">
-            現在、AIランキング・AI分析・通知機能を中心に毎日アップデート中。
-            利用者の声を反映しながら、より実用的な株式分析サービスへ育てています。
+            AIの予測結果だけでなく、過去の判定実績や勝率も透明に公開。
+            Ver1.0正式公開に向けて、最終品質確認を進めています。
           </p>
 
           <Link
@@ -962,21 +962,21 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-              β版は無料。正式版では通知・詳細分析・AI学習レポートを拡張予定です。
+              Ver1.0公開準備中。公開後の提供内容と料金は確定次第お知らせします。
             </p>
           </div>
 
           <div className="mt-10 grid gap-6 md:grid-cols-2">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-black text-blue-600">β版</p>
+              <p className="text-sm font-black text-blue-600">現在</p>
 
               <h3 className="mt-3 text-5xl font-black">
                 無料
               </h3>
 
               <p className="mt-5 text-sm leading-7 text-slate-600">
-                現在はβ版として無料で利用できます。
-                AIランキング・AI分析画面を自由に確認できます。
+                現在は公開準備期間として無料で利用できます。
+                AIランキング・AI分析・AI実績を確認できます。
               </p>
 
               <Link
@@ -988,15 +988,15 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-[2rem] border border-blue-200 bg-blue-50 p-8 shadow-sm">
-              <p className="text-sm font-black text-blue-700">正式版予定</p>
+              <p className="text-sm font-black text-blue-700">Ver1.0公開後</p>
 
               <h3 className="mt-3 text-5xl font-black">
-                月額980円〜
+                料金は公開前に確定
               </h3>
 
               <p className="mt-5 text-sm leading-7 text-slate-600">
-                AI通知・詳細分析・実測勝率・AI進化履歴などを順次追加予定です。
-                公開前に品質保証チェックを行います。
+                提供機能と料金はGoogle Play公開前に最終決定します。
+                公開前に品質保証と実機テストを実施します。
               </p>
 
               <Link
