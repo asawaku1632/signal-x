@@ -343,9 +343,15 @@ export default function HomePage() {
       "AIが毎日チェックする日本株",
     ],
     [
-      marketData.scannedCount.toLocaleString(),
+      topStocksLoading
+        ? "取得中"
+        : topStocksError
+        ? "取得失敗"
+        : marketData.scannedCount.toLocaleString(),
       "取得済み",
-      "本日の分析完了銘柄",
+      topStocksError
+        ? "AIランキングAPIを確認してください"
+        : "本日の分析完了銘柄",
     ],
     [
       "TOP30",
@@ -499,14 +505,14 @@ export default function HomePage() {
                   <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-black text-blue-700">
-                        AI POWER ENGINE
+                        AIエンジン
                       </p>
                       <span className="text-xs font-black text-blue-700">
-                        ACTIVE
+                        稼働中
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-                      EMA / VWAP / MACD / RSI を総合判定
+                      EMA・VWAP・MACD・RSIを総合判定
                     </p>
                   </div>
                 </div>
