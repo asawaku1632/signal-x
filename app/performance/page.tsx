@@ -883,22 +883,33 @@ export default function PerformanceCenterPage() {
                 />
 
                 <StatCard
-                  label="総利益"
-                  value={formatYen(dashboard.totalProfitAmount)}
-                  note="判定済み実績を100株換算"
-                  emphasis
-                />
+  label="総利益"
+  value={
+    dashboard.totalProfitAmount !== 0
+      ? formatYen(dashboard.totalProfitAmount)
+      : "集計待ち"
+  }
+  note="判定済み実績を100株換算"
+  emphasis
+/>
 
                 <StatCard
-                  label="平均利益"
-                  value={formatPercent(dashboard.averageProfitRate, 2)}
-                />
+  label="平均利益"
+  value={
+    dashboard.averageProfitRate > 0
+      ? formatPercent(dashboard.averageProfitRate, 2)
+      : "集計待ち"
+  }
+/>
 
                 <StatCard
-                  label="平均損失"
-                  value={formatPercent(dashboard.averageLossRate, 2)}
-                />
-
+  label="平均損失"
+  value={
+    dashboard.averageLossRate < 0
+      ? formatPercent(dashboard.averageLossRate, 2)
+      : "集計待ち"
+  }
+/>
                 <StatCard
                   label="最高連勝"
                   value={
