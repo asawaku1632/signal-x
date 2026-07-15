@@ -175,7 +175,7 @@ function ScanMobileContent() {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/scan?limit=100&top=100", {
+      const res = await fetch("/api/scan?limit=1200&top=100", {
         cache: "no-store",
         signal: controller.signal,
       });
