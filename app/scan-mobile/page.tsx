@@ -231,7 +231,22 @@ function ScanMobileContent() {
   }, []);
 
   const rankedStocks = useMemo(
-    () => [...stocks].sort((a, b) => b.score - a.score),
+    () =>
+      [...stocks].sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        if (b.changePercent !== a.changePercent) {
+          return b.changePercent - a.changePercent;
+        }
+
+        if (b.volumeRatio !== a.volumeRatio) {
+          return b.volumeRatio - a.volumeRatio;
+        }
+
+        return a.code.localeCompare(b.code, "ja", { numeric: true });
+      }),
     [stocks]
   );
 
