@@ -45,7 +45,7 @@ const initialMarketData: HomeMarketData = {
   marketPattern: "NEUTRAL",
 };
 
-function getMarketView(pattern: string, hotCount: number) {
+function getMarketView(pattern: string) {
   const normalized = pattern.toUpperCase();
 
   if (normalized.includes("BULL")) {
@@ -53,7 +53,7 @@ function getMarketView(pattern: string, hotCount: number) {
       badge: "🟢 強気",
       badgeClass: "bg-emerald-50 text-emerald-700",
       phoneBadgeClass: "bg-emerald-400/15 text-emerald-300",
-      comment: `強気寄りの市場です。AI POWER 85以上は${hotCount}銘柄。上位銘柄を中心に確認しましょう。`,
+      comment: "強気寄りの市場です。AIが優先順位を付けた今日のTOP30から確認しましょう。",
     };
   }
 
@@ -62,7 +62,7 @@ function getMarketView(pattern: string, hotCount: number) {
       badge: "🔴 弱気",
       badgeClass: "bg-red-50 text-red-700",
       phoneBadgeClass: "bg-red-400/15 text-red-300",
-      comment: `慎重さが必要な市場です。AI POWER 85以上は${hotCount}銘柄。無理な追いかけは避けましょう。`,
+      comment: "慎重さが必要な市場です。今日のTOP30も条件を確認し、無理な追いかけは避けましょう。",
     };
   }
 
@@ -70,7 +70,7 @@ function getMarketView(pattern: string, hotCount: number) {
     badge: "🟡 中立",
     badgeClass: "bg-amber-50 text-amber-700",
     phoneBadgeClass: "bg-amber-400/15 text-amber-300",
-    comment: `方向感を見極める市場です。AI POWER 85以上は${hotCount}銘柄。上位候補を選別して確認しましょう。`,
+    comment: "方向感を見極める市場です。AIが選んだ今日のTOP30から順番に確認しましょう。",
   };
 }
 
@@ -101,14 +101,14 @@ type TopStock = {
 const rankIcons = ["🥇", "🥈", "🥉"];
 
 function getStockLabel(score: number) {
-  if (score >= 85) {
+  if (score >= 95) {
     return {
       label: "🔥 激熱候補",
       labelClass: "bg-red-50 text-red-600",
     };
   }
 
-  if (score >= 70) {
+  if (score >= 85) {
     return {
       label: "⭐ 本命候補",
       labelClass: "bg-amber-50 text-amber-700",
@@ -335,11 +335,7 @@ export default function HomePage() {
     };
   }, []);
 
-  const marketView = getMarketView(
-    marketData.marketPattern,
-    marketData.hotCount
-  );
-  const mainCandidateCount = marketData.hotCount + marketData.strongCount;
+  const marketView = getMarketView(marketData.marketPattern);
   const todayStats = [
     [
       marketData.totalStockList.toLocaleString(),
@@ -352,19 +348,19 @@ export default function HomePage() {
       "本日の分析完了銘柄",
     ],
     [
-      marketData.hotCount.toLocaleString(),
-      "激熱候補",
-      "AI POWER 85以上",
+      "TOP30",
+      "今日の激熱",
+      "AIおすすめ順の上位30銘柄",
     ],
     [
-      mainCandidateCount.toLocaleString(),
+      "TOP100",
       "本命候補",
-      "AI POWER 70以上",
+      "次に確認したい上位100銘柄",
     ],
     [
       marketData.aiPowerVersion,
       "AI ENGINE",
-      "現在稼働中の判定エンジン",
+      "最新AIエンジン",
     ],
   ];
 
@@ -682,8 +678,8 @@ export default function HomePage() {
                 今日のAI注目銘柄
               </h2>
               <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                AIが注目する銘柄をランキング形式で表示します。
-                まずは上位銘柄から確認するだけでOKです。
+                AIが選んだ今日のTOP30から、上位3銘柄を表示します。
+                迷ったら、この3銘柄から確認するだけでOKです。
               </p>
             </div>
 
@@ -1022,7 +1018,7 @@ export default function HomePage() {
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-sm font-bold leading-8 text-white/85">
-            1000銘柄以上をAIがスキャン。
+            約1,000銘柄をAIがスキャン。
             迷ったら、まずは上位ランキングから見るだけでOKです。
           </p>
 
