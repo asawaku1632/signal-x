@@ -34,6 +34,43 @@ function clampTop(value: number | null) {
   return Math.min(Math.floor(value), 100);
 }
 
+function toFiniteNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+/**
+ * AI POWERが同点でも、HomeとScanで順位が変わらないように
+ * 共通の並び順をAPI側で確定する。
+ */
+function sortStocksForRanking(stocks: any[]) {
+  return [...stocks].sort((a, b) => {
+    const scoreDiff =
+      toFiniteNumber(b?.score ?? b?.aiPower) -
+      toFiniteNumber(a?.score ?? a?.aiPower);
+
+    if (scoreDiff !== 0) return scoreDiff;
+
+    const changeDiff =
+      toFiniteNumber(b?.changePercent) -
+      toFiniteNumber(a?.changePercent);
+
+    if (changeDiff !== 0) return changeDiff;
+
+    const volumeDiff =
+      toFiniteNumber(b?.volumeRatio) -
+      toFiniteNumber(a?.volumeRatio);
+
+    if (volumeDiff !== 0) return volumeDiff;
+
+    return String(a?.code ?? "").localeCompare(
+      String(b?.code ?? ""),
+      "ja",
+      { numeric: true }
+    );
+  });
+}
+
 function selectStocks(stocks: any[], top: number | null) {
   return top ? stocks.slice(0, top) : stocks;
 }
@@ -71,16 +108,17 @@ export async function GET(req: Request) {
     }
 
     const scanResult = await runScan(limit);
+    const sortedStocks = sortStocksForRanking(scanResult.stocks);
 
     cacheData = {
       timestamp: Date.now(),
       limit,
-      stocks: scanResult.stocks,
+      stocks: sortedStocks,
       marketPattern: scanResult.marketPattern,
       totalStockList: scanResult.totalStockList,
     };
 
-    const responseStocks = selectStocks(scanResult.stocks, top);
+    const responseStocks = selectStocks(sortedStocks, top);
 
     return NextResponse.json(
       buildScanResponsePayload({
@@ -90,7 +128,7 @@ export async function GET(req: Request) {
         limit: top ?? scanResult.limit,
         totalStockList: scanResult.totalStockList,
         stocks: responseStocks,
-        summaryStocks: scanResult.stocks,
+        summaryStocks: sortedStocks,
         marketPattern: scanResult.marketPattern,
         scanMs: Date.now() - startedAt,
       })
