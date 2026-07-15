@@ -33,6 +33,9 @@ const budgetOptions: { label: string; value: BudgetFilter }[] = [
   { label: "制限なし", value: "all" },
 ];
 
+const HOT_TOP_LIMIT = 30;
+const STRONG_TOP_LIMIT = 100;
+
 const sortOptions: { label: string; value: SortMode }[] = [
   { label: "🔥 AI POWER順", value: "score" },
   { label: "📈 上昇率順", value: "change" },
@@ -223,13 +226,38 @@ function ScanMobileContent() {
     return () => clearInterval(timer);
   }, []);
 
-  const hotSignals = useMemo(
-    () => stocks.filter((stock) => stock.score >= 85),
+  const rankedStocks = useMemo(
+    () => [...stocks].sort((a, b) => b.score - a.score),
     [stocks]
   );
 
+  const hotSignals = useMemo(
+    () => rankedStocks.slice(0, HOT_TOP_LIMIT),
+    [rankedStocks]
+  );
+
   const strongSignals = useMemo(
-    () => stocks.filter((stock) => stock.score >= 70),
+    () => rankedStocks.slice(0, STRONG_TOP_LIMIT),
+    [rankedStocks]
+  );
+
+  const hotSignalCodes = useMemo(
+    () => new Set(hotSignals.map((stock) => stock.code)),
+    [hotSignals]
+  );
+
+  const strongSignalCodes = useMemo(
+    () => new Set(strongSignals.map((stock) => stock.code)),
+    [strongSignals]
+  );
+
+  const rawHotCount = useMemo(
+    () => stocks.filter((stock) => stock.score >= 95).length,
+    [stocks]
+  );
+
+  const rawStrongCount = useMemo(
+    () => stocks.filter((stock) => stock.score >= 85).length,
     [stocks]
   );
 
@@ -239,9 +267,9 @@ function ScanMobileContent() {
 
       const signalOk =
         signalFilter === "hot"
-          ? stock.score >= 85
+          ? hotSignalCodes.has(stock.code)
           : signalFilter === "strong"
-          ? stock.score >= 70
+          ? strongSignalCodes.has(stock.code)
           : true;
 
       const budgetOk =
@@ -275,17 +303,22 @@ function ScanMobileContent() {
     }
 
     return result;
-  }, [stocks, signalFilter, budgetFilter, sortMode]);
+  }, [
+    stocks,
+    signalFilter,
+    budgetFilter,
+    sortMode,
+    hotSignalCodes,
+    strongSignalCodes,
+  ]);
 
   const bestSignal = filteredStocks[0];
 
-  const hotTop3 = useMemo(
-    () => [...hotSignals].sort((a, b) => b.score - a.score).slice(0, 3),
-    [hotSignals]
-  );
+  const hotTop3 = useMemo(() => hotSignals.slice(0, 3), [hotSignals]);
 
-  const marketJudge = getMarketJudge(hotSignals.length, strongSignals.length);
-  const marketComment = getMarketComment(hotSignals.length, strongSignals.length);
+  const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
+  const marketComment =
+    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP30から確認しましょう。";
 
   const winRate = bestSignal
     ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
@@ -368,7 +401,7 @@ function ScanMobileContent() {
           <div className="mt-6 grid grid-cols-3 gap-3">
             <GlassMini label="監視" value={totalStocks.toLocaleString()} />
             <GlassMini label="取得" value={stocks.length.toLocaleString()} />
-            <GlassMini label="激熱" value={hotSignals.length.toLocaleString()} />
+            <GlassMini label="今日の激熱" value={`TOP${HOT_TOP_LIMIT}`} />
           </div>
         </section>
 
@@ -403,9 +436,9 @@ function ScanMobileContent() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
-              <p className="text-xs font-black text-slate-400">候補</p>
+              <p className="text-xs font-black text-slate-400">本命候補</p>
               <p className="mt-1 text-2xl font-black text-blue-600">
-                {strongSignals.length}
+                TOP{STRONG_TOP_LIMIT}
               </p>
             </div>
           </div>
@@ -426,12 +459,12 @@ function ScanMobileContent() {
                   : "border-slate-200 bg-slate-50"
               }`}
             >
-              <p className="text-xs font-black text-red-400">激熱候補</p>
+              <p className="text-xs font-black text-red-400">今日の激熱</p>
               <p className="mt-1 text-4xl font-black text-red-500">
-                {hotSignals.length}
+                TOP{HOT_TOP_LIMIT}
               </p>
               <p className="mt-1 text-xs font-bold text-slate-500">
-                AI POWER 85以上
+                AIおすすめ順
               </p>
             </button>
 
@@ -448,10 +481,10 @@ function ScanMobileContent() {
             >
               <p className="text-xs font-black text-blue-500">本命候補</p>
               <p className="mt-1 text-4xl font-black text-blue-600">
-                {strongSignals.length}
+                TOP{STRONG_TOP_LIMIT}
               </p>
               <p className="mt-1 text-xs font-bold text-slate-500">
-                AI POWER 70以上
+                AIおすすめ順
               </p>
             </button>
           </div>
@@ -632,12 +665,12 @@ function ScanMobileContent() {
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black">
-                  🔥 激熱候補 TOP3
+                  🔥 今日のTOP30 上位3銘柄
                 </h2>
               </div>
 
               <p className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-600">
-                AI POWER 85+
+                AIおすすめ順
               </p>
             </div>
 
