@@ -672,34 +672,35 @@ export default function PerformanceCenterPage() {
     const rowLosses = rows.reduce((sum, row) => sum + row.losses, 0);
     const rowHolds = rows.reduce((sum, row) => sum + row.holds, 0);
 
-    const totalWins = readSummaryNumber(
-      payloads,
-      ["totalWins", "wins", "winCount"],
-      rowWins,
-    );
+   const totalWins =
+  rowWins > 0
+    ? rowWins
+    : readSummaryNumber(
+        payloads,
+        ["totalWins", "wins", "winCount"],
+        0,
+      );
 
-    const totalLosses = readSummaryNumber(
-      payloads,
-      ["totalLosses", "losses", "loseCount", "lossCount"],
-      rowLosses,
-    );
+const totalLosses =
+  rowLosses > 0
+    ? rowLosses
+    : readSummaryNumber(
+        payloads,
+        ["totalLosses", "losses", "loseCount", "lossCount"],
+        0,
+      );
 
-    const totalHolds = readSummaryNumber(
-      payloads,
-      ["totalHolds", "holds", "holdCount", "pendingCount"],
-      rowHolds,
-    );
+const totalHolds =
+  rowHolds > 0
+    ? rowHolds
+    : readSummaryNumber(
+        payloads,
+        ["totalHolds", "holds", "holdCount", "pendingCount"],
+        0,
+      );
 
-    const totalJudgements = readSummaryNumber(
-      payloads,
-      [
-        "totalJudgements",
-        "judgedCount",
-        "totalJudged",
-        "judgementCount",
-      ],
-      totalWins + totalLosses + totalHolds,
-    );
+const totalJudgements =
+  totalWins + totalLosses + totalHolds;
 
     const totalProfitAmount = readSummaryNumber(
       payloads,
