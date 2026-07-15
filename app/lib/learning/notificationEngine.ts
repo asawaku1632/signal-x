@@ -37,6 +37,10 @@ export type ScanResponsePayloadParams = {
   error?: string;
 };
 
+const HOT_SCORE_MIN = 95;
+const STRONG_SCORE_MIN = 85;
+const WATCH_SCORE_MIN = 75;
+
 function toNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : fallback;
@@ -45,9 +49,9 @@ function toNumber(value: unknown, fallback = 0) {
 export function getNotificationLevel(stock: any): NotificationLevel {
   const score = toNumber(stock?.score ?? stock?.aiPower, 0);
 
-  if (score >= 85) return "HOT";
-  if (score >= 70) return "STRONG";
-  if (score >= 50) return "WATCH";
+  if (score >= HOT_SCORE_MIN) return "HOT";
+  if (score >= STRONG_SCORE_MIN) return "STRONG";
+  if (score >= WATCH_SCORE_MIN) return "WATCH";
   return "NO_ACTION";
 }
 
