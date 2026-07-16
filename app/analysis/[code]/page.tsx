@@ -979,19 +979,70 @@ export default function AnalysisPage() {
 
         <Link
           href={`/chart/${signal.code}`}
-          className="mt-5 block rounded-[2rem] bg-slate-950 p-5 text-white shadow-xl shadow-slate-300 transition active:scale-[0.98]"
+          aria-label={`${signal.code} ${signal.name}のAIチャート分析を見る`}
+          className="group mt-5 block overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-slate-950 via-blue-950 to-violet-700 p-[1px] shadow-2xl shadow-blue-200 transition duration-200 active:scale-[0.98]"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-black text-blue-300">
-                📈 AIチャート分析
+          <div className="relative overflow-hidden rounded-[calc(2.25rem-1px)] bg-gradient-to-br from-slate-950 via-blue-950 to-violet-800 p-5 text-white">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-violet-400/20 blur-3xl" />
+
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-300/30 bg-white/10 text-3xl shadow-lg backdrop-blur">
+                    📈
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black tracking-[0.2em] text-cyan-300">
+                      REALTIME AI CHART
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black leading-tight">
+                      AIチャート分析
+                    </h2>
+                  </div>
+                </div>
+
+                <span className="shrink-0 rounded-full border border-violet-300/30 bg-violet-400/20 px-3 py-1 text-[10px] font-black text-violet-100 backdrop-blur">
+                  おすすめ
+                </span>
+              </div>
+
+              <p className="mt-4 text-sm font-bold leading-6 text-blue-100">
+                リアルタイムの値動きと、売買判断に必要なラインをチャートで確認できます。
               </p>
-              <p className="mt-1 text-2xl font-black">チャートを見る</p>
-              <p className="mt-1 text-xs font-bold leading-5 text-slate-300">
-                利確ライン・損切ライン・AI判断を確認
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-2 py-3 text-center">
+                  <p className="text-lg">🎯</p>
+                  <p className="mt-1 text-[10px] font-black text-emerald-200">
+                    利確ライン
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-2 py-3 text-center">
+                  <p className="text-lg">🛡</p>
+                  <p className="mt-1 text-[10px] font-black text-red-200">
+                    損切ライン
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-2 py-3 text-center">
+                  <p className="text-lg">🤖</p>
+                  <p className="mt-1 text-[10px] font-black text-cyan-200">
+                    AI判断
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-4 text-center text-lg font-black shadow-lg shadow-blue-950/30 transition duration-200 group-hover:brightness-110">
+                <span>チャートを見る</span>
+                <span className="text-2xl leading-none transition-transform duration-200 group-hover:translate-x-1">
+                  ›
+                </span>
+              </div>
+
+              <p className="mt-3 text-center text-[10px] font-bold text-blue-200">
+                タップして詳細チャートへ
               </p>
             </div>
-            <div className="text-4xl">›</div>
           </div>
         </Link>
 
