@@ -55,8 +55,7 @@ type DashboardData = {
 };
 
 const API_ENDPOINTS = [
-  "/api/learning/dashboard",
-  "/api/evolution/summary",
+  "/api/performance/overview",
   "/api/scan?limit=1000",
 ];
 
@@ -456,6 +455,69 @@ function readSummaryNumber(
   return fallback;
 }
 
+function normalizePowerBands(payloads: unknown[]): PowerBand[] {
+  for (const payload of payloads) {
+    if (!isRecord(payload) || !Array.isArray(payload.powerBands)) continue;
+
+    const bands = payload.powerBands
+      .filter(isRecord)
+      .map((item): PowerBand => {
+        const wins = firstNumber(item, ["wins", "win"]);
+        const losses = firstNumber(item, ["losses", "lose", "loss"]);
+        const total = firstNumber(item, ["total"], wins + losses);
+
+        return {
+          label: firstString(item, ["label"], ""),
+          wins,
+          losses,
+          total,
+          winRate: firstNumber(
+            item,
+            ["winRate", "win_rate"],
+            total > 0 ? (wins / total) * 100 : 0,
+          ),
+        };
+      })
+      .filter((item) => item.label);
+
+    if (bands.length) return bands;
+  }
+
+  return [];
+}
+
+function normalizeMonthly(payloads: unknown[]): MonthlyRow[] {
+  for (const payload of payloads) {
+    if (!isRecord(payload) || !Array.isArray(payload.monthly)) continue;
+
+    const rows = payload.monthly
+      .filter(isRecord)
+      .map((item): MonthlyRow => {
+        const wins = firstNumber(item, ["wins", "win"]);
+        const losses = firstNumber(item, ["losses", "lose", "loss"]);
+        const total = firstNumber(item, ["total"], wins + losses);
+
+        return {
+          label: firstString(item, ["label"], ""),
+          monthKey: firstString(item, ["monthKey", "month_key", "month"], ""),
+          wins,
+          losses,
+          total,
+          winRate: firstNumber(
+            item,
+            ["winRate", "win_rate"],
+            total > 0 ? (wins / total) * 100 : 0,
+          ),
+        };
+      })
+      .filter((item) => item.monthKey);
+
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
+
 function buildPowerBands(rows: PerformanceRow[]): PowerBand[] {
   const bands = [
     { label: "90〜100", min: 90, max: 100 },
@@ -672,35 +734,35 @@ export default function PerformanceCenterPage() {
     const rowLosses = rows.reduce((sum, row) => sum + row.losses, 0);
     const rowHolds = rows.reduce((sum, row) => sum + row.holds, 0);
 
-   const totalWins = readSummaryNumber(
-      payloads,
-      ["win", "totalWins", "wins", "winCount"],
-      rowWins,
-    );
+   const totalWins =
+  rowWins > 0
+    ? rowWins
+    : readSummaryNumber(
+        payloads,
+        ["totalWins", "wins", "winCount"],
+        0,
+      );
 
-    const totalLosses = readSummaryNumber(
-      payloads,
-      ["lose", "totalLosses", "losses", "loseCount", "lossCount"],
-      rowLosses,
-    );
+const totalLosses =
+  rowLosses > 0
+    ? rowLosses
+    : readSummaryNumber(
+        payloads,
+        ["totalLosses", "losses", "loseCount", "lossCount"],
+        0,
+      );
 
-    const totalHolds = readSummaryNumber(
-      payloads,
-      ["hold", "totalHolds", "holds", "holdCount", "pendingCount"],
-      rowHolds,
-    );
+const totalHolds =
+  rowHolds > 0
+    ? rowHolds
+    : readSummaryNumber(
+        payloads,
+        ["totalHolds", "holds", "holdCount", "pendingCount"],
+        0,
+      );
 
-    const totalJudgements = readSummaryNumber(
-      payloads,
-      [
-        "total",
-        "totalJudgements",
-        "judgedCount",
-        "totalJudged",
-        "judgementCount",
-      ],
-      totalWins + totalLosses + totalHolds,
-    );
+const totalJudgements =
+  totalWins + totalLosses + totalHolds;
 
     const totalProfitAmount = readSummaryNumber(
       payloads,
@@ -753,8 +815,14 @@ export default function PerformanceCenterPage() {
       averageProfitRate,
       averageLossRate,
       bestWinStreak,
-      powerBands: buildPowerBands(rows),
-      monthly: buildMonthly(rows),
+      powerBands:
+        normalizePowerBands(payloads).length > 0
+          ? normalizePowerBands(payloads)
+          : buildPowerBands(rows),
+      monthly:
+        normalizeMonthly(payloads).length > 0
+          ? normalizeMonthly(payloads)
+          : buildMonthly(rows),
     };
   }, [payloads, refreshedAt]);
 
