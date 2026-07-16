@@ -46,6 +46,7 @@ type DashboardData = {
   totalWins: number;
   totalLosses: number;
   totalHolds: number;
+  totalPending: number;
   totalProfitAmount: number;
   averageProfitRate: number;
   averageLossRate: number;
@@ -761,8 +762,23 @@ const totalHolds =
         0,
       );
 
-const totalJudgements =
-  totalWins + totalLosses + totalHolds;
+    const totalPending = readSummaryNumber(
+      payloads,
+      ["pending", "unknown", "unknownCount", "pendingCount"],
+      0,
+    );
+
+    const totalJudgements = readSummaryNumber(
+      payloads,
+      [
+        "total",
+        "totalJudgements",
+        "judgedCount",
+        "totalJudged",
+        "judgementCount",
+      ],
+      totalWins + totalLosses + totalHolds + totalPending,
+    );
 
     const totalProfitAmount = readSummaryNumber(
       payloads,
@@ -811,6 +827,7 @@ const totalJudgements =
       totalWins,
       totalLosses,
       totalHolds,
+      totalPending,
       totalProfitAmount,
       averageProfitRate,
       averageLossRate,
@@ -946,9 +963,9 @@ const totalJudgements =
                 />
 
                 <StatCard
-                  label="総判定"
+                  label="総データ"
                   value={`${dashboard.totalJudgements.toLocaleString()}件`}
-                  note={`保留 ${dashboard.totalHolds.toLocaleString()}件`}
+                  note={`保留 ${dashboard.totalHolds.toLocaleString()}件 / 判定待ち ${dashboard.totalPending.toLocaleString()}件`}
                 />
 
                 <StatCard
