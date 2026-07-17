@@ -419,6 +419,72 @@ function analyzeSupportResistance(
   };
 }
 
+type Timeframe = "5m" | "15m" | "1H" | "1D" | "1W" | "1M";
+
+type TimeframeConfig = {
+  range: string;
+  interval: string;
+  sliceLimit: number;
+  label: string;
+};
+
+const TIMEFRAME_CONFIG: Record<Timeframe, TimeframeConfig> = {
+  "5m": {
+    range: "5d",
+    interval: "5m",
+    sliceLimit: 390,
+    label: "5分足",
+  },
+  "15m": {
+    range: "1mo",
+    interval: "15m",
+    sliceLimit: 520,
+    label: "15分足",
+  },
+  "1H": {
+    range: "3mo",
+    interval: "60m",
+    sliceLimit: 500,
+    label: "1時間足",
+  },
+  "1D": {
+    range: "6mo",
+    interval: "1d",
+    sliceLimit: 180,
+    label: "日足",
+  },
+  "1W": {
+    range: "5y",
+    interval: "1wk",
+    sliceLimit: 260,
+    label: "週足",
+  },
+  "1M": {
+    range: "10y",
+    interval: "1mo",
+    sliceLimit: 120,
+    label: "月足",
+  },
+};
+
+function normalizeTimeframe(value: string | null): Timeframe {
+  const aliases: Record<string, Timeframe> = {
+    "5m": "5m",
+    "15m": "15m",
+    "1h": "1H",
+    "1H": "1H",
+    "1d": "1D",
+    "1D": "1D",
+    "1w": "1W",
+    "1W": "1W",
+    "1mo": "1M",
+    "1m": "1M",
+    "1M": "1M",
+  };
+
+  return value && aliases[value] ? aliases[value] : "5m";
+}
+
 async function fetchYahooChart(
   symbol: string,
   range: string,
@@ -510,41 +576,48 @@ function emptyPayload(
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const rawSymbol = url.pathname.split("/").pop() || "";
+  const timeframe = normalizeTimeframe(url.searchParams.get("tf"));
+  const timeframeConfig = TIMEFRAME_CONFIG[timeframe];
 
   const isJapanStock = /^[0-9]{4}$/.test(rawSymbol);
   const symbol = isJapanStock ? `${rawSymbol}.T` : rawSymbol;
 
   try {
-    const [intradayChart, dailyChart] = await Promise.all([
-      fetchYahooChart(symbol, "1d", "5m", 60),
-      fetchYahooChart(symbol, "3mo", "1d", 90),
+    const selectedChartPromise = fetchYahooChart(
+      symbol,
+      timeframeConfig.range,
+      timeframeConfig.interval,
+      timeframeConfig.sliceLimit
+    );
+
+    // 短期足では支持線・抵抗線の安定性を保つため、日足も参照する。
+    // 日足以上では選択中の時間足そのものを使う。
+    const needsDailyReference = timeframe === "5m" || timeframe === "15m" || timeframe === "1H";
+
+    const [selectedChart, dailyReferenceChart] = await Promise.all([
+      selectedChartPromise,
+      needsDailyReference
+        ? fetchYahooChart(symbol, "6mo", "1d", 180)
+        : Promise.resolve(null),
     ]);
 
-    const chartData = intradayChart ?? dailyChart;
-
-    if (!chartData) {
-      return NextResponse.json(emptyPayload(symbol, "NO_DATA"));
+    if (!selectedChart) {
+      return NextResponse.json({
+        ...emptyPayload(symbol, "NO_DATA"),
+        timeframe,
+        timeframeLabel: timeframeConfig.label,
+      });
     }
 
-    const { candles, closes, currentPrice } = chartData;
+    const { candles, closes, currentPrice } = selectedChart;
 
     const ma20 =
       closes.length >= 20
         ? closes.slice(-20).reduce((sum, value) => sum + value, 0) / 20
-        : dailyChart?.closes && dailyChart.closes.length >= 20
-          ? dailyChart.closes
-              .slice(-20)
-              .reduce((sum, value) => sum + value, 0) / 20
-          : null;
+        : null;
 
-    const ema20 =
-      calculateEma(closes, 20) ??
-      (dailyChart?.closes ? calculateEma(dailyChart.closes, 20) : null);
-
-    const ema75 =
-      calculateEma(closes, 75) ??
-      (dailyChart?.closes ? calculateEma(dailyChart.closes, 75) : null);
-
+    const ema20 = calculateEma(closes, 20);
+    const ema75 = calculateEma(closes, 75);
     const vwap = calculateVwap(candles);
     const macdData = calculateMacd(closes);
 
@@ -645,8 +718,9 @@ export async function GET(request: Request) {
     }
 
     const levelCandles =
-      dailyChart?.candles && dailyChart.candles.length >= 20
-        ? dailyChart.candles
+      dailyReferenceChart?.candles &&
+      dailyReferenceChart.candles.length >= 20
+        ? dailyReferenceChart.candles
         : candles;
 
     const supportResistance = analyzeSupportResistance(
@@ -677,7 +751,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       symbol,
-      dataSource: intradayChart ? "intraday" : "daily_fallback",
+      timeframe,
+      timeframeLabel: timeframeConfig.label,
+      dataSource: "yahoo_chart",
       count: candles.length,
       currentPrice,
       ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
@@ -696,8 +772,15 @@ export async function GET(request: Request) {
       candles,
     });
   } catch (error) {
-    return NextResponse.json(emptyPayload(symbol, "ERROR", error), {
-      status: 500,
-    });
+    return NextResponse.json(
+      {
+        ...emptyPayload(symbol, "ERROR", error),
+        timeframe,
+        timeframeLabel: timeframeConfig.label,
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }

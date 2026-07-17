@@ -22,6 +22,17 @@ type SupportResistanceStatus =
 
 type CommentTone = "green" | "red" | "blue" | "amber" | "slate";
 
+type Timeframe = "5m" | "15m" | "1H" | "1D" | "1W" | "1M";
+
+const TIMEFRAMES: Array<{ value: Timeframe; label: string }> = [
+  { value: "5m", label: "5分" },
+  { value: "15m", label: "15分" },
+  { value: "1H", label: "1時間" },
+  { value: "1D", label: "日足" },
+  { value: "1W", label: "週足" },
+  { value: "1M", label: "月足" },
+];
+
 type Stock = {
   code: string;
   name: string;
@@ -239,18 +250,38 @@ export default function ChartPage() {
 
   const [stock, setStock] = useState<Stock | null>(null);
   const [chart, setChart] = useState<ChartApi | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("5m");
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const load = async () => {
+      setChartLoading(true);
+
       try {
         const [scanRes, chartRes] = await Promise.all([
-          fetch("/api/scan?limit=1000", { cache: "no-store" }),
-          fetch(`/api/chart/${code}`, { cache: "no-store" }),
+          fetch("/api/scan?limit=1000", {
+            cache: "no-store",
+            signal: controller.signal,
+          }),
+          fetch(`/api/chart/${code}?tf=${timeframe}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          }),
         ]);
 
+        if (!scanRes.ok) {
+          throw new Error(`scan api error: ${scanRes.status}`);
+        }
+
+        if (!chartRes.ok) {
+          throw new Error(`chart api error: ${chartRes.status}`);
+        }
+
         const scanData = await scanRes.json();
-        const chartData = await chartRes.json();
+        const chartData: ChartApi = await chartRes.json();
 
         const stocks: Stock[] = Array.isArray(scanData)
           ? scanData
@@ -263,14 +294,20 @@ export default function ChartPage() {
         setStock(found ?? null);
         setChart(chartData);
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
         console.error("chart page error:", error);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setChartLoading(false);
+        }
       }
     };
 
     load();
-  }, [code]);
+
+    return () => controller.abort();
+  }, [code, timeframe]);
 
   if (loading) {
     return (
@@ -364,7 +401,7 @@ export default function ChartPage() {
                 SIGNAL<span className="text-blue-600">X</span>
               </div>
               <div className="text-[10px] font-black tracking-[0.24em] text-slate-500">
-                REAL CHART V3.3 AI FORECAST
+                AI CHART V4 MULTI TIMEFRAME
               </div>
             </div>
 
@@ -407,16 +444,72 @@ export default function ChartPage() {
               </span>
             </div>
 
-            <div className="mt-4">
-              <TradingChart
-                candles={chart.candles}
-                ma20={chart.ma20}
-                currentPrice={currentPrice}
-                takeProfit={takeProfit}
-                stopLoss={stopLoss}
-                supportPrice={supportPrice}
-                resistancePrice={resistancePrice}
-              />
+            <div
+              className="mt-4 grid grid-cols-6 rounded-[16px] border border-slate-200 bg-slate-100 p-1"
+              role="tablist"
+              aria-label="チャート時間足"
+            >
+              {TIMEFRAMES.map((item) => {
+                const active = timeframe === item.value;
+
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    aria-label={`${item.label}に切り替え`}
+                    onClick={() => setTimeframe(item.value)}
+                    disabled={chartLoading && active}
+                    className={`min-w-0 rounded-[12px] px-1 py-2.5 text-xs font-black transition-all duration-200 md:px-3 md:text-sm ${
+                      active
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-white hover:text-slate-900"
+                    } disabled:cursor-wait`}
+                  >
+                    <span className="md:hidden">{item.value}</span>
+                    <span className="hidden md:inline">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between px-1">
+              <p className="text-xs font-bold text-slate-500">
+                表示中：{TIMEFRAMES.find((item) => item.value === timeframe)?.label}
+              </p>
+              <p className="text-xs font-black text-blue-600">
+                {chartLoading ? "データ更新中..." : `${chart.candles.length}本`}
+              </p>
+            </div>
+
+            <div className="relative mt-3 min-h-[320px]">
+              <div
+                className={`transition-opacity duration-200 ${
+                  chartLoading ? "opacity-40" : "opacity-100"
+                }`}
+              >
+                <TradingChart
+                  candles={chart.candles}
+                  ma20={chart.ma20}
+                  currentPrice={currentPrice}
+                  takeProfit={takeProfit}
+                  stopLoss={stopLoss}
+                  supportPrice={supportPrice}
+                  resistancePrice={resistancePrice}
+                />
+              </div>
+
+              {chartLoading && (
+                <div className="absolute inset-0 z-10 grid place-items-center rounded-[18px] bg-white/45 backdrop-blur-[1px]">
+                  <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                    <span className="text-sm font-black text-slate-700">
+                      {timeframe}を読み込み中
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

@@ -487,11 +487,11 @@ export default function AnalysisPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
+      <main className="min-h-screen bg-[#030712] p-4 text-white">
         <div className="mx-auto max-w-md pt-10">
-          <div className="rounded-[2rem] border border-white bg-white p-6 text-center shadow-sm">
+          <div className="rounded-[2rem] border border-cyan-400/20 bg-slate-950/90 p-6 text-center shadow-2xl shadow-blue-950/40">
             <p className="text-2xl font-black">分析データを読み込み中...</p>
-            <p className="mt-2 text-sm font-bold text-slate-500">
+            <p className="mt-2 text-sm font-bold text-slate-400">
               AI POWER・利確ライン・学習データを取得しています。
             </p>
           </div>
@@ -502,7 +502,7 @@ export default function AnalysisPage() {
 
   if (!signal) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
+      <main className="min-h-screen bg-[#030712] p-4 text-white">
         <div className="mx-auto max-w-md pt-5">
           <Link href="/scan-mobile" className="font-black text-blue-600">
             ← AIランキングへ戻る
@@ -574,13 +574,13 @@ export default function AnalysisPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] pb-28 text-slate-900">
-      <div className="mx-auto max-w-md px-4 pt-4">
-        <header className="sticky top-0 z-30 -mx-4 border-b border-white/70 bg-[#f7f9fc]/85 px-4 pb-3 pt-3 backdrop-blur-xl">
+    <main className="min-h-screen bg-[#030712] pb-28 text-white">
+      <div className="mx-auto w-full max-w-md px-4 pt-4 md:max-w-6xl md:px-6">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-white/10 bg-[#030712]/90 px-4 pb-3 pt-3 backdrop-blur-xl md:-mx-6 md:px-6">
           <div className="flex items-center justify-between">
             <Link
               href="/scan-mobile"
-              className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-2xl font-black shadow-sm transition active:scale-95"
+              className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/5 text-2xl font-black text-white shadow-sm transition hover:bg-white/10 active:scale-95"
               aria-label="AIランキングへ戻る"
             >
               ‹
@@ -588,9 +588,9 @@ export default function AnalysisPage() {
 
             <div className="text-center">
               <div className="text-3xl font-black tracking-tight">
-                SIGNAL<span className="text-blue-600">X</span>
+                SIGNAL<span className="text-cyan-400">X</span>
               </div>
-              <div className="text-[10px] font-black tracking-[0.22em] text-slate-500">
+              <div className="text-[10px] font-black tracking-[0.22em] text-slate-400">
                 AI ANALYSIS
               </div>
             </div>
@@ -599,8 +599,8 @@ export default function AnalysisPage() {
               onClick={toggleFavorite}
               className={`grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-sm transition active:scale-95 ${
                 isFavorite
-                  ? "bg-yellow-400 text-white"
-                  : "border border-slate-200 bg-white text-yellow-500"
+                  ? "bg-yellow-400 text-slate-950 shadow-yellow-500/20"
+                  : "border border-white/10 bg-white/5 text-yellow-300 hover:bg-white/10"
               }`}
               aria-label="お気に入り"
             >
@@ -609,123 +609,130 @@ export default function AnalysisPage() {
           </div>
         </header>
 
-        <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-2xl shadow-blue-200">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-200">
-                AI STOCK ANALYSIS
-              </p>
+        <section className="relative mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/25 bg-gradient-to-br from-[#071226] via-[#071a38] to-[#130b3d] p-[1px] shadow-2xl shadow-blue-950/60">
+          <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-[radial-gradient(circle_at_80%_15%,rgba(124,58,237,0.34),transparent_32%),radial-gradient(circle_at_15%_10%,rgba(14,165,233,0.22),transparent_28%),linear-gradient(135deg,#06101f_0%,#071a38_55%,#16073b_100%)] p-5 md:p-7">
+            <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -left-14 bottom-0 h-40 w-40 rounded-full bg-cyan-400/10 blur-3xl" />
 
-              <h1 className="mt-3 text-5xl font-black leading-none">
-                {signal.code}
-              </h1>
+            <div className="relative grid gap-5 md:grid-cols-[1fr_250px] md:items-stretch">
+              <div>
+                <div className="flex items-start gap-4">
+                  <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-yellow-300/30 bg-yellow-400/10 text-4xl shadow-lg shadow-yellow-950/20">
+                    {judgeIcon}
+                  </div>
 
-              <p className="mt-2 text-2xl font-black leading-tight">
-                {signal.name}
-              </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h1 className="text-5xl font-black leading-none tracking-tight md:text-6xl">
+                        {signal.code}
+                      </h1>
+                      <span className={`rounded-xl border px-3 py-1 text-sm font-black ${getJudgeColor(power)}`}>
+                        {judge}
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-2xl font-black text-white md:text-3xl">
+                      {signal.name}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-5 text-sm font-bold leading-7 text-blue-100 md:text-base">
+                  {signal.reason || "AI理由なし"}
+                </p>
+
+                <div className="mt-5 grid grid-cols-3 gap-2.5">
+                  <HeroMetric
+                    icon="🤖"
+                    label="AI順位"
+                    value={`${getRankLabel(aiRank)} / ${totalRank.toLocaleString()}銘柄中`}
+                    tone="violet"
+                  />
+                  <HeroMetric
+                    icon="🛡"
+                    label="現在信頼度"
+                    value={`${aiTrust}%`}
+                    tone="red"
+                  />
+                  <HeroMetric
+                    icon="🏆"
+                    label="上位"
+                    value={rankPercent === "-" ? "-" : `上位 ${rankPercent}`}
+                    tone="amber"
+                  />
+                </div>
+              </div>
+
+              <div className="relative flex min-h-52 flex-col items-center justify-center overflow-hidden rounded-[1.75rem] border border-cyan-300/60 bg-gradient-to-br from-blue-600 via-indigo-600 to-fuchsia-600 p-5 text-center shadow-[0_0_35px_rgba(59,130,246,0.35)]">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_10%,rgba(255,255,255,0.24),transparent_25%)]" />
+                <p className="relative text-xl font-black tracking-wide text-blue-50">
+                  AI POWER
+                </p>
+                <p className="relative mt-1 text-7xl font-black leading-none text-white md:text-8xl">
+                  {power}
+                </p>
+                <div className="relative mt-4 h-2.5 w-full overflow-hidden rounded-full bg-black/20">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-white to-fuchsia-200"
+                    style={{ width: `${Math.min(Math.max(power, 0), 100)}%` }}
+                  />
+                </div>
+                <p className="relative mt-3 text-xs font-black text-blue-100">
+                  AI総合評価スコア
+                </p>
+              </div>
             </div>
-
-            <div
-              className={`rounded-3xl border px-4 py-3 text-center font-black ${getJudgeColor(power)}`}
-            >
-              <p className="text-2xl">{judgeIcon}</p>
-              <p className="mt-1 text-sm">{judge}</p>
-            </div>
-          </div>
-
-          <p className="mt-5 text-sm font-bold leading-7 text-blue-100">
-            {signal.reason || "AI理由なし"}
-          </p>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <GlassMini label="AI POWER" value={power} />
-            <GlassMini label="AI順位" value={getRankLabel(aiRank)} />
-            <GlassMini label="現在信頼度" value={`${aiTrust}%`} />
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-                AI POWER
+              <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
+                PRICE
               </p>
-              <h2 className="mt-2 text-2xl font-black">AI総合スコア</h2>
+              <h2 className="mt-2 text-2xl font-black text-white">価格情報</h2>
             </div>
 
-            <p className={`text-5xl font-black ${getPowerColor(power)}`}>
-              {power}
-            </p>
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-black text-emerald-300">
+              REAL DATA
+            </span>
           </div>
 
-          <div className="mt-5 flex justify-center gap-1.5">
-            {getPowerBars(power).map((filled, index) => (
-              <span
-                key={index}
-                className={`h-8 w-3 rounded-full ${
-                  filled ? getPowerBarColor(power) : "bg-slate-200"
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-3xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-black text-slate-400">AI順位</p>
-              <div
-                className={`mx-auto mt-3 grid h-20 w-20 place-items-center rounded-full text-2xl font-black shadow-lg ${getRankStyle(
-                  aiRank,
-                )}`}
-              >
-                {getRankLabel(aiRank)}
-              </div>
-              <p className="mt-3 text-xs font-bold text-slate-500">
-                / {totalRank.toLocaleString()}銘柄中
-              </p>
-              <p className="mt-1 text-xs font-black text-yellow-600">
-                上位 {rankPercent}
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-emerald-50 p-4 text-center">
-              <p className="text-xs font-black text-emerald-600">現在判断の信頼度</p>
-              <p className="mt-4 text-5xl font-black text-emerald-600">
-                {aiTrust}%
-              </p>
-              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
-                今日のAI POWER・過去勝率・検証数から算出
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            PRICE
-          </p>
-          <h2 className="mt-2 text-2xl font-black">価格情報</h2>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <Info label="現在値" value={yen(signal.price)} />
-            <Info label="必要資金" value={yen(requiredMoney)} />
-            <Info
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <DarkInfo
+              icon="💴"
+              label="現在値"
+              value={yen(signal.price)}
+              tone="cyan"
+            />
+            <DarkInfo
+              icon="💰"
+              label="必要資金"
+              value={yen(requiredMoney)}
+              tone="violet"
+            />
+            <DarkInfo
+              icon={changePercent >= 0 ? "↗" : "↘"}
               label="本日変化率"
               value={`${changePercent >= 0 ? "+" : ""}${changePercent}%`}
-              valueClass={
-                changePercent >= 0 ? "text-red-500" : "text-emerald-600"
-              }
+              tone={changePercent >= 0 ? "red" : "green"}
             />
-            <Info label="出来高倍率" value={`${volumeRatio}倍`} />
+            <DarkInfo
+              icon="📊"
+              label="出来高倍率"
+              value={`${volumeRatio}倍`}
+              tone="amber"
+            />
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+              <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
                 SUPPORT & RESISTANCE
               </p>
-              <h2 className="mt-2 text-2xl font-black">支持線・抵抗線</h2>
+              <h2 className="mt-2 text-2xl font-black text-white">支持線・抵抗線</h2>
             </div>
 
             <div
@@ -737,187 +744,278 @@ export default function AnalysisPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-              <p className="text-xs font-black text-blue-600">支持線</p>
-              <p className="mt-2 text-lg font-black text-blue-700">
-                {levelYen(supportPrice)}
-              </p>
-              <p className="mt-1 text-[10px] font-bold text-blue-500">
-                {supportDistancePercent !== null
-                  ? `現在値より -${supportDistancePercent.toFixed(2)}%`
-                  : "距離データなし"}
-              </p>
-            </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-5">
+              <div className="absolute bottom-6 left-[31px] top-6 w-px bg-gradient-to-b from-amber-300 via-cyan-300 to-blue-400" />
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-xs font-black text-slate-500">現在値</p>
-              <p className="mt-2 text-lg font-black text-slate-900">
-                {levelYen(signal.price)}
-              </p>
-              <p className="mt-1 text-[10px] font-bold text-slate-400">
-                現在の株価
-              </p>
-            </div>
+              <LevelRow
+                dotClass="bg-amber-300 shadow-[0_0_18px_rgba(252,211,77,0.7)]"
+                label="抵抗線"
+                value={levelYen(resistancePrice)}
+                detail={
+                  resistanceDistancePercent !== null
+                    ? `現在値より +${resistanceDistancePercent.toFixed(2)}%`
+                    : "距離データなし"
+                }
+                valueClass="text-amber-300"
+              />
 
-            <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4 text-center">
-              <p className="text-xs font-black text-amber-600">抵抗線</p>
-              <p className="mt-2 text-lg font-black text-amber-700">
-                {levelYen(resistancePrice)}
-              </p>
-              <p className="mt-1 text-[10px] font-bold text-amber-500">
-                {resistanceDistancePercent !== null
-                  ? `現在値より +${resistanceDistancePercent.toFixed(2)}%`
-                  : "距離データなし"}
-              </p>
-            </div>
-          </div>
+              <LevelRow
+                dotClass="bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.8)]"
+                label="現在値"
+                value={levelYen(signal.price)}
+                detail="現在の株価"
+                valueClass="text-white"
+                featured
+              />
 
-          <div className="mt-4 rounded-3xl bg-slate-950 p-4 text-white">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-black tracking-[0.14em] text-blue-300">
-                  BREAKOUT EXPECTATION
-                </p>
-                <p className="mt-1 text-lg font-black">ブレイク期待度</p>
-              </div>
-
-              <p className="text-4xl font-black">
-                {breakoutExpectation}
-                <span className="text-lg">%</span>
-              </p>
-            </div>
-
-            <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/15">
-              <div
-                className="h-full rounded-full bg-blue-400 transition-all"
-                style={{
-                  width: `${Math.min(Math.max(breakoutExpectation, 0), 100)}%`,
-                }}
+              <LevelRow
+                dotClass="bg-blue-400 shadow-[0_0_18px_rgba(96,165,250,0.8)]"
+                label="支持線"
+                value={levelYen(supportPrice)}
+                detail={
+                  supportDistancePercent !== null
+                    ? `現在値より -${supportDistancePercent.toFixed(2)}%`
+                    : "距離データなし"
+                }
+                valueClass="text-blue-300"
               />
             </div>
 
-            <p className="mt-3 text-xs font-bold leading-6 text-slate-300">
-              {getSupportResistanceComment({
-                status: supportResistanceStatus,
-                supportPrice,
-                resistancePrice,
-                supportDistancePercent,
-                resistanceDistancePercent,
-                breakoutExpectation,
-              })}
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-5 grid grid-cols-2 gap-3">
-          <TradeLineCard
-            tone="profit"
-            title="🎯 利確目標"
-            value={yen(takeProfit)}
-            sub={`+${profitRate.toFixed(2)}% / +${yen(profitYen)}`}
-          />
-
-          <TradeLineCard
-            tone="loss"
-            title="🛡 損切ライン"
-            value={yen(stopLoss)}
-            sub={`-${lossRate.toFixed(2)}% / -${yen(lossYen)}`}
-          />
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            RISK REWARD
-          </p>
-          <h2 className="mt-2 text-2xl font-black">リスク・リワード</h2>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <Mini label="期待利益" value={`+${yen(profitYen)}`} />
-            <Mini label="想定損失" value={`-${yen(lossYen)}`} />
-            <Mini label="RR比" value={riskReward} />
-          </div>
-
-          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
-            利確と損切の幅を比較して、無理のないエントリーか確認しましょう。
-          </p>
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            TECHNICAL
-          </p>
-          <h2 className="mt-2 text-2xl font-black">テクニカル</h2>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className="rounded-3xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-black text-slate-500">RSI</p>
-              <p className={`mt-2 text-2xl font-black ${getRsiColor(rsi)}`}>
-                {rsi}
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-violet-400/25 bg-gradient-to-br from-[#0a1730] via-[#101a45] to-[#351064] p-5 text-center shadow-[0_0_35px_rgba(124,58,237,0.2)]">
+              <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl" />
+              <p className="relative text-xs font-black tracking-[0.16em] text-cyan-300">
+                BREAKOUT EXPECTATION
               </p>
-              <p className="mt-1 text-[10px] font-bold text-slate-400">
-                {getRsiComment(rsi)}
+              <h3 className="relative mt-2 text-xl font-black text-white">
+                ブレイク期待度
+              </h3>
+
+              <div className="relative mx-auto mt-5 grid h-44 w-44 place-items-center rounded-full bg-[conic-gradient(#22d3ee_0deg,#8b5cf6_calc(var(--score)*3.6deg),rgba(255,255,255,0.08)_calc(var(--score)*3.6deg),rgba(255,255,255,0.08)_360deg)] p-[12px]"
+                style={{ "--score": Math.min(Math.max(breakoutExpectation, 0), 100) } as React.CSSProperties}
+              >
+                <div className="grid h-full w-full place-items-center rounded-full border border-white/10 bg-slate-950">
+                  <div>
+                    <p className="text-5xl font-black text-white">
+                      {breakoutExpectation}
+                      <span className="text-lg text-cyan-300">%</span>
+                    </p>
+                    <p className="mt-2 text-sm font-black text-violet-200">
+                      {getBreakoutLabel(breakoutExpectation)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="relative mt-5 text-xs font-bold leading-6 text-slate-300">
+                {getSupportResistanceComment({
+                  status: supportResistanceStatus,
+                  supportPrice,
+                  resistancePrice,
+                  supportDistancePercent,
+                  resistanceDistancePercent,
+                  breakoutExpectation,
+                })}
               </p>
             </div>
+          </div>
+        </section>
 
-            <Mini label="出来高" value={`${volumeRatio}倍`} />
-            <Mini
-              label="形状"
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
+                AI ACTION
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">売買アクション</h2>
+            </div>
+
+            <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1.5 text-xs font-black text-violet-200">
+              RR {riskReward}
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_0.85fr]">
+            <ActionCard
+              icon="🎯"
+              label="利確目標"
+              price={yen(takeProfit)}
+              rate={`+${profitRate.toFixed(2)}%`}
+              amount={`+${yen(profitYen)}`}
+              tone="profit"
+            />
+
+            <ActionCard
+              icon="🛡"
+              label="損切ライン"
+              price={yen(stopLoss)}
+              rate={`-${lossRate.toFixed(2)}%`}
+              amount={`-${yen(lossYen)}`}
+              tone="loss"
+            />
+
+            <div className="rounded-[1.5rem] border border-violet-400/20 bg-gradient-to-br from-violet-500/15 to-cyan-500/10 p-4">
+              <p className="text-xs font-black text-violet-200">RISK REWARD</p>
+              <p className="mt-3 text-4xl font-black text-white">
+                1 : {riskReward}
+              </p>
+
+              <div className="mt-4 space-y-2">
+                <ActionMini label="期待利益" value={`+${yen(profitYen)}`} />
+                <ActionMini label="想定損失" value={`-${yen(lossYen)}`} />
+              </div>
+
+              <p className="mt-4 text-[11px] font-bold leading-5 text-slate-400">
+                利益幅と損失幅を比較して、無理のないエントリーか確認します。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
+                TECHNICAL
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">テクニカル</h2>
+            </div>
+
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black text-slate-300">
+              LIVE SIGNAL
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+            <TechnicalCard
+              label="RSI"
+              value={`${rsi}`}
+              detail={getRsiComment(rsi)}
+              tone={rsi >= 70 ? "red" : rsi <= 30 ? "green" : "cyan"}
+              meter={Math.min(Math.max(rsi, 0), 100)}
+            />
+
+            <TechnicalCard
+              label="出来高倍率"
+              value={`${volumeRatio}倍`}
+              detail={
+                volumeRatio >= 2
+                  ? "出来高が急増"
+                  : volumeRatio >= 1.3
+                    ? "やや増加"
+                    : "通常水準"
+              }
+              tone="violet"
+              meter={Math.min(volumeRatio * 30, 100)}
+            />
+
+            <TechnicalCard
+              label="チャート形状"
               value={getPatternText(signal.patternSignal)}
-              compact
+              detail={`パターンスコア ${signal.patternScore ?? 0}`}
+              tone="amber"
+            />
+
+            <TechnicalCard
+              label="トレンド"
+              value={signal.trend || "判定中"}
+              detail="現在の方向性"
+              tone="blue"
+            />
+
+            <TechnicalCard
+              label="支持線距離"
+              value={
+                supportDistancePercent !== null
+                  ? `-${supportDistancePercent.toFixed(2)}%`
+                  : "-"
+              }
+              detail="下値余地"
+              tone="green"
+            />
+
+            <TechnicalCard
+              label="抵抗線距離"
+              value={
+                resistanceDistancePercent !== null
+                  ? `+${resistanceDistancePercent.toFixed(2)}%`
+                  : "-"
+              }
+              detail="上値余地"
+              tone="red"
             />
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-blue-100 bg-blue-50 p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-700">
-            AI COMMENT
-          </p>
-          <h2 className="mt-2 text-2xl font-black">AIコメント</h2>
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-400/20 bg-gradient-to-br from-[#071426] via-[#10163a] to-[#2a0d4f] p-[1px] shadow-2xl shadow-violet-950/40">
+          <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-slate-950/85 p-5">
+            <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
 
-          <div className="mt-4 space-y-3">
-            {aiComments.map((comment) => (
-              <div
-                key={`${comment.title}-${comment.body}`}
-                className="rounded-3xl border border-blue-100 bg-white/85 p-4"
-              >
-                <p className="text-sm font-black text-blue-700">
-                  {comment.icon} {comment.title}
-                </p>
-                <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
-                  {comment.body}
-                </p>
+            <div className="relative flex items-center gap-4">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-3xl">
+                🤖
               </div>
-            ))}
+              <div>
+                <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
+                  AI COMMENT
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-white">AIコメント</h2>
+              </div>
+            </div>
+
+            <div className="relative mt-5 rounded-[1.5rem] border border-cyan-300/15 bg-cyan-400/[0.06] p-5">
+              <p className="text-xs font-black text-cyan-300">SIGNALX AI</p>
+              <p className="mt-3 text-base font-bold leading-8 text-slate-100">
+                {signal.reason || "現在のデータをもとにAIが分析しています。"}
+              </p>
+            </div>
+
+            <div className="relative mt-4 grid gap-3 md:grid-cols-2">
+              {aiComments.slice(1).map((comment) => (
+                <div
+                  key={`${comment.title}-${comment.body}`}
+                  className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{comment.icon}</span>
+                    <p className="text-sm font-black text-white">{comment.title}</p>
+                  </div>
+                  <p className="mt-3 text-sm font-bold leading-7 text-slate-300">
+                    {comment.body}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="mt-5 overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-sm">
-          <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 p-5 text-white">
-            <p className="text-xs font-black tracking-[0.18em] text-blue-100">
-              AI PERFORMANCE
-            </p>
-            <div className="mt-2 flex items-end justify-between gap-3">
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 shadow-2xl shadow-blue-950/30 backdrop-blur">
+          <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 p-5 text-white">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-cyan-300/20 blur-3xl" />
+            <div className="relative flex items-end justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black">AI実績</h2>
+                <p className="text-xs font-black tracking-[0.18em] text-cyan-200">
+                  AI PERFORMANCE
+                </p>
+                <h2 className="mt-2 text-2xl font-black">AI実績</h2>
                 <p className="mt-1 text-xs font-bold text-blue-100">
-                  過去の判定結果を実データで確認
+                  過去の判定結果を実データで検証
                 </p>
               </div>
-              <div className="rounded-2xl bg-white/15 px-3 py-2 text-center backdrop-blur">
-                <p className="text-[10px] font-black text-blue-100">
-                  過去実績スコア
-                </p>
+
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center backdrop-blur">
+                <p className="text-[10px] font-black text-blue-100">信頼度ランク</p>
                 <p className="mt-1 text-2xl font-black">
-                  {performance?.reliability.score ?? "-"}
+                  {performance?.reliability.rank ?? "-"}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-5">
-            <div className="grid grid-cols-3 gap-2">
-              <PerformanceMini
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <DarkPerformanceMini
                 label="直近3件"
                 value={
                   performance
@@ -928,8 +1026,10 @@ export default function AnalysisPage() {
                       }敗`
                     : "集計中"
                 }
+                tone="cyan"
               />
-              <PerformanceMini
+
+              <DarkPerformanceMini
                 label="累計損益"
                 value={
                   performance
@@ -938,39 +1038,58 @@ export default function AnalysisPage() {
                       )}`
                     : "-"
                 }
-                valueClass={
+                tone={
                   (performance?.summary30Days.totalProfitYen ?? 0) >= 0
-                    ? "text-emerald-600"
-                    : "text-red-500"
+                    ? "green"
+                    : "red"
                 }
               />
-              <PerformanceMini
+
+              <DarkPerformanceMini
                 label="30日勝率"
                 value={
                   performance
                     ? `${performance.summary30Days.winRate}%`
                     : "-"
                 }
-                valueClass="text-blue-600"
+                tone="violet"
+              />
+
+              <DarkPerformanceMini
+                label="実績スコア"
+                value={`${performance?.reliability.score ?? "-"}`}
+                tone="amber"
               />
             </div>
 
-            <p className="mt-4 text-xs font-bold leading-6 text-slate-500">
-              直近3件の判定済み実績を表示しています。WINは翌日騰落率+2%以上、LOSEは-2%以下で判定しています。
-              判定数が少ない間は「データ蓄積中」として表示します。
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <StreakMini
+                label="連勝中"
+                value={`${performance?.reliability.currentWinStreak ?? 0}`}
+              />
+              <StreakMini
+                label="最大連勝"
+                value={`${performance?.reliability.maxWinStreak ?? 0}`}
+              />
+              <StreakMini
+                label="最大連敗"
+                value={`${performance?.reliability.maxLoseStreak ?? 0}`}
+              />
+            </div>
+
+            <p className="mt-4 text-xs font-bold leading-6 text-slate-400">
+              WINは翌日騰落率+2%以上、LOSEは-2%以下で判定。判定数が少ない間はデータ蓄積中として表示します。
             </p>
 
             <Link
               href={`/analysis/${signal.code}/performance`}
-              className="mt-4 flex items-center justify-between rounded-3xl bg-slate-950 px-5 py-4 text-white transition active:scale-[0.98]"
+              className="mt-4 flex items-center justify-between rounded-3xl border border-cyan-300/20 bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-4 text-white transition hover:brightness-110 active:scale-[0.98]"
             >
               <div>
-                <p className="text-sm font-black text-cyan-300">
+                <p className="text-xs font-black text-cyan-100">
                   AI PERFORMANCE CENTER
                 </p>
-                <p className="mt-1 text-lg font-black">
-                  詳しいAI実績を見る
-                </p>
+                <p className="mt-1 text-lg font-black">詳しいAI実績を見る</p>
               </div>
               <span className="text-3xl">›</span>
             </Link>
@@ -980,103 +1099,103 @@ export default function AnalysisPage() {
         <Link
           href={`/chart/${signal.code}`}
           aria-label={`${signal.code} ${signal.name}のAIチャート分析を見る`}
-          className="group mt-5 block overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-slate-950 via-blue-950 to-violet-700 p-[1px] shadow-2xl shadow-blue-200 transition duration-200 active:scale-[0.98]"
+          className="group mt-5 block overflow-hidden rounded-[2rem] border border-cyan-300/30 bg-gradient-to-br from-[#04111f] via-[#071d3f] to-[#31105f] p-[1px] shadow-2xl shadow-blue-950/50 transition duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
         >
-          <div className="relative overflow-hidden rounded-[calc(2.25rem-1px)] bg-gradient-to-br from-slate-950 via-blue-950 to-violet-800 p-5 text-white">
-            <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-violet-400/20 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-[radial-gradient(circle_at_75%_20%,rgba(168,85,247,0.28),transparent_28%),linear-gradient(135deg,#06111f_0%,#08224a_55%,#2d0f5c_100%)] p-5 text-white md:p-6">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
 
-            <div className="relative">
-              <div className="flex items-start justify-between gap-3">
+            <div className="relative grid gap-5 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+              <div>
                 <div className="flex items-center gap-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-300/30 bg-white/10 text-3xl shadow-lg backdrop-blur">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-400/10 text-3xl">
                     📈
                   </div>
                   <div>
                     <p className="text-[10px] font-black tracking-[0.2em] text-cyan-300">
                       REALTIME AI CHART
                     </p>
-                    <h2 className="mt-1 text-2xl font-black leading-tight">
-                      AIチャート分析
-                    </h2>
+                    <h2 className="mt-1 text-2xl font-black">AIチャート分析</h2>
                   </div>
                 </div>
 
-                <span className="shrink-0 rounded-full border border-violet-300/30 bg-violet-400/20 px-3 py-1 text-[10px] font-black text-violet-100 backdrop-blur">
-                  おすすめ
-                </span>
-              </div>
+                <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
+                  5分足から月足まで切り替えながら、利確・損切・支持線・抵抗線をまとめて確認できます。
+                </p>
 
-              <p className="mt-4 text-sm font-bold leading-6 text-blue-100">
-                リアルタイムの値動きと、売買判断に必要なラインをチャートで確認できます。
-              </p>
-
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-2 py-3 text-center">
-                  <p className="text-lg">🎯</p>
-                  <p className="mt-1 text-[10px] font-black text-emerald-200">
-                    利確ライン
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-2 py-3 text-center">
-                  <p className="text-lg">🛡</p>
-                  <p className="mt-1 text-[10px] font-black text-red-200">
-                    損切ライン
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-2 py-3 text-center">
-                  <p className="text-lg">🤖</p>
-                  <p className="mt-1 text-[10px] font-black text-cyan-200">
-                    AI判断
-                  </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["5m", "15m", "1H", "1D", "1W", "1M"].map((tf) => (
+                    <span
+                      key={tf}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black text-slate-200"
+                    >
+                      {tf}
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-4 text-center text-lg font-black shadow-lg shadow-blue-950/30 transition duration-200 group-hover:brightness-110">
-                <span>チャートを見る</span>
-                <span className="text-2xl leading-none transition-transform duration-200 group-hover:translate-x-1">
-                  ›
-                </span>
-              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+                <div className="grid grid-cols-3 gap-2">
+                  <ChartFeature icon="🎯" label="利確" />
+                  <ChartFeature icon="🛡" label="損切" />
+                  <ChartFeature icon="🧱" label="支持抵抗" />
+                </div>
 
-              <p className="mt-3 text-center text-[10px] font-bold text-blue-200">
-                タップして詳細チャートへ
-              </p>
+                <div className="mt-4 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-4 text-center text-lg font-black shadow-lg shadow-blue-950/30 transition group-hover:brightness-110">
+                  <span>チャートを見る</span>
+                  <span className="text-2xl transition-transform group-hover:translate-x-1">
+                    ›
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </Link>
 
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            AI LEARNING
-          </p>
-          <h2 className="mt-2 text-2xl font-black">AI学習データ</h2>
+        <section className="mt-5 overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-slate-950/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-cyan-300">
+                AI LEARNING
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">AI学習データ</h2>
+            </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            <Mini label="検証" value={`${total}回`} compact />
-            <Mini label="WIN" value={`${win}`} compact />
-            <Mini label="LOSE" value={`${lose}`} compact />
-            <Mini label="HOLD" value={`${hold}`} compact />
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-black text-emerald-300">
+              AUTO LEARNING
+            </span>
           </div>
 
-          <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-            <p className="text-xs font-black text-slate-500">AI勝率</p>
-            <p className="mt-1 text-5xl font-black text-blue-600">{winRate}%</p>
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <LearningCard label="検証" value={`${total}回`} tone="cyan" />
+            <LearningCard label="WIN" value={`${win}`} tone="green" />
+            <LearningCard label="LOSE" value={`${lose}`} tone="red" />
+            <LearningCard label="HOLD" value={`${hold}`} tone="amber" />
           </div>
 
-          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
-            {getLearningMessage(total, winRate)}
-          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+            <div className="rounded-[1.5rem] border border-violet-400/20 bg-violet-400/10 p-5 text-center">
+              <p className="text-xs font-black text-violet-200">AI勝率</p>
+              <p className="mt-2 text-5xl font-black text-white">{winRate}%</p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-xs font-black text-cyan-300">AI LEARNING COMMENT</p>
+              <p className="mt-3 text-sm font-bold leading-7 text-slate-300">
+                {getLearningMessage(total, winRate)}
+              </p>
+            </div>
+          </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
-          <p className="text-sm font-black text-amber-800">ご利用前の注意</p>
-          <p className="mt-2 text-xs font-bold leading-6 text-amber-900">
+        <section className="mt-5 rounded-[2rem] border border-amber-400/20 bg-amber-400/10 p-5">
+          <p className="text-sm font-black text-amber-300">ご利用前の注意</p>
+          <p className="mt-2 text-xs font-bold leading-6 text-amber-100/80">
             SIGNALXは投資判断をサポートする情報提供サービスです。AI判定・スコア・利確/損切ラインは将来の利益を保証するものではありません。最終判断はご自身の責任で行ってください。
           </p>
         </section>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
             <BottomNavItem href="/" icon="🏠" label="Home" />
             <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" />
@@ -1091,6 +1210,269 @@ export default function AnalysisPage() {
         </nav>
       </div>
     </main>
+  );
+}
+
+function DarkPerformanceMini({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "cyan" | "green" | "red" | "violet" | "amber";
+}) {
+  const toneClass = {
+    cyan: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+    green: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    red: "border-rose-400/20 bg-rose-400/10 text-rose-300",
+    violet: "border-violet-400/20 bg-violet-400/10 text-violet-300",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+  }[tone];
+
+  return (
+    <div className={`rounded-[1.35rem] border p-4 text-center ${toneClass}`}>
+      <p className="text-[10px] font-black opacity-80">{label}</p>
+      <p className="mt-2 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function StreakMini({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
+      <p className="text-[10px] font-black text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function ChartFeature({
+  icon,
+  label,
+}: {
+  icon: string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-3 text-center">
+      <p className="text-lg">{icon}</p>
+      <p className="mt-1 text-[10px] font-black text-slate-300">{label}</p>
+    </div>
+  );
+}
+
+function LearningCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "cyan" | "green" | "red" | "amber";
+}) {
+  const toneClass = {
+    cyan: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+    green: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    red: "border-rose-400/20 bg-rose-400/10 text-rose-300",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+  }[tone];
+
+  return (
+    <div className={`rounded-[1.5rem] border p-4 text-center ${toneClass}`}>
+      <p className="text-xs font-black opacity-80">{label}</p>
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function ActionCard({
+  icon,
+  label,
+  price,
+  rate,
+  amount,
+  tone,
+}: {
+  icon: string;
+  label: string;
+  price: string;
+  rate: string;
+  amount: string;
+  tone: "profit" | "loss";
+}) {
+  const style =
+    tone === "profit"
+      ? "border-emerald-400/20 bg-emerald-400/10"
+      : "border-rose-400/20 bg-rose-400/10";
+
+  const accent = tone === "profit" ? "text-emerald-300" : "text-rose-300";
+
+  return (
+    <div className={`rounded-[1.5rem] border p-4 ${style}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{icon}</span>
+          <p className={`text-sm font-black ${accent}`}>{label}</p>
+        </div>
+        <span className={`rounded-full bg-black/20 px-2.5 py-1 text-xs font-black ${accent}`}>
+          {rate}
+        </span>
+      </div>
+
+      <p className="mt-4 text-3xl font-black text-white">{price}</p>
+      <p className={`mt-2 text-base font-black ${accent}`}>{amount}</p>
+    </div>
+  );
+}
+
+function ActionMini({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2">
+      <span className="text-[10px] font-black text-slate-400">{label}</span>
+      <span className="text-xs font-black text-white">{value}</span>
+    </div>
+  );
+}
+
+function TechnicalCard({
+  label,
+  value,
+  detail,
+  tone,
+  meter,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone: "cyan" | "violet" | "amber" | "blue" | "green" | "red";
+  meter?: number;
+}) {
+  const toneClass = {
+    cyan: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+    violet: "border-violet-400/20 bg-violet-400/10 text-violet-300",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+    blue: "border-blue-400/20 bg-blue-400/10 text-blue-300",
+    green: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    red: "border-rose-400/20 bg-rose-400/10 text-rose-300",
+  }[tone];
+
+  return (
+    <div className={`rounded-[1.5rem] border p-4 ${toneClass}`}>
+      <p className="text-xs font-black opacity-80">{label}</p>
+      <p className="mt-3 text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 min-h-5 text-[10px] font-bold text-slate-400">{detail}</p>
+
+      {meter !== undefined && (
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-black/20">
+          <div
+            className="h-full rounded-full bg-current"
+            style={{ width: `${Math.min(Math.max(meter, 0), 100)}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DarkInfo({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  tone: "cyan" | "violet" | "red" | "green" | "amber";
+}) {
+  const toneClass = {
+    cyan: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+    violet: "border-violet-400/20 bg-violet-400/10 text-violet-300",
+    red: "border-rose-400/20 bg-rose-400/10 text-rose-300",
+    green: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+  }[tone];
+
+  return (
+    <div className={`rounded-[1.5rem] border p-4 ${toneClass}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-xl">{icon}</span>
+        <p className="text-xs font-black opacity-80">{label}</p>
+      </div>
+      <p className="mt-3 text-xl font-black text-white md:text-2xl">{value}</p>
+    </div>
+  );
+}
+
+function LevelRow({
+  dotClass,
+  label,
+  value,
+  detail,
+  valueClass,
+  featured = false,
+}: {
+  dotClass: string;
+  label: string;
+  value: string;
+  detail: string;
+  valueClass: string;
+  featured?: boolean;
+}) {
+  return (
+    <div className={`relative flex items-center gap-4 ${featured ? "my-5" : ""}`}>
+      <span className={`relative z-10 h-4 w-4 shrink-0 rounded-full ${dotClass}`} />
+      <div className={`flex-1 rounded-2xl border border-white/10 ${featured ? "bg-white/[0.08] p-4" : "bg-white/[0.03] p-3"}`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-black text-slate-400">{label}</p>
+          <p className={`text-lg font-black ${valueClass}`}>{value}</p>
+        </div>
+        <p className="mt-1 text-[10px] font-bold text-slate-500">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function HeroMetric({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  tone: "violet" | "red" | "amber";
+}) {
+  const toneClass = {
+    violet: "border-violet-400/20 bg-violet-500/10 text-violet-200",
+    red: "border-rose-400/20 bg-rose-500/10 text-rose-200",
+    amber: "border-amber-400/20 bg-amber-500/10 text-amber-200",
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border p-3 ${toneClass}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{icon}</span>
+        <p className="text-[10px] font-black tracking-wide opacity-80">{label}</p>
+      </div>
+      <p className="mt-2 text-sm font-black leading-tight text-white md:text-base">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -1203,8 +1585,8 @@ function BottomNavItem({
       href={href}
       className={`rounded-2xl px-3 py-2 text-center text-xs font-black transition ${
         active
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
-          : "text-slate-500"
+          ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-950/50"
+          : "text-slate-400 hover:bg-white/5 hover:text-white"
       }`}
     >
       <div className="text-lg">{icon}</div>
