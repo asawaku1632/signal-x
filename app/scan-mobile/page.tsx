@@ -33,8 +33,8 @@ const budgetOptions: { label: string; value: BudgetFilter }[] = [
   { label: "制限なし", value: "all" },
 ];
 
-const HOT_TOP_LIMIT = 30;
-const STRONG_TOP_LIMIT = 100;
+const HOT_TOP_LIMIT = 3;
+const STRONG_TOP_LIMIT = 10;
 
 const sortOptions: { label: string; value: SortMode }[] = [
   { label: "🔥 AI POWER順", value: "score" },
@@ -352,7 +352,7 @@ function ScanMobileContent() {
 
   const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
   const marketComment =
-    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP30から確認しましょう。";
+    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP3から確認しましょう。";
 
   const winRate = bestSignal
     ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
@@ -699,7 +699,7 @@ function ScanMobileContent() {
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black">
-                  🔥 今日のTOP30 上位3銘柄
+                  🔥 今日のTOP3
                 </h2>
               </div>
 
