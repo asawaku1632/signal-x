@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/learning/notificationEngine";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const DEBUG_VERSION = "AI_POWER_V20_FINAL_ROUTE_REFACTOR_0706";
 const AI_POWER_VERSION = "V20.0";
@@ -25,6 +26,7 @@ type CacheData = {
 };
 
 let cacheData: CacheData | null = null;
+let runningScanPromise: Promise<CacheData> | null = null;
 
 function clampTop(value: number | null) {
   if (value === null || !Number.isFinite(value) || value < 1) {
@@ -63,16 +65,42 @@ function sortStocksForRanking(stocks: any[]) {
 
     if (volumeDiff !== 0) return volumeDiff;
 
-    return String(a?.code ?? "").localeCompare(
-      String(b?.code ?? ""),
-      "ja",
-      { numeric: true }
-    );
+    return String(a?.code ?? "").localeCompare(String(b?.code ?? ""), "ja", {
+      numeric: true,
+    });
   });
 }
 
 function selectStocks(stocks: any[], top: number | null) {
   return top ? stocks.slice(0, top) : stocks;
+}
+
+async function getFreshScanData(limit: number): Promise<CacheData> {
+  if (runningScanPromise) {
+    return runningScanPromise;
+  }
+
+  runningScanPromise = (async () => {
+    const scanResult = await runScan(limit);
+    const sortedStocks = sortStocksForRanking(scanResult.stocks);
+
+    const freshCache: CacheData = {
+      timestamp: Date.now(),
+      limit,
+      stocks: sortedStocks,
+      marketPattern: scanResult.marketPattern,
+      totalStockList: scanResult.totalStockList,
+    };
+
+    cacheData = freshCache;
+    return freshCache;
+  })();
+
+  try {
+    return await runningScanPromise;
+  } finally {
+    runningScanPromise = null;
+  }
 }
 
 export async function GET(req: Request) {
@@ -107,29 +135,20 @@ export async function GET(req: Request) {
       );
     }
 
-    const scanResult = await runScan(limit);
-    const sortedStocks = sortStocksForRanking(scanResult.stocks);
-
-    cacheData = {
-      timestamp: Date.now(),
-      limit,
-      stocks: sortedStocks,
-      marketPattern: scanResult.marketPattern,
-      totalStockList: scanResult.totalStockList,
-    };
-
-    const responseStocks = selectStocks(sortedStocks, top);
+    const freshData = await getFreshScanData(limit);
+    const responseStocks = selectStocks(freshData.stocks, top);
 
     return NextResponse.json(
       buildScanResponsePayload({
         debugVersion: DEBUG_VERSION,
         aiPowerVersion: AI_POWER_VERSION,
         cached: false,
-        limit: top ?? scanResult.limit,
-        totalStockList: scanResult.totalStockList,
+        limit: top ?? freshData.limit,
+        totalStockList:
+          freshData.totalStockList ?? getFallbackTotalStockList(),
         stocks: responseStocks,
-        summaryStocks: sortedStocks,
-        marketPattern: scanResult.marketPattern,
+        summaryStocks: freshData.stocks,
+        marketPattern: freshData.marketPattern,
         scanMs: Date.now() - startedAt,
       })
     );
@@ -146,7 +165,8 @@ export async function GET(req: Request) {
           cached: true,
           fallback: true,
           limit: top ?? cacheData.limit,
-          totalStockList: cacheData.totalStockList,
+          totalStockList:
+            cacheData.totalStockList ?? getFallbackTotalStockList(),
           stocks: responseStocks,
           summaryStocks: cacheData.stocks,
           marketPattern: cacheData.marketPattern,

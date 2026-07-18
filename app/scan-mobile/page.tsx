@@ -160,6 +160,7 @@ function ScanMobileContent() {
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
   const rankingRef = useRef<HTMLDivElement>(null);
+  const fetchingRef = useRef(false);
 
   const scrollToRanking = () => {
     rankingRef.current?.scrollIntoView({
@@ -169,11 +170,15 @@ function ScanMobileContent() {
   };
 
   async function fetchStocks() {
+    if (fetchingRef.current) return;
+
+    fetchingRef.current = true;
+
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
 
     try {
-      setLoading(true);
+      setLoading(stocks.length === 0);
 
       const res = await fetch("/api/scan?limit=1200&top=100", {
         cache: "no-store",
@@ -192,13 +197,23 @@ function ScanMobileContent() {
         ? json.stocks
         : [];
 
+      if (list.length === 0) {
+        throw new Error("scan api returned empty stocks");
+      }
+
       setStocks(list);
       setTotalStocks(Number(json?.totalStockList ?? list.length));
     } catch (error) {
-      console.error("scan-mobile fetch error:", error);
-      setStocks([]);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.warn("scan-mobile fetch timeout");
+      } else {
+        console.error("scan-mobile fetch error:", error);
+      }
+
+      // 一時的な通信失敗では、前回取得済みの正常データを維持する
     } finally {
       window.clearTimeout(timeoutId);
+      fetchingRef.current = false;
       setLoading(false);
     }
   }
