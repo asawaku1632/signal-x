@@ -180,7 +180,7 @@ function ScanMobileContent() {
     try {
       setLoading(stocks.length === 0);
 
-      const res = await fetch("/api/scan?limit=1200&top=100", {
+      const res = await fetch("/api/scan?limit=1200&top=10", {
         cache: "no-store",
         signal: controller.signal,
       });
