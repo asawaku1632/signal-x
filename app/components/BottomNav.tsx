@@ -18,12 +18,6 @@ const navItems: NavItem[] = [
     matchPaths: ["/dashboard"],
   },
   {
-    href: "/scan-mobile",
-    icon: "🔍",
-    label: "検索",
-    matchPaths: ["/scan-mobile", "/analysis"],
-  },
-  {
     href: "/today-market",
     icon: "🤖",
     label: "市場",
@@ -33,7 +27,13 @@ const navItems: NavItem[] = [
     href: "/ranking",
     icon: "🏆",
     label: "ランキング",
-    matchPaths: ["/ranking"],
+    matchPaths: ["/ranking", "/scan-mobile", "/analysis"],
+  },
+  {
+    href: "/learning",
+    icon: "🧠",
+    label: "学習",
+    matchPaths: ["/learning"],
   },
   {
     href: "/favorites",

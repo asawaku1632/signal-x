@@ -797,21 +797,15 @@ export default function HomePage() {
           />
 
 
-
-          <MenuCard
-
-            href="/scan-mobile"
-
-            icon="🔍"
-
-            color="from-blue-500 to-cyan-400"
-
-            title="銘柄スキャン"
-
-            desc="1000銘柄を監視し注目銘柄を発見"
-
-          />
-
+<button
+  type="button"
+  onClick={() => {
+    window.location.assign("/scan-mobile");
+  }}
+  className="w-full bg-red-500 text-white rounded-2xl px-4 py-5 text-xl font-black"
+>
+  🔍 銘柄スキャン・動作確認
+</button>
 
 
           <MenuCard
@@ -1116,12 +1110,12 @@ function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" active />
-        <Nav href="/scan-mobile" icon="🔍" label="検索" />
-        <Nav href="/today-market" icon="🤖" label="市場" />
-        <Nav href="/ranking" icon="🏆" label="ランキング" />
-        <Nav href="/favorites" icon="⭐" label="お気に入り" />
-      </div>
+      <Nav href="/dashboard" icon="🏠" label="ホーム" active />
+      <Nav href="/today-market" icon="🤖" label="市場" />
+      <Nav href="/ranking" icon="🏆" label="ランキング" />
+      <Nav href="/learning" icon="🧠" label="学習" />
+      <Nav href="/favorites" icon="⭐" label="お気に入り" />
+    </div>
     </nav>
   );
 }
@@ -1147,4 +1141,6 @@ function Nav({
     </Link>
   );
 }
+
+
 

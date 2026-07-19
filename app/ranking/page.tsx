@@ -619,12 +619,12 @@ function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/scan-mobile" icon="🔍" label="検索" />
-        <Nav href="/today-market" icon="🤖" label="市場" />
-        <Nav href="/ranking" icon="🏆" label="ランキング" active />
-        <Nav href="/favorites" icon="⭐" label="お気に入り" />
-      </div>
+      <Nav href="/dashboard" icon="🏠" label="ホーム" />
+      <Nav href="/today-market" icon="🤖" label="市場" />
+      <Nav href="/ranking" icon="🏆" label="ランキング" active />
+      <Nav href="/learning" icon="🧠" label="学習" />
+      <Nav href="/favorites" icon="⭐" label="お気に入り" />
+    </div>
     </nav>
   );
 }
@@ -650,4 +650,6 @@ function Nav({
     </Link>
   );
 }
+
+
 

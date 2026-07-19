@@ -1,1150 +1,851 @@
-﻿"use client";
-
+"use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-
-type TodayMarketData = {
-  success?: boolean;
-  stocks?: Stock[];
-
-  grade: string;
-
-  action: string;
-
-  marketCondition: string;
-
-  hotCount: number;
-
-  watchCount?: number;
-
-  topStock: {
-
-    code: string;
-
-    name: string;
-
-    aiPower: number;
-
-    expected: string;
-
-    judge: string;
-
-  };
-
-  updatedAt: string;
-
-};
-
-
-
-
-type LearningDashboard = {
-  success: boolean;
-  total: number;
-  win: number;
-  lose: number;
-  hold: number;
-  pending: number;
-  winRate: number;
-  previousWinRate: number;
-  diff: number;
-  growth: number;
-  dateCount: number;
-  updatedAt: string;
+type ApiStock = {
+  code?: string | number;
+  name?: string;
+  price?: number;
+  currentPrice?: number;
+  score?: number;
+  aiPower?: number;
+  changePercent?: number;
+  rsi?: number;
+  volumeRatio?: number;
+  reason?: string;
+  patternSignal?: string;
+  signal?: string;
+  notificationLevel?: string;
+  takeProfit?: number;
+  stopLoss?: number;
 };
 
 type Stock = {
-
   code: string;
-
   name: string;
-
-  score: number;
-
   price: number;
-
-  changePercent?: number;
-
-  rsi?: number;
-
-  volumeRatio?: number;
-
-  reason?: string;
-
-  trend?: string;
-
-  patternSignal?: string;
-
-  patternScore?: number;
-
+  changePercent: number;
+  rsi: number;
+  volumeRatio: number;
+  score: number;
+  reason: string;
+  patternSignal: string;
+  notificationLevel: string;
   takeProfit?: number;
-
   stopLoss?: number;
-
 };
 
+type ScanResponse = {
+  success?: boolean;
+  totalStockList?: number;
+  scannedCount?: number;
+  stocks?: ApiStock[];
+};
 
+type PowerFilter = "all" | "95" | "85" | "70";
+type BudgetFilter = "all" | "100000" | "300000" | "500000" | "1000000";
+type SortKey = "score" | "change" | "price-low" | "volume";
 
-function yen(value?: number | null) {
+const REFRESH_MS = 60_000;
+const FETCH_TIMEOUT_MS = 30_000;
 
-  if (value === undefined || value === null) return "-";
+const POWER_OPTIONS: Array<{ value: PowerFilter; label: string }> = [
+  { value: "all", label: "すべて" },
+  { value: "95", label: "大本命" },
+  { value: "85", label: "激熱以上" },
+  { value: "70", label: "買い候補以上" },
+];
 
-  return `${Math.round(value).toLocaleString()}円`;
+const BUDGET_OPTIONS: Array<{ value: BudgetFilter; label: string }> = [
+  { value: "all", label: "予算指定なし" },
+  { value: "100000", label: "10万円以内" },
+  { value: "300000", label: "30万円以内" },
+  { value: "500000", label: "50万円以内" },
+  { value: "1000000", label: "100万円以内" },
+];
 
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: "score", label: "AI POWER順" },
+  { value: "change", label: "上昇率順" },
+  { value: "price-low", label: "必要資金が安い順" },
+  { value: "volume", label: "出来高倍率順" },
+];
+
+function normalizeStocks(input: ApiStock[]): Stock[] {
+  return input.map((stock) => ({
+    code: String(stock.code ?? ""),
+    name: String(stock.name ?? "名称不明"),
+    price: Number(stock.price ?? stock.currentPrice ?? 0),
+    changePercent: Number(stock.changePercent ?? 0),
+    rsi: Number(stock.rsi ?? 0),
+    volumeRatio: Number(stock.volumeRatio ?? 0),
+    score: Number(stock.score ?? stock.aiPower ?? 0),
+    reason: String(stock.reason ?? ""),
+    patternSignal: String(stock.patternSignal ?? "NONE"),
+    notificationLevel: String(stock.notificationLevel ?? ""),
+    takeProfit:
+      typeof stock.takeProfit === "number" ? stock.takeProfit : undefined,
+    stopLoss: typeof stock.stopLoss === "number" ? stock.stopLoss : undefined,
+  }));
 }
 
-
-
-function getRankLabel(score = 0) {
-
-  if (score >= 95) return "👑 Sランク";
-
-  if (score >= 85) return "🥇 Aランク";
-
-  if (score >= 70) return "🥈 Bランク";
-
-  if (score >= 50) return "🥉 Cランク";
-
-  return "❌ Dランク";
-
+function getSignal(score: number) {
+  if (score >= 95) return "大本命";
+  if (score >= 85) return "激熱";
+  if (score >= 70) return "買い候補";
+  if (score >= 50) return "静観";
+  return "見送り";
 }
 
-
-
-function getPatternText(pattern?: string) {
-
-  if (pattern === "W_BOTTOM_BREAK") return "Wボトム突破";
-
-  if (pattern === "W_BOTTOM") return "Wボトム候補";
-
-  return "通常";
-
+function getSignalIcon(score: number) {
+  if (score >= 95) return "👑";
+  if (score >= 85) return "🔥";
+  if (score >= 70) return "📈";
+  if (score >= 50) return "👀";
+  return "⏸️";
 }
 
+function getNotificationLevel(stock: Stock) {
+  if (stock.notificationLevel) return stock.notificationLevel;
+  if (stock.score >= 95) return "今すぐ確認";
+  if (stock.score >= 85) return "激熱候補";
+  if (stock.score >= 70) return "買い候補";
+  return "監視";
+}
 
-
-export default function HomePage() {
-  const router = useRouter();
-  const { data: session } = useSession();
-
-  const [marketData, setMarketData] = useState<TodayMarketData | null>(null);
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [loadingScan, setLoadingScan] = useState(true);
-  const [searchText, setSearchText] = useState("");
-  const [learningData, setLearningData] =
-    useState<LearningDashboard | null>(null);
-  const [loadingLearning, setLoadingLearning] = useState(true);
-
-
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadMarketData() {
-      try {
-        const marketResponse = await fetch("/api/today-market", {
-          cache: "no-store",
-        });
-
-        if (!marketResponse.ok) {
-          throw new Error(
-            `today-market api error: ${marketResponse.status}`
-          );
-        }
-
-        const marketJson: TodayMarketData = await marketResponse.json();
-
-        if (!active) return;
-
-        const list = Array.isArray(marketJson.stocks)
-          ? marketJson.stocks
-          : [];
-
-        setMarketData(marketJson);
-        setStocks(list);
-      } catch (error) {
-        console.error("dashboard market fetch error:", error);
-        if (!active) return;
-        setMarketData(null);
-        setStocks([]);
-      } finally {
-        if (active) setLoadingScan(false);
-      }
-    }
-
-    async function loadLearningData() {
-      try {
-        const learningResponse = await fetch(
-          "/api/learning/dashboard",
-          { cache: "no-store" }
-        );
-
-        if (!learningResponse.ok) {
-          throw new Error(
-            `learning dashboard api error: ${learningResponse.status}`
-          );
-        }
-
-        const learningJson: LearningDashboard =
-          await learningResponse.json();
-
-        if (!active) return;
-        setLearningData(learningJson);
-      } catch (error) {
-        console.error("dashboard learning fetch error:", error);
-        if (!active) return;
-        setLearningData(null);
-      } finally {
-        if (active) setLoadingLearning(false);
-      }
-    }
-
-    void loadMarketData();
-    void loadLearningData();
-
-    return () => {
-      active = false;
+function getSignalClasses(score: number) {
+  if (score >= 95) {
+    return {
+      badge: "border-amber-200 bg-amber-50 text-amber-700",
+      power: "from-amber-400 to-orange-500",
+      ring: "ring-amber-100",
     };
+  }
+  if (score >= 85) {
+    return {
+      badge: "border-rose-200 bg-rose-50 text-rose-700",
+      power: "from-rose-500 to-red-600",
+      ring: "ring-rose-100",
+    };
+  }
+  if (score >= 70) {
+    return {
+      badge: "border-blue-200 bg-blue-50 text-blue-700",
+      power: "from-blue-500 to-indigo-600",
+      ring: "ring-blue-100",
+    };
+  }
+  return {
+    badge: "border-slate-200 bg-slate-50 text-slate-600",
+    power: "from-slate-500 to-slate-700",
+    ring: "ring-slate-100",
+  };
+}
+
+function formatPrice(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "-";
+  return `${Math.round(value).toLocaleString("ja-JP")}円`;
+}
+
+function formatPercent(value: number) {
+  if (!Number.isFinite(value)) return "-";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatUpdatedAt(value: Date | null) {
+  if (!value) return "未取得";
+  return value.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function ScanPage() {
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [totalStockList, setTotalStockList] = useState(0);
+  const [scannedCount, setScannedCount] = useState(0);
+  const [alerts, setAlerts] = useState<string[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [query, setQuery] = useState("");
+  const [powerFilter, setPowerFilter] = useState<PowerFilter>("all");
+  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const fetchStocks = useCallback(async (manual = false) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      FETCH_TIMEOUT_MS,
+    );
+
+    try {
+      if (manual) setRefreshing(true);
+      setErrorText("");
+
+      const res = await fetch("/api/scan?limit=100&top=100", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`scan api error: ${res.status}`);
+      }
+
+      const data: ScanResponse | ApiStock[] = await res.json();
+      const rawStocks = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.stocks)
+          ? data.stocks
+          : [];
+      const normalized = normalizeStocks(rawStocks);
+
+      setStocks(normalized);
+      setUpdatedAt(new Date());
+
+      if (!Array.isArray(data)) {
+        setTotalStockList(Number(data.totalStockList ?? normalized.length));
+        setScannedCount(Number(data.scannedCount ?? normalized.length));
+      } else {
+        setTotalStockList(normalized.length);
+        setScannedCount(normalized.length);
+      }
+
+      const now = new Date().toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const newAlerts = normalized
+        .filter((stock) => stock.score >= 95)
+        .slice(0, 5)
+        .map((stock) => `${now} ${stock.code} ${stock.name} AI ${stock.score}`);
+
+      if (newAlerts.length > 0) {
+        setAlerts((prev) =>
+          Array.from(new Set([...newAlerts, ...prev])).slice(0, 10),
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error && error.name === "AbortError"
+          ? "スキャンAPIがタイムアウトしました。少し待って再読み込みしてください。"
+          : "スキャンデータを取得できませんでした。";
+
+      console.error("scan fetch error:", error);
+      setErrorText(message);
+    } finally {
+      window.clearTimeout(timeoutId);
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void fetchStocks();
+    const intervalId = window.setInterval(() => {
+      void fetchStocks();
+    }, REFRESH_MS);
+    return () => window.clearInterval(intervalId);
+  }, [fetchStocks]);
 
-
-  const aiSummary = useMemo(() => {
-
-    const sRank = stocks.filter((stock) => stock.score >= 95).length;
-
-    const buyCandidates = stocks.filter((stock) => stock.score >= 85).length;
-
-    const wBottom = stocks.filter(
-
-      (stock) => stock.patternSignal === "W_BOTTOM_BREAK"
-
+  const stats = useMemo(() => {
+    const favorite = stocks.filter((stock) => stock.score >= 95).length;
+    const hot = stocks.filter(
+      (stock) => stock.score >= 85 && stock.score < 95,
     ).length;
-
-    const volumeHot = stocks.filter(
-
-      (stock) => (stock.volumeRatio ?? 1) >= 2
-
+    const strong = stocks.filter(
+      (stock) => stock.score >= 70 && stock.score < 85,
     ).length;
+    const average =
+      stocks.length > 0
+        ? Math.round(
+            stocks.reduce((sum, stock) => sum + stock.score, 0) / stocks.length,
+          )
+        : 0;
 
-
-
-    const topStock = stocks[0];
-
-
-
-    return {
-
-      sRank,
-
-      buyCandidates,
-
-      wBottom,
-
-      volumeHot,
-
-      topStock,
-
-    };
-
+    return { favorite, hot, strong, average };
   }, [stocks]);
 
+  const filteredStocks = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const minimumScore = powerFilter === "all" ? 0 : Number(powerFilter);
+    const budget = budgetFilter === "all" ? Infinity : Number(budgetFilter);
 
+    return stocks
+      .filter((stock) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          stock.code.toLowerCase().includes(normalizedQuery) ||
+          stock.name.toLowerCase().includes(normalizedQuery);
+        const matchesPower = stock.score >= minimumScore;
+        const requiredCapital = stock.price > 0 ? stock.price * 100 : Infinity;
+        const matchesBudget = requiredCapital <= budget;
+        return matchesQuery && matchesPower && matchesBudget;
+      })
+      .sort((a, b) => {
+        if (sortKey === "change") return b.changePercent - a.changePercent;
+        if (sortKey === "price-low") return a.price - b.price;
+        if (sortKey === "volume") return b.volumeRatio - a.volumeRatio;
+        return b.score - a.score;
+      });
+  }, [budgetFilter, powerFilter, query, sortKey, stocks]);
+
+  const clearFilters = () => {
+    setQuery("");
+    setPowerFilter("all");
+    setBudgetFilter("all");
+    setSortKey("score");
+  };
 
   return (
-
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
-
-      <div className="mx-auto max-w-md px-4 pt-4">
-
-        <header className="flex items-center justify-between mb-3">
-
-          <div>
-
-            <div className="text-4xl font-black tracking-tight">
-
-              SIGNAL<span className="text-blue-600">X</span>
-
+    <main className="min-h-screen bg-[#f5f7fb] pb-28 text-slate-900">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+        <header className="overflow-hidden rounded-[28px] border border-white bg-gradient-to-br from-[#071a3d] via-[#0b2b62] to-[#1265d8] px-5 py-6 text-white shadow-[0_20px_55px_rgba(15,42,92,0.24)] sm:px-7 sm:py-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Link
+                href="/dashboard"
+                className="mb-4 inline-flex items-center gap-2 text-xs font-extrabold text-blue-100 transition hover:text-white"
+              >
+                <span aria-hidden>←</span>
+                Dashboard
+              </Link>
+              <p className="text-xs font-black tracking-[0.2em] text-blue-200">
+                SIGNALX AI SCAN
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                全銘柄スキャン
+              </h1>
+              <p className="mt-3 max-w-xl text-sm font-medium leading-6 text-blue-100">
+                AIが日本株を監視し、今チェックしたい銘柄を優先順に表示します。
+              </p>
             </div>
 
-            <div className="text-xs font-black tracking-[0.2em] text-slate-500">
-
-              AI MARKET SYSTEM
-
-            </div>
-
-          </div>
-
-
-
-          <div className="flex gap-2">
-
-            <Link
-
-              href="/alerts"
-
-              className="relative w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-lg"
-
+            <button
+              type="button"
+              onClick={() => void fetchStocks(true)}
+              disabled={refreshing}
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-3 text-xs font-black backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60 sm:px-4"
             >
-
-              🔔
-
-              <span className="absolute right-3 top-3 w-2 h-2 bg-red-500 rounded-full" />
-
-            </Link>
-
-
-
-            <Link
-  href="/mypage"
-  className="h-11 rounded-2xl bg-white shadow flex items-center gap-2 px-2"
->
-  {session?.user?.image ? (
-    <img
-  src={session.user.image}
-  alt="User"
-  className="w-8 h-8 rounded-full"
-/>
-  ) : (
-    <span className="text-lg">👤</span>
-  )}
-</Link>
+              <span className={refreshing ? "animate-spin" : ""}>↻</span>
+              <span className="hidden sm:inline">
+                {refreshing ? "更新中" : "再読み込み"}
+              </span>
+            </button>
           </div>
 
+          <div className="mt-6 flex flex-wrap items-center gap-2 text-[11px] font-bold text-blue-100">
+            <span className="rounded-full bg-white/10 px-3 py-2">
+              監視 {totalStockList.toLocaleString()}銘柄
+            </span>
+            <span className="rounded-full bg-white/10 px-3 py-2">
+              取得済み {scannedCount.toLocaleString()}銘柄
+            </span>
+            <span className="rounded-full bg-white/10 px-3 py-2">
+              最終更新 {formatUpdatedAt(updatedAt)}
+            </span>
+          </div>
         </header>
 
-
-
-        <form
-  onSubmit={(e) => {
-    e.preventDefault();
-
-    const keyword = searchText.trim();
-
-    if (!keyword) return;
-
-    router.push(`/analysis/${keyword}`);
-  }}
-  className="bg-white rounded-2xl shadow-sm border border-slate-200 px-4 py-3 mb-3 flex items-center gap-3"
->
-  <span className="text-xl">🔍</span>
-
-  <input
-    value={searchText}
-    onChange={(e) => setSearchText(e.target.value)}
-    className="w-full outline-none text-sm font-bold placeholder:text-slate-400 bg-transparent"
-    placeholder="銘柄コードを入力 例：9983"
-  />
-
-  <button type="submit" className="text-lg text-blue-600 font-black">
-    →
-  </button>
-</form>
-
-<Link
-  href="/scan-mobile"
-  className="mb-4 block rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-5 shadow-lg transition hover:scale-[1.02]"
->
-  <div className="flex items-center justify-between">
-    <div>
-      <p className="text-xs font-black tracking-wider text-emerald-600">
-        💴 BUDGET STOCK SEARCH
-      </p>
-
-      <h2 className="mt-1 text-xl font-black text-slate-900">
-        予算から銘柄を探す
-      </h2>
-
-      <p className="mt-2 text-sm text-slate-600">
-        10万円・30万円・50万円・100万円以内で
-        AIがおすすめ銘柄を表示します。
-      </p>
-    </div>
-
-    <div className="text-4xl">
-      💰
-    </div>
-  </div>
-</Link>
-<div className="mb-5">
-  <p className="mb-3 text-sm font-black text-slate-600">
-    人気の予算
-  </p>
-
-  <div className="grid grid-cols-2 gap-3">
-    <Link
-      href="/scan-mobile?budget=100000"
-      className="rounded-2xl bg-emerald-500 p-4 text-center font-black text-white shadow"
-    >
-      💴
-      <br />
-      10万円以内
-    </Link>
-
-    <Link
-      href="/scan-mobile?budget=300000"
-      className="rounded-2xl bg-blue-500 p-4 text-center font-black text-white shadow"
-    >
-      💴
-      <br />
-      30万円以内
-    </Link>
-
-    <Link
-      href="/scan-mobile?budget=500000"
-      className="rounded-2xl bg-orange-500 p-4 text-center font-black text-white shadow"
-    >
-      💴
-      <br />
-      50万円以内
-    </Link>
-
-    <Link
-      href="/scan-mobile?budget=1000000"
-      className="rounded-2xl bg-purple-500 p-4 text-center font-black text-white shadow"
-    >
-      💴
-      <br />
-      100万円以内
-    </Link>
-  </div>
-</div>
-
-        <Link
-
-          href="/ai-analysis"
-
-          className="block rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-3 shadow-sm"
-
-        >
-
-          <div className="flex items-start justify-between">
-
-            <div>
-
-              <p className="text-sm font-black text-blue-600">
-
-                🤖 今日のSIGNALX AI
-
-              </p>
-
-              <h2 className="text-3xl font-black mt-2">
-
-                {loadingScan ? "解析中..." : "今日の市場総評"}
-
-              </h2>
-
-              <p className="text-xs text-slate-500 font-bold mt-1">
-
-                AIが今日の相場を総合判定
-
-              </p>
-
-            </div>
-
-          </div>
-
-
-
-          <div className="grid grid-cols-4 gap-2 mt-4">
-
-            <MiniStat
-
-              label="Sランク"
-
-              value={`${aiSummary.sRank}`}
-
-              color="text-yellow-500"
-
-            />
-
-            <MiniStat
-
-              label="買い候補"
-
-              value={`${aiSummary.buyCandidates}`}
-
-              color="text-green-600"
-
-            />
-
-            <MiniStat
-
-              label="W突破"
-
-              value={`${aiSummary.wBottom}`}
-
-              color="text-blue-600"
-
-            />
-
-            <MiniStat
-
-              label="出来高"
-
-              value={`${aiSummary.volumeHot}`}
-
-              color="text-purple-600"
-
-            />
-
-          </div>
-
-
-
-          {aiSummary.topStock && (
-
-            <div className="mt-3 rounded-2xl bg-white/80 border border-blue-100 p-3">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-xs font-black text-slate-500">
-
-                    本日の注目
-
-                  </p>
-
-                  <p className="text-xl font-black">
-
-                    {aiSummary.topStock.code} {aiSummary.topStock.name}
-
-                  </p>
-
-                  <p className="text-xs font-bold text-slate-500 mt-1">
-
-                    {getPatternText(aiSummary.topStock.patternSignal)} /{" "}
-
-                    {getRankLabel(aiSummary.topStock.score)}
-
-                  </p>
-
-                </div>
-
-
-
-                <div className="text-right">
-
-                  <p className="text-xs font-black text-slate-500">AI</p>
-
-                  <p className="text-4xl font-black text-blue-600">
-
-                    {aiSummary.topStock.score}
-
-                  </p>
-
-                </div>
-
-              </div>
-
-
-
-              <p className="mt-3 text-sm font-bold leading-6">
-
-                {aiSummary.topStock.reason || "AI理由なし"}
-
-              </p>
-
-            </div>
-
-          )}
-
-        </Link>
-
-
-
-        <Link
-
-          href="/today-market"
-
-          className="block rounded-2xl border border-green-300 bg-gradient-to-br from-white to-green-50 px-4 py-3 mb-3 shadow-sm"
-
-        >
-
-          {marketData ? (
-
-            <>
-
-              <div className="flex items-center justify-between">
-
-                <div className="flex items-center gap-3">
-
-                  <div className="text-5xl font-black text-green-600 leading-none">
-
-                    {marketData.grade}
-
-                  </div>
-
-
-
-                  <div>
-
-                    <p className="text-sm font-black text-green-700">
-
-                      🤖 今日の市場
-
-                    </p>
-
-                    <p className="text-xl font-black text-green-700 leading-tight">
-
-                      {marketData.action}
-
-                    </p>
-
-                    <p className="text-xs text-slate-500 font-bold">
-
-                      {marketData.marketCondition} / 激熱{marketData.hotCount}
-
-                      銘柄
-
-                    </p>
-
-                  </div>
-
-                </div>
-
-
-
-                <div className="text-right">
-
-                  <p className="text-[11px] text-slate-400 font-bold">
-
-                    {marketData.updatedAt}
-
-                  </p>
-
-                  <p className="text-xs font-black mt-1">本命</p>
-
-                  <p className="text-2xl font-black">
-
-                    {marketData.topStock.code}
-
-                  </p>
-
-                </div>
-
-              </div>
-
-
-
-              <div className="mt-2 flex justify-between items-center rounded-xl bg-white/80 px-3 py-2 text-xs font-black">
-
-                <span>{marketData.topStock.name}</span>
-
-                <span className="text-green-700">詳細へ ›</span>
-
-              </div>
-
-            </>
-
-          ) : (
-
-            <p className="text-sm font-bold text-slate-500">
-
-              今日の市場を読み込み中...
-
-            </p>
-
-          )}
-
-        </Link>
-
-
-
-        <Link
-          href="/learning"
-          className="block rounded-2xl bg-blue-50 border border-blue-100 px-3 py-3 mb-3 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-black">🧠 AI学習状況</h2>
-            <p className="text-xs text-slate-500 font-bold">詳細へ ›</p>
-          </div>
-
-          <div className="grid grid-cols-4 gap-2">
-            <MiniStat
-              label="累計"
-              value={
-                loadingLearning
-                  ? "--"
-                  : (learningData?.total ?? 0).toLocaleString()
-              }
-              color="text-blue-600"
-            />
-
-            <MiniStat
-              label="WIN"
-              value={
-                loadingLearning
-                  ? "--"
-                  : (learningData?.win ?? 0).toLocaleString()
-              }
-              color="text-green-600"
-            />
-
-            <MiniStat
-              label="LOSE"
-              value={
-                loadingLearning
-                  ? "--"
-                  : (learningData?.lose ?? 0).toLocaleString()
-              }
-              color="text-red-500"
-            />
-
-            <MiniStat
-              label="観察中"
-              value={
-                loadingLearning
-                  ? "--"
-                  : (learningData?.hold ?? 0).toLocaleString()
-              }
-              color="text-orange-500"
-            />
-          </div>
-
-          <div className="mt-2 flex justify-between gap-3 bg-white/80 rounded-xl px-3 py-2 text-xs font-bold">
-            <span>
-              学習日数{" "}
-              <b className="text-blue-600">
-                {loadingLearning ? "--" : `${learningData?.dateCount ?? 0}日`}
-              </b>
-            </span>
-
-            <span>
-              AI勝率{" "}
-              <b className="text-blue-600">
-                {loadingLearning
-                  ? "--"
-                  : `${learningData?.winRate ?? 0}%`}
-              </b>
-            </span>
-          </div>
-
-          <div className="mt-2 flex items-center justify-between rounded-xl bg-white/60 px-3 py-2 text-[11px] font-bold text-slate-500">
-            <span>
-              判定済み{" "}
-              {loadingLearning
-                ? "--"
-                : (
-                    (learningData?.win ?? 0) + (learningData?.lose ?? 0)
-                  ).toLocaleString()}
-              件
-            </span>
-            <span>
-              判定予定{" "}
-              {loadingLearning
-                ? "--"
-                : (learningData?.pending ?? 0).toLocaleString()}
-              件
-            </span>
-          </div>
-        </Link>
-
-
-
-        <section className="space-y-2 mb-3">
-
-          <MenuCard
-
-            href="/today-market"
-
-            icon="📋"
-
-            color="from-purple-500 to-pink-400"
-
-            title="今日の市場"
-
-            desc="相場の流れをAIが総括"
-
+        <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <SummaryCard
+            icon="👑"
+            label="大本命"
+            value={stats.favorite}
+            note="AI 95以上"
           />
-
-
-
-          <MenuCard
-
-            href="/ranking"
-
-            icon="🏆"
-
-            color="from-yellow-400 to-orange-400"
-
-            title="AIランキング"
-
-            desc="AI POWER上位100銘柄を確認"
-
+          <SummaryCard
+            icon="🔥"
+            label="激熱"
+            value={stats.hot}
+            note="AI 85〜94"
           />
-
-
-
-          <MenuCard
-
-            href="/ai-analysis"
-
-            icon="🧠"
-
-            color="from-blue-600 to-indigo-400"
-
-            title="AI分析"
-
-            desc="AIの判断理由を詳しく確認"
-
-          />
-
-
-
-          <MenuCard
-
-            href="/scan-mobile"
-
-            icon="🔍"
-
-            color="from-blue-500 to-cyan-400"
-
-            title="銘柄スキャン"
-
-            desc="1000銘柄を監視し注目銘柄を発見"
-
-          />
-
-
-
-          <MenuCard
-
-            href="/alerts"
-
-            icon="🔔"
-
-            color="from-orange-500 to-yellow-400"
-
-            title="AI通知"
-
-            desc="買い時・利確・損切を通知"
-
-          />
-
-
-
-          <MenuCard
-
-            href="/favorites"
-
-            icon="⭐"
-
-            color="from-yellow-400 to-orange-400"
-
-            title="お気に入り"
-
-            desc="登録銘柄を自動監視"
-
-          />
-
-
-
-          <MenuCard
-
-            href="/learning"
-
+          <SummaryCard
             icon="📈"
-
-            color="from-green-500 to-emerald-400"
-
-            title="AI学習"
-
-            desc="勝率・得意銘柄・成長を確認"
-
+            label="買い候補"
+            value={stats.strong}
+            note="AI 70〜84"
           />
-
-
-
-          <MenuCard
-
-            href="/result-stats"
-
-            icon="📊"
-
-            color="from-slate-400 to-slate-500"
-
-            title="勝率検証"
-
-            desc="AI判断の成績を公開"
-
+          <SummaryCard
+            icon="🧠"
+            label="平均AI"
+            value={stats.average}
+            note="上位100銘柄"
           />
-
         </section>
 
-
-
-        <section className="space-y-3">
-
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-
-            <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100">
-
-              <h2 className="font-black text-base">👑 今日のAI TOP5</h2>
-
-              <Link href="/ranking" className="text-xs text-slate-500 font-bold">
-
-                もっと見る ›
-
-              </Link>
-
+        <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black">銘柄を絞り込む</h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                銘柄名・コード・AI POWER・予算から検索できます。
+              </p>
             </div>
-
-
-
-            {stocks.slice(0, 5).map((stock, index) => (
-
-              <Winner
-
-                key={stock.code}
-
-                rank={`${index + 1}`}
-
-                code={stock.code}
-
-                name={stock.name}
-
-                win={`${stock.score}`}
-
-                gray={index >= 3}
-
-              />
-
-            ))}
-
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 sm:hidden"
+            >
+              {filtersOpen ? "閉じる" : "条件変更"}
+            </button>
           </div>
 
+          <div className="mt-4">
+            <label className="relative block">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                ⌕
+              </span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="銘柄名またはコードで検索"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+              />
+            </label>
+          </div>
+
+          <div
+            className={`${filtersOpen ? "grid" : "hidden"} mt-4 gap-3 sm:grid sm:grid-cols-3`}
+          >
+            <FilterSelect
+              label="AI POWER"
+              value={powerFilter}
+              onChange={(value) => setPowerFilter(value as PowerFilter)}
+              options={POWER_OPTIONS}
+            />
+            <FilterSelect
+              label="予算（100株）"
+              value={budgetFilter}
+              onChange={(value) => setBudgetFilter(value as BudgetFilter)}
+              options={BUDGET_OPTIONS}
+            />
+            <FilterSelect
+              label="並び替え"
+              value={sortKey}
+              onChange={(value) => setSortKey(value as SortKey)}
+              options={SORT_OPTIONS}
+            />
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+            <p className="text-xs font-bold text-slate-500">
+              条件に一致：
+              <span className="ml-1 text-base font-black text-blue-700">
+                {filteredStocks.length}
+              </span>
+              件
+            </p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-black text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
+            >
+              条件をリセット
+            </button>
+          </div>
         </section>
 
+        {loading && <LoadingCards />}
+
+        {!loading && errorText && (
+          <section className="mt-5 rounded-[24px] border border-red-200 bg-white p-6 text-center shadow-sm">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl">
+              !
+            </div>
+            <h2 className="mt-4 text-base font-black text-red-700">
+              データを読み込めませんでした
+            </h2>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {errorText}
+            </p>
+            <button
+              type="button"
+              onClick={() => void fetchStocks(true)}
+              className="mt-5 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+            >
+              もう一度読み込む
+            </button>
+          </section>
+        )}
+
+        {!loading && !errorText && filteredStocks.length === 0 && (
+          <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="text-3xl">🔎</div>
+            <h2 className="mt-3 text-lg font-black">
+              該当する銘柄がありません
+            </h2>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              検索条件を少し広げて、もう一度確認してください。
+            </p>
+          </section>
+        )}
+
+        {!loading && !errorText && filteredStocks.length > 0 && (
+          <>
+            <section className="mt-5 space-y-3 lg:hidden">
+              {filteredStocks.map((stock, index) => (
+                <StockCard key={stock.code} stock={stock} rank={index + 1} />
+              ))}
+            </section>
+
+            <section className="mt-5 hidden overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm lg:block">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <h2 className="text-lg font-black">AI POWERランキング</h2>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  上位銘柄の主要指標を一覧で比較できます。
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px]">
+                  <thead className="bg-slate-50 text-left text-xs font-black text-slate-500">
+                    <tr>
+                      <th className="px-5 py-4">順位</th>
+                      <th className="px-5 py-4">銘柄</th>
+                      <th className="px-5 py-4">AI POWER</th>
+                      <th className="px-5 py-4">株価</th>
+                      <th className="px-5 py-4">前日比</th>
+                      <th className="px-5 py-4">RSI</th>
+                      <th className="px-5 py-4">出来高</th>
+                      <th className="px-5 py-4">必要資金</th>
+                      <th className="px-5 py-4">詳細</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredStocks.map((stock, index) => (
+                      <StockTableRow
+                        key={stock.code}
+                        stock={stock}
+                        rank={index + 1}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
+
+        <aside className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black">🔥 シグナルアラート</h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                AI POWER 95以上の最新候補です。
+              </p>
+            </div>
+            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
+              {alerts.length}件
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {alerts.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">
+                現在、新しい大本命通知はありません。
+              </div>
+            ) : (
+              alerts.map((alert, index) => (
+                <p
+                  key={`${alert}-${index}`}
+                  className="rounded-2xl border border-red-100 bg-red-50/70 px-4 py-3 text-sm font-bold text-red-700"
+                >
+                  {alert}
+                </p>
+              ))
+            )}
+          </div>
+        </aside>
       </div>
 
-
-
-      <BottomNav />
-
+      <BottomNavigation />
     </main>
-
   );
-
 }
 
-
-
-function MiniStat({
-
-  label,
-
-  value,
-
-  color,
-
-}: {
-
-  label: string;
-
-  value: string;
-
-  color: string;
-
-}) {
-
-  return (
-
-    <div className="bg-white rounded-xl py-2 text-center shadow-sm">
-
-      <p className="text-[10px] font-black mb-1">{label}</p>
-
-      <p className={`text-xl font-black leading-none ${color}`}>{value}</p>
-
-    </div>
-
-  );
-
-}
-
-
-
-function MenuCard({
-
-  href,
-
+function SummaryCard({
   icon,
-
-  color,
-
-  title,
-
-  desc,
-
+  label,
+  value,
+  note,
 }: {
-
-  href: string;
-
   icon: string;
-
-  color: string;
-
-  title: string;
-
-  desc: string;
-
+  label: string;
+  value: number;
+  note: string;
 }) {
-
   return (
-
-    <Link
-
-      href={href}
-
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3 min-h-[72px]"
-
-    >
-
-      <div
-
-        className={`w-11 h-11 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-xl shrink-0`}
-
-      >
-
-        {icon}
-
+    <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-lg">
+          {icon}
+        </div>
+        <span className="text-[10px] font-black text-slate-400">LIVE</span>
       </div>
-
-
-
-      <div className="flex-1 min-w-0">
-
-        <h3 className="text-lg font-black leading-tight">{title}</h3>
-
-        <p className="text-xs text-slate-500 font-bold leading-4 mt-1">
-
-          {desc}
-
-        </p>
-
-      </div>
-
-
-
-      <span className="text-2xl text-slate-400">›</span>
-
-    </Link>
-
+      <p className="mt-4 text-xs font-black text-slate-500">{label}</p>
+      <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+        {value.toLocaleString("ja-JP")}
+      </p>
+      <p className="mt-1 text-[11px] font-bold text-slate-400">{note}</p>
+    </div>
   );
-
 }
 
-
-
-function Winner({
-
-  rank,
-
-  code,
-
-  name,
-
-  win,
-
-  gray,
-
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
 }: {
-
-  rank: string;
-
-  code: string;
-
-  name: string;
-
-  win: string;
-
-  gray?: boolean;
-
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
 }) {
-
   return (
-
-    <Link
-
-      href={`/analysis/${code}`}
-
-      className="flex items-center gap-3 px-4 py-3 border-b border-slate-100"
-
-    >
-
-      <span
-
-        className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black ${
-
-          gray ? "bg-slate-300" : "bg-yellow-400"
-
-        }`}
-
-      >
-
-        {rank}
-
+    <label className="block">
+      <span className="mb-2 block text-[11px] font-black text-slate-500">
+        {label}
       </span>
-
-
-
-      <div className="font-black text-sm flex-1">
-
-        {code} {name}
-
-      </div>
-
-
-
-      <div className="text-sm text-blue-600 font-black">AI {win}</div>
-
-    </Link>
-
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
-
 }
 
+function StockCard({ stock, rank }: { stock: Stock; rank: number }) {
+  const signal = getSignal(stock.score);
+  const notification = getNotificationLevel(stock);
+  const styles = getSignalClasses(stock.score);
+  const requiredCapital = stock.price > 0 ? stock.price * 100 : 0;
 
-
-function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
-      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/scan-mobile" icon="🔍" label="検索" active />
-        <Nav href="/today-market" icon="🤖" label="市場" />
-        <Nav href="/ranking" icon="🏆" label="ランキング" />
-        <Nav href="/favorites" icon="⭐" label="お気に入り" />
+    <article
+      className={`rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm ring-4 ${styles.ring}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-slate-100 px-2 text-xs font-black text-slate-600">
+              {rank}
+            </span>
+            <span className="text-xs font-black tracking-wide text-slate-400">
+              {stock.code}
+            </span>
+            <span
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${styles.badge}`}
+            >
+              {getSignalIcon(stock.score)} {signal}
+            </span>
+          </div>
+          <h2 className="mt-3 truncate text-lg font-black text-slate-950">
+            {stock.name}
+          </h2>
+          <p className="mt-1 text-xs font-bold text-slate-400">
+            {notification}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-[76px] w-[76px] shrink-0 flex-col items-center justify-center rounded-[22px] bg-gradient-to-br ${styles.power} text-white shadow-lg`}
+        >
+          <span className="text-[9px] font-black tracking-[0.16em]">
+            AI POWER
+          </span>
+          <strong className="mt-1 text-3xl font-black leading-none">
+            {Math.round(stock.score)}
+          </strong>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Metric label="現在値" value={formatPrice(stock.price)} />
+        <Metric
+          label="前日比"
+          value={formatPercent(stock.changePercent)}
+          valueClass={
+            stock.changePercent >= 0 ? "text-emerald-600" : "text-red-600"
+          }
+        />
+        <Metric label="RSI" value={stock.rsi ? stock.rsi.toFixed(0) : "-"} />
+        <Metric
+          label="出来高"
+          value={stock.volumeRatio ? `${stock.volumeRatio.toFixed(2)}倍` : "-"}
+        />
+      </div>
+
+      <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-bold text-slate-500">
+            100株の必要資金
+          </span>
+          <strong className="text-sm font-black text-slate-900">
+            {requiredCapital > 0 ? formatPrice(requiredCapital) : "-"}
+          </strong>
+        </div>
+      </div>
+
+      {stock.reason && (
+        <p className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
+          {stock.reason}
+        </p>
+      )}
+
+      <Link
+        href={`/analysis/${stock.code}`}
+        className="mt-4 flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
+      >
+        AI分析を見る
+        <span aria-hidden>→</span>
+      </Link>
+    </article>
+  );
+}
+
+function StockTableRow({ stock, rank }: { stock: Stock; rank: number }) {
+  const signal = getSignal(stock.score);
+  const styles = getSignalClasses(stock.score);
+  const requiredCapital = stock.price > 0 ? stock.price * 100 : 0;
+
+  return (
+    <tr className="transition hover:bg-blue-50/40">
+      <td className="px-5 py-4 text-sm font-black text-slate-500">{rank}</td>
+      <td className="px-5 py-4">
+        <div className="font-black text-slate-950">{stock.name}</div>
+        <div className="mt-1 text-xs font-bold text-slate-400">
+          {stock.code}
+        </div>
+      </td>
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-black text-blue-700">
+            {stock.score}
+          </span>
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${styles.badge}`}
+          >
+            {getSignalIcon(stock.score)} {signal}
+          </span>
+        </div>
+      </td>
+      <td className="px-5 py-4 text-sm font-bold">
+        {formatPrice(stock.price)}
+      </td>
+      <td
+        className={`px-5 py-4 text-sm font-black ${stock.changePercent >= 0 ? "text-emerald-600" : "text-red-600"}`}
+      >
+        {formatPercent(stock.changePercent)}
+      </td>
+      <td className="px-5 py-4 text-sm font-bold">
+        {stock.rsi ? stock.rsi.toFixed(0) : "-"}
+      </td>
+      <td className="px-5 py-4 text-sm font-bold">
+        {stock.volumeRatio ? `${stock.volumeRatio.toFixed(2)}倍` : "-"}
+      </td>
+      <td className="px-5 py-4 text-sm font-bold">
+        {requiredCapital > 0 ? formatPrice(requiredCapital) : "-"}
+      </td>
+      <td className="px-5 py-4">
+        <Link
+          href={`/analysis/${stock.code}`}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-100 transition hover:bg-blue-700"
+        >
+          AI分析
+          <span aria-hidden>→</span>
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  valueClass = "text-slate-900",
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
+      <p className="text-[10px] font-black text-slate-400">{label}</p>
+      <p className={`mt-1 text-sm font-black ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function LoadingCards() {
+  return (
+    <section className="mt-5 space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="animate-pulse rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="h-4 w-24 rounded bg-slate-200" />
+              <div className="mt-3 h-6 w-2/3 rounded bg-slate-200" />
+              <div className="mt-2 h-3 w-20 rounded bg-slate-100" />
+            </div>
+            <div className="h-[76px] w-[76px] rounded-[22px] bg-slate-200" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {Array.from({ length: 4 }).map((__, metricIndex) => (
+              <div
+                key={metricIndex}
+                className="h-16 rounded-2xl bg-slate-100"
+              />
+            ))}
+          </div>
+          <div className="mt-4 h-12 rounded-2xl bg-slate-200" />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function BottomNavigation() {
+  const items = [
+    { href: "/", icon: "⌂", label: "Home" },
+    { href: "/scan-mobile", icon: "⌕", label: "Scan", active: true },
+    { href: "/performance", icon: "↗", label: "実績" },
+    { href: "/learning", icon: "◈", label: "学習" },
+    { href: "/mypage", icon: "●", label: "マイページ" },
+  ];
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-5">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-black transition ${
+              item.active
+                ? "bg-blue-50 text-blue-700"
+                : "text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            <span className="text-lg leading-none">{item.icon}</span>
+            <span>{item.label}</span>
+          </Link>
+        ))}
       </div>
     </nav>
   );
 }
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
-    </Link>
-  );
-}
-

@@ -145,6 +145,22 @@ function getPowerBars(power: number) {
   return Array.from({ length: 10 }, (_, index) => index < filled);
 }
 
+function getPowerMessage(power: number) {
+  if (power >= 95) return "AIが強く推奨しています。積極的に監視しましょう。";
+  if (power >= 85) return "買い候補です。押し目を待つ戦略も有効です。";
+  if (power >= 75) return "押し目を待ちながら値動きを確認しましょう。";
+  if (power >= 65) return "方向感を確認してから判断しましょう。";
+  return "現在は慎重に様子を見る局面です。";
+}
+
+function getPowerCardStyle(power: number) {
+  if (power >= 95) return "border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-100";
+  if (power >= 85) return "border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-100";
+  if (power >= 75) return "border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-100";
+  if (power >= 65) return "border-yellow-200 bg-gradient-to-br from-yellow-50 to-orange-50";
+  return "border-red-200 bg-gradient-to-br from-red-50 to-rose-100";
+}
+
 function getRankStyle(rank: number) {
   if (rank === 1) return "bg-yellow-400 text-white shadow-yellow-200";
   if (rank <= 10) return "bg-emerald-500 text-white shadow-emerald-200";
@@ -590,7 +606,18 @@ export default function AnalysisPage() {
               <div className="text-3xl font-black tracking-tight">
                 SIGNAL<span className="text-blue-600">X</span>
               </div>
-              <div className="text-[10px] font-black tracking-[0.22em] text-slate-500">
+
+              <div className="mt-1 inline-flex items-center gap-2 rounded-full
+bg-gradient-to-r from-blue-600 to-cyan-500
+px-5 py-2
+text-white
+shadow-lg shadow-blue-500/20
+border border-blue-300/30">
+                <span className="text-base">🤖</span>
+                <span className="text-[15px] font-extrabold tracking-wide">AI分析</span>
+              </div>
+
+              <div className="mt-1 text-[10px] font-black tracking-[0.22em] text-slate-500">
                 AI ANALYSIS
               </div>
             </div>
@@ -644,58 +671,27 @@ export default function AnalysisPage() {
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-                AI POWER
-              </p>
-              <h2 className="mt-2 text-2xl font-black">AI総合スコア</h2>
+        <section className={`mt-5 rounded-[2rem] border p-5 shadow-sm ${getPowerCardStyle(power)}`}>
+          <div className="text-center">
+            <p className="text-xs font-black tracking-[0.18em] text-blue-600">AI POWER</p>
+            <h2 className="mt-2 text-2xl font-black">AI総合スコア</h2>
+
+            <p className={`mt-5 text-6xl font-black ${getPowerColor(power)}`}>{power}</p>
+
+            <div className={`mx-auto mt-4 inline-flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-black ${getJudgeColor(power)}`}>
+              <span>{judgeIcon}</span>
+              <span>{judge}</span>
             </div>
 
-            <p className={`text-5xl font-black ${getPowerColor(power)}`}>
-              {power}
+            <div className="mt-6 flex justify-center gap-2">
+              {getPowerBars(power).map((filled,index)=>(
+                <span key={index} className={`h-9 w-3 rounded-full ${filled ? getPowerBarColor(power) : "bg-white/60"}`} />
+              ))}
+            </div>
+
+            <p className="mt-6 text-sm font-bold text-slate-700">
+              {getPowerMessage(power)}
             </p>
-          </div>
-
-          <div className="mt-5 flex justify-center gap-1.5">
-            {getPowerBars(power).map((filled, index) => (
-              <span
-                key={index}
-                className={`h-8 w-3 rounded-full ${
-                  filled ? getPowerBarColor(power) : "bg-slate-200"
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-3xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-black text-slate-400">AI順位</p>
-              <div
-                className={`mx-auto mt-3 grid h-20 w-20 place-items-center rounded-full text-2xl font-black shadow-lg ${getRankStyle(
-                  aiRank,
-                )}`}
-              >
-                {getRankLabel(aiRank)}
-              </div>
-              <p className="mt-3 text-xs font-bold text-slate-500">
-                / {totalRank.toLocaleString()}銘柄中
-              </p>
-              <p className="mt-1 text-xs font-black text-yellow-600">
-                上位 {rankPercent}
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-emerald-50 p-4 text-center">
-              <p className="text-xs font-black text-emerald-600">現在判断の信頼度</p>
-              <p className="mt-4 text-5xl font-black text-emerald-600">
-                {aiTrust}%
-              </p>
-              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
-                今日のAI POWER・過去勝率・検証数から算出
-              </p>
-            </div>
           </div>
         </section>
 
@@ -994,20 +990,24 @@ export default function AnalysisPage() {
                   </div>
                   <div>
                     <p className="text-[10px] font-black tracking-[0.2em] text-cyan-300">
-                      REALTIME AI CHART
+                      リアルタイム解析
                     </p>
-                    <h2 className="mt-1 text-2xl font-black leading-tight">
+                    <h2 className="mt-1 text-3xl font-black leading-tight">
                       AIチャート分析
                     </h2>
                   </div>
                 </div>
 
                 <span className="shrink-0 rounded-full border border-violet-300/30 bg-violet-400/20 px-3 py-1 text-[10px] font-black text-violet-100 backdrop-blur">
-                  おすすめ
+                  ⭐ おすすめ
                 </span>
               </div>
 
-              <p className="mt-4 text-sm font-bold leading-6 text-blue-100">
+              <div className="mt-4 inline-flex rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-black text-white">
+✨ SIGNALXおすすめ機能
+</div>
+
+              <p className="mt-3 text-sm font-bold leading-6 text-blue-100">
                 リアルタイムの値動きと、売買判断に必要なラインをチャートで確認できます。
               </p>
 
@@ -1032,9 +1032,9 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-4 text-center text-lg font-black shadow-lg shadow-blue-950/30 transition duration-200 group-hover:brightness-110">
+              <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 px-5 py-5 text-center text-xl font-black shadow-xl shadow-blue-950/40 transition-all duration-300 group-hover:brightness-110 group-hover:scale-[1.02] active:scale-95">
                 <span>チャートを見る</span>
-                <span className="text-2xl leading-none transition-transform duration-200 group-hover:translate-x-1">
+                <span className="text-2xl leading-none transition-transform duration-200 group-hover:translate-x-2">
                   ›
                 </span>
               </div>
@@ -1077,16 +1077,12 @@ export default function AnalysisPage() {
         </section>
 
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
-            <BottomNavItem href="/" icon="🏠" label="Home" />
-            <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" />
-            <BottomNavItem
-              href={`/analysis/${signal.code}`}
-              icon="🤖"
-              label="AI"
-              active
-            />
-            <BottomNavItem href="/learning" icon="🧠" label="Learn" />
+          <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
+            <BottomNavItem href="/dashboard" icon="🏠" label="ホーム" />
+            <BottomNavItem href="/today-market" icon="🤖" label="市場" />
+            <BottomNavItem href="/ranking" icon="🏆" label="ランキング" />
+            <BottomNavItem href="/learning" icon="🧠" label="学習" />
+            <BottomNavItem href="/favorites" icon="⭐" label="お気に入り" />
           </div>
         </nav>
       </div>

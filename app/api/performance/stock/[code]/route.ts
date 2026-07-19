@@ -11,11 +11,11 @@ type RecentPerformanceItem = {
   name: string;
   aiPower: number;
   judge: string;
-  result: "WIN" | "LOSE" | "HOLD";
+  result: "WIN" | "LOSE" | "HOLD" | "PENDING";
   entryPrice: number;
-  exitPrice: number;
-  changePercent: number;
-  profitYen: number;
+  exitPrice: number | null;
+  changePercent: number | null;
+  profitYen: number | null;
   outcomeLabel: string;
 };
 
@@ -31,18 +31,31 @@ function getOutcomeLabel(result: DailyStockResult["result"]) {
   if (result === "WIN") return "+2%以上";
   if (result === "LOSE") return "-2%以下";
   if (result === "HOLD") return "±2%未満";
-  return "未判定";
+  return "判定待ち";
 }
 
 function toPerformanceItem(
-  item: DailyStockResult
-): RecentPerformanceItem | null {
-  if (
+  item: DailyStockResult,
+): RecentPerformanceItem {
+  const isPending =
     item.result === "UNKNOWN" ||
     item.nextPrice === null ||
-    item.changePercent === null
-  ) {
-    return null;
+    item.changePercent === null;
+
+  if (isPending) {
+    return {
+      date: item.date,
+      code: item.code,
+      name: item.name,
+      aiPower: item.score,
+      judge: getJudge(item.score),
+      result: "PENDING",
+      entryPrice: item.price,
+      exitPrice: null,
+      changePercent: null,
+      profitYen: null,
+      outcomeLabel: "判定待ち",
+    };
   }
 
   return {
@@ -62,7 +75,7 @@ function toPerformanceItem(
 
 function calculateStreaks(
   chronologicalItems: RecentPerformanceItem[],
-  newestFirstItems: RecentPerformanceItem[]
+  newestFirstItems: RecentPerformanceItem[],
 ) {
   let currentWinStreak = 0;
   let maxWinStreak = 0;
@@ -123,7 +136,10 @@ function getReliabilityScore({
 
   return Math.max(
     0,
-    Math.min(100, Math.round(winRateScore + sampleScore + profitLossBalance))
+    Math.min(
+      100,
+      Math.round(winRateScore + sampleScore + profitLossBalance),
+    ),
   );
 }
 
@@ -153,7 +169,11 @@ function buildMonthlySummary(
     (item) => getMonthKey(item.date) === monthKey,
   );
 
-  const judged = monthItems.filter(
+  const resolvedItems = monthItems.filter(
+    (item) => item.result !== "PENDING",
+  );
+
+  const judged = resolvedItems.filter(
     (item) => item.result === "WIN" || item.result === "LOSE",
   );
 
@@ -165,7 +185,7 @@ function buildMonthlySummary(
     (item) => item.result === "LOSE",
   ).length;
 
-  const holds = monthItems.filter(
+  const holds = resolvedItems.filter(
     (item) => item.result === "HOLD",
   ).length;
 
@@ -174,19 +194,20 @@ function buildMonthlySummary(
       ? Math.round((wins / judged.length) * 1000) / 10
       : 0;
 
-  const totalProfitYen = monthItems.reduce(
-    (sum, item) => sum + item.profitYen,
+  const totalProfitYen = resolvedItems.reduce(
+    (sum, item) => sum + (item.profitYen ?? 0),
     0,
   );
 
   return {
     month: monthKey,
     label: getMonthLabel(monthKey),
-    total: monthItems.length,
+    total: resolvedItems.length,
     judgedTotal: judged.length,
     wins,
     losses,
     holds,
+    pending: monthItems.length - resolvedItems.length,
     winRate,
     totalProfitYen,
   };
@@ -194,7 +215,7 @@ function buildMonthlySummary(
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: { params: Promise<{ code: string }> },
 ) {
   try {
     const { code } = await params;
@@ -204,14 +225,12 @@ export async function GET(
     const stockResults = allResults
       .filter((item) => item.code === code)
       .map(toPerformanceItem)
-      .filter((item): item is RecentPerformanceItem => item !== null)
       .sort(
         (a, b) =>
-          new Date(b.date).getTime() - new Date(a.date).getTime()
+          new Date(b.date).getTime() - new Date(a.date).getTime(),
       );
 
     const latestStock = allResults.find((item) => item.code === code);
-
     const recent3Days = stockResults.slice(0, 3);
 
     const now = new Date();
@@ -224,20 +243,28 @@ export async function GET(
       return itemDate >= thirtyDaysAgo && itemDate <= now;
     });
 
-    const judged30Days = last30Days.filter(
-      (item) => item.result === "WIN" || item.result === "LOSE"
+    const resolved30Days = last30Days.filter(
+      (item) => item.result !== "PENDING",
+    );
+
+    const pending30Days = last30Days.filter(
+      (item) => item.result === "PENDING",
+    );
+
+    const judged30Days = resolved30Days.filter(
+      (item) => item.result === "WIN" || item.result === "LOSE",
     );
 
     const wins = judged30Days.filter(
-      (item) => item.result === "WIN"
+      (item) => item.result === "WIN",
     );
 
     const losses = judged30Days.filter(
-      (item) => item.result === "LOSE"
+      (item) => item.result === "LOSE",
     );
 
-    const holds = last30Days.filter(
-      (item) => item.result === "HOLD"
+    const holds = resolved30Days.filter(
+      (item) => item.result === "HOLD",
     );
 
     const winRate =
@@ -245,17 +272,20 @@ export async function GET(
         ? Math.round((wins.length / judged30Days.length) * 1000) / 10
         : 0;
 
-    const totalProfitYen = last30Days.reduce(
-      (sum, item) => sum + item.profitYen,
-      0
+    const totalProfitYen = resolved30Days.reduce(
+      (sum, item) => sum + (item.profitYen ?? 0),
+      0,
     );
 
     const averageProfitRate =
       wins.length > 0
         ? Math.round(
-            (wins.reduce((sum, item) => sum + item.changePercent, 0) /
+            (wins.reduce(
+              (sum, item) => sum + (item.changePercent ?? 0),
+              0,
+            ) /
               wins.length) *
-              100
+              100,
           ) / 100
         : 0;
 
@@ -264,21 +294,26 @@ export async function GET(
         ? Math.round(
             Math.abs(
               losses.reduce(
-                (sum, item) => sum + item.changePercent,
-                0
-              ) / losses.length
-            ) * 100
+                (sum, item) => sum + (item.changePercent ?? 0),
+                0,
+              ) / losses.length,
+            ) * 100,
           ) / 100
         : 0;
 
-    const chronological30Days = [...last30Days].sort(
+    const newestResolved30Days = [...resolved30Days].sort(
       (a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
+        new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
+    const chronological30Days = [...resolved30Days].sort(
+      (a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
     const streaks = calculateStreaks(
       chronological30Days,
-      last30Days
+      newestResolved30Days,
     );
 
     const reliabilityScore = getReliabilityScore({
@@ -295,7 +330,11 @@ export async function GET(
     );
 
     const monthlyTrend = Array.from({ length: 3 }, (_, index) => {
-      const target = new Date(now.getFullYear(), now.getMonth() - (2 - index), 1);
+      const target = new Date(
+        now.getFullYear(),
+        now.getMonth() - (2 - index),
+        1,
+      );
       const monthKey = `${target.getFullYear()}-${String(
         target.getMonth() + 1,
       ).padStart(2, "0")}`;
@@ -311,7 +350,9 @@ export async function GET(
       },
       recent3Days,
       summary30Days: {
-        total: last30Days.length,
+        total: resolved30Days.length,
+        allTotal: last30Days.length,
+        pending: pending30Days.length,
         judgedTotal: judged30Days.length,
         wins: wins.length,
         losses: losses.length,
@@ -327,7 +368,7 @@ export async function GET(
         score: reliabilityScore,
         rank: getReliabilityRank(
           reliabilityScore,
-          judged30Days.length
+          judged30Days.length,
         ),
         currentWinStreak: streaks.currentWinStreak,
         maxWinStreak: streaks.maxWinStreak,
@@ -347,7 +388,7 @@ export async function GET(
         error: "performance api failed",
         message: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
