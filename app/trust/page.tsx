@@ -13,6 +13,15 @@ type EvolutionSummary = {
   changedCount?: number;
   cronStatus?: string;
   createdAt?: string;
+  updatedAt?: string;
+};
+
+type EvolutionSummaryResponse = {
+  success?: boolean;
+  checkedAt?: string;
+  dataUpdatedAt?: string | null;
+  latest?: EvolutionSummary | null;
+  history?: EvolutionSummary[];
 };
 
 type TrustData = {
@@ -128,15 +137,16 @@ export default function TrustPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`Evolution summary request failed: ${response.status}`);
+          throw new Error(
+            `Evolution summary request failed: ${response.status}`,
+          );
         }
 
-        const evolutionJson = await response.json();
+        const evolutionJson =
+          (await response.json()) as EvolutionSummaryResponse;
 
         const latest: EvolutionSummary | null =
-          evolutionJson?.latest ??
-          evolutionJson?.history?.[0] ??
-          null;
+          evolutionJson?.latest ?? evolutionJson?.history?.[0] ?? null;
 
         if (!active) return;
 
@@ -167,7 +177,11 @@ export default function TrustPage() {
               ? latest.changedCount
               : null,
           cronStatus: latest?.cronStatus || "UNKNOWN",
-          updatedAt: latest?.createdAt ?? null,
+          updatedAt:
+            evolutionJson.dataUpdatedAt ??
+            latest?.updatedAt ??
+            latest?.createdAt ??
+            null,
         });
       } catch (error) {
         console.error("trust center fetch error:", error);
@@ -185,7 +199,7 @@ export default function TrustPage() {
 
   const message = useMemo(
     () => statusMessage(data.qualityScore),
-    [data.qualityScore]
+    [data.qualityScore],
   );
 
   const qualityBar =
@@ -265,9 +279,7 @@ export default function TrustPage() {
                 <p className="text-xs font-black tracking-[0.18em] text-blue-600">
                   CURRENT AI QUALITY
                 </p>
-                <h2 className="mt-2 text-2xl font-black">
-                  現在のAI品質
-                </h2>
+                <h2 className="mt-2 text-2xl font-black">現在のAI品質</h2>
               </div>
 
               <span className="rounded-full bg-green-50 px-3 py-2 text-xs font-black text-green-700">
@@ -318,8 +330,8 @@ export default function TrustPage() {
                 {loading
                   ? "READING"
                   : data.cronStatus === "SUCCESS"
-                  ? "正常動作中"
-                  : data.cronStatus}
+                    ? "正常動作中"
+                    : data.cronStatus}
               </span>
             </div>
 
@@ -334,9 +346,7 @@ export default function TrustPage() {
               </div>
 
               <div className="rounded-[22px] bg-white/10 p-4">
-                <p className="text-xs font-black text-slate-400">
-                  予測的中率
-                </p>
+                <p className="text-xs font-black text-slate-400">予測的中率</p>
                 <p className="mt-2 text-2xl font-black text-cyan-300">
                   {data.overallWinRate === null
                     ? "確認中"
@@ -420,9 +430,7 @@ export default function TrustPage() {
               <p className="text-xs font-black tracking-[0.18em] text-blue-600">
                 QUALITY AUDIT
               </p>
-              <h2 className="mt-2 text-2xl font-black">
-                8段階の品質確認
-              </h2>
+              <h2 className="mt-2 text-2xl font-black">8段階の品質確認</h2>
             </div>
             <span className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
               ADMIN QA
@@ -458,8 +466,8 @@ export default function TrustPage() {
             AIは利益を保証するものではありません
           </h2>
           <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
-            SIGNALXは投資判断を補助する情報ツールです。
-            AI POWER、勝率、利確・損切ラインは将来の結果を保証するものではありません。
+            SIGNALXは投資判断を補助する情報ツールです。 AI
+            POWER、勝率、利確・損切ラインは将来の結果を保証するものではありません。
             最終的な売買判断は、株価、必要資金、ご自身のリスク許容度を確認したうえで行ってください。
           </p>
         </section>
