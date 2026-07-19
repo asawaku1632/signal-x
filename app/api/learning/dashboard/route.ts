@@ -100,17 +100,18 @@ export async function GET() {
         WHERE code IS NOT NULL
         GROUP BY code
       `),
-      pool.query(`
-        SELECT
-          TO_CHAR(created_at::date, 'YYYY-MM-DD') AS date,
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
-          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
-          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
-        FROM daily_stock_results
-        GROUP BY created_at::date
-        ORDER BY created_at::date ASC
-      `),
+    pool.query(`
+  SELECT
+    date,
+    COUNT(*)::int AS total,
+    COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+    COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+    COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
+  FROM daily_stock_results
+  WHERE date IS NOT NULL
+  GROUP BY date
+  ORDER BY date ASC
+`),
     ]);
 
     const summary = summaryResult.rows[0] ?? {};

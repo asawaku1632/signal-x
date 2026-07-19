@@ -1120,7 +1120,7 @@ function BottomNav() {
 
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
 
-        <Nav href="/" icon="🏠" label="ホーム" active />
+      <Nav href="/dashboard" icon="🏠" label="ホーム" active />
 
         <Nav href="/ranking" icon="🏆" label="ランキング" />
 

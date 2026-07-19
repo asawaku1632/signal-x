@@ -246,7 +246,7 @@ function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-        <Nav href="/" icon="🏠" label="ホーム" />
+        <Nav href="/dashboard" icon="🏠" label="ホーム" active />
         <Nav href="/scan-mobile" icon="🔍" label="スキャン" />
         <Nav href="/alerts" icon="🔔" label="通知" />
         <Nav href="/favorites" icon="⭐" label="お気に入り" active />

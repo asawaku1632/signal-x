@@ -619,7 +619,7 @@ function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-md grid-cols-5 py-2">
-        <Nav href="/" icon="🏠" label="ホーム" />
+        <Nav href="/dashboard" icon="🏠" label="ホーム" active />
         <Nav href="/today-market" icon="🤖" label="市場" />
         <Nav href="/ranking" icon="🏆" label="ランキング" active />
         <Nav href="/alerts" icon="🔔" label="通知" />
