@@ -64,11 +64,14 @@ function toPerformanceItem(
     name: item.name,
     aiPower: item.score,
     judge: getJudge(item.score),
-    result: item.result,
+    result: item.result === "UNKNOWN" ? "PENDING" : item.result,
     entryPrice: item.price,
     exitPrice: item.nextPrice,
     changePercent: item.changePercent,
-    profitYen: Math.round((item.nextPrice - item.price) * 100),
+    profitYen:
+  item.nextPrice === null
+    ? null
+    : Math.round((item.nextPrice - item.price) * 100),
     outcomeLabel: getOutcomeLabel(item.result),
   };
 }
