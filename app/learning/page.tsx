@@ -311,10 +311,11 @@ function Nav({
   return (
     <Link
       href={href}
-      className={	ext-center text-xs font-bold }
+      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
     >
       <div className="text-2xl">{icon}</div>
       {label}
     </Link>
   );
 }
+
