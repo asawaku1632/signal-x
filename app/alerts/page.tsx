@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -530,13 +530,13 @@ function FilterButton({
 
 function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" active />
+        <Nav href="/dashboard" icon="🏠" label="ホーム" />
+        <Nav href="/scan-mobile" icon="🔍" label="検索" />
         <Nav href="/today-market" icon="🤖" label="市場" />
+        <Nav href="/ranking" icon="🏆" label="ランキング" />
         <Nav href="/favorites" icon="⭐" label="お気に入り" />
-        <Nav href="/alerts" icon="🔔" label="通知" active />
-        <Nav href="/learning" icon="🧠" label="学習" />
       </div>
     </nav>
   );
@@ -556,9 +556,7 @@ function Nav({
   return (
     <Link
       href={href}
-      className={`text-center text-xs font-bold ${
-        active ? "text-yellow-500" : "text-slate-500"
-      }`}
+      className={	ext-center text-xs font-bold }
     >
       <div className="text-2xl">{icon}</div>
       {label}
