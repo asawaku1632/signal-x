@@ -1,193 +1,191 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-
-type ApiStock = {
-  code?: string | number;
-  name?: string;
-  price?: number;
-  currentPrice?: number;
-  score?: number;
-  aiPower?: number;
-  changePercent?: number;
-  rsi?: number;
-  volumeRatio?: number;
-  reason?: string;
-  patternSignal?: string;
-  signal?: string;
-  notificationLevel?: string;
-  takeProfit?: number;
-  stopLoss?: number;
-};
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
 
 type Stock = {
   code: string;
   name: string;
+  score: number;
   price: number;
   changePercent: number;
   rsi: number;
   volumeRatio: number;
-  score: number;
   reason: string;
-  patternSignal: string;
-  notificationLevel: string;
   takeProfit?: number;
   stopLoss?: number;
+  trend?: string;
+  patternSignal?: string;
+  patternScore?: number;
 };
 
-type ScanResponse = {
-  success?: boolean;
-  totalStockList?: number;
-  scannedCount?: number;
-  stocks?: ApiStock[];
-};
+type SignalFilter = "hot" | "strong" | "all";
+type BudgetFilter = 10000 | 100000 | 300000 | 500000 | 1000000 | "all";
+type SortMode = "score" | "change" | "down" | "cheap" | "expensive" | "money";
 
-type PowerFilter = "all" | "95" | "85" | "70";
-type BudgetFilter = "all" | "100000" | "300000" | "500000" | "1000000";
-type SortKey = "score" | "change" | "price-low" | "volume";
-
-const REFRESH_MS = 60_000;
-const FETCH_TIMEOUT_MS = 30_000;
-
-const POWER_OPTIONS: Array<{ value: PowerFilter; label: string }> = [
-  { value: "all", label: "すべて" },
-  { value: "95", label: "大本命" },
-  { value: "85", label: "激熱以上" },
-  { value: "70", label: "買い候補以上" },
+const budgetOptions: { label: string; value: BudgetFilter }[] = [
+  { label: "1万", value: 10000 },
+  { label: "10万", value: 100000 },
+  { label: "30万", value: 300000 },
+  { label: "50万", value: 500000 },
+  { label: "100万", value: 1000000 },
+  { label: "制限なし", value: "all" },
 ];
 
-const BUDGET_OPTIONS: Array<{ value: BudgetFilter; label: string }> = [
-  { value: "all", label: "予算指定なし" },
-  { value: "100000", label: "10万円以内" },
-  { value: "300000", label: "30万円以内" },
-  { value: "500000", label: "50万円以内" },
-  { value: "1000000", label: "100万円以内" },
+const HOT_TOP_LIMIT = 30;
+const STRONG_TOP_LIMIT = 100;
+const SCAN_API_URL = "/api/scan?limit=100&top=100";
+const REFRESH_INTERVAL_MS = 60_000;
+
+const sortOptions: { label: string; value: SortMode }[] = [
+  { label: "🔥 AI POWER順", value: "score" },
+  { label: "📈 上昇率順", value: "change" },
+  { label: "📉 下落率順", value: "down" },
+  { label: "🏦 必要資金順", value: "money" },
+  { label: "💴 株価安い順", value: "cheap" },
+  { label: "💰 株価高い順", value: "expensive" },
 ];
 
-const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
-  { value: "score", label: "AI POWER順" },
-  { value: "change", label: "上昇率順" },
-  { value: "price-low", label: "必要資金が安い順" },
-  { value: "volume", label: "出来高倍率順" },
-];
-
-function normalizeStocks(input: ApiStock[]): Stock[] {
-  return input.map((stock) => ({
-    code: String(stock.code ?? ""),
-    name: String(stock.name ?? "名称不明"),
-    price: Number(stock.price ?? stock.currentPrice ?? 0),
-    changePercent: Number(stock.changePercent ?? 0),
-    rsi: Number(stock.rsi ?? 0),
-    volumeRatio: Number(stock.volumeRatio ?? 0),
-    score: Number(stock.score ?? stock.aiPower ?? 0),
-    reason: String(stock.reason ?? ""),
-    patternSignal: String(stock.patternSignal ?? "NONE"),
-    notificationLevel: String(stock.notificationLevel ?? ""),
-    takeProfit:
-      typeof stock.takeProfit === "number" ? stock.takeProfit : undefined,
-    stopLoss: typeof stock.stopLoss === "number" ? stock.stopLoss : undefined,
-  }));
+function yen(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  return `${Math.round(value).toLocaleString()}円`;
 }
 
-function getSignal(score: number) {
-  if (score >= 95) return "大本命";
-  if (score >= 85) return "激熱";
-  if (score >= 70) return "買い候補";
-  if (score >= 50) return "静観";
-  return "見送り";
+function budgetLabel(value: BudgetFilter) {
+  if (value === "all") return "制限なし";
+  return `${Math.round(value / 10000)}万円以内`;
 }
 
-function getSignalIcon(score: number) {
-  if (score >= 95) return "👑";
-  if (score >= 85) return "🔥";
-  if (score >= 70) return "📈";
-  if (score >= 50) return "👀";
-  return "⏸️";
+function judgeLabel(score: number) {
+  if (score >= 95) return "👑 Sランク";
+  if (score >= 85) return "🔥 激熱";
+  if (score >= 70) return "🟢 強い";
+  if (score >= 50) return "🟡 静観";
+  return "🔴 見送り";
 }
 
-function getNotificationLevel(stock: Stock) {
-  if (stock.notificationLevel) return stock.notificationLevel;
-  if (stock.score >= 95) return "今すぐ確認";
-  if (stock.score >= 85) return "激熱候補";
-  if (stock.score >= 70) return "買い候補";
-  return "監視";
+function judgeColor(score: number) {
+  if (score >= 95) return "text-yellow-500";
+  if (score >= 85) return "text-red-500";
+  if (score >= 70) return "text-emerald-600";
+  if (score >= 50) return "text-yellow-600";
+  return "text-slate-500";
 }
 
-function getSignalClasses(score: number) {
-  if (score >= 95) {
-    return {
-      badge: "border-amber-200 bg-amber-50 text-amber-700",
-      power: "from-amber-400 to-orange-500",
-      ring: "ring-amber-100",
-    };
+function judgeBg(score: number) {
+  if (score >= 95) return "bg-yellow-50 border-yellow-200";
+  if (score >= 85) return "bg-red-50 border-red-200";
+  if (score >= 70) return "bg-emerald-50 border-emerald-200";
+  if (score >= 50) return "bg-yellow-50 border-yellow-200";
+  return "bg-slate-50 border-slate-200";
+}
+
+function getPatternText(pattern?: string) {
+  if (pattern === "W_BOTTOM_BREAK") return "Wボトム突破";
+  if (pattern === "W_BOTTOM") return "Wボトム候補";
+  return "通常";
+}
+
+function getMarketJudge(hot: number, strong: number) {
+  if (hot >= 80) return "🔥 超強気";
+  if (hot >= 30) return "🟢 強気";
+  if (hot >= 10) return "🟡 やや強気";
+  if (strong >= 30) return "⚪ 厳選";
+  return "🔵 静観";
+}
+
+function getMarketComment(hot: number, strong: number) {
+  if (hot >= 80) {
+    return "市場全体が非常に強い状態です。Sランク銘柄を積極的に狙える一日です。";
   }
-  if (score >= 85) {
-    return {
-      badge: "border-rose-200 bg-rose-50 text-rose-700",
-      power: "from-rose-500 to-red-600",
-      ring: "ring-rose-100",
-    };
+
+  if (hot >= 30) {
+    return "今日は攻められる相場です。Sランク・Aランクを中心に監視しましょう。";
   }
-  if (score >= 70) {
-    return {
-      badge: "border-blue-200 bg-blue-50 text-blue-700",
-      power: "from-blue-500 to-indigo-600",
-      ring: "ring-blue-100",
-    };
+
+  if (hot >= 10) {
+    return "強い銘柄はありますが、飛び乗りは避けて条件を確認してから入りましょう。";
   }
-  return {
-    badge: "border-slate-200 bg-slate-50 text-slate-600",
-    power: "from-slate-500 to-slate-700",
-    ring: "ring-slate-100",
-  };
+
+  if (strong >= 30) {
+    return "本命候補はあります。焦らず条件の整った銘柄だけを選びたい相場です。";
+  }
+
+  return "今日は無理に売買せず、様子見を優先したい相場です。";
 }
 
-function formatPrice(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return "-";
-  return `${Math.round(value).toLocaleString("ja-JP")}円`;
+function getAiAdvice(score: number) {
+  if (score >= 95) return "最優先で監視したい大本命候補です。";
+  if (score >= 85) return "勢いが強い銘柄です。条件確認後に注目です。";
+  if (score >= 70) return "本命候補です。押し目や出来高を確認しましょう。";
+  if (score >= 50) return "今は静観寄り。無理に入らず確認優先です。";
+  return "今日は見送り候補です。";
 }
 
-function formatPercent(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+export default function ScanMobilePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f7f9fc] p-5 text-slate-900">
+          <div className="mx-auto max-w-md rounded-[2rem] bg-white p-6 text-center shadow-sm">
+            <p className="text-2xl font-black">読み込み中...</p>
+            <p className="mt-2 text-sm font-bold text-slate-500">
+              SIGNALXのAIスキャンを準備しています。
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <ScanMobileContent />
+    </Suspense>
+  );
 }
+function ScanMobileContent() {
+  const searchParams = useSearchParams();
 
-function formatUpdatedAt(value: Date | null) {
-  if (!value) return "未取得";
-  return value.toLocaleTimeString("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export default function ScanPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [totalStocks, setTotalStocks] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorText, setErrorText] = useState("");
-  const [totalStockList, setTotalStockList] = useState(0);
-  const [scannedCount, setScannedCount] = useState(0);
-  const [alerts, setAlerts] = useState<string[]>([]);
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [query, setQuery] = useState("");
-  const [powerFilter, setPowerFilter] = useState<PowerFilter>("all");
-  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("score");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
 
-  const fetchStocks = useCallback(async (manual = false) => {
+  const initialBudget = Number(searchParams.get("budget")) || 100000;
+
+  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(
+    initialBudget as BudgetFilter,
+  );
+
+  const [sortMode, setSortMode] = useState<SortMode>("score");
+
+  const rankingRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const scrollToRanking = () => {
+    rankingRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const fetchStocks = useCallback(async (showLoading = false) => {
+    abortControllerRef.current?.abort();
+
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(
-      () => controller.abort(),
-      FETCH_TIMEOUT_MS,
-    );
+    abortControllerRef.current = controller;
+
+    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
 
     try {
-      if (manual) setRefreshing(true);
-      setErrorText("");
+      if (showLoading) setLoading(true);
 
-      const res = await fetch("/api/scan?limit=100&top=100", {
+      const res = await fetch(SCAN_API_URL, {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -196,656 +194,796 @@ export default function ScanPage() {
         throw new Error(`scan api error: ${res.status}`);
       }
 
-      const data: ScanResponse | ApiStock[] = await res.json();
-      const rawStocks = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.stocks)
-          ? data.stocks
+      const json = await res.json();
+
+      const list: Stock[] = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.stocks)
+          ? json.stocks
           : [];
-      const normalized = normalizeStocks(rawStocks);
 
-      setStocks(normalized);
-      setUpdatedAt(new Date());
-
-      if (!Array.isArray(data)) {
-        setTotalStockList(Number(data.totalStockList ?? normalized.length));
-        setScannedCount(Number(data.scannedCount ?? normalized.length));
-      } else {
-        setTotalStockList(normalized.length);
-        setScannedCount(normalized.length);
-      }
-
-      const now = new Date().toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const newAlerts = normalized
-        .filter((stock) => stock.score >= 95)
-        .slice(0, 5)
-        .map((stock) => `${now} ${stock.code} ${stock.name} AI ${stock.score}`);
-
-      if (newAlerts.length > 0) {
-        setAlerts((prev) =>
-          Array.from(new Set([...newAlerts, ...prev])).slice(0, 10),
-        );
-      }
+      // APIが返した順位を正として、そのままHomeと同じランキング順で表示する。
+      setStocks(list);
+      setTotalStocks(
+        Number(json?.totalStockList ?? json?.total ?? list.length),
+      );
     } catch (error) {
-      const message =
-        error instanceof Error && error.name === "AbortError"
-          ? "スキャンAPIがタイムアウトしました。少し待って再読み込みしてください。"
-          : "スキャンデータを取得できませんでした。";
+      if (error instanceof DOMException && error.name === "AbortError") return;
 
-      console.error("scan fetch error:", error);
-      setErrorText(message);
+      console.error("scan-mobile fetch error:", error);
     } finally {
       window.clearTimeout(timeoutId);
-      setLoading(false);
-      setRefreshing(false);
+
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setLoading(false);
+      }
     }
   }, []);
 
+  async function addFavorite(code: string, name: string) {
+    try {
+      await fetch("/api/favorites", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          name,
+        }),
+      });
+
+      alert(`${name} をお気に入り登録しました⭐`);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
-    void fetchStocks();
-    const intervalId = window.setInterval(() => {
-      void fetchStocks();
-    }, REFRESH_MS);
-    return () => window.clearInterval(intervalId);
+    void fetchStocks(true);
+
+    const timer = window.setInterval(() => {
+      // バックグラウンド中は通信を止め、画面復帰後に最新化する。
+      if (document.visibilityState === "visible") {
+        void fetchStocks(false);
+      }
+    }, REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchStocks(false);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      abortControllerRef.current?.abort();
+    };
   }, [fetchStocks]);
 
-  const stats = useMemo(() => {
-    const favorite = stocks.filter((stock) => stock.score >= 95).length;
-    const hot = stocks.filter(
-      (stock) => stock.score >= 85 && stock.score < 95,
-    ).length;
-    const strong = stocks.filter(
-      (stock) => stock.score >= 70 && stock.score < 85,
-    ).length;
-    const average =
-      stocks.length > 0
-        ? Math.round(
-            stocks.reduce((sum, stock) => sum + stock.score, 0) / stocks.length,
-          )
-        : 0;
+  // /api/scan の返却順を共通ランキング順として利用する。
+  // クライアント側で再ソートしないため、Homeとの順位ズレと余計な計算を防ぐ。
+  const rankedStocks = stocks;
 
-    return { favorite, hot, strong, average };
-  }, [stocks]);
+  const hotSignals = useMemo(
+    () => rankedStocks.slice(0, HOT_TOP_LIMIT),
+    [rankedStocks],
+  );
+
+  const strongSignals = useMemo(
+    () => rankedStocks.slice(0, STRONG_TOP_LIMIT),
+    [rankedStocks],
+  );
+
+  const hotSignalCodes = useMemo(
+    () => new Set(hotSignals.map((stock) => stock.code)),
+    [hotSignals],
+  );
+
+  const strongSignalCodes = useMemo(
+    () => new Set(strongSignals.map((stock) => stock.code)),
+    [strongSignals],
+  );
+
+  const rawHotCount = useMemo(
+    () => stocks.filter((stock) => stock.score >= 95).length,
+    [stocks],
+  );
+
+  const rawStrongCount = useMemo(
+    () => stocks.filter((stock) => stock.score >= 85).length,
+    [stocks],
+  );
 
   const filteredStocks = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const minimumScore = powerFilter === "all" ? 0 : Number(powerFilter);
-    const budget = budgetFilter === "all" ? Infinity : Number(budgetFilter);
+    const result = rankedStocks.filter((stock) => {
+      const requiredMoney = stock.price * 100;
 
-    return stocks
-      .filter((stock) => {
-        const matchesQuery =
-          !normalizedQuery ||
-          stock.code.toLowerCase().includes(normalizedQuery) ||
-          stock.name.toLowerCase().includes(normalizedQuery);
-        const matchesPower = stock.score >= minimumScore;
-        const requiredCapital = stock.price > 0 ? stock.price * 100 : Infinity;
-        const matchesBudget = requiredCapital <= budget;
-        return matchesQuery && matchesPower && matchesBudget;
-      })
-      .sort((a, b) => {
-        if (sortKey === "change") return b.changePercent - a.changePercent;
-        if (sortKey === "price-low") return a.price - b.price;
-        if (sortKey === "volume") return b.volumeRatio - a.volumeRatio;
-        return b.score - a.score;
-      });
-  }, [budgetFilter, powerFilter, query, sortKey, stocks]);
+      const signalOk =
+        signalFilter === "hot"
+          ? hotSignalCodes.has(stock.code)
+          : signalFilter === "strong"
+            ? strongSignalCodes.has(stock.code)
+            : true;
 
-  const clearFilters = () => {
-    setQuery("");
-    setPowerFilter("all");
-    setBudgetFilter("all");
-    setSortKey("score");
-  };
+      const budgetOk =
+        budgetFilter === "all" ? true : requiredMoney <= budgetFilter;
+
+      return signalOk && budgetOk;
+    });
+
+    // AI POWER順はAPIの共通ランキング順をそのまま使う。
+
+    if (sortMode === "change") {
+      result.sort((a, b) => b.changePercent - a.changePercent);
+    }
+
+    if (sortMode === "down") {
+      result.sort((a, b) => a.changePercent - b.changePercent);
+    }
+
+    if (sortMode === "cheap") {
+      result.sort((a, b) => a.price - b.price);
+    }
+
+    if (sortMode === "expensive") {
+      result.sort((a, b) => b.price - a.price);
+    }
+
+    if (sortMode === "money") {
+      result.sort((a, b) => a.price * 100 - b.price * 100);
+    }
+
+    return result;
+  }, [
+    rankedStocks,
+    signalFilter,
+    budgetFilter,
+    sortMode,
+    hotSignalCodes,
+    strongSignalCodes,
+  ]);
+
+  const bestSignal = filteredStocks[0];
+
+  const hotTop3 = useMemo(() => hotSignals.slice(0, 3), [hotSignals]);
+
+  const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
+  const marketComment =
+    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP30から確認しましょう。";
+
+  const winRate = bestSignal
+    ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
+    : 0;
+
+  const takeProfit = bestSignal
+    ? (bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03))
+    : 0;
+
+  const stopLoss = bestSignal
+    ? (bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98))
+    : 0;
+
+  const expectedProfit = bestSignal ? (takeProfit - bestSignal.price) * 100 : 0;
+
+  const riskRewardRatio = bestSignal
+    ? Number(
+        (
+          (takeProfit - bestSignal.price) /
+          Math.max(bestSignal.price - stopLoss, 1)
+        ).toFixed(1),
+      )
+    : 0;
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] pb-28 text-slate-900">
-      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
-        <header className="overflow-hidden rounded-[28px] border border-white bg-gradient-to-br from-[#071a3d] via-[#0b2b62] to-[#1265d8] px-5 py-6 text-white shadow-[0_20px_55px_rgba(15,42,92,0.24)] sm:px-7 sm:py-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <Link
-                href="/dashboard"
-                className="mb-4 inline-flex items-center gap-2 text-xs font-extrabold text-blue-100 transition hover:text-white"
-              >
-                <span aria-hidden>←</span>
-                Dashboard
-              </Link>
-              <p className="text-xs font-black tracking-[0.2em] text-blue-200">
-                SIGNALX AI SCAN
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-                全銘柄スキャン
-              </h1>
-              <p className="mt-3 max-w-xl text-sm font-medium leading-6 text-blue-100">
-                AIが日本株を監視し、今チェックしたい銘柄を優先順に表示します。
-              </p>
-            </div>
+    <main className="min-h-screen bg-[#f7f9fc] pb-28 text-slate-900">
+      <div className="mx-auto max-w-md px-4 pt-5">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-white/70 bg-[#f7f9fc]/85 px-4 pb-3 pt-3 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-200">
+                X
+              </div>
+
+              <div>
+                <h1 className="text-3xl font-black tracking-tight">
+                  SIGNAL<span className="text-blue-600">X</span>
+                </h1>
+                <p className="text-[10px] font-black tracking-[0.22em] text-slate-500">
+                  AI STOCK SCAN
+                </p>
+              </div>
+            </Link>
 
             <button
-              type="button"
               onClick={() => void fetchStocks(true)}
-              disabled={refreshing}
-              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-3 text-xs font-black backdrop-blur transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60 sm:px-4"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xl shadow-sm transition active:scale-95"
+              aria-label="再読み込み"
             >
-              <span className={refreshing ? "animate-spin" : ""}>↻</span>
-              <span className="hidden sm:inline">
-                {refreshing ? "更新中" : "再読み込み"}
-              </span>
+              🔄
             </button>
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2 text-[11px] font-bold text-blue-100">
-            <span className="rounded-full bg-white/10 px-3 py-2">
-              監視 {totalStockList.toLocaleString()}銘柄
-            </span>
-            <span className="rounded-full bg-white/10 px-3 py-2">
-              取得済み {scannedCount.toLocaleString()}銘柄
-            </span>
-            <span className="rounded-full bg-white/10 px-3 py-2">
-              最終更新 {formatUpdatedAt(updatedAt)}
-            </span>
           </div>
         </header>
-
-        <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryCard
-            icon="👑"
-            label="大本命"
-            value={stats.favorite}
-            note="AI 95以上"
-          />
-          <SummaryCard
-            icon="🔥"
-            label="激熱"
-            value={stats.hot}
-            note="AI 85〜94"
-          />
-          <SummaryCard
-            icon="📈"
-            label="買い候補"
-            value={stats.strong}
-            note="AI 70〜84"
-          />
-          <SummaryCard
-            icon="🧠"
-            label="平均AI"
-            value={stats.average}
-            note="上位100銘柄"
-          />
-        </section>
-
-        <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-black">銘柄を絞り込む</h2>
-              <p className="mt-1 text-xs font-medium text-slate-500">
-                銘柄名・コード・AI POWER・予算から検索できます。
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((prev) => !prev)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 sm:hidden"
-            >
-              {filtersOpen ? "閉じる" : "条件変更"}
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <label className="relative block">
-              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                ⌕
-              </span>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="銘柄名またはコードで検索"
-                className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-              />
-            </label>
-          </div>
-
-          <div
-            className={`${filtersOpen ? "grid" : "hidden"} mt-4 gap-3 sm:grid sm:grid-cols-3`}
-          >
-            <FilterSelect
-              label="AI POWER"
-              value={powerFilter}
-              onChange={(value) => setPowerFilter(value as PowerFilter)}
-              options={POWER_OPTIONS}
-            />
-            <FilterSelect
-              label="予算（100株）"
-              value={budgetFilter}
-              onChange={(value) => setBudgetFilter(value as BudgetFilter)}
-              options={BUDGET_OPTIONS}
-            />
-            <FilterSelect
-              label="並び替え"
-              value={sortKey}
-              onChange={(value) => setSortKey(value as SortKey)}
-              options={SORT_OPTIONS}
-            />
-          </div>
-
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-            <p className="text-xs font-bold text-slate-500">
-              条件に一致：
-              <span className="ml-1 text-base font-black text-blue-700">
-                {filteredStocks.length}
-              </span>
-              件
-            </p>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-xs font-black text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
-            >
-              条件をリセット
-            </button>
-          </div>
-        </section>
-
-        {loading && <LoadingCards />}
-
-        {!loading && errorText && (
-          <section className="mt-5 rounded-[24px] border border-red-200 bg-white p-6 text-center shadow-sm">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl">
-              !
-            </div>
-            <h2 className="mt-4 text-base font-black text-red-700">
-              データを読み込めませんでした
-            </h2>
-            <p className="mt-2 text-sm font-medium text-slate-500">
-              {errorText}
-            </p>
-            <button
-              type="button"
-              onClick={() => void fetchStocks(true)}
-              className="mt-5 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
-            >
-              もう一度読み込む
-            </button>
-          </section>
-        )}
-
-        {!loading && !errorText && filteredStocks.length === 0 && (
-          <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="text-3xl">🔎</div>
-            <h2 className="mt-3 text-lg font-black">
-              該当する銘柄がありません
-            </h2>
-            <p className="mt-2 text-sm font-medium text-slate-500">
-              検索条件を少し広げて、もう一度確認してください。
-            </p>
-          </section>
-        )}
-
-        {!loading && !errorText && filteredStocks.length > 0 && (
-          <>
-            <section className="mt-5 space-y-3 lg:hidden">
-              {filteredStocks.map((stock, index) => (
-                <StockCard key={stock.code} stock={stock} rank={index + 1} />
-              ))}
-            </section>
-
-            <section className="mt-5 hidden overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm lg:block">
-              <div className="border-b border-slate-100 px-6 py-5">
-                <h2 className="text-lg font-black">AI POWERランキング</h2>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  上位銘柄の主要指標を一覧で比較できます。
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px]">
-                  <thead className="bg-slate-50 text-left text-xs font-black text-slate-500">
-                    <tr>
-                      <th className="px-5 py-4">順位</th>
-                      <th className="px-5 py-4">銘柄</th>
-                      <th className="px-5 py-4">AI POWER</th>
-                      <th className="px-5 py-4">株価</th>
-                      <th className="px-5 py-4">前日比</th>
-                      <th className="px-5 py-4">RSI</th>
-                      <th className="px-5 py-4">出来高</th>
-                      <th className="px-5 py-4">必要資金</th>
-                      <th className="px-5 py-4">詳細</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredStocks.map((stock, index) => (
-                      <StockTableRow
-                        key={stock.code}
-                        stock={stock}
-                        rank={index + 1}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </>
-        )}
-
-        <aside className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-black">🔥 シグナルアラート</h2>
-              <p className="mt-1 text-xs font-medium text-slate-500">
-                AI POWER 95以上の最新候補です。
-              </p>
-            </div>
-            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
-              {alerts.length}件
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {alerts.length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">
-                現在、新しい大本命通知はありません。
-              </div>
-            ) : (
-              alerts.map((alert, index) => (
-                <p
-                  key={`${alert}-${index}`}
-                  className="rounded-2xl border border-red-100 bg-red-50/70 px-4 py-3 text-sm font-bold text-red-700"
-                >
-                  {alert}
-                </p>
-              ))
-            )}
-          </div>
-        </aside>
-      </div>
-
-      <BottomNavigation />
-    </main>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  note,
-}: {
-  icon: string;
-  label: string;
-  value: number;
-  note: string;
-}) {
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-lg">
-          {icon}
-        </div>
-        <span className="text-[10px] font-black text-slate-400">LIVE</span>
-      </div>
-      <p className="mt-4 text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
-        {value.toLocaleString("ja-JP")}
-      </p>
-      <p className="mt-1 text-[11px] font-bold text-slate-400">{note}</p>
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[11px] font-black text-slate-500">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function StockCard({ stock, rank }: { stock: Stock; rank: number }) {
-  const signal = getSignal(stock.score);
-  const notification = getNotificationLevel(stock);
-  const styles = getSignalClasses(stock.score);
-  const requiredCapital = stock.price > 0 ? stock.price * 100 : 0;
-
-  return (
-    <article
-      className={`rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm ring-4 ${styles.ring}`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-slate-100 px-2 text-xs font-black text-slate-600">
-              {rank}
-            </span>
-            <span className="text-xs font-black tracking-wide text-slate-400">
-              {stock.code}
-            </span>
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${styles.badge}`}
-            >
-              {getSignalIcon(stock.score)} {signal}
-            </span>
-          </div>
-          <h2 className="mt-3 truncate text-lg font-black text-slate-950">
-            {stock.name}
-          </h2>
-          <p className="mt-1 text-xs font-bold text-slate-400">
-            {notification}
-          </p>
-        </div>
-
-        <div
-          className={`flex h-[76px] w-[76px] shrink-0 flex-col items-center justify-center rounded-[22px] bg-gradient-to-br ${styles.power} text-white shadow-lg`}
-        >
-          <span className="text-[9px] font-black tracking-[0.16em]">
-            AI POWER
-          </span>
-          <strong className="mt-1 text-3xl font-black leading-none">
-            {Math.round(stock.score)}
-          </strong>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <Metric label="現在値" value={formatPrice(stock.price)} />
-        <Metric
-          label="前日比"
-          value={formatPercent(stock.changePercent)}
-          valueClass={
-            stock.changePercent >= 0 ? "text-emerald-600" : "text-red-600"
-          }
-        />
-        <Metric label="RSI" value={stock.rsi ? stock.rsi.toFixed(0) : "-"} />
-        <Metric
-          label="出来高"
-          value={stock.volumeRatio ? `${stock.volumeRatio.toFixed(2)}倍` : "-"}
-        />
-      </div>
-
-      <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-bold text-slate-500">
-            100株の必要資金
-          </span>
-          <strong className="text-sm font-black text-slate-900">
-            {requiredCapital > 0 ? formatPrice(requiredCapital) : "-"}
-          </strong>
-        </div>
-      </div>
-
-      {stock.reason && (
-        <p className="mt-3 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
-          {stock.reason}
-        </p>
-      )}
-
-      <Link
-        href={`/analysis/${stock.code}`}
-        className="mt-4 flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
-      >
-        AI分析を見る
-        <span aria-hidden>→</span>
-      </Link>
-    </article>
-  );
-}
-
-function StockTableRow({ stock, rank }: { stock: Stock; rank: number }) {
-  const signal = getSignal(stock.score);
-  const styles = getSignalClasses(stock.score);
-  const requiredCapital = stock.price > 0 ? stock.price * 100 : 0;
-
-  return (
-    <tr className="transition hover:bg-blue-50/40">
-      <td className="px-5 py-4 text-sm font-black text-slate-500">{rank}</td>
-      <td className="px-5 py-4">
-        <div className="font-black text-slate-950">{stock.name}</div>
-        <div className="mt-1 text-xs font-bold text-slate-400">
-          {stock.code}
-        </div>
-      </td>
-      <td className="px-5 py-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-black text-blue-700">
-            {stock.score}
-          </span>
-          <span
-            className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${styles.badge}`}
-          >
-            {getSignalIcon(stock.score)} {signal}
-          </span>
-        </div>
-      </td>
-      <td className="px-5 py-4 text-sm font-bold">
-        {formatPrice(stock.price)}
-      </td>
-      <td
-        className={`px-5 py-4 text-sm font-black ${stock.changePercent >= 0 ? "text-emerald-600" : "text-red-600"}`}
-      >
-        {formatPercent(stock.changePercent)}
-      </td>
-      <td className="px-5 py-4 text-sm font-bold">
-        {stock.rsi ? stock.rsi.toFixed(0) : "-"}
-      </td>
-      <td className="px-5 py-4 text-sm font-bold">
-        {stock.volumeRatio ? `${stock.volumeRatio.toFixed(2)}倍` : "-"}
-      </td>
-      <td className="px-5 py-4 text-sm font-bold">
-        {requiredCapital > 0 ? formatPrice(requiredCapital) : "-"}
-      </td>
-      <td className="px-5 py-4">
-        <Link
-          href={`/analysis/${stock.code}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-100 transition hover:bg-blue-700"
-        >
-          AI分析
-          <span aria-hidden>→</span>
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  valueClass = "text-slate-900",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
-      <p className="text-[10px] font-black text-slate-400">{label}</p>
-      <p className={`mt-1 text-sm font-black ${valueClass}`}>{value}</p>
-    </div>
-  );
-}
-
-function LoadingCards() {
-  return (
-    <section className="mt-5 space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div
-          key={index}
-          className="animate-pulse rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
-        >
+        {/* HERO SUMMARY */}
+        <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-2xl shadow-blue-200">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="h-4 w-24 rounded bg-slate-200" />
-              <div className="mt-3 h-6 w-2/3 rounded bg-slate-200" />
-              <div className="mt-2 h-3 w-20 rounded bg-slate-100" />
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-200">
+                LIVE SCAN
+              </p>
+
+              <h2 className="mt-3 text-4xl font-black leading-tight">
+                AIが今、
+                <br />
+                強い銘柄を抽出中
+              </h2>
+
+              <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
+                監視対象の日本株を自動スキャン。 迷ったらAI POWER上位から確認。
+              </p>
             </div>
-            <div className="h-[76px] w-[76px] rounded-[22px] bg-slate-200" />
+
+            <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
+              <p className="text-xs font-black text-blue-100">更新</p>
+              <p className="mt-1 text-2xl font-black">60秒</p>
+            </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {Array.from({ length: 4 }).map((__, metricIndex) => (
-              <div
-                key={metricIndex}
-                className="h-16 rounded-2xl bg-slate-100"
+
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <GlassMini label="監視" value={totalStocks.toLocaleString()} />
+            <GlassMini label="取得" value={stocks.length.toLocaleString()} />
+            <GlassMini label="今日の激熱" value={`TOP${HOT_TOP_LIMIT}`} />
+          </div>
+        </section>
+
+        {/* CURRENT BUDGET */}
+        {budgetFilter !== "all" && (
+          <section className="mt-5 rounded-[2rem] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-5 shadow-sm">
+            <p className="text-xs font-black tracking-wider text-emerald-700">
+              💴 現在の予算
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black text-emerald-700">
+              {budgetLabel(budgetFilter)}
+            </h2>
+
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+              この予算で100株購入できる銘柄だけを表示しています。
+            </p>
+          </section>
+        )}
+
+        {/* MARKET JUDGE */}
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                MARKET JUDGE
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black">AI判定 {marketJudge}</h2>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
+              <p className="text-xs font-black text-slate-400">本命候補</p>
+              <p className="mt-1 text-2xl font-black text-blue-600">
+                TOP{STRONG_TOP_LIMIT}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
+            {marketComment}
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setSignalFilter("hot");
+                setTimeout(scrollToRanking, 100);
+              }}
+              className={`rounded-3xl border p-4 text-left transition active:scale-95 ${
+                signalFilter === "hot"
+                  ? "border-red-300 bg-red-50"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <p className="text-xs font-black text-red-400">今日の激熱</p>
+              <p className="mt-1 text-4xl font-black text-red-500">
+                TOP{HOT_TOP_LIMIT}
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                AIおすすめ順
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                setSignalFilter("strong");
+                setTimeout(scrollToRanking, 100);
+              }}
+              className={`rounded-3xl border p-4 text-left transition active:scale-95 ${
+                signalFilter === "strong"
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <p className="text-xs font-black text-blue-500">本命候補</p>
+              <p className="mt-1 text-4xl font-black text-blue-600">
+                TOP{STRONG_TOP_LIMIT}
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                AIおすすめ順
+              </p>
+            </button>
+          </div>
+        </section>
+        {/* FILTERS */}
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                FILTER
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">予算フィルター</h2>
+            </div>
+
+            <p className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+              {budgetLabel(budgetFilter)}
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {budgetOptions.map((item) => (
+              <ChipButton
+                key={item.label}
+                active={budgetFilter === item.value}
+                label={item.label}
+                onClick={() => {
+                  setBudgetFilter(item.value);
+                  setTimeout(scrollToRanking, 100);
+                }}
               />
             ))}
           </div>
-          <div className="mt-4 h-12 rounded-2xl bg-slate-200" />
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div>
+            <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+              SORT
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black">並び替え</h2>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {sortOptions.map((item) => (
+              <ChipButton
+                key={item.value}
+                active={sortMode === item.value}
+                label={item.label}
+                onClick={() => setSortMode(item.value)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* BEST SIGNAL */}
+        {bestSignal && (
+          <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-950 p-5 text-white shadow-2xl shadow-blue-200">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black tracking-[0.18em] text-blue-100">
+                  BEST SIGNAL
+                </p>
+
+                <p className="mt-3 text-sm font-black text-blue-100">
+                  👑 本日の大本命
+                </p>
+
+                <h2 className="mt-2 text-5xl font-black">{bestSignal.code}</h2>
+
+                <p className="mt-1 text-2xl font-black">{bestSignal.name}</p>
+              </div>
+
+              <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
+                <p className="text-xs font-black text-blue-100">AI POWER</p>
+                <p className="mt-1 text-5xl font-black">{bestSignal.score}</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
+              {bestSignal.reason || "AI理由なし"}
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <GlassMini label="AI勝率" value={`${winRate}%`} />
+              <GlassMini label="RR比" value={`${riskRewardRatio}`} />
+              <GlassMini label="期待利益" value={`+${yen(expectedProfit)}`} />
+              <GlassMini label="必要資金" value={yen(bestSignal.price * 100)} />
+              <GlassMini label="利確" value={yen(takeProfit)} />
+              <GlassMini label="損切" value={yen(stopLoss)} />
+            </div>
+
+            <Link
+              href={`/analysis/${bestSignal.code}`}
+              className="mt-5 block rounded-3xl bg-white py-4 text-center text-sm font-black text-blue-700 shadow-lg transition active:scale-95"
+            >
+              個別AI解析を見る
+            </Link>
+          </section>
+        )}
+        {/* RANKING */}
+        <section
+          ref={rankingRef}
+          className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm"
+        >
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                RANKING
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">条件一致ランキング</h2>
+
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                上位10銘柄を表示
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-blue-50 px-4 py-3 text-center">
+              <p className="text-xs font-black text-blue-500">HIT</p>
+              <p className="text-3xl font-black text-blue-600">
+                {filteredStocks.length}
+              </p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center">
+              <p className="text-2xl font-black">読み込み中...</p>
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                AIが監視対象銘柄をスキャンしています。
+              </p>
+            </div>
+          ) : filteredStocks.length === 0 ? (
+            <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center">
+              <p className="text-3xl font-black">今日は休もう</p>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-500">
+                条件に合うシグナルはありません。
+                予算や条件を変更して確認してください。
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {filteredStocks.slice(0, 10).map((stock, index) => (
+                <StockRankingCard
+                  key={`${stock.code}-${index}`}
+                  stock={stock}
+                  index={index}
+                  onFavorite={() => addFavorite(stock.code, stock.name)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* HOT TOP3 */}
+        {hotTop3.length > 0 && (
+          <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-black tracking-[0.18em] text-red-500">
+                  HOT SIGNAL
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black">
+                  🔥 今日のTOP30 上位3銘柄
+                </h2>
+              </div>
+
+              <p className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-600">
+                AIおすすめ順
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {hotTop3.map((stock, index) => (
+                <Link
+                  key={stock.code}
+                  href={`/analysis/${stock.code}`}
+                  className="block rounded-3xl border border-red-100 bg-red-50/60 p-4 transition active:scale-[0.99]"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-red-500">
+                        {index + 1}位
+                      </p>
+
+                      <p className="mt-1 text-2xl font-black">{stock.code}</p>
+
+                      <p className="text-lg font-black text-slate-700">
+                        {stock.name}
+                      </p>
+
+                      <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-slate-500">
+                        {stock.reason || "AI理由なし"}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-black text-slate-400">
+                        AI POWER
+                      </p>
+                      <p className="text-4xl font-black text-red-500">
+                        {stock.score}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+        {/* SCAN STATUS */}
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+                SCAN STATUS
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">🔍 監視スキャン</h2>
+            </div>
+
+            <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+              AUTO
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-3xl bg-slate-50 p-5">
+              <p className="text-xs font-black text-slate-400">監視対象銘柄</p>
+
+              <p className="mt-2 text-4xl font-black">
+                {totalStocks.toLocaleString()}
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-blue-50 p-5">
+              <p className="text-xs font-black text-blue-500">取得済み</p>
+
+              <p className="mt-2 text-4xl font-black text-blue-600">
+                {stocks.length.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
+            <p className="text-sm font-black text-blue-700">
+              60秒ごとに自動更新 / AI POWER V20で解析
+            </p>
+          </div>
+        </section>
+
+        {/* USAGE GUIDE */}
+        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+            HOW TO USE
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black">迷ったらこの順番</h2>
+
+          <div className="mt-4 space-y-3">
+            <GuideStep
+              step="1"
+              title="予算を選ぶ"
+              text="まずは自分が使える金額を選びます。100株で買える銘柄だけに絞れます。"
+            />
+
+            <GuideStep
+              step="2"
+              title="AI POWER順で見る"
+              text="基本はAI POWERが高い順。強い銘柄から順番に確認します。"
+            />
+
+            <GuideStep
+              step="3"
+              title="個別AI解析へ進む"
+              text="気になる銘柄をタップして、利確・損切・AI理由を確認します。"
+            />
+          </div>
+        </section>
+
+        {/* BOTTOM NAV */}
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+            <BottomNavItem href="/" icon="🏠" label="Home" />
+            <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" active />
+            <BottomNavItem href="/learning" icon="🧠" label="AI" />
+            <BottomNavItem href="/admin/verification" icon="✅" label="QA" />
+          </div>
+        </nav>
+      </div>
+    </main>
+  );
+}
+function StockRankingCard({
+  stock,
+  index,
+  onFavorite,
+}: {
+  stock: Stock;
+  index: number;
+  onFavorite: () => void;
+}) {
+  return (
+    <Link
+      href={`/analysis/${stock.code}`}
+      className={`block rounded-[2rem] border p-5 transition active:scale-[0.99] ${judgeBg(
+        stock.score,
+      )}`}
+    >
+      <div className="flex justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black shadow-sm">
+              #{index + 1}
+            </span>
+
+            <span className={`text-xs font-black ${judgeColor(stock.score)}`}>
+              {judgeLabel(stock.score)}
+            </span>
+          </div>
+
+          <h3 className="mt-3 text-3xl font-black">{stock.code}</h3>
+
+          <p className="text-lg font-black text-slate-700">{stock.name}</p>
+
+          <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
+            {getAiAdvice(stock.score)}
+          </p>
+
+          <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-500">
+            {stock.reason || "AI理由なし"}
+          </p>
+
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onFavorite();
+            }}
+            className="mt-4 rounded-2xl bg-yellow-300 px-4 py-2 text-xs font-black text-black transition active:scale-95"
+          >
+            ⭐ お気に入り
+          </button>
         </div>
-      ))}
-    </section>
+
+        <div className="text-right">
+          <p className="text-xs font-black text-slate-400">AI POWER</p>
+
+          <p className={`text-5xl font-black ${judgeColor(stock.score)}`}>
+            {stock.score}
+          </p>
+
+          <div className="mt-4 space-y-2 rounded-2xl bg-white/70 p-3 text-xs font-bold shadow-sm">
+            <p>株価 {yen(stock.price)}</p>
+            <p>100株 {yen(stock.price * 100)}</p>
+
+            <p>
+              変化率{" "}
+              <span
+                className={
+                  stock.changePercent >= 0 ? "text-red-500" : "text-emerald-600"
+                }
+              >
+                {stock.changePercent >= 0 ? "+" : ""}
+                {stock.changePercent}%
+              </span>
+            </p>
+
+            <p>RSI {stock.rsi}</p>
+
+            <p>{getPatternText(stock.patternSignal)}</p>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }
 
-function BottomNavigation() {
-  const items = [
-    { href: "/", icon: "⌂", label: "Home" },
-    { href: "/scan-mobile", icon: "⌕", label: "Scan", active: true },
-    { href: "/performance", icon: "↗", label: "実績" },
-    { href: "/learning", icon: "◈", label: "学習" },
-    { href: "/mypage", icon: "●", label: "マイページ" },
-  ];
-
+function GlassMini({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5">
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-black transition ${
-              item.active
-                ? "bg-blue-50 text-blue-700"
-                : "text-slate-400 hover:text-slate-700"
-            }`}
-          >
-            <span className="text-lg leading-none">{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
+    <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
+      <p className="text-xs font-black text-blue-100">{label}</p>
+
+      <p className="mt-1 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+function ChipButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-2xl border px-3 py-3 text-sm font-black transition active:scale-95 ${
+        active
+          ? "border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-100"
+          : "border-slate-200 bg-slate-50 text-slate-700"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GuideStep({
+  step,
+  title,
+  text,
+}: {
+  step: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="flex gap-3 rounded-3xl bg-slate-50 p-4">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-blue-600 text-sm font-black text-white">
+        {step}
       </div>
-    </nav>
+
+      <div>
+        <h3 className="text-base font-black">{title}</h3>
+
+        <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BottomNavItem({
+  href,
+  icon,
+  label,
+  active = false,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-2xl px-3 py-2 text-center text-xs font-black transition ${
+        active
+          ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
+          : "text-slate-500"
+      }`}
+    >
+      <div className="text-lg">{icon}</div>
+      <div className="mt-1">{label}</div>
+    </Link>
   );
 }

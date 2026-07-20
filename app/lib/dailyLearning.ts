@@ -51,45 +51,67 @@ export async function saveDailyStocks(
     price?: number;
   }[]
 ) {
-  let added = 0;
-  let skipped = 0;
-
-  for (const stock of stocks) {
-    const score = stock.score ?? stock.aiPower ?? 0;
+  const validStocks = stocks.filter((stock) => {
     const price = stock.price ?? 0;
 
-    if (!stock.code || !stock.name || price <= 0) {
-      skipped += 1;
-      continue;
-    }
+    return Boolean(stock.code && stock.name && price > 0);
+  });
 
+  const invalidCount = stocks.length - validStocks.length;
+
+  if (validStocks.length === 0) {
+    const totalResult = await pool.query(`
+      SELECT COUNT(*)::int AS total
+      FROM daily_stock_results
+    `);
+
+    return {
+      added: 0,
+      skipped: stocks.length,
+      total: totalResult.rows[0]?.total ?? 0,
+    };
+  }
+
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+
+  validStocks.forEach((stock, index) => {
+    const base = index * 6;
+    const score = stock.score ?? stock.aiPower ?? 0;
+    const price = stock.price ?? 0;
     const id = `${date}-${stock.code}`;
 
-    const result = await pool.query(
-      `
-      INSERT INTO daily_stock_results (
-        id,
-        date,
-        code,
-        name,
-        score,
-        price,
-        result,
-        created_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, 'UNKNOWN', NOW())
-      ON CONFLICT (id) DO NOTHING
-      RETURNING id
-      `,
-      [id, date, stock.code, stock.name, score, price]
-    );
+    values.push(id, date, stock.code, stock.name, score, price);
 
-    if (result.rowCount && result.rowCount > 0) {
-      added += 1;
-    } else {
-      skipped += 1;
-    }
-  }
+    placeholders.push(
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${
+        base + 5
+      }, $${base + 6}, 'UNKNOWN', NOW())`
+    );
+  });
+
+  const insertResult = await pool.query(
+    `
+    INSERT INTO daily_stock_results (
+      id,
+      date,
+      code,
+      name,
+      score,
+      price,
+      result,
+      created_at
+    )
+    VALUES ${placeholders.join(",")}
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id
+    `,
+    values
+  );
+
+  const added = insertResult.rowCount ?? 0;
+  const conflictSkipped = validStocks.length - added;
+  const skipped = invalidCount + conflictSkipped;
 
   const totalResult = await pool.query(`
     SELECT COUNT(*)::int AS total
