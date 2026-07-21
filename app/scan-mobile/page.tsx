@@ -152,10 +152,9 @@ function ScanMobileContent() {
   const initialBudget: BudgetFilter =
     budgetParam === "all"
       ? "all"
-      : (Number(budgetParam) || 100000) as BudgetFilter;
+      : ((Number(budgetParam) || 100000) as BudgetFilter);
 
-  const [budgetFilter, setBudgetFilter] =
-    useState<BudgetFilter>(initialBudget);
+  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(initialBudget);
 
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
@@ -194,8 +193,8 @@ function ScanMobileContent() {
       const list: Stock[] = Array.isArray(json)
         ? json
         : Array.isArray(json?.stocks)
-        ? json.stocks
-        : [];
+          ? json.stocks
+          : [];
 
       if (list.length === 0) {
         throw new Error("scan api returned empty stocks");
@@ -262,37 +261,37 @@ function ScanMobileContent() {
 
         return a.code.localeCompare(b.code, "ja", { numeric: true });
       }),
-    [stocks]
+    [stocks],
   );
 
   const hotSignals = useMemo(
     () => rankedStocks.slice(0, HOT_TOP_LIMIT),
-    [rankedStocks]
+    [rankedStocks],
   );
 
   const strongSignals = useMemo(
     () => rankedStocks.slice(0, STRONG_TOP_LIMIT),
-    [rankedStocks]
+    [rankedStocks],
   );
 
   const hotSignalCodes = useMemo(
     () => new Set(hotSignals.map((stock) => stock.code)),
-    [hotSignals]
+    [hotSignals],
   );
 
   const strongSignalCodes = useMemo(
     () => new Set(strongSignals.map((stock) => stock.code)),
-    [strongSignals]
+    [strongSignals],
   );
 
   const rawHotCount = useMemo(
     () => stocks.filter((stock) => stock.score >= 95).length,
-    [stocks]
+    [stocks],
   );
 
   const rawStrongCount = useMemo(
     () => stocks.filter((stock) => stock.score >= 85).length,
-    [stocks]
+    [stocks],
   );
 
   const filteredStocks = useMemo(() => {
@@ -303,8 +302,8 @@ function ScanMobileContent() {
         signalFilter === "hot"
           ? hotSignalCodes.has(stock.code)
           : signalFilter === "strong"
-          ? strongSignalCodes.has(stock.code)
-          : true;
+            ? strongSignalCodes.has(stock.code)
+            : true;
 
       const budgetOk =
         budgetFilter === "all" ? true : requiredMoney <= budgetFilter;
@@ -359,11 +358,11 @@ function ScanMobileContent() {
     : 0;
 
   const takeProfit = bestSignal
-    ? bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03)
+    ? (bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03))
     : 0;
 
   const stopLoss = bestSignal
-    ? bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98)
+    ? (bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98))
     : 0;
 
   const expectedProfit = bestSignal ? (takeProfit - bestSignal.price) * 100 : 0;
@@ -373,7 +372,7 @@ function ScanMobileContent() {
         (
           (takeProfit - bestSignal.price) /
           Math.max(bestSignal.price - stopLoss, 1)
-        ).toFixed(1)
+        ).toFixed(1),
       )
     : 0;
 
@@ -406,7 +405,7 @@ function ScanMobileContent() {
             </button>
           </div>
         </header>
-                {/* COMPACT LIVE SCAN */}
+        {/* COMPACT LIVE SCAN */}
         <section className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-blue-700 px-4 py-3 text-white shadow-lg shadow-blue-100">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -431,67 +430,47 @@ function ScanMobileContent() {
           </div>
         </section>
 
-        {/* CURRENT BUDGET */}
-        {budgetFilter !== "all" && (
-          <section className="mt-5 rounded-[2rem] border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-5 shadow-sm">
-            <p className="text-xs font-black tracking-wider text-emerald-700">
-              💴 現在の予算
-            </p>
-
-            <h2 className="mt-2 text-3xl font-black text-emerald-700">
-              {budgetLabel(budgetFilter)}
-            </h2>
-
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-              この予算で100株購入できる銘柄だけを表示しています。
-            </p>
-          </section>
-        )}
-
-        {/* MARKET JUDGE */}
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
+        {/* MARKET JUDGE - COMPACT */}
+        <section className="mt-4 rounded-3xl border border-white bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black tracking-[0.18em] text-blue-600">
                 MARKET JUDGE
               </p>
-
-              <h2 className="mt-2 text-3xl font-black">
-                AI判定 {marketJudge}
-              </h2>
+              <h2 className="mt-1 text-xl font-black">AI判定 {marketJudge}</h2>
+              <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">
+                {marketComment}
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
-              <p className="text-xs font-black text-slate-400">本命候補</p>
-              <p className="mt-1 text-2xl font-black text-blue-600">
+            <div className="shrink-0 rounded-2xl bg-blue-50 px-3 py-2 text-center">
+              <p className="text-[10px] font-black text-slate-400">本命候補</p>
+              <p className="text-lg font-black text-blue-600">
                 TOP{STRONG_TOP_LIMIT}
               </p>
             </div>
           </div>
 
-          <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
-            {marketComment}
-          </p>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               onClick={() => {
                 setSignalFilter("hot");
                 setTimeout(scrollToRanking, 100);
               }}
-              className={`rounded-3xl border p-4 text-left transition active:scale-95 ${
+              className={`rounded-2xl border px-3 py-2.5 text-left transition active:scale-95 ${
                 signalFilter === "hot"
                   ? "border-red-300 bg-red-50"
                   : "border-slate-200 bg-slate-50"
               }`}
             >
-              <p className="text-xs font-black text-red-400">今日の激熱</p>
-              <p className="mt-1 text-4xl font-black text-red-500">
-                TOP{HOT_TOP_LIMIT}
-              </p>
-              <p className="mt-1 text-xs font-bold text-slate-500">
-                AIおすすめ順
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-black text-red-500">
+                  今日の激熱
+                </p>
+                <p className="text-lg font-black text-red-500">
+                  TOP{HOT_TOP_LIMIT}
+                </p>
+              </div>
             </button>
 
             <button
@@ -499,23 +478,42 @@ function ScanMobileContent() {
                 setSignalFilter("strong");
                 setTimeout(scrollToRanking, 100);
               }}
-              className={`rounded-3xl border p-4 text-left transition active:scale-95 ${
+              className={`rounded-2xl border px-3 py-2.5 text-left transition active:scale-95 ${
                 signalFilter === "strong"
                   ? "border-blue-300 bg-blue-50"
                   : "border-slate-200 bg-slate-50"
               }`}
             >
-              <p className="text-xs font-black text-blue-500">本命候補</p>
-              <p className="mt-1 text-4xl font-black text-blue-600">
-                TOP{STRONG_TOP_LIMIT}
-              </p>
-              <p className="mt-1 text-xs font-bold text-slate-500">
-                AIおすすめ順
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-black text-blue-500">本命候補</p>
+                <p className="text-lg font-black text-blue-600">
+                  TOP{STRONG_TOP_LIMIT}
+                </p>
+              </div>
             </button>
           </div>
         </section>
-                {/* FILTERS */}
+
+        {/* CURRENT BUDGET */}
+        {budgetFilter !== "all" && (
+          <section className="mt-4 rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black tracking-wider text-emerald-700">
+                  💴 現在の予算
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-emerald-700">
+                  {budgetLabel(budgetFilter)}
+                </h2>
+              </div>
+              <p className="max-w-[150px] text-right text-[10px] font-bold leading-4 text-slate-600">
+                100株購入できる銘柄だけを表示
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* FILTERS */}
         <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -523,9 +521,7 @@ function ScanMobileContent() {
                 FILTER
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">
-                予算フィルター
-              </h2>
+              <h2 className="mt-2 text-2xl font-black">予算フィルター</h2>
             </div>
 
             <p className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
@@ -554,9 +550,7 @@ function ScanMobileContent() {
               SORT
             </p>
 
-            <h2 className="mt-2 text-2xl font-black">
-              並び替え
-            </h2>
+            <h2 className="mt-2 text-2xl font-black">並び替え</h2>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -573,41 +567,33 @@ function ScanMobileContent() {
 
         {/* BEST SIGNAL */}
         {bestSignal && (
-          <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-950 p-5 text-white shadow-2xl shadow-blue-200">
+          <section className="mt-5 overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-950 p-4 text-white shadow-xl shadow-blue-200">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black tracking-[0.18em] text-blue-100">
                   BEST SIGNAL
                 </p>
 
-                <p className="mt-3 text-sm font-black text-blue-100">
+                <p className="mt-2 text-xs font-black text-blue-100">
                   👑 本日の大本命
                 </p>
 
-                <h2 className="mt-2 text-5xl font-black">
-                  {bestSignal.code}
-                </h2>
+                <h2 className="mt-1 text-4xl font-black">{bestSignal.code}</h2>
 
-                <p className="mt-1 text-2xl font-black">
-                  {bestSignal.name}
-                </p>
+                <p className="mt-1 text-xl font-black">{bestSignal.name}</p>
               </div>
 
-              <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
-                <p className="text-xs font-black text-blue-100">
-                  AI POWER
-                </p>
-                <p className="mt-1 text-5xl font-black">
-                  {bestSignal.score}
-                </p>
+              <div className="rounded-2xl bg-white/10 px-3 py-2 text-center backdrop-blur">
+                <p className="text-xs font-black text-blue-100">AI POWER</p>
+                <p className="mt-1 text-4xl font-black">{bestSignal.score}</p>
               </div>
             </div>
 
-            <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
+            <p className="mt-3 line-clamp-2 text-xs font-bold leading-5 text-blue-100">
               {bestSignal.reason || "AI理由なし"}
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-3 gap-2">
               <GlassMini label="AI勝率" value={`${winRate}%`} />
               <GlassMini label="RR比" value={`${riskRewardRatio}`} />
               <GlassMini label="期待利益" value={`+${yen(expectedProfit)}`} />
@@ -618,13 +604,13 @@ function ScanMobileContent() {
 
             <Link
               href={`/analysis/${bestSignal.code}`}
-              className="mt-5 block rounded-3xl bg-white py-4 text-center text-sm font-black text-blue-700 shadow-lg transition active:scale-95"
+              className="mt-3 block rounded-2xl bg-white py-3 text-center text-sm font-black text-blue-700 shadow-lg transition active:scale-95"
             >
               個別AI解析を見る
             </Link>
           </section>
         )}
-                {/* RANKING */}
+        {/* RANKING */}
         <section
           ref={rankingRef}
           className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm"
@@ -635,9 +621,7 @@ function ScanMobileContent() {
                 RANKING
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">
-                条件一致ランキング
-              </h2>
+              <h2 className="mt-2 text-2xl font-black">条件一致ランキング</h2>
 
               <p className="mt-1 text-sm font-bold text-slate-500">
                 上位10銘柄を表示
@@ -690,9 +674,7 @@ function ScanMobileContent() {
                   HOT SIGNAL
                 </p>
 
-                <h2 className="mt-2 text-2xl font-black">
-                  🔥 今日のTOP3
-                </h2>
+                <h2 className="mt-2 text-2xl font-black">🔥 今日のTOP3</h2>
               </div>
 
               <p className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-600">
@@ -713,9 +695,7 @@ function ScanMobileContent() {
                         {index + 1}位
                       </p>
 
-                      <p className="mt-1 text-2xl font-black">
-                        {stock.code}
-                      </p>
+                      <p className="mt-1 text-xl font-black">{stock.code}</p>
 
                       <p className="text-lg font-black text-slate-700">
                         {stock.name}
@@ -740,7 +720,7 @@ function ScanMobileContent() {
             </div>
           </section>
         )}
-                {/* SCAN STATUS */}
+        {/* SCAN STATUS */}
         <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -748,9 +728,7 @@ function ScanMobileContent() {
                 SCAN STATUS
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">
-                🔍 監視スキャン
-              </h2>
+              <h2 className="mt-2 text-2xl font-black">🔍 監視スキャン</h2>
             </div>
 
             <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
@@ -760,9 +738,7 @@ function ScanMobileContent() {
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-3xl bg-slate-50 p-5">
-              <p className="text-xs font-black text-slate-400">
-                監視対象銘柄
-              </p>
+              <p className="text-xs font-black text-slate-400">監視対象銘柄</p>
 
               <p className="mt-2 text-4xl font-black">
                 {totalStocks.toLocaleString()}
@@ -770,9 +746,7 @@ function ScanMobileContent() {
             </div>
 
             <div className="rounded-3xl bg-blue-50 p-5">
-              <p className="text-xs font-black text-blue-500">
-                取得済み
-              </p>
+              <p className="text-xs font-black text-blue-500">取得済み</p>
 
               <p className="mt-2 text-4xl font-black text-blue-600">
                 {stocks.length.toLocaleString()}
@@ -793,9 +767,7 @@ function ScanMobileContent() {
             HOW TO USE
           </p>
 
-          <h2 className="mt-2 text-2xl font-black">
-            迷ったらこの順番
-          </h2>
+          <h2 className="mt-2 text-2xl font-black">迷ったらこの順番</h2>
 
           <div className="mt-4 space-y-3">
             <GuideStep
@@ -823,7 +795,12 @@ function ScanMobileContent() {
           <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
             <BottomNavItem href="/" icon="🏠" label="ホーム" />
             <BottomNavItem href="/today-market" icon="🤖" label="市場" />
-            <BottomNavItem href="/ranking" icon="🏆" label="ランキング" active />
+            <BottomNavItem
+              href="/ranking"
+              icon="🏆"
+              label="ランキング"
+              active
+            />
             <BottomNavItem href="/learning" icon="🧠" label="学習" />
             <BottomNavItem href="/favorites" icon="⭐" label="お気に入り" />
           </div>
@@ -845,7 +822,7 @@ function StockRankingCard({
     <Link
       href={`/analysis/${stock.code}`}
       className={`block rounded-[2rem] border p-5 transition active:scale-[0.99] ${judgeBg(
-        stock.score
+        stock.score,
       )}`}
     >
       <div className="flex justify-between gap-4">
@@ -860,13 +837,9 @@ function StockRankingCard({
             </span>
           </div>
 
-          <h3 className="mt-3 text-3xl font-black">
-            {stock.code}
-          </h3>
+          <h3 className="mt-3 text-3xl font-black">{stock.code}</h3>
 
-          <p className="text-lg font-black text-slate-700">
-            {stock.name}
-          </p>
+          <p className="text-lg font-black text-slate-700">{stock.name}</p>
 
           <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
             {getAiAdvice(stock.score)}
@@ -888,9 +861,7 @@ function StockRankingCard({
         </div>
 
         <div className="text-right">
-          <p className="text-xs font-black text-slate-400">
-            AI POWER
-          </p>
+          <p className="text-xs font-black text-slate-400">AI POWER</p>
 
           <p className={`text-5xl font-black ${judgeColor(stock.score)}`}>
             {stock.score}
@@ -904,9 +875,7 @@ function StockRankingCard({
               変化率{" "}
               <span
                 className={
-                  stock.changePercent >= 0
-                    ? "text-red-500"
-                    : "text-emerald-600"
+                  stock.changePercent >= 0 ? "text-red-500" : "text-emerald-600"
                 }
               >
                 {stock.changePercent >= 0 ? "+" : ""}
@@ -933,13 +902,9 @@ function GlassMini({
 }) {
   return (
     <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
-      <p className="text-xs font-black text-blue-100">
-        {label}
-      </p>
+      <p className="text-xs font-black text-blue-100">{label}</p>
 
-      <p className="mt-1 text-2xl font-black">
-        {value}
-      </p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
   );
 }
@@ -982,9 +947,7 @@ function GuideStep({
       </div>
 
       <div>
-        <h3 className="text-base font-black">
-          {title}
-        </h3>
+        <h3 className="text-base font-black">{title}</h3>
 
         <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
           {text}
