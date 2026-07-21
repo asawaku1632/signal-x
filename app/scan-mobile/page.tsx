@@ -37,12 +37,12 @@ const HOT_TOP_LIMIT = 3;
 const STRONG_TOP_LIMIT = 10;
 
 const sortOptions: { label: string; value: SortMode }[] = [
-  { label: "🔥 AI POWER順", value: "score" },
-  { label: "📈 上昇率順", value: "change" },
-  { label: "📉 下落率順", value: "down" },
-  { label: "🏦 必要資金順", value: "money" },
   { label: "💴 株価安い順", value: "cheap" },
   { label: "💰 株価高い順", value: "expensive" },
+  { label: "🔥 AI POWER順", value: "score" },
+  { label: "🏦 必要資金順", value: "money" },
+  { label: "📈 上昇率順", value: "change" },
+  { label: "📉 下落率順", value: "down" },
 ];
 
 function yen(value?: number | null) {
@@ -350,9 +350,6 @@ function ScanMobileContent() {
   const hotTop3 = useMemo(() => hotSignals.slice(0, 3), [hotSignals]);
 
   const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
-  const marketComment =
-    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP3から確認しましょう。";
-
   const winRate = bestSignal
     ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
     : 0;
@@ -438,9 +435,6 @@ function ScanMobileContent() {
                 MARKET JUDGE
               </p>
               <h2 className="mt-1 text-xl font-black">AI判定 {marketJudge}</h2>
-              <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">
-                {marketComment}
-              </p>
             </div>
 
           </div>
