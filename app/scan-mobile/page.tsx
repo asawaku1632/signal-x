@@ -20,7 +20,7 @@ type Stock = {
   patternScore?: number;
 };
 
-type SignalFilter = "hot" | "strong" | "all";
+type SignalFilter = "hot" | "strong" | "market-hot" | "market-watch" | "all";
 type BudgetFilter = 10000 | 100000 | 300000 | 500000 | 1000000 | "all";
 type SortMode = "score" | "change" | "down" | "cheap" | "expensive" | "money";
 
@@ -145,7 +145,15 @@ function ScanMobileContent() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [totalStocks, setTotalStocks] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
+
+  const filterParam = searchParams.get("filter");
+  const initialSignalFilter: SignalFilter =
+    filterParam === "market-hot" || filterParam === "market-watch"
+      ? filterParam
+      : "strong";
+
+  const [signalFilter, setSignalFilter] =
+    useState<SignalFilter>(initialSignalFilter);
 
   const budgetParam = searchParams.get("budget");
 
@@ -303,7 +311,11 @@ function ScanMobileContent() {
           ? hotSignalCodes.has(stock.code)
           : signalFilter === "strong"
             ? strongSignalCodes.has(stock.code)
-            : true;
+            : signalFilter === "market-hot"
+              ? stock.score >= 75
+              : signalFilter === "market-watch"
+                ? stock.score >= 65 && stock.score < 75
+                : true;
 
       const budgetOk =
         budgetFilter === "all" ? true : requiredMoney <= budgetFilter;
@@ -599,6 +611,22 @@ function ScanMobileContent() {
           </section>
         )}
         {/* RANKING */}
+        {(signalFilter === "market-hot" ||
+          signalFilter === "market-watch") && (
+          <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-sm font-black text-blue-700">
+              {signalFilter === "market-hot"
+                ? "🔥 激熱候補を一覧表示"
+                : "👀 注目候補を一覧表示"}
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              {signalFilter === "market-hot"
+                ? "AI POWER 75点以上"
+                : "AI POWER 65〜74点"}
+            </p>
+          </section>
+        )}
+
         <section
           ref={rankingRef}
           className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm"

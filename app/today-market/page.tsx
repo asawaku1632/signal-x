@@ -150,36 +150,46 @@ setMarketData(data);
         </section>
 
         <section className="grid grid-cols-2 gap-3 mb-4">
+          <Link
+            href="/scan-mobile?filter=market-hot&budget=all"
+            className="block rounded-2xl transition active:scale-[0.98]"
+          >
+            <InfoCard
+              icon="🔥"
+              title="激熱候補"
+              value={`${marketData.hotCount}件`}
+              sub="▼ タップして一覧を見る"
+              green
+            />
+          </Link>
+
+          <Link
+            href="/scan-mobile?filter=market-watch&budget=all"
+            className="block rounded-2xl transition active:scale-[0.98]"
+          >
+            <InfoCard
+              icon="👀"
+              title="注目候補"
+              value={`${marketData.watchCount}件`}
+              sub="▼ タップして一覧を見る"
+              green
+            />
+          </Link>
+
           <InfoCard
-  icon="🔥"
-  title="激熱候補"
-  value={String(marketData.hotCount)}
-  sub="75点以上"
-  green
-/>
+            icon="⭐"
+            title="本日の大本命"
+            value={marketData.topStock.code}
+            sub={marketData.topStock.name}
+          />
 
-<InfoCard
-  icon="👀"
-  title="注目候補"
-  value={String(marketData.watchCount)}
-  sub="65〜74点"
-  green
-/>
-
-<InfoCard
-  icon="⭐"
-  title="本日の大本命"
-  value={marketData.topStock.code}
-  sub={marketData.topStock.name}
-/>
-
-<InfoCard
-  icon="📈"
-  title="市場状況"
-  value={marketData.marketCondition}
-  sub="AI総合判定"
-  green
-/>
+          <InfoCard
+            icon="📈"
+            title="市場状況"
+            value={marketData.marketCondition}
+            sub="AI総合判定"
+            green
+          />
         </section>
 
         <section className="rounded-[22px] border border-green-300 bg-gradient-to-br from-white to-green-50 p-4 mb-4 shadow-sm">
@@ -358,14 +368,14 @@ function InfoCard({
 
 function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
       <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-      <Nav href="/dashboard" icon="🏠" label="ホーム" />
-      <Nav href="/today-market" icon="🤖" label="市場" active />
-      <Nav href="/ranking" icon="🏆" label="ランキング" />
-      <Nav href="/learning" icon="🧠" label="学習" />
-      <Nav href="/favorites" icon="⭐" label="お気に入り" />
-    </div>
+        <Nav href="/scan-mobile" icon="🏠" label="ホーム" active />
+        <Nav href="/scan-mobile" icon="🔍" label="検索" />
+        <Nav href="/alerts" icon="🔔" label="通知" />
+        <Nav href="/favorites" icon="⭐" label="お気に入り" />
+        <Nav href="/analysis" icon="🧠" label="AI分析" />
+      </div>
     </nav>
   );
 }
@@ -384,13 +394,12 @@ function Nav({
   return (
     <Link
       href={href}
-      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
+      className={`text-center text-xs font-bold ${
+        active ? "text-blue-600" : "text-slate-500"
+      }`}
     >
       <div className="text-2xl">{icon}</div>
       {label}
     </Link>
   );
 }
-
-
-
