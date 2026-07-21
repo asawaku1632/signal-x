@@ -797,15 +797,13 @@ export default function HomePage() {
           />
 
 
-<button
-  type="button"
-  onClick={() => {
-    window.location.assign("/scan-mobile");
-  }}
-  className="w-full bg-red-500 text-white rounded-2xl px-4 py-5 text-xl font-black"
->
-  🔍 銘柄スキャン・動作確認
-</button>
+          <MenuCard
+            href="/scan-mobile"
+            icon="🔍"
+            color="from-sky-500 to-cyan-400"
+            title="銘柄スキャン"
+            desc="1000銘柄を監視し注目銘柄を発見"
+          />
 
 
           <MenuCard
@@ -1141,6 +1139,3 @@ function Nav({
     </Link>
   );
 }
-
-
-
