@@ -443,12 +443,6 @@ function ScanMobileContent() {
               </p>
             </div>
 
-            <div className="shrink-0 rounded-2xl bg-blue-50 px-3 py-2 text-center">
-              <p className="text-[10px] font-black text-slate-400">本命候補</p>
-              <p className="text-lg font-black text-blue-600">
-                TOP{STRONG_TOP_LIMIT}
-              </p>
-            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
