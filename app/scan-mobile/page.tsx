@@ -1,14 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Stock = {
@@ -40,10 +33,8 @@ const budgetOptions: { label: string; value: BudgetFilter }[] = [
   { label: "制限なし", value: "all" },
 ];
 
-const HOT_TOP_LIMIT = 30;
-const STRONG_TOP_LIMIT = 100;
-const SCAN_API_URL = "/api/scan?limit=100&top=100";
-const REFRESH_INTERVAL_MS = 60_000;
+const HOT_TOP_LIMIT = 3;
+const STRONG_TOP_LIMIT = 10;
 
 const sortOptions: { label: string; value: SortMode }[] = [
   { label: "🔥 AI POWER順", value: "score" },
@@ -156,16 +147,20 @@ function ScanMobileContent() {
   const [loading, setLoading] = useState(true);
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("strong");
 
-  const initialBudget = Number(searchParams.get("budget")) || 100000;
+  const budgetParam = searchParams.get("budget");
 
-  const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(
-    initialBudget as BudgetFilter,
-  );
+  const initialBudget: BudgetFilter =
+    budgetParam === "all"
+      ? "all"
+      : (Number(budgetParam) || 100000) as BudgetFilter;
+
+  const [budgetFilter, setBudgetFilter] =
+    useState<BudgetFilter>(initialBudget);
 
   const [sortMode, setSortMode] = useState<SortMode>("score");
 
   const rankingRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchingRef = useRef(false);
 
   const scrollToRanking = () => {
     rankingRef.current?.scrollIntoView({
@@ -174,18 +169,18 @@ function ScanMobileContent() {
     });
   };
 
-  const fetchStocks = useCallback(async (showLoading = false) => {
-    abortControllerRef.current?.abort();
+  async function fetchStocks() {
+    if (fetchingRef.current) return;
+
+    fetchingRef.current = true;
 
     const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
 
     try {
-      if (showLoading) setLoading(true);
+      setLoading(stocks.length === 0);
 
-      const res = await fetch(SCAN_API_URL, {
+      const res = await fetch("/api/scan?limit=1200&top=100", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -199,27 +194,29 @@ function ScanMobileContent() {
       const list: Stock[] = Array.isArray(json)
         ? json
         : Array.isArray(json?.stocks)
-          ? json.stocks
-          : [];
+        ? json.stocks
+        : [];
 
-      // APIが返した順位を正として、そのままHomeと同じランキング順で表示する。
+      if (list.length === 0) {
+        throw new Error("scan api returned empty stocks");
+      }
+
       setStocks(list);
-      setTotalStocks(
-        Number(json?.totalStockList ?? json?.total ?? list.length),
-      );
+      setTotalStocks(Number(json?.totalStockList ?? list.length));
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.warn("scan-mobile fetch timeout");
+      } else {
+        console.error("scan-mobile fetch error:", error);
+      }
 
-      console.error("scan-mobile fetch error:", error);
+      // 一時的な通信失敗では、前回取得済みの正常データを維持する
     } finally {
       window.clearTimeout(timeoutId);
-
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
-        setLoading(false);
-      }
+      fetchingRef.current = false;
+      setLoading(false);
     }
-  }, []);
+  }
 
   async function addFavorite(code: string, name: string) {
     try {
@@ -241,74 +238,73 @@ function ScanMobileContent() {
   }
 
   useEffect(() => {
-    void fetchStocks(true);
+    fetchStocks();
 
-    const timer = window.setInterval(() => {
-      // バックグラウンド中は通信を止め、画面復帰後に最新化する。
-      if (document.visibilityState === "visible") {
-        void fetchStocks(false);
-      }
-    }, REFRESH_INTERVAL_MS);
+    const timer = setInterval(fetchStocks, 60000);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void fetchStocks(false);
-      }
-    };
+    return () => clearInterval(timer);
+  }, []);
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+  const rankedStocks = useMemo(
+    () =>
+      [...stocks].sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
 
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      abortControllerRef.current?.abort();
-    };
-  }, [fetchStocks]);
+        if (b.changePercent !== a.changePercent) {
+          return b.changePercent - a.changePercent;
+        }
 
-  // /api/scan の返却順を共通ランキング順として利用する。
-  // クライアント側で再ソートしないため、Homeとの順位ズレと余計な計算を防ぐ。
-  const rankedStocks = stocks;
+        if (b.volumeRatio !== a.volumeRatio) {
+          return b.volumeRatio - a.volumeRatio;
+        }
+
+        return a.code.localeCompare(b.code, "ja", { numeric: true });
+      }),
+    [stocks]
+  );
 
   const hotSignals = useMemo(
     () => rankedStocks.slice(0, HOT_TOP_LIMIT),
-    [rankedStocks],
+    [rankedStocks]
   );
 
   const strongSignals = useMemo(
     () => rankedStocks.slice(0, STRONG_TOP_LIMIT),
-    [rankedStocks],
+    [rankedStocks]
   );
 
   const hotSignalCodes = useMemo(
     () => new Set(hotSignals.map((stock) => stock.code)),
-    [hotSignals],
+    [hotSignals]
   );
 
   const strongSignalCodes = useMemo(
     () => new Set(strongSignals.map((stock) => stock.code)),
-    [strongSignals],
+    [strongSignals]
   );
 
   const rawHotCount = useMemo(
     () => stocks.filter((stock) => stock.score >= 95).length,
-    [stocks],
+    [stocks]
   );
 
   const rawStrongCount = useMemo(
     () => stocks.filter((stock) => stock.score >= 85).length,
-    [stocks],
+    [stocks]
   );
 
   const filteredStocks = useMemo(() => {
-    const result = rankedStocks.filter((stock) => {
+    const result = stocks.filter((stock) => {
       const requiredMoney = stock.price * 100;
 
       const signalOk =
         signalFilter === "hot"
           ? hotSignalCodes.has(stock.code)
           : signalFilter === "strong"
-            ? strongSignalCodes.has(stock.code)
-            : true;
+          ? strongSignalCodes.has(stock.code)
+          : true;
 
       const budgetOk =
         budgetFilter === "all" ? true : requiredMoney <= budgetFilter;
@@ -316,7 +312,9 @@ function ScanMobileContent() {
       return signalOk && budgetOk;
     });
 
-    // AI POWER順はAPIの共通ランキング順をそのまま使う。
+    if (sortMode === "score") {
+      result.sort((a, b) => b.score - a.score);
+    }
 
     if (sortMode === "change") {
       result.sort((a, b) => b.changePercent - a.changePercent);
@@ -340,7 +338,7 @@ function ScanMobileContent() {
 
     return result;
   }, [
-    rankedStocks,
+    stocks,
     signalFilter,
     budgetFilter,
     sortMode,
@@ -354,18 +352,18 @@ function ScanMobileContent() {
 
   const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
   const marketComment =
-    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP30から確認しましょう。";
+    "AIが今日の注目銘柄を優先順位付きで選出しました。まずはTOP3から確認しましょう。";
 
   const winRate = bestSignal
     ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
     : 0;
 
   const takeProfit = bestSignal
-    ? (bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03))
+    ? bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03)
     : 0;
 
   const stopLoss = bestSignal
-    ? (bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98))
+    ? bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98)
     : 0;
 
   const expectedProfit = bestSignal ? (takeProfit - bestSignal.price) * 100 : 0;
@@ -375,7 +373,7 @@ function ScanMobileContent() {
         (
           (takeProfit - bestSignal.price) /
           Math.max(bestSignal.price - stopLoss, 1)
-        ).toFixed(1),
+        ).toFixed(1)
       )
     : 0;
 
@@ -400,7 +398,7 @@ function ScanMobileContent() {
             </Link>
 
             <button
-              onClick={() => void fetchStocks(true)}
+              onClick={fetchStocks}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xl shadow-sm transition active:scale-95"
               aria-label="再読み込み"
             >
@@ -408,35 +406,28 @@ function ScanMobileContent() {
             </button>
           </div>
         </header>
-        {/* HERO SUMMARY */}
-        <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-2xl shadow-blue-200">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-200">
-                LIVE SCAN
-              </p>
+                {/* COMPACT LIVE SCAN */}
+        <section className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-blue-700 px-4 py-3 text-white shadow-lg shadow-blue-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-400" />
+                <p className="text-xs font-black tracking-[0.16em] text-blue-100">
+                  LIVE SCAN
+                </p>
+              </div>
 
-              <h2 className="mt-3 text-4xl font-black leading-tight">
-                AIが今、
-                <br />
-                強い銘柄を抽出中
-              </h2>
-
-              <p className="mt-4 text-sm font-bold leading-7 text-blue-100">
-                監視対象の日本株を自動スキャン。 迷ったらAI POWER上位から確認。
-              </p>
+              <div className="mt-2 flex items-center gap-3 text-[11px] font-black text-blue-100">
+                <span>監視 {totalStocks.toLocaleString()}</span>
+                <span>取得 {stocks.length.toLocaleString()}</span>
+                <span>激熱 TOP{HOT_TOP_LIMIT}</span>
+              </div>
             </div>
 
-            <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
-              <p className="text-xs font-black text-blue-100">更新</p>
-              <p className="mt-1 text-2xl font-black">60秒</p>
+            <div className="shrink-0 rounded-2xl bg-white/10 px-3 py-2 text-center backdrop-blur">
+              <p className="text-[10px] font-black text-blue-100">自動更新</p>
+              <p className="text-sm font-black">60秒</p>
             </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <GlassMini label="監視" value={totalStocks.toLocaleString()} />
-            <GlassMini label="取得" value={stocks.length.toLocaleString()} />
-            <GlassMini label="今日の激熱" value={`TOP${HOT_TOP_LIMIT}`} />
           </div>
         </section>
 
@@ -465,7 +456,9 @@ function ScanMobileContent() {
                 MARKET JUDGE
               </p>
 
-              <h2 className="mt-2 text-3xl font-black">AI判定 {marketJudge}</h2>
+              <h2 className="mt-2 text-3xl font-black">
+                AI判定 {marketJudge}
+              </h2>
             </div>
 
             <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
@@ -522,7 +515,7 @@ function ScanMobileContent() {
             </button>
           </div>
         </section>
-        {/* FILTERS */}
+                {/* FILTERS */}
         <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -530,7 +523,9 @@ function ScanMobileContent() {
                 FILTER
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">予算フィルター</h2>
+              <h2 className="mt-2 text-2xl font-black">
+                予算フィルター
+              </h2>
             </div>
 
             <p className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
@@ -559,7 +554,9 @@ function ScanMobileContent() {
               SORT
             </p>
 
-            <h2 className="mt-2 text-2xl font-black">並び替え</h2>
+            <h2 className="mt-2 text-2xl font-black">
+              並び替え
+            </h2>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -587,14 +584,22 @@ function ScanMobileContent() {
                   👑 本日の大本命
                 </p>
 
-                <h2 className="mt-2 text-5xl font-black">{bestSignal.code}</h2>
+                <h2 className="mt-2 text-5xl font-black">
+                  {bestSignal.code}
+                </h2>
 
-                <p className="mt-1 text-2xl font-black">{bestSignal.name}</p>
+                <p className="mt-1 text-2xl font-black">
+                  {bestSignal.name}
+                </p>
               </div>
 
               <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
-                <p className="text-xs font-black text-blue-100">AI POWER</p>
-                <p className="mt-1 text-5xl font-black">{bestSignal.score}</p>
+                <p className="text-xs font-black text-blue-100">
+                  AI POWER
+                </p>
+                <p className="mt-1 text-5xl font-black">
+                  {bestSignal.score}
+                </p>
               </div>
             </div>
 
@@ -619,7 +624,7 @@ function ScanMobileContent() {
             </Link>
           </section>
         )}
-        {/* RANKING */}
+                {/* RANKING */}
         <section
           ref={rankingRef}
           className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm"
@@ -630,7 +635,9 @@ function ScanMobileContent() {
                 RANKING
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">条件一致ランキング</h2>
+              <h2 className="mt-2 text-2xl font-black">
+                条件一致ランキング
+              </h2>
 
               <p className="mt-1 text-sm font-bold text-slate-500">
                 上位10銘柄を表示
@@ -684,7 +691,7 @@ function ScanMobileContent() {
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black">
-                  🔥 今日のTOP30 上位3銘柄
+                  🔥 今日のTOP3
                 </h2>
               </div>
 
@@ -706,7 +713,9 @@ function ScanMobileContent() {
                         {index + 1}位
                       </p>
 
-                      <p className="mt-1 text-2xl font-black">{stock.code}</p>
+                      <p className="mt-1 text-2xl font-black">
+                        {stock.code}
+                      </p>
 
                       <p className="text-lg font-black text-slate-700">
                         {stock.name}
@@ -731,7 +740,7 @@ function ScanMobileContent() {
             </div>
           </section>
         )}
-        {/* SCAN STATUS */}
+                {/* SCAN STATUS */}
         <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -739,7 +748,9 @@ function ScanMobileContent() {
                 SCAN STATUS
               </p>
 
-              <h2 className="mt-2 text-2xl font-black">🔍 監視スキャン</h2>
+              <h2 className="mt-2 text-2xl font-black">
+                🔍 監視スキャン
+              </h2>
             </div>
 
             <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
@@ -749,7 +760,9 @@ function ScanMobileContent() {
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-3xl bg-slate-50 p-5">
-              <p className="text-xs font-black text-slate-400">監視対象銘柄</p>
+              <p className="text-xs font-black text-slate-400">
+                監視対象銘柄
+              </p>
 
               <p className="mt-2 text-4xl font-black">
                 {totalStocks.toLocaleString()}
@@ -757,7 +770,9 @@ function ScanMobileContent() {
             </div>
 
             <div className="rounded-3xl bg-blue-50 p-5">
-              <p className="text-xs font-black text-blue-500">取得済み</p>
+              <p className="text-xs font-black text-blue-500">
+                取得済み
+              </p>
 
               <p className="mt-2 text-4xl font-black text-blue-600">
                 {stocks.length.toLocaleString()}
@@ -778,7 +793,9 @@ function ScanMobileContent() {
             HOW TO USE
           </p>
 
-          <h2 className="mt-2 text-2xl font-black">迷ったらこの順番</h2>
+          <h2 className="mt-2 text-2xl font-black">
+            迷ったらこの順番
+          </h2>
 
           <div className="mt-4 space-y-3">
             <GuideStep
@@ -801,13 +818,14 @@ function ScanMobileContent() {
           </div>
         </section>
 
-        {/* BOTTOM NAV */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
-            <BottomNavItem href="/" icon="🏠" label="Home" />
-            <BottomNavItem href="/scan-mobile" icon="📈" label="Scan" active />
-            <BottomNavItem href="/learning" icon="🧠" label="AI" />
-            <BottomNavItem href="/admin/verification" icon="✅" label="QA" />
+        {/* BOTTOM NAV - APP WIDE STANDARD */}
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-2 py-2 backdrop-blur-xl">
+          <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+            <BottomNavItem href="/" icon="🏠" label="ホーム" />
+            <BottomNavItem href="/today-market" icon="🤖" label="市場" />
+            <BottomNavItem href="/ranking" icon="🏆" label="ランキング" active />
+            <BottomNavItem href="/learning" icon="🧠" label="学習" />
+            <BottomNavItem href="/favorites" icon="⭐" label="お気に入り" />
           </div>
         </nav>
       </div>
@@ -827,7 +845,7 @@ function StockRankingCard({
     <Link
       href={`/analysis/${stock.code}`}
       className={`block rounded-[2rem] border p-5 transition active:scale-[0.99] ${judgeBg(
-        stock.score,
+        stock.score
       )}`}
     >
       <div className="flex justify-between gap-4">
@@ -842,9 +860,13 @@ function StockRankingCard({
             </span>
           </div>
 
-          <h3 className="mt-3 text-3xl font-black">{stock.code}</h3>
+          <h3 className="mt-3 text-3xl font-black">
+            {stock.code}
+          </h3>
 
-          <p className="text-lg font-black text-slate-700">{stock.name}</p>
+          <p className="text-lg font-black text-slate-700">
+            {stock.name}
+          </p>
 
           <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
             {getAiAdvice(stock.score)}
@@ -866,7 +888,9 @@ function StockRankingCard({
         </div>
 
         <div className="text-right">
-          <p className="text-xs font-black text-slate-400">AI POWER</p>
+          <p className="text-xs font-black text-slate-400">
+            AI POWER
+          </p>
 
           <p className={`text-5xl font-black ${judgeColor(stock.score)}`}>
             {stock.score}
@@ -880,7 +904,9 @@ function StockRankingCard({
               変化率{" "}
               <span
                 className={
-                  stock.changePercent >= 0 ? "text-red-500" : "text-emerald-600"
+                  stock.changePercent >= 0
+                    ? "text-red-500"
+                    : "text-emerald-600"
                 }
               >
                 {stock.changePercent >= 0 ? "+" : ""}
@@ -907,9 +933,13 @@ function GlassMini({
 }) {
   return (
     <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
-      <p className="text-xs font-black text-blue-100">{label}</p>
+      <p className="text-xs font-black text-blue-100">
+        {label}
+      </p>
 
-      <p className="mt-1 text-2xl font-black">{value}</p>
+      <p className="mt-1 text-2xl font-black">
+        {value}
+      </p>
     </div>
   );
 }
@@ -952,7 +982,9 @@ function GuideStep({
       </div>
 
       <div>
-        <h3 className="text-base font-black">{title}</h3>
+        <h3 className="text-base font-black">
+          {title}
+        </h3>
 
         <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
           {text}
@@ -976,14 +1008,14 @@ function BottomNavItem({
   return (
     <Link
       href={href}
-      className={`rounded-2xl px-3 py-2 text-center text-xs font-black transition ${
+      className={`min-w-0 rounded-2xl px-1 py-2 text-center text-[10px] font-black transition ${
         active
           ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
           : "text-slate-500"
       }`}
     >
-      <div className="text-lg">{icon}</div>
-      <div className="mt-1">{label}</div>
+      <div className="text-base leading-none">{icon}</div>
+      <div className="mt-1 truncate">{label}</div>
     </Link>
   );
 }
