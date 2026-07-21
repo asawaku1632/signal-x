@@ -665,7 +665,7 @@ border border-blue-300/30"
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+          <div className="mt-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <span className="text-sm">🤖</span>
               <p className="text-[11px] font-black tracking-wide text-blue-100">
@@ -673,13 +673,13 @@ border border-blue-300/30"
               </p>
             </div>
 
-            <div className="mt-2.5 grid grid-cols-1 gap-x-3 gap-y-2 min-[380px]:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1.5 min-[380px]:grid-cols-2">
               {reasonItems.map((item, index) => (
                 <div key={`${item}-${index}`} className="flex min-w-0 items-start gap-2">
-                  <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-violet-400 text-[9px] font-black text-white">
+                  <span className="mt-px grid h-4 w-4 shrink-0 place-items-center rounded-full bg-violet-400 text-[9px] font-black text-white">
                     ✓
                   </span>
-                  <span className="min-w-0 break-words text-[11px] font-bold leading-[1.55] text-white">
+                  <span className="min-w-0 break-words text-[10px] font-bold leading-[1.45] text-white min-[390px]:text-[11px]">
                     {item}
                   </span>
                 </div>
@@ -906,7 +906,7 @@ border border-blue-300/30"
           <div className="mt-5 grid grid-cols-3 gap-3">
             <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
               <p className="text-xs font-black text-blue-600">支持線</p>
-              <p className="mt-2 text-lg font-black text-blue-700">
+              <p className="mt-2 text-xl font-black leading-none text-blue-700">
                 {levelYen(supportPrice)}
               </p>
               <p className="mt-1 text-[10px] font-bold text-blue-500">
@@ -918,7 +918,7 @@ border border-blue-300/30"
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center">
               <p className="text-xs font-black text-slate-500">現在値</p>
-              <p className="mt-2 text-lg font-black text-slate-900">
+              <p className="mt-2 text-xl font-black leading-none text-slate-900">
                 {levelYen(signal.price)}
               </p>
               <p className="mt-1 text-[10px] font-bold text-slate-400">
@@ -928,7 +928,7 @@ border border-blue-300/30"
 
             <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4 text-center">
               <p className="text-xs font-black text-amber-600">抵抗線</p>
-              <p className="mt-2 text-lg font-black text-amber-700">
+              <p className="mt-2 text-xl font-black leading-none text-amber-700">
                 {levelYen(resistancePrice)}
               </p>
               <p className="mt-1 text-[10px] font-bold text-amber-500">
@@ -1124,9 +1124,17 @@ border border-blue-300/30"
           <h2 className="mt-1 text-xl font-black">リスク・リワード</h2>
 
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <Mini label="期待利益" value={`+${yen(profitYen)}`} />
-            <Mini label="想定損失" value={`-${yen(lossYen)}`} />
-            <Mini label="RR比" value={riskReward} />
+            <Mini
+              label="期待利益"
+              value={`+${yen(profitYen)}`}
+              valueClass="text-emerald-600"
+            />
+            <Mini
+              label="想定損失"
+              value={`-${yen(lossYen)}`}
+              valueClass="text-red-600"
+            />
+            <Mini label="RR比" value={riskReward} valueClass="text-blue-600" />
           </div>
 
           <p className="mt-3 text-xs font-bold leading-6 text-slate-600">
@@ -1204,15 +1212,19 @@ function Mini({
   label,
   value,
   compact = false,
+  valueClass = "",
 }: {
   label: string;
   value: string;
   compact?: boolean;
+  valueClass?: string;
 }) {
   return (
     <div className="rounded-3xl bg-slate-50 p-3 text-center">
       <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className={`${compact ? "text-base" : "text-xl"} mt-1 font-black`}>
+      <p
+        className={`${compact ? "text-base" : "text-xl"} mt-1 font-black leading-tight ${valueClass}`}
+      >
         {value}
       </p>
     </div>
