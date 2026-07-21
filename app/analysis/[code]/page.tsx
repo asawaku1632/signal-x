@@ -75,9 +75,9 @@ type PerformanceSummary = {
 };
 
 type AiComment = {
-  icon: string;
   title: string;
   body: string;
+  point: string;
 };
 
 function yen(value?: number | null) {
@@ -325,21 +325,14 @@ function getLearningMessage(total: number, winRate: number) {
   return "標準的な成績です。今後のデータ蓄積で精度を高めます。";
 }
 
-function buildAiComments({
+function buildAiComment({
   reason,
   power,
   judge,
   rsi,
   volumeRatio,
   changePercent,
-  takeProfit,
-  stopLoss,
-  supportPrice,
-  resistancePrice,
-  supportDistancePercent,
-  resistanceDistancePercent,
   supportResistanceStatus,
-  breakoutExpectation,
 }: {
   reason?: string;
   power: number;
@@ -347,78 +340,88 @@ function buildAiComments({
   rsi: number;
   volumeRatio: number;
   changePercent: number;
-  takeProfit: number;
-  stopLoss: number;
-  supportPrice?: number | null;
-  resistancePrice?: number | null;
-  supportDistancePercent?: number | null;
-  resistanceDistancePercent?: number | null;
   supportResistanceStatus?: Signal["supportResistanceStatus"];
-  breakoutExpectation: number;
-}) {
-  const comments: AiComment[] = [];
+}): AiComment {
+  const reasonText = reason ?? "";
+  const aboveImportantLines =
+    reasonText.includes("MA20上") ||
+    reasonText.includes("EMA20上") ||
+    reasonText.includes("VWAP上");
 
-  comments.push({
-    icon: "🤖",
-    title: "AI判断",
-    body: `${reason || "AI理由なし"}。AI POWERは${power}で、現在の判定は「${judge}」です。`,
-  });
+  const belowImportantLines =
+    reasonText.includes("MA20下") ||
+    reasonText.includes("EMA20下") ||
+    reasonText.includes("VWAP下");
 
-  comments.push({
-    icon: "📊",
-    title: "RSI",
-    body:
-      rsi >= 70
-        ? `RSIは${rsi}で高めです。買われ過ぎに注意しましょう。`
-        : rsi <= 30
-          ? `RSIは${rsi}で低めです。反発の可能性があります。`
-          : `RSIは${rsi}で、過熱感は中立です。`,
-  });
+  const volumeIsStrong = volumeRatio >= 1.3;
+  const isOverheated = rsi >= 70 || changePercent >= 5;
+  const isBreakingOut = supportResistanceStatus === "BREAKOUT";
+  const isBreakdownRisk = supportResistanceStatus === "BREAKDOWN_RISK";
 
-  comments.push({
-    icon: "📈",
-    title: "出来高",
-    body:
-      volumeRatio >= 2
-        ? `出来高倍率は${volumeRatio}倍で、出来高が急増しています。注目度が高い状態です。`
-        : volumeRatio >= 1.3
-          ? `出来高倍率は${volumeRatio}倍で、やや注目されています。`
-          : `出来高倍率は${volumeRatio}倍です。急な過熱感は控えめです。`,
-  });
+  let opening = "現在は方向感を見極めたい状態です。";
+  let evidence =
+    "買いと売りの勢いが拮抗しており、現時点では大きな優位性を確認できません。";
+  let action =
+    "焦って売買せず、新しいシグナルが出るまでチャートの動きを確認しましょう。";
 
-  comments.push({
-    icon: "⚡",
-    title: "値動き",
-    body:
-      changePercent >= 3
-        ? `本日の変化率は+${changePercent}%です。急騰気味なので飛び乗りには注意しましょう。`
-        : changePercent > 0
-          ? `本日の変化率は+${changePercent}%です。上昇基調です。`
-          : changePercent < 0
-            ? `本日の変化率は${changePercent}%です。下落中のため慎重に見ましょう。`
-            : "本日の変化率は0%付近です。方向感を確認しましょう。",
-  });
+  if (power >= 95) {
+    opening = "現在は買い優勢の状態です。";
 
-  comments.push({
-    icon: "🧱",
-    title: "支持線・抵抗線",
-    body: getSupportResistanceComment({
-      status: supportResistanceStatus,
-      supportPrice,
-      resistancePrice,
-      supportDistancePercent,
-      resistanceDistancePercent,
-      breakoutExpectation,
-    }),
-  });
+    if (aboveImportantLines && volumeIsStrong) {
+      evidence =
+        "株価は重要な移動平均線より上で推移し、出来高も増えているため、多くの投資家が注目しています。";
+    } else if (aboveImportantLines) {
+      evidence =
+        "株価は重要な移動平均線より上で推移しており、上昇トレンドを維持しています。";
+    } else if (volumeIsStrong) {
+      evidence =
+        "出来高が増え、買いの勢いも強いため、市場の注目度が高まっています。";
+    } else {
+      evidence =
+        "複数の強気シグナルが重なっており、AIは上昇の可能性を高く評価しています。";
+    }
 
-  comments.push({
-    icon: "🎯",
-    title: "売買ライン",
-    body: `利確目安は${yen(takeProfit)}、損切目安は${yen(stopLoss)}です。利益幅と損失幅を確認してから判断しましょう。`,
-  });
+    action = isOverheated
+      ? "ただし、短期間で大きく上昇した後は一時的に値下がりすることもあります。焦って飛び乗らず、チャートも確認しながら落ち着いてエントリーを判断するのがおすすめです。"
+      : "ただし、強い判定でも値下がりする可能性はあります。チャートも確認しながら、落ち着いてエントリーを判断するのがおすすめです。";
+  } else if (power >= 85) {
+    opening = "現在は買いがやや優勢の状態です。";
+    evidence = aboveImportantLines
+      ? "株価は重要な移動平均線より上で推移しており、上昇の流れが続いています。"
+      : "複数の買いシグナルが確認されており、今後の上昇が期待されます。";
 
-  return comments;
+    action = isOverheated
+      ? "上昇直後に追いかけて買うよりも、一度値動きが落ち着くか、押し目を確認してから判断しましょう。"
+      : "現在値ですぐに飛び乗るのではなく、押し目や出来高の変化を確認してから判断しましょう。";
+  } else if (power >= 75) {
+    opening = "現在は上昇の兆しが見られます。";
+    evidence =
+      "テクニカル指標は改善傾向にありますが、まだ強い買いの流れが完成したとは言い切れません。";
+    action = isBreakingOut
+      ? "抵抗線を上抜けた動きが続くか、出来高を伴っているかを確認してから判断しましょう。"
+      : "もう一段強い買いシグナルが出るか、押し目から反発するかを確認しながら判断しましょう。";
+  } else if (power >= 65) {
+    opening = "現在は様子見が中心の状態です。";
+    evidence = belowImportantLines
+      ? "株価は重要な移動平均線を下回っており、買いの勢いはまだ十分ではありません。"
+      : "買いと売りの勢いが拮抗しており、方向感がはっきりしていません。";
+    action =
+      "焦って売買するより、株価が重要ラインを上回るなど、新しい買いシグナルを待つ方が安全です。";
+  } else {
+    opening = "現在は注意が必要な状態です。";
+    evidence = isBreakdownRisk || belowImportantLines
+      ? "上昇トレンドが弱まり、売り圧力が強くなっているため、下落リスクを慎重に見る必要があります。"
+      : "強い上昇シグナルが少なく、AIは現時点で無理に買う局面ではないと判断しています。";
+    action =
+      "新たな買いシグナルや反発を確認できるまでは、無理にエントリーせず慎重に様子を見ることをおすすめします。";
+  }
+
+  return {
+    title: "AIの見解",
+    body: `${opening}\n\n${evidence}\n\nそのためAIは「${judge}」と評価しました。\n\n${action}`,
+    point:
+      "AI POWERが高くても、100％上昇を保証するものではありません。利確・損切ラインやリアルタイムチャートも確認しながら、総合的に判断しましょう。",
+  };
 }
 
 export default function AnalysisPage() {
@@ -578,21 +581,14 @@ export default function AnalysisPage() {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const aiComments = buildAiComments({
+  const aiComment = buildAiComment({
     reason: signal.reason,
     power,
     judge,
     rsi,
     volumeRatio,
     changePercent,
-    takeProfit,
-    stopLoss,
-    supportPrice,
-    resistancePrice,
-    supportDistancePercent,
-    resistanceDistancePercent,
     supportResistanceStatus,
-    breakoutExpectation,
   });
 
   return (
@@ -998,20 +994,35 @@ border border-blue-300/30"
           </p>
           <h2 className="mt-2 text-2xl font-black">AIコメント</h2>
 
-          <div className="mt-4 space-y-3">
-            {aiComments.map((comment) => (
-              <div
-                key={`${comment.title}-${comment.body}`}
-                className="rounded-3xl border border-blue-100 bg-white/85 p-4"
-              >
-                <p className="text-sm font-black text-blue-700">
-                  {comment.icon} {comment.title}
-                </p>
-                <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
-                  {comment.body}
-                </p>
+          <div className="mt-4 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
+            <div className="p-5">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-100 text-2xl">
+                  🤖
+                </span>
+                <div>
+                  <p className="text-lg font-black text-blue-700">
+                    {aiComment.title}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-black tracking-[0.14em] text-slate-400">
+                    SIGNALX AI DECISION
+                  </p>
+                </div>
               </div>
-            ))}
+
+              <p className="mt-5 whitespace-pre-line text-sm font-bold leading-7 text-slate-700">
+                {aiComment.body}
+              </p>
+            </div>
+
+            <div className="border-t border-amber-100 bg-amber-50 px-5 py-4">
+              <p className="text-sm font-black text-amber-800">
+                💡 ワンポイント
+              </p>
+              <p className="mt-2 text-xs font-bold leading-6 text-amber-900">
+                {aiComment.point}
+              </p>
+            </div>
           </div>
         </section>
 
