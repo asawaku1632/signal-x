@@ -187,7 +187,20 @@ function ScanMobileContent() {
     try {
       setLoading(stocks.length === 0);
 
-      const res = await fetch("/api/scan?limit=1200&top=100", {
+      const params = new URLSearchParams({
+        limit: "1200",
+      });
+
+      if (
+        signalFilter === "market-hot" ||
+        signalFilter === "market-watch"
+      ) {
+        params.set("filter", signalFilter);
+      } else {
+        params.set("top", "100");
+      }
+
+      const res = await fetch(`/api/scan?${params.toString()}`, {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -245,12 +258,14 @@ function ScanMobileContent() {
   }
 
   useEffect(() => {
-    fetchStocks();
+    void fetchStocks();
 
-    const timer = setInterval(fetchStocks, 60000);
+    const timer = window.setInterval(() => {
+      void fetchStocks();
+    }, 60000);
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => window.clearInterval(timer);
+  }, [signalFilter]);
 
   const rankedStocks = useMemo(
     () =>
@@ -406,7 +421,7 @@ function ScanMobileContent() {
             </Link>
 
             <button
-              onClick={fetchStocks}
+              onClick={() => void fetchStocks()}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xl shadow-sm transition active:scale-95"
               aria-label="再読み込み"
             >

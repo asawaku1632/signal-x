@@ -116,26 +116,28 @@ export async function GET(req: Request) {
     const rankText = `1位 / ${json.totalStockList ?? 1006}銘柄中`;
     const winRate = winRateText(score);
 
-    const top3 = ranking
-      .slice(0, 3)
-      .map((stock, index) => {
-        const rank = index === 0 ? "①" : index === 1 ? "②" : "③";
-        const s = aiScore(stock);
-        const w = winRateText(s);
+   const top3 = ranking
+  .slice(0, 3)
+  .map((stock, index) => {
+    const rank = index === 0 ? "①" : index === 1 ? "②" : "③";
+    const s = aiScore(stock);
+    const w = winRateText(s);
+    const analysisUrl = `${publicUrl}/analysis/${stock.code}`;
 
-        return (
-          `${rank} ${stock.code} ${stock.name}\n` +
-          `【信頼度】${s}%\n` +
-          `【勝率予測】${w}%\n` +
-          `${tradeDecision(s)}`
-        );
-      })
-      .join("\n\n");
+    return (
+      `${rank} ${stock.code} ${stock.name}\n` +
+      `【信頼度】${s}%\n` +
+      `【勝率予測】${w}%\n` +
+      `${tradeDecision(s)}\n` +
+      `👇 個別AI解析\n` +
+      `${analysisUrl}`
+    );
+  })
+  .join("\n\n");
 
     const message =
-      `━━━━━━━━━━━━━━\n` +
       `🏆 本日の大本命\n` +
-      `━━━━━━━━━━━━━━\n\n` +
+     
       `${top.code} ${top.name}\n\n` +
       `${tradeDecision(score)}\n\n` +
       `【信頼度】${score}%\n` +

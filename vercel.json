@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/line",
+      "schedule": "15 0 * * 1-5"
+    },
+    {
       "path": "/api/learning/save-daily",
       "schedule": "35 6 * * 1-5"
     },

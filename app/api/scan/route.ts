@@ -17,6 +17,8 @@ const AI_POWER_VERSION = "V20.0";
 
 const CACHE_TIME = 60 * 1000;
 
+type MarketFilter = "market-hot" | "market-watch" | null;
+
 type CacheData = {
   timestamp: number;
   limit: number;
@@ -33,7 +35,16 @@ function clampTop(value: number | null) {
     return null;
   }
 
+  // 通常のScanは最大100件まで返し、スマホ表示を軽く保つ
   return Math.min(Math.floor(value), 100);
+}
+
+function parseMarketFilter(value: string | null): MarketFilter {
+  if (value === "market-hot" || value === "market-watch") {
+    return value;
+  }
+
+  return null;
 }
 
 function toFiniteNumber(value: unknown, fallback = 0) {
@@ -71,8 +82,34 @@ function sortStocksForRanking(stocks: any[]) {
   });
 }
 
-function selectStocks(stocks: any[], top: number | null) {
-  return top ? stocks.slice(0, top) : stocks;
+/**
+ * Today Marketから遷移した場合だけ、全スキャン結果から先に抽出する。
+ * 通常のScanは上位100件のままなので、通信量と表示速度を維持できる。
+ */
+function filterStocks(stocks: any[], filter: MarketFilter) {
+  if (filter === "market-hot") {
+    return stocks.filter(
+      (stock) => toFiniteNumber(stock?.score ?? stock?.aiPower) >= 75
+    );
+  }
+
+  if (filter === "market-watch") {
+    return stocks.filter((stock) => {
+      const score = toFiniteNumber(stock?.score ?? stock?.aiPower);
+      return score >= 65 && score < 75;
+    });
+  }
+
+  return stocks;
+}
+
+function selectStocks(
+  stocks: any[],
+  top: number | null,
+  filter: MarketFilter
+) {
+  const filteredStocks = filterStocks(stocks, filter);
+  return top ? filteredStocks.slice(0, top) : filteredStocks;
 }
 
 async function getFreshScanData(limit: number): Promise<CacheData> {
@@ -110,21 +147,24 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = clampLimit(Number(searchParams.get("limit") || 200));
-    const top = clampTop(Number(searchParams.get("top")));
+    const top = clampTop(
+      searchParams.has("top") ? Number(searchParams.get("top")) : null
+    );
+    const filter = parseMarketFilter(searchParams.get("filter"));
 
     if (
       cacheData &&
       cacheData.limit === limit &&
       now - cacheData.timestamp < CACHE_TIME
     ) {
-      const responseStocks = selectStocks(cacheData.stocks, top);
+      const responseStocks = selectStocks(cacheData.stocks, top, filter);
 
       return NextResponse.json(
         buildScanResponsePayload({
           debugVersion: DEBUG_VERSION,
           aiPowerVersion: AI_POWER_VERSION,
           cached: true,
-          limit: top ?? limit,
+          limit: top ?? responseStocks.length,
           totalStockList:
             cacheData.totalStockList ?? getFallbackTotalStockList(),
           stocks: responseStocks,
@@ -136,14 +176,14 @@ export async function GET(req: Request) {
     }
 
     const freshData = await getFreshScanData(limit);
-    const responseStocks = selectStocks(freshData.stocks, top);
+    const responseStocks = selectStocks(freshData.stocks, top, filter);
 
     return NextResponse.json(
       buildScanResponsePayload({
         debugVersion: DEBUG_VERSION,
         aiPowerVersion: AI_POWER_VERSION,
         cached: false,
-        limit: top ?? freshData.limit,
+        limit: top ?? responseStocks.length,
         totalStockList:
           freshData.totalStockList ?? getFallbackTotalStockList(),
         stocks: responseStocks,
@@ -155,8 +195,11 @@ export async function GET(req: Request) {
   } catch (error) {
     if (cacheData) {
       const { searchParams } = new URL(req.url);
-      const top = clampTop(Number(searchParams.get("top")));
-      const responseStocks = selectStocks(cacheData.stocks, top);
+      const top = clampTop(
+        searchParams.has("top") ? Number(searchParams.get("top")) : null
+      );
+      const filter = parseMarketFilter(searchParams.get("filter"));
+      const responseStocks = selectStocks(cacheData.stocks, top, filter);
 
       return NextResponse.json(
         buildScanResponsePayload({
@@ -164,7 +207,7 @@ export async function GET(req: Request) {
           aiPowerVersion: AI_POWER_VERSION,
           cached: true,
           fallback: true,
-          limit: top ?? cacheData.limit,
+          limit: top ?? responseStocks.length,
           totalStockList:
             cacheData.totalStockList ?? getFallbackTotalStockList(),
           stocks: responseStocks,
