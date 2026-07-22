@@ -2,6 +2,17 @@ export const dynamic = "force-dynamic";
 
 const SCAN_TIMEOUT_MS = 12_000;
 
+function getJstUpdatedAt() {
+  return new Date().toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 function getPower(stock: any) {
   return Number(
     stock?.score ??
@@ -47,19 +58,17 @@ function createFallbackResponse(error?: unknown) {
     avoid: ["高値追い", "飛び乗り", "無理なエントリー"],
     comment:
       "市場データを取得できませんでした。安全のため様子見判定にしています。",
-    updatedAt: new Date().toLocaleString("ja-JP", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
+    updatedAt: getJstUpdatedAt(),
     error: error instanceof Error ? error.message : String(error ?? ""),
   });
 }
 
 export async function GET(request: Request) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
+
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, SCAN_TIMEOUT_MS);
 
   try {
     const url = new URL(request.url);
@@ -106,25 +115,31 @@ export async function GET(request: Request) {
       expected: getExpected(stock),
     }));
 
-    const top5 = normalizedStocks.slice(0, 5).map((stock: any, index: number) => ({
-      rank: index + 1,
-      code: stock.code,
-      name: stock.name,
-      aiPower: stock.aiPower,
-      score: stock.score,
-      price: stock?.price ?? null,
-      changePercent: stock?.changePercent ?? null,
-      reason: stock?.reason ?? "",
-      expected: stock.expected,
-    }));
+    const top5 = normalizedStocks
+      .slice(0, 5)
+      .map((stock: any, index: number) => ({
+        rank: index + 1,
+        code: stock.code,
+        name: stock.name,
+        aiPower: stock.aiPower,
+        score: stock.score,
+        price: stock?.price ?? null,
+        changePercent: stock?.changePercent ?? null,
+        reason: stock?.reason ?? "",
+        expected: stock.expected,
+      }));
 
+    // Scan画面の market-hot と同じ条件
+    // AI POWER 75以上
     const hotCount = normalizedStocks.filter(
-      (stock: any) => getPower(stock) >= 80
+      (stock: any) => getPower(stock) >= 75
     ).length;
 
+    // Scan画面の market-watch と同じ条件
+    // AI POWER 65以上75未満
     const watchCount = normalizedStocks.filter((stock: any) => {
       const power = getPower(stock);
-      return power >= 75 && power < 80;
+      return power >= 65 && power < 75;
     }).length;
 
     let grade = "D";
@@ -184,12 +199,7 @@ export async function GET(request: Request) {
         grade === "D"
           ? "今日は強い買い候補が少ないため、無理に売買せず次の好機を待つ戦略が有効です。"
           : `本日の大本命は${top?.code} ${top?.name}です。AI POWERは${topPower}。高値追いは避け、押し目を待ちながら慎重に判断しましょう。`,
-      updatedAt: new Date().toLocaleString("ja-JP", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      updatedAt: getJstUpdatedAt(),
     });
   } catch (error) {
     console.error("today-market error:", error);
