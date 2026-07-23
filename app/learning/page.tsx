@@ -46,6 +46,8 @@ type LearningDashboard = {
   updatedAt: string;
 };
 
+const DASHBOARD_TREND_LIMIT = 5;
+
 export default function LearningPage() {
   const [data, setData] = useState<LearningDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,16 +59,21 @@ export default function LearningPage() {
           cache: "no-store",
         });
 
-        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(`learning dashboard api error: ${res.status}`);
+        }
+
+        const json: LearningDashboard = await res.json();
         setData(json);
       } catch (error) {
         console.error("learning dashboard error:", error);
+        setData(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchLearning();
+    void fetchLearning();
   }, []);
 
   const judgedTotal = useMemo(() => {
@@ -76,9 +83,9 @@ export default function LearningPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] text-slate-900 p-4">
+      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
         <div className="mx-auto max-w-md">
-          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="font-bold text-slate-500">
               AI学習データを読み込み中...
             </p>
@@ -90,9 +97,9 @@ export default function LearningPage() {
 
   if (!data) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] text-slate-900 p-4">
+      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
         <div className="mx-auto max-w-md">
-          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="font-bold text-red-500">
               AI学習データを取得できませんでした
             </p>
@@ -104,23 +111,26 @@ export default function LearningPage() {
 
   const winRateTrend = data.winRateTrend
     .filter((item) => item.win + item.lose > 0)
+    .slice(-DASHBOARD_TREND_LIMIT)
     .map((item) => ({
       label: item.date.slice(5).replace("-", "/"),
       value: item.winRate,
     }));
 
-  const growthTrend = data.growthTrend.map((item) => ({
-    label: item.date.slice(5).replace("-", "/"),
-    value: item.total,
-  }));
+  const growthTrend = data.growthTrend
+    .slice(-DASHBOARD_TREND_LIMIT)
+    .map((item) => ({
+      label: item.date.slice(5).replace("-", "/"),
+      value: item.total,
+    }));
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
+    <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
       <div className="mx-auto max-w-md px-4 pt-4">
-        <header className="flex items-center justify-between mb-4">
+        <header className="mb-4 flex items-center justify-between">
           <Link
-            href="/"
-            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
+            href="/dashboard"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-2xl shadow"
           >
             ‹
           </Link>
@@ -136,34 +146,34 @@ export default function LearningPage() {
 
           <Link
             href="/today-market"
-            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-lg"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg shadow"
           >
             🤖
           </Link>
         </header>
 
-        <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
-          <div className="flex gap-4 items-center">
+        <section className="mb-4 rounded-[24px] border border-blue-200 bg-gradient-to-br from-white to-blue-50 p-4 shadow-sm">
+          <div className="flex items-center gap-4">
             <div>
               <WinRateRing winRate={data.winRate} />
 
-              <div className="mt-3 rounded-2xl bg-white border border-blue-100 p-3 text-center shadow-sm">
+              <div className="mt-3 rounded-2xl border border-blue-100 bg-white p-3 text-center shadow-sm">
                 <p className="text-[10px] font-black text-slate-500">
                   前営業日比
                 </p>
                 <p
-                  className={`text-2xl font-black mt-1 ${
+                  className={`mt-1 text-2xl font-black ${
                     data.diff > 0
                       ? "text-green-600"
                       : data.diff < 0
-                      ? "text-red-500"
-                      : "text-slate-600"
+                        ? "text-red-500"
+                        : "text-slate-600"
                   }`}
                 >
                   {data.diff > 0 ? "+" : ""}
                   {data.diff}%
                 </p>
-                <p className="text-[10px] font-bold text-slate-400 mt-1">
+                <p className="mt-1 text-[10px] font-bold text-slate-400">
                   前回 {data.previousWinRate}%
                 </p>
               </div>
@@ -174,14 +184,14 @@ export default function LearningPage() {
                 🧠 AI学習ダッシュボード
               </p>
 
-              <div className="mt-3 rounded-2xl bg-white/80 border border-blue-100 px-3 py-2">
+              <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
                 <p className="text-xs font-black text-slate-500">更新</p>
                 <p className="text-sm font-black text-slate-700">
                   {data.updatedAt}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <SummaryMini
                   label="AI成長"
                   value={data.growth.toLocaleString()}
@@ -200,8 +210,8 @@ export default function LearningPage() {
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">📚 学習件数</h2>
             <p className="text-xs font-black text-slate-500">
               学習日数：{data.dateCount}日
@@ -209,43 +219,53 @@ export default function LearningPage() {
           </div>
 
           <div className="grid grid-cols-5 gap-2">
-            <Mini label="TOTAL" value={`${data.total}`} color="text-blue-600" />
+            <Mini
+              label="TOTAL"
+              value={`${data.total}`}
+              color="text-blue-600"
+            />
             <Mini label="WIN" value={`${data.win}`} color="text-green-600" />
             <Mini label="LOSE" value={`${data.lose}`} color="text-red-500" />
             <Mini
-  label="観察中"
-  value={`${data.hold}`}
-  color="text-orange-500"
-/>
-
-<Mini
-  label="判定予定"
-  value={`${data.pending}`}
-  color="text-slate-500"
-/>
+              label="観察中"
+              value={`${data.hold}`}
+              color="text-orange-500"
+            />
+            <Mini
+              label="判定予定"
+              value={`${data.pending}`}
+              color="text-slate-500"
+            />
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">📈 勝率推移</h2>
-            <span className="text-xs font-black text-blue-600">WIN RATE</span>
+            <span className="text-xs font-black text-blue-600">直近5日</span>
           </div>
 
           <LineChart data={winRateTrend} suffix="%" colorClass="bg-blue-600" />
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">🌱 AI成長グラフ</h2>
-            <span className="text-xs font-black text-green-600">GROWTH</span>
+            <span className="text-xs font-black text-green-600">直近5日</span>
           </div>
 
           <LineChart data={growthTrend} colorClass="bg-green-600" />
+
+          <Link
+            href="/learning/growth"
+            className="mt-4 block rounded-2xl border border-green-200 bg-green-50 py-3 text-center text-sm font-black text-green-700 transition active:scale-[0.98]"
+          >
+            AI成長履歴を詳しく見る →
+          </Link>
         </section>
 
-        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">🥧 判定内訳</h2>
+        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-xl font-black">🥧 判定内訳</h2>
 
           <DonutChart
             win={data.win}
@@ -270,9 +290,9 @@ export default function LearningPage() {
           type="worst"
         />
 
-        <section className="rounded-[24px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
-          <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
-          <p className="text-sm leading-7 font-bold whitespace-pre-line">
+        <section className="mb-4 rounded-[24px] border border-blue-200 bg-blue-50 p-4 shadow-sm">
+          <h2 className="mb-3 text-xl font-black">💬 AIコメント</h2>
+          <p className="whitespace-pre-line text-sm font-bold leading-7">
             {data.comment}
           </p>
         </section>
@@ -285,14 +305,14 @@ export default function LearningPage() {
 
 function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
-      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-      <Nav href="/dashboard" icon="🏠" label="ホーム" />
-      <Nav href="/today-market" icon="🤖" label="市場" />
-      <Nav href="/ranking" icon="🏆" label="ランキング" />
-      <Nav href="/learning" icon="🧠" label="学習" active />
-      <Nav href="/favorites" icon="⭐" label="お気に入り" />
-    </div>
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-md grid-cols-5 py-2">
+        <Nav href="/dashboard" icon="🏠" label="ホーム" />
+        <Nav href="/today-market" icon="🤖" label="市場" />
+        <Nav href="/ranking" icon="🏆" label="ランキング" />
+        <Nav href="/learning" icon="🧠" label="学習" active />
+        <Nav href="/favorites" icon="⭐" label="お気に入り" />
+      </div>
     </nav>
   );
 }
@@ -311,13 +331,14 @@ function Nav({
   return (
     <Link
       href={href}
-      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
+      className={
+        active
+          ? "text-center text-xs font-bold text-blue-600"
+          : "text-center text-xs font-bold text-slate-500"
+      }
     >
       <div className="text-2xl">{icon}</div>
       {label}
     </Link>
   );
 }
-
-
-
