@@ -79,7 +79,7 @@ setMarketData(data);
       <div className="mx-auto max-w-md px-4 pt-4">
         <header className="flex items-center justify-between mb-4">
           <Link
-            href="/scan-mobile"
+            href="/dashboard"
             className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
           >
             ‹
@@ -368,13 +368,13 @@ function InfoCard({
 
 function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
-      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-md grid-cols-5 py-2">
         <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/scan-mobile" icon="🔍" label="検索" />
-        <Nav href="/alerts" icon="🔔" label="通知" />
+        <Nav href="/today-market" icon="🤖" label="市場" active />
+        <Nav href="/ranking" icon="🏆" label="ランキング" />
+        <Nav href="/learning" icon="🧠" label="学習" />
         <Nav href="/favorites" icon="⭐" label="お気に入り" />
-        <Nav href="/analysis" icon="🧠" label="AI分析" />
       </div>
     </nav>
   );
