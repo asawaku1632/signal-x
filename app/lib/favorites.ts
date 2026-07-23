@@ -1,5 +1,4 @@
-import fs from "fs/promises";
-import path from "path";
+import pool from "@/app/lib/postgres";
 
 export type FavoriteStock = {
   code: string;
@@ -7,59 +6,149 @@ export type FavoriteStock = {
   addedAt: string;
 };
 
-const filePath = path.join(process.cwd(), "data", "favorites.json");
+type FavoriteRow = {
+  code: string;
+  name: string;
+  added_at: Date | string;
+};
 
-async function ensureFile() {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-
-  try {
-    await fs.access(filePath);
-  } catch {
-    await fs.writeFile(filePath, "[]", "utf-8");
-  }
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-export async function getFavorites(): Promise<FavoriteStock[]> {
-  await ensureFile();
-
-  const text = await fs.readFile(filePath, "utf-8");
-  return JSON.parse(text || "[]");
-}
-
-export async function addFavorite(code: string, name: string) {
-  const favorites = await getFavorites();
-
-  const exists = favorites.some((item) => item.code === code);
-
-  if (exists) {
-    return {
-      added: false,
-      favorites,
-    };
-  }
-
-  const newFavorite: FavoriteStock = {
-    code,
-    name,
-    addedAt: new Date().toISOString(),
+function mapFavorite(row: FavoriteRow): FavoriteStock {
+  return {
+    code: String(row.code),
+    name: String(row.name),
+    addedAt:
+      row.added_at instanceof Date
+        ? row.added_at.toISOString()
+        : String(row.added_at),
   };
+}
 
-  const updated = [newFavorite, ...favorites];
+export async function getFavorites(
+  userEmail: string
+): Promise<FavoriteStock[]> {
+  const email = normalizeEmail(userEmail);
 
-  await fs.writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
+  if (!email) {
+    return [];
+  }
+
+  const result = await pool.query<FavoriteRow>(
+    `
+      SELECT
+        code,
+        name,
+        added_at
+      FROM public.user_favorites
+      WHERE user_email = $1
+      ORDER BY added_at DESC
+    `,
+    [email]
+  );
+
+  return result.rows.map(mapFavorite);
+}
+
+export async function addFavorite(
+  userEmail: string,
+  code: string,
+  name: string
+) {
+  const email = normalizeEmail(userEmail);
+  const normalizedCode = String(code ?? "").trim();
+  const normalizedName = String(name ?? "").trim();
+
+  if (!email) {
+    throw new Error("user email is required");
+  }
+
+  if (!normalizedCode) {
+    throw new Error("stock code is required");
+  }
+
+  if (!normalizedName) {
+    throw new Error("stock name is required");
+  }
+
+  const result = await pool.query<FavoriteRow>(
+    `
+      INSERT INTO public.user_favorites (
+        user_email,
+        code,
+        name
+      )
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_email, code)
+      DO UPDATE SET
+        name = EXCLUDED.name
+      RETURNING
+        code,
+        name,
+        added_at
+    `,
+    [email, normalizedCode, normalizedName]
+  );
+
+  const favorites = await getFavorites(email);
 
   return {
     added: true,
-    favorites: updated,
+    favorite: mapFavorite(result.rows[0]),
+    favorites,
   };
 }
 
-export async function removeFavorite(code: string) {
-  const favorites = await getFavorites();
+export async function removeFavorite(
+  userEmail: string,
+  code: string
+): Promise<FavoriteStock[]> {
+  const email = normalizeEmail(userEmail);
+  const normalizedCode = String(code ?? "").trim();
 
-  const updated = favorites.filter((item) => item.code !== code);
+  if (!email) {
+    throw new Error("user email is required");
+  }
 
-  await fs.writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
+  if (!normalizedCode) {
+    throw new Error("stock code is required");
+  }
 
-  return updated;
+  await pool.query(
+    `
+      DELETE FROM public.user_favorites
+      WHERE user_email = $1
+        AND code = $2
+    `,
+    [email, normalizedCode]
+  );
+
+  return getFavorites(email);
+}
+
+export async function isFavorite(
+  userEmail: string,
+  code: string
+): Promise<boolean> {
+  const email = normalizeEmail(userEmail);
+  const normalizedCode = String(code ?? "").trim();
+
+  if (!email || !normalizedCode) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      SELECT 1
+      FROM public.user_favorites
+      WHERE user_email = $1
+        AND code = $2
+      LIMIT 1
+    `,
+    [email, normalizedCode]
+  );
+
+  return result.rowCount !== null && result.rowCount > 0;
 }

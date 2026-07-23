@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Signal = {
@@ -437,6 +437,8 @@ export default function AnalysisPage() {
   const [aiRank, setAiRank] = useState(0);
   const [totalRank, setTotalRank] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(true);
+  const [favoriteSaving, setFavoriteSaving] = useState(false);
 
   useEffect(() => {
     const fetchSignal = async () => {
@@ -482,28 +484,73 @@ export default function AnalysisPage() {
     fetchSignal();
   }, [code]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("signalx-favorites");
-    const favorites: string[] = saved ? JSON.parse(saved) : [];
+  const loadFavorite = useCallback(async () => {
+    setFavoriteLoading(true);
 
-    setIsFavorite(favorites.includes(code));
+    try {
+      const res = await fetch("/api/favorites", {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        setIsFavorite(false);
+        return;
+      }
+
+      const data = await res.json();
+      const favorites = Array.isArray(data?.favorites) ? data.favorites : [];
+
+      setIsFavorite(
+        favorites.some(
+          (item: { code?: string }) => String(item?.code ?? "") === code,
+        ),
+      );
+    } catch (error) {
+      console.error("favorite load error:", error);
+      setIsFavorite(false);
+    } finally {
+      setFavoriteLoading(false);
+    }
   }, [code]);
 
-  const toggleFavorite = () => {
-    const saved = localStorage.getItem("signalx-favorites");
-    const favorites: string[] = saved ? JSON.parse(saved) : [];
+  useEffect(() => {
+    void loadFavorite();
+  }, [loadFavorite]);
 
-    let updated: string[];
+  const toggleFavorite = async () => {
+    if (!signal || favoriteSaving || favoriteLoading) return;
 
-    if (favorites.includes(code)) {
-      updated = favorites.filter((item) => item !== code);
-      setIsFavorite(false);
-    } else {
-      updated = [...favorites, code];
-      setIsFavorite(true);
+    setFavoriteSaving(true);
+
+    try {
+      const res = isFavorite
+        ? await fetch(`/api/favorites?code=${encodeURIComponent(code)}`, {
+            method: "DELETE",
+            cache: "no-store",
+          })
+        : await fetch("/api/favorites", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              code: signal.code,
+              name: signal.name,
+            }),
+          });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.error || "お気に入りの更新に失敗しました");
+      }
+
+      setIsFavorite((current) => !current);
+    } catch (error) {
+      console.error("favorite toggle error:", error);
+    } finally {
+      setFavoriteSaving(false);
     }
-
-    localStorage.setItem("signalx-favorites", JSON.stringify(updated));
   };
 
   if (loading) {
@@ -629,15 +676,25 @@ border border-blue-300/30"
             </div>
 
             <button
-              onClick={toggleFavorite}
-              className={`grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-sm transition active:scale-95 ${
+              type="button"
+              onClick={() => void toggleFavorite()}
+              disabled={favoriteLoading || favoriteSaving}
+              className={`grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
                 isFavorite
                   ? "bg-yellow-400 text-white"
                   : "border border-slate-200 bg-white text-yellow-500"
               }`}
-              aria-label="お気に入り"
+              aria-label={
+                isFavorite
+                  ? "お気に入りから削除"
+                  : "お気に入りに追加"
+              }
             >
-              {isFavorite ? "★" : "☆"}
+              {favoriteLoading || favoriteSaving
+                ? "…"
+                : isFavorite
+                  ? "★"
+                  : "☆"}
             </button>
           </div>
         </header>
