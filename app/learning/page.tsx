@@ -46,6 +46,60 @@ type LearningDashboard = {
   updatedAt: string;
 };
 
+
+function formatJstDateTime(value?: string) {
+  if (!value) return "-";
+
+  const trimmed = value.trim();
+  let date: Date;
+
+  const shortUtcMatch = trimmed.match(
+    /^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/,
+  );
+
+  if (shortUtcMatch) {
+    const [, month, day, hour, minute] = shortUtcMatch;
+    const year = new Date().getFullYear();
+
+    date = new Date(
+      Date.UTC(
+        year,
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+      ),
+    );
+  } else {
+    const hasTimeZone =
+      /Z$/i.test(trimmed) || /[+-]\d{2}:\d{2}$/.test(trimmed);
+    const normalized =
+      trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
+
+    date = new Date(normalized);
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("month")}/${getPart("day")} ${getPart("hour")}:${getPart(
+    "minute",
+  )}`;
+}
+
 const DASHBOARD_TREND_LIMIT = 5;
 
 export default function LearningPage() {
@@ -123,6 +177,8 @@ export default function LearningPage() {
       value: item.total,
     }));
 
+  const updatedAtJst = formatJstDateTime(data.updatedAt);
+
   return (
     <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
       <div className="mx-auto max-w-md px-4 pt-4">
@@ -186,7 +242,7 @@ export default function LearningPage() {
               <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
                 <p className="text-xs font-black text-slate-500">更新</p>
                 <p className="text-sm font-black text-slate-700">
-                  {data.updatedAt}
+                  {updatedAtJst}
                 </p>
               </div>
 

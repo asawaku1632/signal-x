@@ -17,6 +17,60 @@ type LearningDashboard = {
   updatedAt: string;
 };
 
+
+function formatJstDateTime(value?: string) {
+  if (!value) return "-";
+
+  const trimmed = value.trim();
+  let date: Date;
+
+  const shortUtcMatch = trimmed.match(
+    /^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/,
+  );
+
+  if (shortUtcMatch) {
+    const [, month, day, hour, minute] = shortUtcMatch;
+    const year = new Date().getFullYear();
+
+    date = new Date(
+      Date.UTC(
+        year,
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+      ),
+    );
+  } else {
+    const hasTimeZone =
+      /Z$/i.test(trimmed) || /[+-]\d{2}:\d{2}$/.test(trimmed);
+    const normalized =
+      trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
+
+    date = new Date(normalized);
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("month")}/${getPart("day")} ${getPart("hour")}:${getPart(
+    "minute",
+  )}`;
+}
+
 export default function LearningGrowthPage() {
   const [data, setData] = useState<LearningDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +145,8 @@ export default function LearningGrowthPage() {
       ? Math.round(totalIncrease / (history.length - 1))
       : 0;
 
+  const updatedAtJst = formatJstDateTime(data.updatedAt);
+
   return (
     <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
       <div className="mx-auto max-w-md px-4 pt-4">
@@ -140,7 +196,7 @@ export default function LearningGrowthPage() {
           </div>
 
           <p className="mt-3 text-right text-[11px] font-bold text-slate-400">
-            更新 {data.updatedAt}
+            更新 {updatedAtJst}
           </p>
         </section>
 
