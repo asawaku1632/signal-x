@@ -709,7 +709,7 @@ border border-blue-300/30"
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-1.5 border-l border-slate-300/70 pl-3">
+            <div className="flex-1 min-w-0 space-y-2 border-l border-slate-300/70 pl-3">
               <div className="flex min-h-[2.8rem] items-center justify-between gap-2 rounded-xl border border-amber-200/80 bg-gradient-to-r from-white/95 to-amber-50/90 px-3 py-1.5 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm shadow-inner">
@@ -717,12 +717,14 @@ border border-blue-300/30"
                   </span>
                   <p className="text-[10px] font-black text-slate-600">AI順位</p>
                 </div>
-                <p className="shrink-0 whitespace-nowrap font-black text-slate-900">
-                  <span className="text-lg leading-none text-amber-700">{getRankLabel(aiRank)}</span>
-                  <span className="ml-1 text-[9px] font-black text-slate-500">
-                    / {totalRank || "-"}銘柄中
-                  </span>
-                </p>
+                <p className="flex flex-col items-end text-right leading-tight">
+  <span className="text-lg font-black text-amber-700">
+    {getRankLabel(aiRank)}
+  </span>
+  <span className="text-[9px] font-black text-slate-500">
+    / {totalRank || "-"}銘柄中
+  </span>
+</p>
               </div>
 
               <div className="flex min-h-[2.8rem] items-center justify-between gap-2 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-white/95 to-emerald-50/90 px-3 py-1.5 shadow-sm">
@@ -732,7 +734,7 @@ border border-blue-300/30"
                   </span>
                   <p className="text-[10px] font-black text-slate-600">信頼度</p>
                 </div>
-                <p className="shrink-0 text-lg font-black leading-none text-emerald-600">
+                <p className="text-lg font-black text-emerald-600 text-right">
                   {aiTrust}%
                 </p>
               </div>
@@ -744,7 +746,7 @@ border border-blue-300/30"
                   </span>
                   <p className="text-[10px] font-black text-slate-600">判定</p>
                 </div>
-                <p className="flex shrink-0 items-center gap-1 text-base font-black leading-none text-orange-600">
+                <p className="flex items-center justify-end gap-1 text-sm font-black text-orange-600 text-right">
                   <span className="text-sm">{judgeIcon}</span>
                   <span>{judge}</span>
                 </p>
