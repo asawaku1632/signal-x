@@ -110,7 +110,6 @@ export default function LearningPage() {
   }
 
   const winRateTrend = data.winRateTrend
-    .filter((item) => item.win + item.lose > 0)
     .slice(-DASHBOARD_TREND_LIMIT)
     .map((item) => ({
       label: item.date.slice(5).replace("-", "/"),
@@ -218,12 +217,22 @@ export default function LearningPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
-            <Mini
-              label="TOTAL"
-              value={`${data.total}`}
-              color="text-blue-600"
-            />
+          <div className="mb-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-slate-500">TOTAL</p>
+                <p className="text-[10px] font-bold text-slate-400">
+                  累計学習件数
+                </p>
+              </div>
+
+              <p className="min-w-0 text-right text-3xl font-black tracking-tight text-blue-600">
+                {data.total.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <Mini label="WIN" value={`${data.win}`} color="text-green-600" />
             <Mini label="LOSE" value={`${data.lose}`} color="text-red-500" />
             <Mini
