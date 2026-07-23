@@ -1,4 +1,7 @@
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+
+import { authOptions } from "@/app/lib/auth";
 import { getFavorites } from "@/app/lib/favorites";
 
 function judgeLabel(score: number) {
@@ -8,9 +11,28 @@ function judgeLabel(score: number) {
   return "見送り";
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
-    const favorites = await getFavorites();
+    const session = await getServerSession(authOptions);
+    const userEmail = session?.user?.email?.trim().toLowerCase();
+
+    if (!userEmail) {
+      return NextResponse.json(
+        {
+          success: false,
+          count: 0,
+          hotCount: 0,
+          alerts: [],
+          hotAlerts: [],
+          error: "ログインが必要です",
+        },
+        { status: 401 },
+      );
+    }
+
+    const favorites = await getFavorites(userEmail);
 
     const baseUrl = new URL(req.url).origin;
 
@@ -18,13 +40,24 @@ export async function GET(req: Request) {
       cache: "no-store",
     });
 
+    if (!scanRes.ok) {
+      throw new Error(`scan API failed: ${scanRes.status}`);
+    }
+
     const scanJson = await scanRes.json();
-    const scanStocks = scanJson.stocks || [];
+    const scanStocks = Array.isArray(scanJson)
+      ? scanJson
+      : Array.isArray(scanJson.stocks)
+        ? scanJson.stocks
+        : [];
+
+    const totalStockList =
+      Number(scanJson?.totalStockList) || scanStocks.length;
 
     const alerts = favorites
       .map((favorite) => {
         const stock = scanStocks.find(
-          (item: any) => item.code === favorite.code
+          (item: any) => String(item.code) === String(favorite.code),
         );
 
         if (!stock) {
@@ -34,24 +67,26 @@ export async function GET(req: Request) {
             score: 0,
             judge: "未取得",
             rank: 0,
-            totalRank: scanJson.totalStockList || scanStocks.length,
+            totalRank: totalStockList,
           };
         }
 
+        const score = Number(stock.score ?? stock.aiPower ?? 0);
+
         const rank =
           scanStocks.findIndex(
-            (item: any) => item.code === favorite.code
+            (item: any) => String(item.code) === String(favorite.code),
           ) + 1;
 
         return {
           code: favorite.code,
           name: favorite.name,
-          score: stock.score,
-          judge: judgeLabel(stock.score),
+          score,
+          judge: judgeLabel(score),
           rank,
-          totalRank: scanJson.totalStockList || scanStocks.length,
-          price: stock.price,
-          changePercent: stock.changePercent,
+          totalRank: totalStockList,
+          price: Number(stock.price ?? 0),
+          changePercent: Number(stock.changePercent ?? 0),
         };
       })
       .sort((a, b) => b.score - a.score);
@@ -62,11 +97,13 @@ export async function GET(req: Request) {
       success: true,
       count: alerts.length,
       hotCount: hotAlerts.length,
-      totalStockList: scanJson.totalStockList || scanStocks.length,
+      totalStockList,
       alerts,
       hotAlerts,
     });
   } catch (error) {
+    console.error("GET /api/favorites-alerts error:", error);
+
     return NextResponse.json(
       {
         success: false,
@@ -74,9 +111,12 @@ export async function GET(req: Request) {
         hotCount: 0,
         alerts: [],
         hotAlerts: [],
-        error: String(error),
+        error:
+          error instanceof Error
+            ? error.message
+            : "お気に入り通知の取得に失敗しました",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
