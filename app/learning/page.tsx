@@ -164,6 +164,7 @@ export default function LearningPage() {
   }
 
   const winRateTrend = data.winRateTrend
+    .filter((item) => item.win + item.lose > 0)
     .slice(-DASHBOARD_TREND_LIMIT)
     .map((item) => ({
       label: item.date.slice(5).replace("-", "/"),
@@ -234,7 +235,7 @@ export default function LearningPage() {
               </div>
             </div>
 
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-blue-600">
                 🧠 AI学習ダッシュボード
               </p>
@@ -246,20 +247,24 @@ export default function LearningPage() {
                 </p>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <SummaryMini
-                  label="AI成長"
-                  value={data.growth.toLocaleString()}
-                  sub="累計学習件数"
-                  color="text-green-600"
-                />
+              <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+                <div className="min-w-0 [&_.text-3xl]:text-2xl [&_.text-4xl]:text-2xl [&_*]:min-w-0">
+                  <SummaryMini
+                    label="AI成長"
+                    value={data.growth.toLocaleString()}
+                    sub="累計学習件数"
+                    color="text-green-600"
+                  />
+                </div>
 
-                <SummaryMini
-                  label="判定済み"
-                  value={judgedTotal.toLocaleString()}
-                  sub="WIN / LOSE"
-                  color="text-blue-600"
-                />
+                <div className="min-w-0 [&_.text-3xl]:text-2xl [&_.text-4xl]:text-2xl [&_*]:min-w-0">
+                  <SummaryMini
+                    label="判定済み"
+                    value={judgedTotal.toLocaleString()}
+                    sub="WIN / LOSE"
+                    color="text-blue-600"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -307,7 +312,9 @@ export default function LearningPage() {
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">📈 勝率推移</h2>
-            <span className="text-xs font-black text-blue-600">直近5日</span>
+            <span className="text-xs font-black text-blue-600">
+              判定あり直近5日
+            </span>
           </div>
 
           <LineChart data={winRateTrend} suffix="%" colorClass="bg-blue-600" />
