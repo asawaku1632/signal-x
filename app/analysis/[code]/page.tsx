@@ -718,13 +718,13 @@ border border-blue-300/30"
                   <p className="text-[10px] font-black text-slate-600">AI順位</p>
                 </div>
                 <p className="flex flex-col items-end text-right leading-tight">
-  <span className="text-lg font-black text-amber-700">
-    {getRankLabel(aiRank)}
-  </span>
-  <span className="text-[9px] font-black text-slate-500">
-    / {totalRank || "-"}銘柄中
-  </span>
-</p>
+                  <span className="text-lg font-black text-amber-700">
+                    {getRankLabel(aiRank)}
+                  </span>
+                  <span className="text-[9px] font-black text-slate-500">
+                    / {totalRank || "-"}銘柄中
+                  </span>
+                </p>
               </div>
 
               <div className="flex min-h-[2.8rem] items-center justify-between gap-2 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-white/95 to-emerald-50/90 px-3 py-1.5 shadow-sm">
@@ -734,7 +734,7 @@ border border-blue-300/30"
                   </span>
                   <p className="text-[10px] font-black text-slate-600">信頼度</p>
                 </div>
-                <p className="text-lg font-black text-emerald-600 text-right">
+                <p className="text-right text-lg font-black text-emerald-600">
                   {aiTrust}%
                 </p>
               </div>
@@ -746,7 +746,7 @@ border border-blue-300/30"
                   </span>
                   <p className="text-[10px] font-black text-slate-600">判定</p>
                 </div>
-                <p className="flex items-center justify-end gap-1 text-sm font-black text-orange-600 text-right">
+                <p className="flex items-center justify-end gap-1 text-right text-sm font-black text-orange-600">
                   <span className="text-sm">{judgeIcon}</span>
                   <span>{judge}</span>
                 </p>

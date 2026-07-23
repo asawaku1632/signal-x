@@ -405,7 +405,7 @@ function ScanMobileContent() {
       <div className="mx-auto max-w-md px-4 pt-5">
         <header className="sticky top-0 z-30 -mx-4 border-b border-white/70 bg-[#f7f9fc]/85 px-4 pb-3 pt-3 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href="/dashboard" className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-200">
                 X
               </div>
@@ -824,7 +824,7 @@ function ScanMobileContent() {
         {/* BOTTOM NAV - APP WIDE STANDARD */}
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-2 py-2 backdrop-blur-xl">
           <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-            <BottomNavItem href="/" icon="🏠" label="ホーム" />
+            <BottomNavItem href="/dashboard" icon="🏠" label="ホーム" />
             <BottomNavItem href="/today-market" icon="🤖" label="市場" />
             <BottomNavItem
               href="/ranking"

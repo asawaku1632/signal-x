@@ -287,7 +287,7 @@ export default function RankingPage() {
       <div className="mx-auto max-w-md px-4 pt-4">
         <header className="mb-4 flex items-center justify-between">
           <Link
-            href="/"
+            href="/dashboard"
             className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-2xl shadow"
           >
             ‹
@@ -650,6 +650,4 @@ function Nav({
     </Link>
   );
 }
-
-
 
