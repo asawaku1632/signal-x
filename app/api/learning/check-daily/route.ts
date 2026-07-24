@@ -9,7 +9,6 @@ type DailyResult = "WIN" | "LOSE" | "HOLD";
 type UpdateItem = {
   id: string;
   code: string;
-  entryPrice: number;
   nextPrice: number;
   changePercent: number;
   result: DailyResult;
@@ -155,8 +154,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
 
-    const requestedDate =
-      url.searchParams.get("date");
+    const requestedDate = url.searchParams.get("date");
 
     const requestedBatchSize = toNumber(
       url.searchParams.get("batchSize"),
@@ -202,7 +200,7 @@ export async function GET(request: Request) {
           success: false,
           running: true,
           message:
-            "別の答え合わせ処理が実行中です。少し待ってから再度実行してください。",
+            "別の答え合わせ処理が実行中です。少し待ってから再実行してください。",
         },
         { status: 409 }
       );
@@ -211,74 +209,29 @@ export async function GET(request: Request) {
     const todayJst = getJstDateString();
 
     /*
-     * DBに保存されている最新の価格日を取得する。
-     * /api/scanは呼ばない。
-     */
-    const latestPriceDateResult =
-      await client.query(
-        `
-        SELECT MAX(date) AS latest_date
-        FROM daily_stock_results
-        WHERE price IS NOT NULL
-          AND price > 0
-        `
-      );
-
-    const latestPriceDate =
-      latestPriceDateResult.rows[0]?.latest_date
-        ? String(
-            latestPriceDateResult.rows[0].latest_date
-          ).slice(0, 10)
-        : null;
-
-    if (!latestPriceDate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "latest price date not found",
-          message:
-            "比較に使える最新の価格データがありません。",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      requestedDate &&
-      requestedDate >= latestPriceDate
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "future price data is not available",
-          targetDate: requestedDate,
-          latestPriceDate,
-          message:
-            "予測日より後の価格データがないため、まだ答え合わせできません。",
-        },
-        { status: 400 }
-      );
-    }
-
-    let targetDate: string | null =
-      requestedDate;
-
-    /*
-     * 最新価格日より前にあるUNKNOWNデータのうち、
+     * 日付指定がない場合：
+     * 後日の価格データが存在するUNKNOWN日のうち、
      * 最も新しい予測日を選択する。
      */
+    let targetDate: string | null = requestedDate;
+
     if (!targetDate) {
-      const targetDateResult =
-        await client.query(
-          `
-          SELECT MAX(date) AS target_date
-          FROM daily_stock_results
-          WHERE result = 'UNKNOWN'
-            AND date < $1
-          `,
-          [latestPriceDate]
-        );
+      const targetDateResult = await client.query(
+        `
+        SELECT MAX(target.date) AS target_date
+        FROM daily_stock_results AS target
+        WHERE target.result = 'UNKNOWN'
+          AND target.date < $1
+          AND EXISTS (
+            SELECT 1
+            FROM daily_stock_results AS future
+            WHERE future.date > target.date
+              AND future.price IS NOT NULL
+              AND future.price > 0
+          )
+        `,
+        [todayJst]
+      );
 
       targetDate =
         targetDateResult.rows[0]?.target_date
@@ -294,8 +247,8 @@ export async function GET(request: Request) {
         completed: true,
         checkedAt: new Date().toISOString(),
         todayJst,
-        latestPriceDate,
         date: null,
+        priceDate: null,
         updatedCount: 0,
         remainingCount: 0,
         message:
@@ -303,13 +256,61 @@ export async function GET(request: Request) {
       });
     }
 
+    if (targetDate >= todayJst) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "same-day judgement is not allowed",
+          targetDate,
+          todayJst,
+          message:
+            "当日分はまだ答え合わせできません。",
+        },
+        { status: 400 }
+      );
+    }
+
     /*
-     * 最新日の同一銘柄価格とJOINして、
-     * 今回処理する判定待ちデータを取得する。
+     * 予測日より後に存在する最初の日付を取得する。
+     * これが翌営業日の価格日になる。
+     */
+    const nextPriceDateResult = await client.query(
+      `
+      SELECT MIN(date) AS next_price_date
+      FROM daily_stock_results
+      WHERE date > $1
+        AND price IS NOT NULL
+        AND price > 0
+      `,
+      [targetDate]
+    );
+
+    const nextPriceDate =
+      nextPriceDateResult.rows[0]?.next_price_date
+        ? String(
+            nextPriceDateResult.rows[0].next_price_date
+          ).slice(0, 10)
+        : null;
+
+    if (!nextPriceDate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "next price date not found",
+          targetDate,
+          message:
+            "予測日より後の価格データがまだありません。",
+        },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * 翌営業日の同一銘柄価格とJOINする。
      */
     const targetResult = await client.query(
       `
-      WITH latest_prices AS (
+      WITH next_prices AS (
         SELECT DISTINCT ON (code)
           code,
           price
@@ -327,10 +328,10 @@ export async function GET(request: Request) {
         target.name,
         target.score,
         target.price AS entry_price,
-        latest.price AS next_price
+        next_prices.price AS next_price
       FROM daily_stock_results AS target
-      INNER JOIN latest_prices AS latest
-        ON latest.code = target.code
+      INNER JOIN next_prices
+        ON next_prices.code = target.code
       WHERE target.date = $2
         AND target.result = 'UNKNOWN'
         AND target.price IS NOT NULL
@@ -340,11 +341,7 @@ export async function GET(request: Request) {
         target.created_at ASC
       LIMIT $3
       `,
-      [
-        latestPriceDate,
-        targetDate,
-        batchSize,
-      ]
+      [nextPriceDate, targetDate, batchSize]
     );
 
     const updates: UpdateItem[] =
@@ -373,12 +370,10 @@ export async function GET(request: Request) {
 
           return {
             id: String(row.id ?? ""),
-            code: String(row.code ?? ""),
-            entryPrice,
+            code: String(row.code ?? "").trim(),
             nextPrice,
             changePercent,
-            result:
-              judgeResult(changePercent),
+            result: judgeResult(changePercent),
           } satisfies UpdateItem;
         })
         .filter(
@@ -427,16 +422,15 @@ export async function GET(request: Request) {
       }
     }
 
-    const remainingResult =
-      await client.query(
-        `
-        SELECT COUNT(*)::int AS count
-        FROM daily_stock_results
-        WHERE date = $1
-          AND result = 'UNKNOWN'
-        `,
-        [targetDate]
-      );
+    const remainingResult = await client.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM daily_stock_results
+      WHERE date = $1
+        AND result = 'UNKNOWN'
+      `,
+      [targetDate]
+    );
 
     const remainingCount = toNumber(
       remainingResult.rows[0]?.count
@@ -451,42 +445,36 @@ export async function GET(request: Request) {
           AND target.result = 'UNKNOWN'
           AND EXISTS (
             SELECT 1
-            FROM daily_stock_results AS latest
-            WHERE latest.date = $2
-              AND latest.code = target.code
-              AND latest.price IS NOT NULL
-              AND latest.price > 0
+            FROM daily_stock_results AS next_day
+            WHERE next_day.date = $2
+              AND next_day.code = target.code
+              AND next_day.price IS NOT NULL
+              AND next_day.price > 0
           )
         `,
-        [targetDate, latestPriceDate]
+        [targetDate, nextPriceDate]
       );
 
-    const comparableRemainingCount =
-      toNumber(
-        comparableRemainingResult.rows[0]
-          ?.count
-      );
+    const comparableRemainingCount = toNumber(
+      comparableRemainingResult.rows[0]?.count
+    );
 
-    const missingPriceCount =
-      Math.max(
-        0,
-        remainingCount -
-          comparableRemainingCount
-      );
+    const missingPriceCount = Math.max(
+      0,
+      remainingCount - comparableRemainingCount
+    );
 
     return NextResponse.json({
       success: true,
-      completed:
-        comparableRemainingCount === 0,
+      completed: comparableRemainingCount === 0,
       checkedAt: new Date().toISOString(),
       todayJst,
       date: targetDate,
-      priceDate: latestPriceDate,
+      priceDate: nextPriceDate,
       automaticallySelected:
         requestedDate === null,
       batchSize,
-      targetCount:
-        targetResult.rows.length,
+      targetCount: targetResult.rows.length,
       updatedCount,
       remainingCount,
       comparableRemainingCount,
@@ -498,25 +486,24 @@ export async function GET(request: Request) {
       message:
         comparableRemainingCount > 0
           ? `今回は${updatedCount}件を処理しました。比較可能な残りは${comparableRemainingCount}件です。`
-          : `今回は${updatedCount}件を処理しました。この日付の比較可能なデータは完了しました。`,
+          : `今回は${updatedCount}件を処理しました。この日付の翌営業日比較が完了しました。`,
       nextRequest:
         comparableRemainingCount > 0
           ? `/api/learning/check-daily?date=${targetDate}&batchSize=${batchSize}`
           : null,
       dataSource:
-        "daily_stock_resultsに保存済みの最新価格",
+        "daily_stock_resultsに保存された翌営業日の価格",
       rule: {
-        win: "予測時価格から2%以上上昇",
-        lose: "予測時価格から2%以上下落",
-        hold: "騰落率が±2%未満",
+        win: "予測時価格から翌営業日に2%以上上昇",
+        lose: "予測時価格から翌営業日に2%以上下落",
+        hold: "翌営業日の騰落率が±2%未満",
       },
     });
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        checkedAt:
-          new Date().toISOString(),
+        checkedAt: new Date().toISOString(),
         error: "check daily failed",
         message:
           error instanceof Error
