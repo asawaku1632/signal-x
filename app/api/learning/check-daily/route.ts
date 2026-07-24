@@ -6,36 +6,17 @@ export const runtime = "nodejs";
 
 type DailyResult = "WIN" | "LOSE" | "HOLD";
 
-type TargetRow = {
-  id: string;
-  date: string;
-  code: string;
-  name: string;
-  score: number;
-  price: number;
-};
-
-type ScanStock = {
-  code?: string | number;
-  price?: string | number;
-};
-
 type UpdateItem = {
   id: string;
   code: string;
+  entryPrice: number;
   nextPrice: number;
   changePercent: number;
   result: DailyResult;
 };
 
 const DEFAULT_BATCH_SIZE = 50;
-const MAX_BATCH_SIZE = 100;
-const SCAN_TIMEOUT_MS = 25_000;
-
-/*
- * 同じ答え合わせ処理が同時に動かないようにする
- * PostgreSQL Advisory Lock用の固定キー
- */
+const MAX_BATCH_SIZE = 200;
 const CHECK_DAILY_LOCK_KEY = 73124001;
 
 function getJstDateString(date = new Date()): string {
@@ -53,7 +34,6 @@ function isValidDateString(value: string): boolean {
 
 function toNumber(value: unknown, fallback = 0): number {
   const number = Number(value ?? fallback);
-
   return Number.isFinite(number) ? number : fallback;
 }
 
@@ -67,135 +47,38 @@ function calculateChangePercent(
   return Math.round(changePercent * 100) / 100;
 }
 
-function judgeResult(
-  changePercent: number
-): DailyResult {
-  if (changePercent >= 2) {
-    return "WIN";
-  }
-
-  if (changePercent <= -2) {
-    return "LOSE";
-  }
+function judgeResult(changePercent: number): DailyResult {
+  if (changePercent >= 2) return "WIN";
+  if (changePercent <= -2) return "LOSE";
 
   return "HOLD";
-}
-
-function extractStocks(json: unknown): ScanStock[] {
-  if (Array.isArray(json)) {
-    return json as ScanStock[];
-  }
-
-  if (!json || typeof json !== "object") {
-    return [];
-  }
-
-  const data = json as Record<string, unknown>;
-
-  if (Array.isArray(data.stocks)) {
-    return data.stocks as ScanStock[];
-  }
-
-  if (Array.isArray(data.results)) {
-    return data.results as ScanStock[];
-  }
-
-  if (Array.isArray(data.data)) {
-    return data.data as ScanStock[];
-  }
-
-  return [];
-}
-
-async function fetchCurrentPrices(
-  origin: string
-): Promise<Map<string, number>> {
-  const controller = new AbortController();
-
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, SCAN_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(
-      `${origin}/api/scan?limit=1200`,
-      {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `scan api failed: ${response.status}`
-      );
-    }
-
-    const json = await response.json();
-    const stocks = extractStocks(json);
-
-    const priceMap = new Map<string, number>();
-
-    for (const stock of stocks) {
-      const code = String(
-        stock?.code ?? ""
-      ).trim();
-
-      const price = toNumber(stock?.price);
-
-      if (
-        code &&
-        Number.isFinite(price) &&
-        price > 0
-      ) {
-        priceMap.set(code, price);
-      }
-    }
-
-    if (priceMap.size === 0) {
-      throw new Error(
-        "scan apiから有効な株価を取得できませんでした"
-      );
-    }
-
-    return priceMap;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 async function bulkUpdateDailyResults(
   client: any,
   updates: UpdateItem[]
 ): Promise<number> {
-  if (updates.length === 0) {
-    return 0;
-  }
+  if (updates.length === 0) return 0;
 
   const values: unknown[] = [];
 
-  const placeholders = updates.map(
-    (item, index) => {
-      const base = index * 4;
+  const placeholders = updates.map((item, index) => {
+    const base = index * 4;
 
-      values.push(
-        item.id,
-        item.nextPrice,
-        item.changePercent,
-        item.result
-      );
+    values.push(
+      item.id,
+      item.nextPrice,
+      item.changePercent,
+      item.result
+    );
 
-      return `(
-        $${base + 1}::text,
-        $${base + 2}::double precision,
-        $${base + 3}::double precision,
-        $${base + 4}::text
-      )`;
-    }
-  );
+    return `(
+      $${base + 1}::text,
+      $${base + 2}::double precision,
+      $${base + 3}::double precision,
+      $${base + 4}::text
+    )`;
+  });
 
   const result = await client.query(
     `
@@ -228,25 +111,21 @@ async function bulkUpdateExperienceLogs(
   targetDate: string,
   updates: UpdateItem[]
 ): Promise<number> {
-  if (updates.length === 0) {
-    return 0;
-  }
+  if (updates.length === 0) return 0;
 
   const values: unknown[] = [targetDate];
 
-  const placeholders = updates.map(
-    (item, index) => {
-      const codePosition = index * 2 + 2;
-      const resultPosition = index * 2 + 3;
+  const placeholders = updates.map((item, index) => {
+    const codePosition = index * 2 + 2;
+    const resultPosition = index * 2 + 3;
 
-      values.push(item.code, item.result);
+    values.push(item.code, item.result);
 
-      return `(
-        $${codePosition}::text,
-        $${resultPosition}::text
-      )`;
-    }
-  );
+    return `(
+      $${codePosition}::text,
+      $${resultPosition}::text
+    )`;
+  });
 
   const result = await client.query(
     `
@@ -307,9 +186,6 @@ export async function GET(request: Request) {
       );
     }
 
-    /*
-     * APIの二重実行を防止
-     */
     const lockResult = await client.query(
       `
       SELECT pg_try_advisory_lock($1) AS acquired
@@ -326,7 +202,7 @@ export async function GET(request: Request) {
           success: false,
           running: true,
           message:
-            "現在、別の答え合わせ処理が実行中です。少し待ってから再度開いてください。",
+            "別の答え合わせ処理が実行中です。少し待ってから再度実行してください。",
         },
         { status: 409 }
       );
@@ -335,21 +211,51 @@ export async function GET(request: Request) {
     const todayJst = getJstDateString();
 
     /*
-     * 今日の予測を今日の価格で判定しない
+     * DBに保存されている最新の価格日を取得する。
+     * /api/scanは呼ばない。
      */
+    const latestPriceDateResult =
+      await client.query(
+        `
+        SELECT MAX(date) AS latest_date
+        FROM daily_stock_results
+        WHERE price IS NOT NULL
+          AND price > 0
+        `
+      );
+
+    const latestPriceDate =
+      latestPriceDateResult.rows[0]?.latest_date
+        ? String(
+            latestPriceDateResult.rows[0].latest_date
+          ).slice(0, 10)
+        : null;
+
+    if (!latestPriceDate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "latest price date not found",
+          message:
+            "比較に使える最新の価格データがありません。",
+        },
+        { status: 400 }
+      );
+    }
+
     if (
       requestedDate &&
-      requestedDate >= todayJst
+      requestedDate >= latestPriceDate
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "same-day judgement is not allowed",
+            "future price data is not available",
           targetDate: requestedDate,
-          todayJst,
+          latestPriceDate,
           message:
-            "当日の予測を当日の価格で判定することはできません。翌営業日以降に実行してください。",
+            "予測日より後の価格データがないため、まだ答え合わせできません。",
         },
         { status: 400 }
       );
@@ -359,28 +265,25 @@ export async function GET(request: Request) {
       requestedDate;
 
     /*
-     * daily_stock_results.dateはtext型。
-     * YYYY-MM-DD形式なので文字列のまま比較する。
-     *
-     * 日付指定がない場合は、
-     * 今日より前にある最新のUNKNOWN日を取得する。
+     * 最新価格日より前にあるUNKNOWNデータのうち、
+     * 最も新しい予測日を選択する。
      */
     if (!targetDate) {
-      const dateResult = await client.query(
-        `
-        SELECT
-          MAX(date) AS target_date
-        FROM daily_stock_results
-        WHERE result = 'UNKNOWN'
-          AND date < $1
-        `,
-        [todayJst]
-      );
+      const targetDateResult =
+        await client.query(
+          `
+          SELECT MAX(date) AS target_date
+          FROM daily_stock_results
+          WHERE result = 'UNKNOWN'
+            AND date < $1
+          `,
+          [latestPriceDate]
+        );
 
       targetDate =
-        dateResult.rows[0]?.target_date
+        targetDateResult.rows[0]?.target_date
           ? String(
-              dateResult.rows[0].target_date
+              targetDateResult.rows[0].target_date
             ).slice(0, 10)
           : null;
     }
@@ -391,142 +294,99 @@ export async function GET(request: Request) {
         completed: true,
         checkedAt: new Date().toISOString(),
         todayJst,
+        latestPriceDate,
         date: null,
-        batchSize,
-        targetCount: 0,
-        preparedCount: 0,
         updatedCount: 0,
-        skippedCount: 0,
         remainingCount: 0,
-        winCount: 0,
-        loseCount: 0,
-        holdCount: 0,
-        experienceUpdatedCount: 0,
         message:
-          "判定可能な過去のUNKNOWNデータはありません。",
+          "答え合わせ可能な判定待ちデータはありません。",
       });
     }
 
     /*
-     * 1回につき指定件数だけ取得。
-     * すでに更新された行はUNKNOWNではないため、
-     * 次回以降は自動的に対象外になる。
+     * 最新日の同一銘柄価格とJOINして、
+     * 今回処理する判定待ちデータを取得する。
      */
     const targetResult = await client.query(
       `
+      WITH latest_prices AS (
+        SELECT DISTINCT ON (code)
+          code,
+          price
+        FROM daily_stock_results
+        WHERE date = $1
+          AND price IS NOT NULL
+          AND price > 0
+        ORDER BY
+          code,
+          created_at DESC
+      )
       SELECT
-        id,
-        date,
-        code,
-        name,
-        score,
-        price
-      FROM daily_stock_results
-      WHERE date = $1
-        AND result = 'UNKNOWN'
+        target.id,
+        target.code,
+        target.name,
+        target.score,
+        target.price AS entry_price,
+        latest.price AS next_price
+      FROM daily_stock_results AS target
+      INNER JOIN latest_prices AS latest
+        ON latest.code = target.code
+      WHERE target.date = $2
+        AND target.result = 'UNKNOWN'
+        AND target.price IS NOT NULL
+        AND target.price > 0
       ORDER BY
-        score DESC,
-        created_at ASC
-      LIMIT $2
+        target.score DESC,
+        target.created_at ASC
+      LIMIT $3
       `,
-      [targetDate, batchSize]
+      [
+        latestPriceDate,
+        targetDate,
+        batchSize,
+      ]
     );
 
-    const targets: TargetRow[] =
-      targetResult.rows.map((row: any) => ({
-        id: String(row.id ?? ""),
-        date: String(row.date ?? "").slice(
-          0,
-          10
-        ),
-        code: String(row.code ?? "").trim(),
-        name: String(row.name ?? ""),
-        score: toNumber(row.score),
-        price: toNumber(row.price),
-      }));
+    const updates: UpdateItem[] =
+      targetResult.rows
+        .map((row: any) => {
+          const entryPrice = toNumber(
+            row.entry_price
+          );
 
-    if (targets.length === 0) {
-      return NextResponse.json({
-        success: true,
-        completed: true,
-        checkedAt: new Date().toISOString(),
-        todayJst,
-        date: targetDate,
-        batchSize,
-        targetCount: 0,
-        preparedCount: 0,
-        updatedCount: 0,
-        skippedCount: 0,
-        remainingCount: 0,
-        winCount: 0,
-        loseCount: 0,
-        holdCount: 0,
-        experienceUpdatedCount: 0,
-        message:
-          "指定日の判定待ちデータはありません。",
-      });
-    }
+          const nextPrice = toNumber(
+            row.next_price
+          );
 
-    const priceMap =
-      await fetchCurrentPrices(url.origin);
+          if (
+            entryPrice <= 0 ||
+            nextPrice <= 0
+          ) {
+            return null;
+          }
 
-    const updates: UpdateItem[] = [];
+          const changePercent =
+            calculateChangePercent(
+              entryPrice,
+              nextPrice
+            );
 
-    const skipped: Array<{
-      code: string;
-      name: string;
-      reason: string;
-    }> = [];
-
-    for (const target of targets) {
-      const entryPrice = toNumber(
-        target.price
-      );
-
-      const nextPrice =
-        priceMap.get(target.code) ?? 0;
-
-      if (
-        !Number.isFinite(entryPrice) ||
-        entryPrice <= 0
-      ) {
-        skipped.push({
-          code: target.code,
-          name: target.name,
-          reason: "予測時価格が不正",
-        });
-
-        continue;
-      }
-
-      if (
-        !Number.isFinite(nextPrice) ||
-        nextPrice <= 0
-      ) {
-        skipped.push({
-          code: target.code,
-          name: target.name,
-          reason:
-            "現在価格を取得できませんでした",
-        });
-
-        continue;
-      }
-
-      const changePercent =
-        calculateChangePercent(
-          entryPrice,
-          nextPrice
+          return {
+            id: String(row.id ?? ""),
+            code: String(row.code ?? ""),
+            entryPrice,
+            nextPrice,
+            changePercent,
+            result:
+              judgeResult(changePercent),
+          } satisfies UpdateItem;
+        })
+        .filter(
+          (
+            item: UpdateItem | null
+          ): item is UpdateItem =>
+            item !== null
         );
-
-      updates.push({
-        id: target.id,
-        code: target.code,
-        nextPrice,
-        changePercent,
-        result: judgeResult(changePercent),
-      });
-    }
 
     const winCount = updates.filter(
       (item) => item.result === "WIN"
@@ -567,15 +427,10 @@ export async function GET(request: Request) {
       }
     }
 
-    /*
-     * daily_stock_results.dateはtext型なので、
-     * ここも::dateを付けず文字列として比較する。
-     */
     const remainingResult =
       await client.query(
         `
-        SELECT
-          COUNT(*)::int AS count
+        SELECT COUNT(*)::int AS count
         FROM daily_stock_results
         WHERE date = $1
           AND result = 'UNKNOWN'
@@ -587,33 +442,69 @@ export async function GET(request: Request) {
       remainingResult.rows[0]?.count
     );
 
+    const comparableRemainingResult =
+      await client.query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM daily_stock_results AS target
+        WHERE target.date = $1
+          AND target.result = 'UNKNOWN'
+          AND EXISTS (
+            SELECT 1
+            FROM daily_stock_results AS latest
+            WHERE latest.date = $2
+              AND latest.code = target.code
+              AND latest.price IS NOT NULL
+              AND latest.price > 0
+          )
+        `,
+        [targetDate, latestPriceDate]
+      );
+
+    const comparableRemainingCount =
+      toNumber(
+        comparableRemainingResult.rows[0]
+          ?.count
+      );
+
+    const missingPriceCount =
+      Math.max(
+        0,
+        remainingCount -
+          comparableRemainingCount
+      );
+
     return NextResponse.json({
       success: true,
-      completed: remainingCount === 0,
+      completed:
+        comparableRemainingCount === 0,
       checkedAt: new Date().toISOString(),
       todayJst,
       date: targetDate,
+      priceDate: latestPriceDate,
       automaticallySelected:
         requestedDate === null,
       batchSize,
-      targetCount: targets.length,
-      preparedCount: updates.length,
+      targetCount:
+        targetResult.rows.length,
       updatedCount,
-      skippedCount: skipped.length,
       remainingCount,
+      comparableRemainingCount,
+      missingPriceCount,
       winCount,
       loseCount,
       holdCount,
       experienceUpdatedCount,
-      skipped: skipped.slice(0, 20),
       message:
-        remainingCount > 0
-          ? `今回は${updatedCount}件を処理しました。残り${remainingCount}件です。`
-          : "この日付の答え合わせが完了しました。",
+        comparableRemainingCount > 0
+          ? `今回は${updatedCount}件を処理しました。比較可能な残りは${comparableRemainingCount}件です。`
+          : `今回は${updatedCount}件を処理しました。この日付の比較可能なデータは完了しました。`,
       nextRequest:
-        remainingCount > 0
+        comparableRemainingCount > 0
           ? `/api/learning/check-daily?date=${targetDate}&batchSize=${batchSize}`
           : null,
+      dataSource:
+        "daily_stock_resultsに保存済みの最新価格",
       rule: {
         win: "予測時価格から2%以上上昇",
         lose: "予測時価格から2%以上下落",
@@ -621,20 +512,14 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    const isAbortError =
-      error instanceof Error &&
-      error.name === "AbortError";
-
     return NextResponse.json(
       {
         success: false,
-        checkedAt: new Date().toISOString(),
-        error: isAbortError
-          ? "scan api timeout"
-          : "check daily failed",
-        message: isAbortError
-          ? "銘柄スキャンの取得が時間切れになりました。少し待って再実行してください。"
-          : error instanceof Error
+        checkedAt:
+          new Date().toISOString(),
+        error: "check daily failed",
+        message:
+          error instanceof Error
             ? error.message
             : String(error),
       },
