@@ -39,12 +39,11 @@ function getOutcomeLabel(result: DailyStockResult["result"]) {
 function toPerformanceItem(
   item: DailyStockResult,
 ): RecentPerformanceItem {
-  const isPending =
+  if (
     item.result === "UNKNOWN" ||
     item.nextPrice === null ||
-    item.changePercent === null;
-
-  if (isPending) {
+    item.changePercent === null
+  ) {
     return {
       date: item.date,
       code: item.code,
