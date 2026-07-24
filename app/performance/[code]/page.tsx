@@ -30,6 +30,7 @@ type PerformanceResponse = {
     allTotal?: number;
     pending?: number;
     judgedTotal: number;
+    decisiveTotal?: number;
     wins: number;
     losses: number;
     holds: number;
@@ -43,6 +44,7 @@ type PerformanceResponse = {
     label: string;
     total: number;
     judgedTotal: number;
+    decisiveTotal?: number;
     wins: number;
     losses: number;
     holds: number;
@@ -54,6 +56,7 @@ type PerformanceResponse = {
     label: string;
     total: number;
     judgedTotal: number;
+    decisiveTotal?: number;
     wins: number;
     losses: number;
     holds: number;

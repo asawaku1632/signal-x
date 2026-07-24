@@ -5,13 +5,15 @@ import {
   type DailyStockResult,
 } from "@/app/lib/dailyLearning";
 
+type PerformanceResult = "WIN" | "LOSE" | "HOLD" | "PENDING";
+
 type RecentPerformanceItem = {
   date: string;
   code: string;
   name: string;
   aiPower: number;
   judge: string;
-  result: "WIN" | "LOSE" | "HOLD" | "PENDING";
+  result: PerformanceResult;
   entryPrice: number;
   exitPrice: number | null;
   changePercent: number | null;
@@ -64,14 +66,11 @@ function toPerformanceItem(
     name: item.name,
     aiPower: item.score,
     judge: getJudge(item.score),
-    result: item.result === "UNKNOWN" ? "PENDING" : item.result,
+    result: item.result,
     entryPrice: item.price,
     exitPrice: item.nextPrice,
     changePercent: item.changePercent,
-    profitYen:
-  item.nextPrice === null
-    ? null
-    : Math.round((item.nextPrice - item.price) * 100),
+    profitYen: Math.round((item.nextPrice - item.price) * 100),
     outcomeLabel: getOutcomeLabel(item.result),
   };
 }
@@ -96,6 +95,7 @@ function calculateStreaks(
       runningWins = 0;
       maxLoseStreak = Math.max(maxLoseStreak, runningLoses);
     } else {
+      // HOLD は連勝・連敗を継続させない
       runningWins = 0;
       runningLoses = 0;
     }
@@ -119,17 +119,19 @@ function calculateStreaks(
 
 function getReliabilityScore({
   winRate,
-  judgedCount,
+  resolvedCount,
   averageProfitRate,
   averageLossRate,
 }: {
   winRate: number;
-  judgedCount: number;
+  resolvedCount: number;
   averageProfitRate: number;
   averageLossRate: number;
 }) {
-  const sampleScore = Math.min(judgedCount / 30, 1) * 20;
+  // データ量は WIN・LOSE・HOLD を含む「判定完了件数」で評価する
+  const sampleScore = Math.min(resolvedCount / 30, 1) * 20;
   const winRateScore = winRate * 0.65;
+
   const profitLossBalance =
     averageLossRate > 0
       ? Math.min(averageProfitRate / averageLossRate, 2) * 7.5
@@ -146,8 +148,8 @@ function getReliabilityScore({
   );
 }
 
-function getReliabilityRank(score: number, judgedCount: number) {
-  if (judgedCount < 5) return "DATA_BUILDING";
+function getReliabilityRank(score: number, resolvedCount: number) {
+  if (resolvedCount < 5) return "DATA_BUILDING";
   if (score >= 90) return "S";
   if (score >= 80) return "A";
   if (score >= 70) return "B";
@@ -172,19 +174,21 @@ function buildMonthlySummary(
     (item) => getMonthKey(item.date) === monthKey,
   );
 
+  // 判定完了 = WIN・LOSE・HOLD
   const resolvedItems = monthItems.filter(
     (item) => item.result !== "PENDING",
   );
 
-  const judged = resolvedItems.filter(
+  // 勝率の対象 = WIN・LOSE のみ
+  const decisiveItems = resolvedItems.filter(
     (item) => item.result === "WIN" || item.result === "LOSE",
   );
 
-  const wins = judged.filter(
+  const wins = decisiveItems.filter(
     (item) => item.result === "WIN",
   ).length;
 
-  const losses = judged.filter(
+  const losses = decisiveItems.filter(
     (item) => item.result === "LOSE",
   ).length;
 
@@ -193,8 +197,8 @@ function buildMonthlySummary(
   ).length;
 
   const winRate =
-    judged.length > 0
-      ? Math.round((wins / judged.length) * 1000) / 10
+    decisiveItems.length > 0
+      ? Math.round((wins / decisiveItems.length) * 1000) / 10
       : 0;
 
   const totalProfitYen = resolvedItems.reduce(
@@ -205,8 +209,16 @@ function buildMonthlySummary(
   return {
     month: monthKey,
     label: getMonthLabel(monthKey),
+
+    // 互換性維持: total も判定完了件数
     total: resolvedItems.length,
-    judgedTotal: judged.length,
+
+    // 画面の「判定済み」に使用
+    judgedTotal: resolvedItems.length,
+
+    // 勝率グラフが HOLD のみの月を 0% と誤表示しないために分離
+    decisiveTotal: decisiveItems.length,
+
     wins,
     losses,
     holds,
@@ -233,7 +245,7 @@ export async function GET(
           new Date(b.date).getTime() - new Date(a.date).getTime(),
       );
 
-    const latestStock = allResults.find((item) => item.code === code);
+    const latestStock = stockResults[0];
     const recent3Days = stockResults.slice(0, 3);
 
     const now = new Date();
@@ -246,6 +258,7 @@ export async function GET(
       return itemDate >= thirtyDaysAgo && itemDate <= now;
     });
 
+    // 判定完了 = WIN・LOSE・HOLD
     const resolved30Days = last30Days.filter(
       (item) => item.result !== "PENDING",
     );
@@ -254,15 +267,16 @@ export async function GET(
       (item) => item.result === "PENDING",
     );
 
-    const judged30Days = resolved30Days.filter(
+    // 勝率計算対象 = WIN・LOSE のみ
+    const decisive30Days = resolved30Days.filter(
       (item) => item.result === "WIN" || item.result === "LOSE",
     );
 
-    const wins = judged30Days.filter(
+    const wins = decisive30Days.filter(
       (item) => item.result === "WIN",
     );
 
-    const losses = judged30Days.filter(
+    const losses = decisive30Days.filter(
       (item) => item.result === "LOSE",
     );
 
@@ -271,8 +285,8 @@ export async function GET(
     );
 
     const winRate =
-      judged30Days.length > 0
-        ? Math.round((wins.length / judged30Days.length) * 1000) / 10
+      decisive30Days.length > 0
+        ? Math.round((wins.length / decisive30Days.length) * 1000) / 10
         : 0;
 
     const totalProfitYen = resolved30Days.reduce(
@@ -321,12 +335,15 @@ export async function GET(
 
     const reliabilityScore = getReliabilityScore({
       winRate,
-      judgedCount: judged30Days.length,
+      resolvedCount: resolved30Days.length,
       averageProfitRate,
       averageLossRate,
     });
 
-    const currentMonthKey = now.toISOString().slice(0, 7);
+    const currentMonthKey = `${now.getFullYear()}-${String(
+      now.getMonth() + 1,
+    ).padStart(2, "0")}`;
+
     const currentMonth = buildMonthlySummary(
       stockResults,
       currentMonthKey,
@@ -338,6 +355,7 @@ export async function GET(
         now.getMonth() - (2 - index),
         1,
       );
+
       const monthKey = `${target.getFullYear()}-${String(
         target.getMonth() + 1,
       ).padStart(2, "0")}`;
@@ -353,10 +371,15 @@ export async function GET(
       },
       recent3Days,
       summary30Days: {
+        // 判定完了件数: WIN + LOSE + HOLD
         total: resolved30Days.length,
         allTotal: last30Days.length,
         pending: pending30Days.length,
-        judgedTotal: judged30Days.length,
+        judgedTotal: resolved30Days.length,
+
+        // 勝率対象件数: WIN + LOSE
+        decisiveTotal: decisive30Days.length,
+
         wins: wins.length,
         losses: losses.length,
         holds: holds.length,
@@ -371,7 +394,7 @@ export async function GET(
         score: reliabilityScore,
         rank: getReliabilityRank(
           reliabilityScore,
-          judged30Days.length,
+          resolved30Days.length,
         ),
         currentWinStreak: streaks.currentWinStreak,
         maxWinStreak: streaks.maxWinStreak,
