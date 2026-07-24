@@ -175,18 +175,26 @@ function buildAiComment(data: PerformanceResponse) {
     return `${updateComment} まだ判定済みデータがないため、結果が蓄積されるとここにAI実績コメントが表示されます。`;
   }
 
+  const resultSummary = `過去30日では判定済み${judgedTotal}件（WIN ${wins}件・LOSE ${losses}件・HOLD ${holds}件）です。`;
+  const winRateSummary =
+    wins + losses > 0
+      ? `勝敗が付いた${wins + losses}件での勝率は${winRate}%です。`
+      : "まだWIN・LOSEの勝敗が付いたデータはありません。";
+
   if (judgedTotal < 5) {
-    return `${updateComment} 現在は判定数が${judgedTotal}件と少ないため、過去実績スコアは参考値です。過去30日では${wins}勝${losses}敗、HOLDは${holds}件、勝率は${winRate}%、100株換算の累計損益は${yen(
+    return `${updateComment} 現在は判定数が${judgedTotal}件と少ないため、過去実績スコアは参考値です。${resultSummary}${winRateSummary}100株換算の累計損益は${yen(
       totalProfitYen,
     )}です。今後のデータ蓄積により、評価精度が高まります。`;
   }
 
   const balanceComment =
-    averageProfitRate > averageLossRate
-      ? "平均利益が平均損失を上回っており、損益バランスは良好です。"
-      : "平均損失が平均利益を上回っているため、慎重な確認が必要です。";
+    averageLossRate === 0 && averageProfitRate > 0
+      ? "現在はLOSEがないため平均損失は未算出です。"
+      : averageProfitRate > averageLossRate
+        ? "平均利益が平均損失を上回っており、損益バランスは良好です。"
+        : "平均損失が平均利益を上回っているため、慎重な確認が必要です。";
 
-  return `${updateComment} 過去30日では${wins}勝${losses}敗、HOLDは${holds}件、勝率は${winRate}%です。100株換算の累計損益は${yen(
+  return `${updateComment} ${resultSummary}${winRateSummary}100株換算の累計損益は${yen(
     totalProfitYen,
   )}です。${balanceComment}`;
 }
@@ -260,10 +268,14 @@ function getOverallGrade(
   judgedTotal: number,
   winRate: number,
 ) {
-  if (judgedTotal < 5) return "参考評価";
-  if (score >= 90 && winRate >= 75) return "非常に良好";
-  if (score >= 80 && winRate >= 65) return "良好";
-  if (score >= 65) return "標準";
+  if (judgedTotal < 3) return "学習開始";
+  if (judgedTotal < 5) return "データ蓄積中";
+  if (score >= 90) return "マスター";
+  if (score >= 85) return "エキスパート";
+  if (score >= 80) return "優秀";
+  if (score >= 70) return "高精度";
+  if (score >= 60) return "良好";
+  if (winRate >= 50) return "標準";
   return "要確認";
 }
 
@@ -523,13 +535,18 @@ export default function PerformancePage() {
               />
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-2xl border border-violet-100 bg-white px-4 py-3">
-              <span className="text-xs font-black text-slate-500">
+            <div className="mt-3 rounded-2xl border border-violet-100 bg-white px-4 py-3">
+              <p className="text-xs font-black text-slate-500">
                 最新データ状況
-              </span>
-              <span className="text-sm font-black text-violet-700">
-                判定待ち {summary30Days.pending ?? 0}件
-              </span>
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-3 text-sm font-black">
+                <span className="text-violet-700">
+                  判定待ち {summary30Days.pending ?? 0}件
+                </span>
+                <span className="text-emerald-700">
+                  判定済み {summary30Days.judgedTotal}件
+                </span>
+              </div>
             </div>
 
             <p className="mt-4 text-sm font-bold leading-7 text-slate-700">
