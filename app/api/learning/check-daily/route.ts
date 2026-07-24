@@ -1,140 +1,611 @@
 import { NextResponse } from "next/server";
-
-import {
-  getDailyStockResults,
-  updateDailyStockResult,
-} from "@/app/lib/dailyLearning";
-
 import pool from "@/app/lib/postgres";
 
-type Stock = {
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+type DailyResult = "WIN" | "LOSE" | "HOLD";
+
+type TargetRow = {
+  id: string;
+  date: string;
   code: string;
-  price?: number;
+  name: string;
+  score: number;
+  price: number;
 };
 
-function judgeResult(
+type ScanStock = {
+  code?: string | number;
+  price?: number | string;
+};
+
+type UpdateItem = {
+  id: string;
+  code: string;
+  nextPrice: number;
+  changePercent: number;
+  result: DailyResult;
+};
+
+const DEFAULT_BATCH_SIZE = 50;
+const MAX_BATCH_SIZE = 100;
+const SCAN_TIMEOUT_MS = 25_000;
+
+/*
+ * 同時に複数回実行されるのを防ぐための
+ * PostgreSQL Advisory Lock用キー。
+ */
+const CHECK_DAILY_LOCK_KEY = 73124001;
+
+function getJstDateString(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function isValidDateString(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const number = Number(value ?? fallback);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function calculateChangePercent(
   entryPrice: number,
   nextPrice: number
-): "WIN" | "LOSE" | "HOLD" {
-  const changePercent =
+): number {
+  const change =
     ((nextPrice - entryPrice) / entryPrice) * 100;
 
+  return Math.round(change * 100) / 100;
+}
+
+function judgeResult(
+  changePercent: number
+): DailyResult {
   if (changePercent >= 2) return "WIN";
   if (changePercent <= -2) return "LOSE";
+
   return "HOLD";
 }
 
-export async function GET(req: Request) {
+function extractStocks(json: any): ScanStock[] {
+  if (Array.isArray(json)) {
+    return json;
+  }
+
+  if (Array.isArray(json?.stocks)) {
+    return json.stocks;
+  }
+
+  if (Array.isArray(json?.results)) {
+    return json.results;
+  }
+
+  if (Array.isArray(json?.data)) {
+    return json.data;
+  }
+
+  return [];
+}
+
+async function fetchCurrentPrices(
+  origin: string
+): Promise<Map<string, number>> {
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, SCAN_TIMEOUT_MS);
+
   try {
-    const url = new URL(req.url);
-
-    const siteUrl =
-      process.env.NEXTAUTH_URL ||
-      "http://localhost:3000";
-
-    const targetDate =
-      url.searchParams.get("date") ||
-      new Date(Date.now() - 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
-
-    const scanRes = await fetch(`${siteUrl}/api/scan?limit=1000`, {
-      cache: "no-store",
-    });
-
-    if (!scanRes.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "scan api failed",
-          status: scanRes.status,
+    const response = await fetch(
+      `${origin}/api/scan?limit=1200`,
+      {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
         },
-        { status: 500 }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `scan api failed: ${response.status}`
       );
     }
 
-    const scanJson = await scanRes.json();
-    const stocks: Stock[] = scanJson.stocks || [];
+    const json = await response.json();
+    const stocks = extractStocks(json);
 
-    const results = await getDailyStockResults();
+    const priceMap = new Map<string, number>();
 
-    const targets = results.filter(
-      (item) =>
-        item.date === targetDate &&
-        item.result === "UNKNOWN"
-    );
+    for (const stock of stocks) {
+      const code = String(stock?.code ?? "").trim();
+      const price = toNumber(stock?.price);
 
-    let checked = 0;
-    let win = 0;
-    let lose = 0;
-    let hold = 0;
-    let skipped = 0;
-    let experienceUpdated = 0;
+      if (
+        code &&
+        Number.isFinite(price) &&
+        price > 0
+      ) {
+        priceMap.set(code, price);
+      }
+    }
 
-    for (const item of targets) {
-      const current = stocks.find(
-        (stock) => stock.code === item.code
+    return priceMap;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function bulkUpdateDailyResults(
+  client: any,
+  updates: UpdateItem[]
+): Promise<number> {
+  if (updates.length === 0) return 0;
+
+  const values: unknown[] = [];
+
+  const placeholders = updates.map(
+    (item, index) => {
+      const base = index * 4;
+
+      values.push(
+        item.id,
+        item.nextPrice,
+        item.changePercent,
+        item.result
       );
 
-      const nextPrice = current?.price ?? 0;
+      return `(
+        $${base + 1}::text,
+        $${base + 2}::double precision,
+        $${base + 3}::double precision,
+        $${base + 4}::text
+      )`;
+    }
+  );
 
-      if (nextPrice <= 0 || item.price <= 0) {
-        skipped += 1;
+  const result = await client.query(
+    `
+    WITH update_values (
+      id,
+      next_price,
+      change_percent,
+      result
+    ) AS (
+      VALUES ${placeholders.join(",")}
+    )
+    UPDATE daily_stock_results AS daily
+    SET
+      next_price = update_values.next_price,
+      change_percent = update_values.change_percent,
+      result = update_values.result,
+      checked_at = NOW()
+    FROM update_values
+    WHERE daily.id = update_values.id
+      AND daily.result = 'UNKNOWN'
+    `,
+    values
+  );
+
+  return result.rowCount ?? 0;
+}
+
+async function bulkUpdateExperienceLogs(
+  client: any,
+  targetDate: string,
+  updates: UpdateItem[]
+): Promise<number> {
+  if (updates.length === 0) return 0;
+
+  const values: unknown[] = [targetDate];
+
+  const placeholders = updates.map(
+    (item, index) => {
+      const codePosition = index * 2 + 2;
+      const resultPosition = index * 2 + 3;
+
+      values.push(item.code, item.result);
+
+      return `(
+        $${codePosition}::text,
+        $${resultPosition}::text
+      )`;
+    }
+  );
+
+  const result = await client.query(
+    `
+    WITH update_values (
+      code,
+      result
+    ) AS (
+      VALUES ${placeholders.join(",")}
+    )
+    UPDATE experience_learning_logs AS experience
+    SET result = update_values.result
+    FROM update_values
+    WHERE experience.trade_date = $1::date
+      AND experience.code = update_values.code
+      AND experience.result = 'UNKNOWN'
+    `,
+    values
+  );
+
+  return result.rowCount ?? 0;
+}
+
+export async function GET(request: Request) {
+  const client = await pool.connect();
+  let lockAcquired = false;
+
+  try {
+    const url = new URL(request.url);
+
+    const requestedDate =
+      url.searchParams.get("date");
+
+    const requestedBatchSize = toNumber(
+      url.searchParams.get("batchSize"),
+      DEFAULT_BATCH_SIZE
+    );
+
+    const batchSize = Math.max(
+      1,
+      Math.min(
+        MAX_BATCH_SIZE,
+        Math.floor(requestedBatchSize)
+      )
+    );
+
+    if (
+      requestedDate &&
+      !isValidDateString(requestedDate)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "invalid date",
+          message:
+            "dateはYYYY-MM-DD形式で指定してください。",
+        },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * 同じAPIを連打した場合や、
+     * 前の処理中に再度開いた場合は開始しない。
+     */
+    const lockResult = await client.query(
+      `
+      SELECT pg_try_advisory_lock($1) AS acquired
+      `,
+      [CHECK_DAILY_LOCK_KEY]
+    );
+
+    lockAcquired =
+      lockResult.rows[0]?.acquired === true;
+
+    if (!lockAcquired) {
+      return NextResponse.json(
+        {
+          success: false,
+          running: true,
+          message:
+            "現在、別の答え合わせ処理が実行中です。少し待ってから再度開いてください。",
+        },
+        { status: 409 }
+      );
+    }
+
+    const todayJst = getJstDateString();
+
+    if (
+      requestedDate &&
+      requestedDate >= todayJst
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "same-day judgement is not allowed",
+          targetDate: requestedDate,
+          todayJst,
+          message:
+            "当日の予測を当日の価格で判定することはできません。",
+        },
+        { status: 400 }
+      );
+    }
+
+    let targetDate: string | null =
+      requestedDate;
+
+    /*
+     * 日付指定がない場合は、
+     * 今日より前にある最新のUNKNOWN日を選択する。
+     */
+    if (!targetDate) {
+      const dateResult = await client.query(
+        `
+        SELECT
+          MAX(date)::text AS target_date
+        FROM daily_stock_results
+        WHERE result = 'UNKNOWN'
+          AND date < $1::date
+        `,
+        [todayJst]
+      );
+
+      targetDate =
+        dateResult.rows[0]?.target_date ??
+        null;
+    }
+
+    if (!targetDate) {
+      return NextResponse.json({
+        success: true,
+        completed: true,
+        checkedAt: new Date().toISOString(),
+        todayJst,
+        date: null,
+        batchSize,
+        targetCount: 0,
+        updatedCount: 0,
+        remainingCount: 0,
+        message:
+          "判定可能な過去のUNKNOWNデータはありません。",
+      });
+    }
+
+    /*
+     * 1回で最大50件だけ取得する。
+     * 前回更新済みの行はUNKNOWNではないため、
+     * 次の実行では自動的に除外される。
+     */
+    const targetResult = await client.query(
+      `
+      SELECT
+        id,
+        date::text AS date,
+        code,
+        name,
+        score,
+        price
+      FROM daily_stock_results
+      WHERE date = $1::date
+        AND result = 'UNKNOWN'
+      ORDER BY
+        score DESC,
+        created_at ASC
+      LIMIT $2
+      `,
+      [targetDate, batchSize]
+    );
+
+    const targets: TargetRow[] =
+      targetResult.rows.map((row: any) => ({
+        id: String(row.id ?? ""),
+        date: String(row.date ?? ""),
+        code: String(row.code ?? ""),
+        name: String(row.name ?? ""),
+        score: toNumber(row.score),
+        price: toNumber(row.price),
+      }));
+
+    if (targets.length === 0) {
+      return NextResponse.json({
+        success: true,
+        completed: true,
+        checkedAt: new Date().toISOString(),
+        todayJst,
+        date: targetDate,
+        batchSize,
+        targetCount: 0,
+        updatedCount: 0,
+        remainingCount: 0,
+        message:
+          "指定日の判定待ちデータはありません。",
+      });
+    }
+
+    const priceMap =
+      await fetchCurrentPrices(url.origin);
+
+    const updates: UpdateItem[] = [];
+    const skipped: Array<{
+      code: string;
+      name: string;
+      reason: string;
+    }> = [];
+
+    for (const target of targets) {
+      const entryPrice = toNumber(
+        target.price
+      );
+
+      const nextPrice =
+        priceMap.get(target.code) ?? 0;
+
+      if (
+        !Number.isFinite(entryPrice) ||
+        entryPrice <= 0
+      ) {
+        skipped.push({
+          code: target.code,
+          name: target.name,
+          reason: "予測時価格が不正",
+        });
+
+        continue;
+      }
+
+      if (
+        !Number.isFinite(nextPrice) ||
+        nextPrice <= 0
+      ) {
+        skipped.push({
+          code: target.code,
+          name: target.name,
+          reason:
+            "現在価格を取得できませんでした",
+        });
+
         continue;
       }
 
       const changePercent =
-        Math.round(
-          ((nextPrice - item.price) / item.price) * 10000
-        ) / 100;
+        calculateChangePercent(
+          entryPrice,
+          nextPrice
+        );
 
-      const result = judgeResult(item.price, nextPrice);
-
-      await updateDailyStockResult(item.id, {
+      updates.push({
+        id: target.id,
+        code: target.code,
         nextPrice,
         changePercent,
-        result,
+        result: judgeResult(changePercent),
       });
+    }
 
-      const experienceRes = await pool.query(
+    const winCount = updates.filter(
+      (item) => item.result === "WIN"
+    ).length;
+
+    const loseCount = updates.filter(
+      (item) => item.result === "LOSE"
+    ).length;
+
+    const holdCount = updates.filter(
+      (item) => item.result === "HOLD"
+    ).length;
+
+    let updatedCount = 0;
+    let experienceUpdatedCount = 0;
+
+    if (updates.length > 0) {
+      await client.query("BEGIN");
+
+      try {
+        updatedCount =
+          await bulkUpdateDailyResults(
+            client,
+            updates
+          );
+
+        experienceUpdatedCount =
+          await bulkUpdateExperienceLogs(
+            client,
+            targetDate,
+            updates
+          );
+
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    }
+
+    const remainingResult =
+      await client.query(
         `
-        UPDATE experience_learning_logs
-        SET result = $1
-        WHERE trade_date = $2
-          AND code = $3
+        SELECT COUNT(*)::int AS count
+        FROM daily_stock_results
+        WHERE date = $1::date
           AND result = 'UNKNOWN'
         `,
-        [result, targetDate, item.code]
+        [targetDate]
       );
 
-      experienceUpdated += experienceRes.rowCount ?? 0;
-
-      checked += 1;
-
-      if (result === "WIN") win += 1;
-      if (result === "LOSE") lose += 1;
-      if (result === "HOLD") hold += 1;
-    }
+    const remainingCount = toNumber(
+      remainingResult.rows[0]?.count
+    );
 
     return NextResponse.json({
       success: true,
+      completed: remainingCount === 0,
+      checkedAt: new Date().toISOString(),
+      todayJst,
       date: targetDate,
+      automaticallySelected:
+        requestedDate === null,
+      batchSize,
       targetCount: targets.length,
-      checked,
-      skipped,
-      win,
-      lose,
-      hold,
-      experienceUpdated,
+      preparedCount: updates.length,
+      updatedCount,
+      skippedCount: skipped.length,
+      remainingCount,
+      winCount,
+      loseCount,
+      holdCount,
+      experienceUpdatedCount,
+      skipped: skipped.slice(0, 20),
+      message:
+        remainingCount > 0
+          ? `今回は${updatedCount}件を処理しました。残り${remainingCount}件です。`
+          : "この日付の答え合わせが完了しました。",
+      nextRequest:
+        remainingCount > 0
+          ? `/api/learning/check-daily?date=${targetDate}&batchSize=${batchSize}`
+          : null,
+      rule: {
+        win: "予測時価格から2%以上上昇",
+        lose: "予測時価格から2%以上下落",
+        hold: "騰落率が±2%未満",
+      },
     });
-  } catch (error: any) {
+  } catch (error) {
+    const isAbortError =
+      error instanceof Error &&
+      error.name === "AbortError";
+
     return NextResponse.json(
       {
         success: false,
-        error: "check daily failed",
-        message: error?.message || String(error),
+        checkedAt: new Date().toISOString(),
+        error: isAbortError
+          ? "scan api timeout"
+          : "check daily failed",
+        message: isAbortError
+          ? "銘柄スキャンの取得が時間切れになりました。少し待って再実行してください。"
+          : error instanceof Error
+            ? error.message
+            : String(error),
       },
       { status: 500 }
     );
+  } finally {
+    if (lockAcquired) {
+      try {
+        await client.query(
+          `
+          SELECT pg_advisory_unlock($1)
+          `,
+          [CHECK_DAILY_LOCK_KEY]
+        );
+      } catch (error) {
+        console.error(
+          "check-daily unlock failed:",
+          error
+        );
+      }
+    }
+
+    client.release();
   }
 }
