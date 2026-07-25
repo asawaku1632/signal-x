@@ -153,21 +153,30 @@ export async function GET() {
       .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
       .slice(0, 5);
 
-    const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
-      const trendWin = toNumber(row.win);
-      const trendLose = toNumber(row.lose);
-      const judged = trendWin + trendLose;
+   let cumulativeWin = 0;
+let cumulativeLose = 0;
 
-      return {
-        date: String(row.date ?? ""),
-        total: toNumber(row.total),
-        win: trendWin,
-        lose: trendLose,
-        hold: toNumber(row.hold),
-        winRate:
-          judged === 0 ? 0 : Math.round((trendWin / judged) * 100),
-      };
-    });
+const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
+  const dayWin = toNumber(row.win);
+  const dayLose = toNumber(row.lose);
+
+  cumulativeWin += dayWin;
+  cumulativeLose += dayLose;
+
+  const judged = cumulativeWin + cumulativeLose;
+
+  return {
+    date: String(row.date ?? ""),
+    total: toNumber(row.total),
+    win: cumulativeWin,
+    lose: cumulativeLose,
+    hold: toNumber(row.hold),
+    winRate:
+      judged === 0
+        ? 0
+        : Math.round((cumulativeWin / judged) * 100),
+  };
+});
 
     const judgedTrend = winRateTrend.filter(
       (item) => item.win + item.lose > 0
