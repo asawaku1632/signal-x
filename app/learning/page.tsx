@@ -163,13 +163,9 @@ export default function LearningPage() {
     );
   }
 
-  const winRateTrend = data.winRateTrend
+  const dailyWinRateTrend = data.winRateTrend
     .filter((item) => item.win + item.lose > 0)
-    .slice(-DASHBOARD_TREND_LIMIT)
-    .map((item) => ({
-      label: item.date.slice(5).replace("-", "/"),
-      value: item.winRate,
-    }));
+    .slice(-DASHBOARD_TREND_LIMIT);
 
   const growthTrend = data.growthTrend
     .slice(-DASHBOARD_TREND_LIMIT)
@@ -310,14 +306,86 @@ export default function LearningPage() {
         </section>
 
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-black">📈 勝率推移</h2>
-            <span className="text-xs font-black text-blue-600">
-              判定あり直近5日
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black">📈 日別勝率</h2>
+            <span className="shrink-0 text-xs font-black text-blue-600">
+              直近5営業日
             </span>
           </div>
 
-          <LineChart data={winRateTrend} suffix="%" colorClass="bg-blue-600" />
+          <p className="mb-5 text-xs font-bold text-slate-500">
+            AIの学習成果と、その日の判定件数を日別で確認できます
+          </p>
+
+          {dailyWinRateTrend.length > 0 ? (
+            <>
+              <div className="grid h-64 grid-cols-5 items-end gap-2 border-b border-slate-200 px-1">
+                {dailyWinRateTrend.map((item) => {
+                  const judged = item.win + item.lose;
+                  const tone =
+                    item.winRate >= 70
+                      ? "bg-green-500"
+                      : item.winRate >= 40
+                        ? "bg-amber-400"
+                        : "bg-red-500";
+
+                  return (
+                    <div
+                      key={item.date}
+                      className="flex h-full min-w-0 flex-col items-center justify-end"
+                    >
+                      <span className="mb-2 text-sm font-black text-slate-900">
+                        {item.winRate}%
+                      </span>
+
+                      <div className="flex h-40 w-full items-end justify-center">
+                        <div
+                          className={`w-full max-w-10 rounded-t-xl ${tone} transition-all`}
+                          style={{
+                            height: `${Math.max(item.winRate, 6)}%`,
+                          }}
+                          title={`${item.winRate}%（${item.win}勝 / ${item.lose}敗）`}
+                        />
+                      </div>
+
+                      <span className="mt-2 text-[11px] font-black text-slate-700">
+                        {item.date.slice(5).replace("-", "/")}
+                      </span>
+                      <span className="mt-1 whitespace-nowrap text-[10px] font-black text-slate-600">
+                        {item.win}勝 / {item.lose}敗
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        ({judged}件)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3 text-[11px] font-bold text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-green-500" />
+                  <span>70%以上：非常に良い</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-amber-400" />
+                  <span>40%以上70%未満：標準的</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-red-500" />
+                  <span>40%未満：改善の余地あり</span>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs font-bold leading-5 text-blue-700">
+                💡 勝率だけでなく母数も表示することで、判定数が少ない日のブレも正しく確認できます。
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500">
+              まだ日別のWIN / LOSE判定がありません。
+            </div>
+          )}
         </section>
 
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">

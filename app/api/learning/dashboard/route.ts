@@ -100,18 +100,18 @@ export async function GET() {
         WHERE code IS NOT NULL
         GROUP BY code
       `),
-    pool.query(`
-  SELECT
-    date,
-    COUNT(*)::int AS total,
-    COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
-    COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
-    COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
-  FROM daily_stock_results
-  WHERE date IS NOT NULL
-  GROUP BY date
-  ORDER BY date ASC
-`),
+      pool.query(`
+        SELECT
+          date,
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
+        FROM daily_stock_results
+        WHERE date IS NOT NULL
+        GROUP BY date
+        ORDER BY date ASC
+      `),
     ]);
 
     const summary = summaryResult.rows[0] ?? {};
@@ -153,41 +153,37 @@ export async function GET() {
       .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
       .slice(0, 5);
 
-   let cumulativeWin = 0;
-let cumulativeLose = 0;
+    const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
+      const dayWin = toNumber(row.win);
+      const dayLose = toNumber(row.lose);
+      const judged = dayWin + dayLose;
 
-const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
-  const dayWin = toNumber(row.win);
-  const dayLose = toNumber(row.lose);
-
-  cumulativeWin += dayWin;
-  cumulativeLose += dayLose;
-
-  const judged = cumulativeWin + cumulativeLose;
-
-  return {
-    date: String(row.date ?? ""),
-    total: toNumber(row.total),
-    win: cumulativeWin,
-    lose: cumulativeLose,
-    hold: toNumber(row.hold),
-    winRate:
-      judged === 0
-        ? 0
-        : Math.round((cumulativeWin / judged) * 100),
-  };
-});
+      return {
+        date: String(row.date ?? ""),
+        total: toNumber(row.total),
+        win: dayWin,
+        lose: dayLose,
+        hold: toNumber(row.hold),
+        winRate:
+          judged === 0 ? 0 : Math.round((dayWin / judged) * 100),
+      };
+    });
 
     const judgedTrend = winRateTrend.filter(
-      (item) => item.win + item.lose > 0
+      (item) => item.win + item.lose > 0,
     );
+
+    const latestDailyWinRate =
+      judgedTrend.length > 0
+        ? judgedTrend[judgedTrend.length - 1].winRate
+        : winRate;
 
     const previousWinRate =
       judgedTrend.length >= 2
         ? judgedTrend[judgedTrend.length - 2].winRate
-        : winRate;
+        : latestDailyWinRate;
 
-    const diff = winRate - previousWinRate;
+    const diff = latestDailyWinRate - previousWinRate;
 
     let cumulativeTotal = 0;
     const growthTrend = winRateTrend.map((item) => {
@@ -264,7 +260,7 @@ const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
         comment: "AI学習データの取得に失敗しました。",
         updatedAt: new Date().toLocaleString("ja-JP"),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
