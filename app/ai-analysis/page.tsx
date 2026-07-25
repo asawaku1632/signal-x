@@ -4,13 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getAiRank } from "@/app/lib/aiRank";
 
-const proItems = [
-  { title: "AI根拠分析", description: "なぜ買い・待ち・見送りなのかを詳しく表示" },
-  { title: "類似パターン分析", description: "過去に似た値動きから勝率を確認" },
-  { title: "AI得意銘柄比較", description: "SIGNALXが得意な銘柄と比較" },
-  { title: "時間帯分析", description: "勝ちやすい時間帯をAIが解析" },
-  { title: "期待値分析", description: "利益と損失のバランスを数値化" },
-];
 
 type Stock = {
   code: string;
@@ -281,9 +274,21 @@ export default function AiAnalysisPage() {
           <h1 className="mt-5 text-4xl font-black">🧠 AI分析</h1>
 
           <p className="mt-2 text-sm font-bold text-zinc-500">
-            SIGNALXの判断理由と過去成績を確認
+            SIGNALXの判断理由と詳細分析を確認
           </p>
         </header>
+
+        <section className="mt-6 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+          <p className="text-xs font-black text-emerald-600">
+            VER1.0 公開記念
+          </p>
+          <h2 className="mt-2 text-2xl font-black">
+            🎉 現在、全機能を無料公開中
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-7 text-zinc-600">
+            SIGNALXをより多くの方に体験していただくため、AIの判断理由・AI POWER内訳・利確損切目安などを無料で公開しています。
+          </p>
+        </section>
 
         {loading && (
           <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
@@ -305,7 +310,7 @@ export default function AiAnalysisPage() {
           <>
             <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
               <p className="text-xs font-bold text-blue-500">
-                LIVE AI ANALYSIS
+                本日のAI分析
               </p>
 
               <div className="mt-3">
@@ -369,7 +374,7 @@ export default function AiAnalysisPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-5">
-                <InsightCard title="🎯 AI勝率" value={`${aiWinRate}%`} note="AI POWERから推定" color="text-blue-600" />
+                <InsightCard title="🎯 AI期待度" value={`${aiWinRate}%`} note="AI POWERをもとに算出" color="text-blue-600" />
                 <InsightCard title="💰 期待利益" value={`+${yen(expectedProfit)}`} note={`+${expectedProfitRate.toFixed(2)}%`} color="text-green-600" />
                 <InsightCard
                   title="⚠ リスク"
@@ -501,31 +506,6 @@ export default function AiAnalysisPage() {
 )}
           </>
         )}
-
-        <section className="mt-6 rounded-3xl bg-zinc-900 text-white p-5">
-          <p className="text-xs font-bold text-yellow-300">PRO ANALYSIS</p>
-
-          <h2 className="mt-2 text-2xl font-black">有料版でさらに詳しく</h2>
-
-          <p className="mt-2 text-sm text-zinc-300 leading-relaxed">
-            判断理由・類似パターン・期待値まで確認できます。
-          </p>
-
-          <div className="mt-5 space-y-3">
-            {proItems.map((item) => (
-              <div key={item.title} className="rounded-2xl bg-zinc-800 p-4">
-                <p className="font-black">🔒 {item.title}</p>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <button className="mt-5 w-full rounded-2xl bg-yellow-300 py-4 font-black text-black">
-            PRO版を確認する
-          </button>
-        </section>
       </div>
     </main>
   );
@@ -573,7 +553,7 @@ function ScoreRow({ label, score }: { label: string; score: number }) {
     <div>
       <div className="flex justify-between text-sm font-bold mb-1">
         <span>{label}</span>
-        <span>+{score}</span>
+        <span>{score > 0 ? `+${score}` : score}</span>
       </div>
 
       <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
