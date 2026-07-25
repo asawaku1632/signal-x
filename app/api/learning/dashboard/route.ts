@@ -103,13 +103,23 @@ export async function GET() {
       pool.query(`
         SELECT
           date,
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
-          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
-          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
-        FROM daily_stock_results
-        WHERE date IS NOT NULL
-        GROUP BY date
+          total,
+          win,
+          lose,
+          hold
+        FROM (
+          SELECT
+            date,
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
+            COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
+            COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
+          FROM daily_stock_results
+          WHERE date IS NOT NULL
+          GROUP BY date
+          ORDER BY date DESC
+          LIMIT 5
+        ) AS latest_days
         ORDER BY date ASC
       `),
     ]);
