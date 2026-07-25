@@ -1,10 +1,9 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import WinRateRing from "@/components/Learning/WinRateRing";
-import SummaryMini from "@/components/Learning/SummaryMini";
 import Mini from "@/components/Learning/Mini";
 import LineChart from "@/components/Learning/LineChart";
 import DonutChart from "@/components/Learning/DonutChart";
@@ -130,11 +129,6 @@ export default function LearningPage() {
     void fetchLearning();
   }, []);
 
-  const judgedTotal = useMemo(() => {
-    if (!data) return 0;
-    return data.win + data.lose;
-  }, [data]);
-
   if (loading) {
     return (
       <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
@@ -204,36 +198,13 @@ export default function LearningPage() {
           </Link>
         </header>
 
-        <section className="mb-4 rounded-[24px] border border-blue-200 bg-gradient-to-br from-white to-blue-50 p-4 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div>
-              <WinRateRing winRate={data.winRate} />
-
-              <div className="mt-3 rounded-2xl border border-blue-100 bg-white p-3 text-center shadow-sm">
-                <p className="text-[10px] font-black text-slate-500">
-                  前営業日比
-                </p>
-                <p
-                  className={`mt-1 text-2xl font-black ${
-                    data.diff > 0
-                      ? "text-green-600"
-                      : data.diff < 0
-                        ? "text-red-500"
-                        : "text-slate-600"
-                  }`}
-                >
-                  {data.diff > 0 ? "+" : ""}
-                  {data.diff}%
-                </p>
-                <p className="mt-1 text-[10px] font-bold text-slate-400">
-                  前回 {data.previousWinRate}%
-                </p>
-              </div>
-            </div>
+        <section className="mb-4 rounded-[24px] border border-blue-200 bg-gradient-to-br from-white to-blue-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-5">
+            <WinRateRing winRate={data.winRate} />
 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-blue-600">
-                🧠 AI学習ダッシュボード
+                🧠 AI学習状況
               </p>
 
               <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
@@ -241,26 +212,6 @@ export default function LearningPage() {
                 <p className="text-sm font-black text-slate-700">
                   {updatedAtJst}
                 </p>
-              </div>
-
-              <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
-                <div className="min-w-0 [&_.text-3xl]:text-2xl [&_.text-4xl]:text-2xl [&_*]:min-w-0">
-                  <SummaryMini
-                    label="AI成長"
-                    value={data.growth.toLocaleString()}
-                    sub="累計学習件数"
-                    color="text-green-600"
-                  />
-                </div>
-
-                <div className="min-w-0 [&_.text-3xl]:text-2xl [&_.text-4xl]:text-2xl [&_*]:min-w-0">
-                  <SummaryMini
-                    label="判定済み"
-                    value={judgedTotal.toLocaleString()}
-                    sub="WIN / LOSE"
-                    color="text-blue-600"
-                  />
-                </div>
               </div>
             </div>
           </div>
