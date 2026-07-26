@@ -356,6 +356,11 @@ export function calculateAiScore(params: {
  const detectedPatternIds =
   chart?.detectedPatterns?.map((pattern) => pattern.id) ?? [];
 
+  if (code === "4478") {
+  console.log("4478 detectedPatterns:", chart?.detectedPatterns);
+  console.log("4478 detectedPatternIds:", detectedPatternIds);
+}
+
 if (detectedPatternIds.includes("pattern002")) {
   breakdown.pattern = Math.max(breakdown.pattern, 18);
   reasons.push("ダブルボトム反発を検出");
