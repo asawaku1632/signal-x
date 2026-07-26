@@ -1,4 +1,5 @@
 import type { Stock } from "@/app/lib/stockList";
+import { detectChartPatterns } from "@/app/lib/chartPatternEngine";
 import {
   calculateAiScore,
   type ChartAnalysis,
@@ -29,6 +30,7 @@ export type YahooChartAnalysis = ChartAnalysis & {
   resistanceDistancePercent?: number | null;
   supportResistanceStatus?: SupportResistanceStatus;
   breakoutExpectation?: number;
+  detectedPatterns?: ReturnType<typeof detectChartPatterns>;
 };
 
 type ChartData = {
@@ -549,7 +551,7 @@ export async function fetchYahooChart(
       patternReasons.push("ネックライン付近まで回復");
     }
   }
-
+const detectedPatterns = detectChartPatterns(levelCandles);
   const supportResistance = analyzeSupportResistance(
     levelCandles,
     currentPrice,
@@ -586,6 +588,7 @@ export async function fetchYahooChart(
     patternScore,
     patternReasons,
     candles,
+     detectedPatterns,
     ...supportResistance,
   };
 }

@@ -22,6 +22,12 @@ export type ChartAnalysis = {
   patternScore: number;
   patternReasons: string[];
   candles: Candle[];
+
+  detectedPatterns?: {
+    id: string;
+    name: string;
+    confidence: number;
+  }[];
 };
 
 export type ScoreBreakdown = {
@@ -346,6 +352,14 @@ export function calculateAiScore(params: {
     breakdown.pattern = volumeRatio >= 2 ? 14 : 8;
     reasons.push("Wボトム突破");
   }
+
+ const detectedPatternIds =
+  chart?.detectedPatterns?.map((pattern) => pattern.id) ?? [];
+
+if (detectedPatternIds.includes("pattern002")) {
+  breakdown.pattern = Math.max(breakdown.pattern, 18);
+  reasons.push("ダブルボトム反発を検出");
+}
 
   if (chart?.candleSignal === "BULLISH_ENGULFING") {
     breakdown.candle = 8;
