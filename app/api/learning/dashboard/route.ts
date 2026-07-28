@@ -28,9 +28,15 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function formatMonthDay(date: string) {
+  const match = date.match(/^(?:\d{4}-)?(\d{2})-(\d{2})/);
+  return match ? `${match[1]}/${match[2]}` : date;
+}
+
 function createAiComment({
   winRate,
-  diff,
+  latestDaily,
+  previousDaily,
   judgedTotal,
   win,
   lose,
@@ -38,7 +44,8 @@ function createAiComment({
   unknown,
 }: {
   winRate: number;
-  diff: number;
+  latestDaily?: TrendItem;
+  previousDaily?: TrendItem;
   judgedTotal: number;
   win: number;
   lose: number;
@@ -53,15 +60,32 @@ function createAiComment({
     return "現在は学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。";
   }
 
-  const trendComment =
-    diff > 0
-      ? `前営業日より${diff}%改善しました。`
-      : diff < 0
-        ? `前営業日より${Math.abs(diff)}%低下しました。`
-        : "前営業日と同水準です。";
+  const dailyComment = latestDaily
+    ? previousDaily
+      ? (() => {
+          const diff = latestDaily.winRate - previousDaily.winRate;
+          const comparison =
+            diff > 0
+              ? `${diff}ポイント上昇しています。`
+              : diff < 0
+                ? `${Math.abs(diff)}ポイント低下しています。`
+                : "同水準です。";
+
+          return `前営業日（${formatMonthDay(latestDaily.date)}）の日次勝率は${latestDaily.winRate}%でした。
+
+前回の日次勝率（${formatMonthDay(previousDaily.date)}：${previousDaily.winRate}%）との差は
+${comparison}`;
+        })()
+      : `前営業日（${formatMonthDay(latestDaily.date)}）の日次勝率は${latestDaily.winRate}%でした。`
+    : "日次勝率はまだ算出されていません。";
 
   return `
-現在のAI勝率は${winRate}%です。${trendComment}
+現在のAI累計勝率は${winRate}%です。
+
+${dailyComment}
+
+※日次勝率は市場全体の地合いの影響を受けるため、
+全面高・全面安など相場環境によって大きく変動します。
 
 これまで${judgedTotal}件の判定結果を学習し、
 ${win}件の成功パターン（WIN）と${lose}件の失敗パターン（LOSE）を蓄積しました。
@@ -77,7 +101,8 @@ ${win}件の成功パターン（WIN）と${lose}件の失敗パターン（LOSE
 
 export async function GET() {
   try {
-    const [summaryResult, stockResult, trendResult] = await Promise.all([
+    const [summaryResult, stockResult, trendResult, metadataResult] =
+      await Promise.all([
       pool.query(`
         SELECT
           COUNT(*)::int AS total,
@@ -116,11 +141,21 @@ export async function GET() {
             COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
           FROM daily_stock_results
           WHERE date IS NOT NULL
+            AND result IN ('WIN', 'LOSE')
           GROUP BY date
           ORDER BY date DESC
           LIMIT 5
         ) AS latest_days
         ORDER BY date ASC
+      `),
+      pool.query(`
+        SELECT
+          COUNT(DISTINCT date) FILTER (
+            WHERE date IS NOT NULL
+              AND result IN ('WIN', 'LOSE', 'HOLD')
+          )::int AS date_count,
+          MAX(GREATEST(created_at, COALESCE(checked_at, created_at))) AS updated_at
+        FROM daily_stock_results
       `),
     ]);
 
@@ -130,6 +165,9 @@ export async function GET() {
     const lose = toNumber(summary.lose);
     const hold = toNumber(summary.hold);
     const unknown = toNumber(summary.unknown);
+    const metadata = metadataResult.rows[0] ?? {};
+    const dateCount = toNumber(metadata.date_count);
+    const updatedAt = metadata.updated_at ?? null;
 
     const judgedTotal = win + lose;
     const winRate =
@@ -213,7 +251,8 @@ export async function GET() {
 
     const comment = createAiComment({
       winRate,
-      diff,
+      latestDaily: judgedTrend.at(-1),
+      previousDaily: judgedTrend.at(-2),
       judgedTotal,
       win,
       lose,
@@ -232,19 +271,14 @@ export async function GET() {
       previousWinRate,
       diff,
       growth: total,
-      dateCount: winRateTrend.length,
+      dateCount,
       bestStocks,
       worstStocks,
       winRateTrend,
       growthTrend,
       resultPie,
       comment,
-      updatedAt: new Date().toLocaleString("ja-JP", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      updatedAt,
     });
   } catch (error) {
     console.error("learning dashboard error:", error);
