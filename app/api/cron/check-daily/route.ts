@@ -2,22 +2,14 @@ import { NextResponse } from "next/server";
 
 import {
   isCronAuthorized,
+  MAX_DAILY_CHECK_BATCHES,
+  MAX_DAILY_CHECK_BATCH_SIZE,
   runDailyCheck,
 } from "@/app/lib/learning/checkDailyRunner";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-function toOptionalNumber(value: string | null): number | undefined {
-  if (value === null || value.trim() === "") return undefined;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-}
-
-function isValidDateString(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
 
 export async function GET(request: Request) {
   if (!process.env.CRON_SECRET) {
@@ -35,29 +27,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const url = new URL(request.url);
-    const targetDate = url.searchParams.get("date") ?? undefined;
-
-    if (targetDate && !isValidDateString(targetDate)) {
-      return NextResponse.json(
-        { success: false, error: "date must use YYYY-MM-DD format" },
-        { status: 400 },
-      );
-    }
-
     const report = await runDailyCheck({
-      batchSize: toOptionalNumber(url.searchParams.get("batchSize")),
-      maxBatches: toOptionalNumber(url.searchParams.get("maxBatches")),
-      targetDate,
+      batchSize: MAX_DAILY_CHECK_BATCH_SIZE,
+      maxBatches: MAX_DAILY_CHECK_BATCHES,
     });
 
     return NextResponse.json(report);
   } catch (error) {
-    console.error("[check-daily] manual run failed", error);
+    console.error("[check-daily] cron run failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: "check daily failed",
+        error: "check daily cron failed",
         message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
