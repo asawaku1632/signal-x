@@ -365,7 +365,7 @@ export default function TrustPage() {
 
               <div className="rounded-[22px] bg-white/10 p-4">
                 <p className="text-xs font-black text-slate-400">
-                  今日改善した数
+                  改善候補数
                 </p>
                 <p className="mt-2 text-xl font-black">
                   {numberText(data.changedCount, "ヶ所")}

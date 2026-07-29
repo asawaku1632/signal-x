@@ -597,7 +597,7 @@ export default function HomePage() {
               <dl className="space-y-3 text-xs font-bold text-[#172640]">
                 <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-2"><dt>学習件数</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.judgedRecords, trustStatus, "件")}</dd></div>
                 <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-2"><dt>累計勝率</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.overallWinRate, trustStatus, "%")}</dd></div>
-                <div className="flex items-center justify-between gap-2"><dt>改善数</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.changedCount, trustStatus, "回")}</dd></div>
+                <div className="flex items-center justify-between gap-2"><dt>改善候補数</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.changedCount, trustStatus, "件")}</dd></div>
               </dl>
               <p className="mt-3 text-center text-xs font-black text-emerald-600">♢ 品質保証済</p>
             </Link>
@@ -648,7 +648,7 @@ export default function HomePage() {
                   ["学習件数", trustData.judgedRecords, "件"],
                   ["累計勝率", trustData.overallWinRate, "%"],
                   ["勝ちパターン", trustData.activeWeightRules, "種類"],
-                  ["改善数", trustData.changedCount, "回"],
+                  ["改善候補数", trustData.changedCount, "件"],
                 ].map(([label, value, suffix], index) => (
                   <div key={String(label)} className={`min-w-0 border-b border-r border-slate-200 p-3 last:border-r-0 sm:border-b-0 ${index === 4 ? "col-span-2 sm:col-span-1" : ""} ${index < 3 ? "bg-blue-50/40" : ""}`}>
                     <dt className="text-[11px] font-black text-slate-600">{label}</dt>

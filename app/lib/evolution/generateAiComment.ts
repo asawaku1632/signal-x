@@ -118,7 +118,9 @@ export function generateAiComment(input: AiCommentInput): string {
   }
 
   if (changedWeight > 0) {
-    comments.push(`${changedWeight}項目の判断基準を見直しました。`);
+    comments.push(
+      `現在の設定とAIの推奨値に差があるルールは${changedWeight}件です。`
+    );
   } else {
     comments.push("判断基準は大きく変えず、安定性を重視しました。");
   }

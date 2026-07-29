@@ -533,7 +533,7 @@ export default function VerificationPage() {
             icon="📈"
             title="進化履歴"
             value={formatNumber(evolutionHistory.length)}
-            caption="AIが判断基準を見直した履歴"
+            caption="現在の設定とAIの推奨値に差があるルールの履歴"
           />
           <KpiCard
             icon="✅"

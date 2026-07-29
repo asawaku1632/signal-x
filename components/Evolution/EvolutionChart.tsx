@@ -101,8 +101,8 @@ export default function EvolutionChart({
         />
 
         <MetricChart
-          title="改善した数"
-          description="AIが判断基準を見直した数です。"
+          title="改善候補数"
+          description="現在の設定とAIの推奨値に差があるルール数です。"
           data={data}
           dataKey="improvedCount"
           suffix="ヶ所"

@@ -222,7 +222,7 @@ export default function EvolutionPage() {
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
             <GlassMini label="的中率" value={`${latest.overallWinRate}%`} />
             <GlassMini label="学習件数" value={`${formatNumber(latest.judgedRecords)}件`} />
-            <GlassMini label="改善数" value={`${formatNumber(latest.changedCount)}ヶ所`} />
+            <GlassMini label="改善候補数" value={`${formatNumber(latest.changedCount)}ヶ所`} />
             <GlassMini label="自動学習" value={cronLabel(latest.cronStatus)} />
           </div>
         </section>
@@ -261,9 +261,9 @@ export default function EvolutionPage() {
 
           <MetricCard
             icon="🔄"
-            title="今日改善した数"
+            title="改善候補数"
             value={`${formatNumber(latest.changedCount)}ヶ所`}
-            description="AIが学習結果をもとに、判断基準を見直した数です。"
+            description="現在の設定とAIの推奨値に差があるルール数です。"
             tone="purple"
           />
 
@@ -293,7 +293,7 @@ export default function EvolutionPage() {
               </p>
               <h2 className="mt-2 text-3xl font-black">📈 AIの成長グラフ</h2>
               <p className="mt-2 text-sm font-medium leading-7 text-slate-600">
-                AI完成度・的中率・学習件数・改善数の推移を日ごとに確認できます。
+                AI完成度・的中率・学習件数・改善候補数の推移を日ごとに確認できます。
               </p>
             </div>
 
@@ -357,7 +357,7 @@ export default function EvolutionPage() {
                   <HistoryItem label="予測的中率" value={`${item.overallWinRate}%`} />
                   <HistoryItem label="学習済みデータ" value={`${formatNumber(item.judgedRecords)}件`} />
                   <HistoryItem label="勝ちパターン" value={`${formatNumber(item.activeWeightRules)}種類`} />
-                  <HistoryItem label="改善した数" value={`${formatNumber(item.changedCount)}ヶ所`} />
+                  <HistoryItem label="改善候補数" value={`${formatNumber(item.changedCount)}ヶ所`} />
                   <HistoryItem label="判定済みパターン" value={`${formatNumber(item.patternCount)}件`} />
                 </div>
               </div>

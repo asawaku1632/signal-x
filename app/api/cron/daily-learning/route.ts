@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { runAutoLearning } from "@/app/lib/learning/autoLearningRunner";
 import { createCronLearningLog } from "@/app/lib/learning/cronLearningLogRepository";
 import { runEvolutionLogger } from "@/app/lib/learning/evolutionLogger";
-import { createEvolutionSummaryFromLatestLog } from "@/app/lib/evolution/evolutionSummaryRepository";
+import { createEvolutionSummaryFromLog } from "@/app/lib/evolution/evolutionSummaryRepository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -38,7 +39,48 @@ function toSafeNumber(value: string | null, fallback: number): number {
   return Number.isFinite(num) ? num : fallback;
 }
 
+type CronLogDetails = {
+  durationMs?: number;
+  evolutionLogId?: number | null;
+  summaryId?: number | null;
+  errorName?: string;
+  errorMessage?: string;
+};
+
+function getJstDateTime(): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date());
+}
+
+function logCronStage(
+  runId: string,
+  stage: string,
+  details: CronLogDetails = {}
+) {
+  console.log(
+    JSON.stringify({
+      service: "daily-learning-cron",
+      runId,
+      stage,
+      jstDateTime: getJstDateTime(),
+      ...details,
+    })
+  );
+}
+
 export async function GET(request: NextRequest) {
+  const runId = randomUUID();
+  const cronStartedAt = Date.now();
+  let evolutionLogId: number | null = null;
+  let summaryId: number | null = null;
   const limit = toSafeNumber(request.nextUrl.searchParams.get("limit"), 300);
   const minSampleCount = toSafeNumber(
     request.nextUrl.searchParams.get("minSampleCount"),
@@ -58,12 +100,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    logCronStage(runId, "cron started");
+
+    const dailyLearningStartedAt = Date.now();
+    logCronStage(runId, "daily learning started");
     const report = await runAutoLearning({
       mode: "execute",
       judgeLimit: Number.isFinite(limit) ? limit : 300,
       minSampleCount: Number.isFinite(minSampleCount) ? minSampleCount : 3,
     });
+    logCronStage(runId, "daily learning completed", {
+      durationMs: Date.now() - dailyLearningStartedAt,
+    });
 
+    const cronLearningLogStartedAt = Date.now();
     const savedLog = await createCronLearningLog({
       status: "SUCCESS",
       debugVersion: DEBUG_VERSION,
@@ -80,15 +130,49 @@ export async function GET(request: NextRequest) {
       weightRuleUpsertedCount: report.summary.weightRuleUpsertedCount,
       rawReport: report,
     });
+    logCronStage(runId, "cron learning log saved", {
+      durationMs: Date.now() - cronLearningLogStartedAt,
+    });
 
+    const evolutionLoggerStartedAt = Date.now();
+    logCronStage(runId, "evolution logger started");
     const evolutionLog = await runEvolutionLogger({
       mode: "execute",
       minJudgedCount: 5,
       weightLimit: 100,
       minSampleCount,
     });
+    evolutionLogId = evolutionLog.savedLog?.id ?? null;
+    logCronStage(runId, "evolution logger completed", {
+      durationMs: Date.now() - evolutionLoggerStartedAt,
+      evolutionLogId,
+    });
 
-    const evolutionSummary = await createEvolutionSummaryFromLatestLog();
+    if (!evolutionLog.savedLog) {
+      throw new Error("Evolution logger completed without a saved log");
+    }
+
+    const evolutionSummaryStartedAt = Date.now();
+    logCronStage(runId, "evolution summary started", { evolutionLogId });
+    const evolutionSummary = await createEvolutionSummaryFromLog(
+      evolutionLog.savedLog
+    );
+    summaryId = evolutionSummary?.id ?? null;
+    logCronStage(runId, "evolution summary completed", {
+      durationMs: Date.now() - evolutionSummaryStartedAt,
+      evolutionLogId,
+      summaryId,
+    });
+
+    if (!evolutionSummary) {
+      throw new Error("Evolution summary was not saved");
+    }
+
+    logCronStage(runId, "cron completed", {
+      durationMs: Date.now() - cronStartedAt,
+      evolutionLogId,
+      summaryId,
+    });
 
     return NextResponse.json({
       success: true,
@@ -106,6 +190,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "daily learning cron failed";
+
+    logCronStage(runId, "cron failed", {
+      durationMs: Date.now() - cronStartedAt,
+      evolutionLogId,
+      summaryId,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: message,
+    });
 
     let savedLog = null;
 

@@ -103,7 +103,7 @@ export default function EvolutionReportHistoryPage() {
                 <StatCard label="HOLD" value={`${report.holdCount}件`} />
                 <StatCard label="的中率" value={`${report.accuracy}%`} />
                 <StatCard label="勝ちパターン" value={`${report.winPatternCount}件`} />
-                <StatCard label="改善数" value={`${report.improvementCount}件`} />
+                <StatCard label="改善候補数" value={`${report.improvementCount}件`} />
                 <StatCard label="AI完成度" value={`${report.aiCompletion}%`} />
               </div>
 

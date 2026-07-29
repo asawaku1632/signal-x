@@ -1,4 +1,5 @@
 import pool from "@/app/lib/postgres";
+import type { EvolutionLogRecord } from "@/app/lib/learning/evolutionLogger";
 
 export type EvolutionSummaryInput = {
   qualityScore: number;
@@ -198,5 +199,22 @@ export async function createEvolutionSummaryFromLatestLog(): Promise<EvolutionSu
     optimizedCount: toNumber(latest.weight_optimized_count),
     changedCount: toNumber(latest.weight_changed_count),
     cronStatus: String(latest.cron_latest_status ?? "UNKNOWN"),
+  });
+}
+
+export async function createEvolutionSummaryFromLog(
+  log: EvolutionLogRecord
+): Promise<EvolutionSummary | null> {
+  return createEvolutionSummary({
+    qualityScore: log.qualityScore,
+    qualityLabel: log.qualityLabel,
+    judgedRecords: log.judgedRecords,
+    overallWinRate: log.overallWinRate,
+    patternCount: log.patternJudgedCount,
+    sectorCount: 0,
+    activeWeightRules: log.activeWeightRuleCount,
+    optimizedCount: log.weightOptimizedCount,
+    changedCount: log.weightChangedCount,
+    cronStatus: log.cronLatestStatus ?? "UNKNOWN",
   });
 }

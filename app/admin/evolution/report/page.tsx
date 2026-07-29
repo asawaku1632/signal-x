@@ -120,7 +120,7 @@ export default function AiDailyReportPage() {
           <ReportCard icon="🏆" title="WIN判定" value={`${formatNumber(report.winCount)}件`} description="AIが勝ちパターンとして学習した件数です。" />
           <ReportCard icon="📉" title="LOSE判定" value={`${formatNumber(report.loseCount)}件`} description="AIが負けパターンとして学習した件数です。" />
           <ReportCard icon="➖" title="HOLD判定" value={`${formatNumber(report.holdCount)}件`} description="まだ勝敗を急がず、様子見として記録した件数です。" />
-          <ReportCard icon="🧠" title="AIが改善した判断基準" value={`${formatNumber(report.changedWeight)}ヶ所`} description="学習結果をもとにAIが見直した判断ポイントです。" />
+          <ReportCard icon="🧠" title="改善候補数" value={`${formatNumber(report.changedWeight)}ヶ所`} description="現在の設定とAIの推奨値に差があるルール数です。" />
           <ReportCard icon="⭐" title="AI完成度" value={`${report.qualityScore}点`} description={`${report.qualityLabel} 評価です。`} />
           <ReportCard icon="🎯" title="予測的中率" value={`${report.overallWinRate}%`} description="勝敗が確定したデータをもとにした現在の的中率です。" />
           <ReportCard icon="🧩" title="覚えた勝ちパターン" value={`${formatNumber(report.activeWeightRules)}種類`} description="AIが判断に使っている学習済みパターン数です。" />
@@ -152,7 +152,7 @@ export default function AiDailyReportPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <SummaryItem label="今日AIが学んだこと" value={`${formatNumber(report.processedCount)}件の結果を確認`} />
-            <SummaryItem label="判断基準の改善" value={`${formatNumber(report.changedWeight)}ヶ所を見直し`} />
+            <SummaryItem label="改善候補数" value={`${formatNumber(report.changedWeight)}件`} />
             <SummaryItem label="現在の学習量" value={`${formatNumber(report.judgedRecords)}件を学習済み`} />
             <SummaryItem label="現在のAI状態" value={`${report.qualityScore}点 / ${report.qualityLabel}`} />
           </div>
