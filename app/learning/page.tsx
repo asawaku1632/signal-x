@@ -260,7 +260,9 @@ export default function LearningPage() {
           <div className="mb-1 flex items-center justify-between gap-3">
             <h2 className="text-xl font-black">📈 日別勝率</h2>
             <span className="shrink-0 text-xs font-black text-blue-600">
-              直近5営業日
+              {dailyWinRateTrend.length > 0
+                ? `直近${dailyWinRateTrend.length}営業日`
+                : "判定データなし"}
             </span>
           </div>
 

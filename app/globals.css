@@ -24,3 +24,77 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.lp-page :is(a, button):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.mobile-menu {
+  max-height: 0;
+  visibility: hidden;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition:
+    max-height 300ms ease,
+    opacity 200ms ease,
+    transform 300ms ease,
+    visibility 300ms;
+}
+
+.mobile-menu-open {
+  max-height: 22rem;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hero-fade-up {
+  animation: hero-fade-up 500ms ease-out both;
+}
+
+.hero-delay-1 {
+  animation-delay: 100ms;
+}
+
+.hero-delay-2 {
+  animation-delay: 180ms;
+}
+
+.app-preview-track {
+  scrollbar-width: thin;
+  scrollbar-color: #93c5fd #eff6ff;
+  overscroll-behavior-inline: contain;
+}
+
+.ai-pickup-comment {
+  display: -webkit-box;
+  max-height: 3rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-page *,
+  .lp-page *::before,
+  .lp-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

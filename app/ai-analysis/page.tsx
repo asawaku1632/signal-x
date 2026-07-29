@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getAiRank } from "@/app/lib/aiRank";
 
 
@@ -197,6 +198,17 @@ function buildAiComment(stock: Stock) {
 }
 
 export default function AiAnalysisPage() {
+  return (
+    <Suspense fallback={<AiAnalysisLoading />}>
+      <AiAnalysisContent />
+    </Suspense>
+  );
+}
+
+function AiAnalysisContent() {
+  const searchParams = useSearchParams();
+  const requestedSymbol = searchParams.get("symbol");
+
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -223,7 +235,18 @@ export default function AiAnalysisPage() {
     fetchAiAnalysis();
   }, []);
 
-  const topStock = stocks[0];
+  const topStock = useMemo(() => {
+    if (!stocks.length) return undefined;
+
+    if (requestedSymbol) {
+      const matched = stocks.find(
+        (stock) => String(stock.code) === requestedSymbol
+      );
+      if (matched) return matched;
+    }
+
+    return stocks[0];
+  }, [stocks, requestedSymbol]);
 
   const topRank = useMemo(() => {
     if (!topStock) return 0;
@@ -563,5 +586,17 @@ function ScoreRow({ label, score }: { label: string; score: number }) {
         />
       </div>
     </div>
+  );
+}
+
+function AiAnalysisLoading() {
+  return (
+    <main className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
+      <div className="max-w-md mx-auto p-4">
+        <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
+          <p className="font-bold text-zinc-500">AI分析データを読み込み中...</p>
+        </section>
+      </div>
+    </main>
   );
 }

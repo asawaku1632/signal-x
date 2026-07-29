@@ -26,7 +26,10 @@ export type ChartAnalysis = {
   detectedPatterns?: {
     id: string;
     name: string;
+    direction?: "BUY" | "SELL" | "NEUTRAL";
     confidence: number;
+    score?: number;
+    reasons?: string[];
   }[];
 };
 
@@ -353,18 +356,33 @@ export function calculateAiScore(params: {
     reasons.push("Wボトム突破");
   }
 
- const detectedPatternIds =
-  chart?.detectedPatterns?.map((pattern) => pattern.id) ?? [];
+  const detectedPatterns = chart?.detectedPatterns ?? [];
+  const strongestPattern = [...detectedPatterns].sort((a, b) => {
+    if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+    return Math.abs(b.score ?? 0) - Math.abs(a.score ?? 0);
+  })[0];
 
-  if (code === "4478") {
-  console.log("4478 detectedPatterns:", chart?.detectedPatterns);
-  console.log("4478 detectedPatternIds:", detectedPatternIds);
-}
+  if (strongestPattern) {
+    const rawPatternScore = strongestPattern.score ?? 0;
+    const confidenceFactor = Math.max(0.55, strongestPattern.confidence / 100);
+    const adjustedPatternScore = Math.round(rawPatternScore * confidenceFactor);
+    breakdown.pattern = Math.max(-24, Math.min(24, adjustedPatternScore));
+    reasons.push(`${strongestPattern.name}を検出`);
+  }
 
-if (detectedPatternIds.includes("pattern002")) {
-  breakdown.pattern = Math.max(breakdown.pattern, 18);
-  reasons.push("ダブルボトム反発を検出");
-}
+  const supportingPatterns = detectedPatterns
+    .filter((pattern) => pattern.id !== strongestPattern?.id)
+    .filter((pattern) => (pattern.score ?? 0) * (strongestPattern?.score ?? 0) >= 0)
+    .slice(0, 2);
+
+  if (supportingPatterns.length > 0) {
+    const supportBonus = supportingPatterns.reduce((sum, pattern) => {
+      const sign = Math.sign(pattern.score ?? 0);
+      return sum + sign * (pattern.confidence >= 75 ? 2 : 1);
+    }, 0);
+    breakdown.pattern = Math.max(-26, Math.min(26, breakdown.pattern + supportBonus));
+    reasons.push(`補助パターン: ${supportingPatterns.map((pattern) => pattern.name).join("・")}`);
+  }
 
   if (chart?.candleSignal === "BULLISH_ENGULFING") {
     breakdown.candle = 8;

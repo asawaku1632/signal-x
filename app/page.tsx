@@ -25,6 +25,8 @@ type HomeTrustData = {
   cronStatus: string;
 };
 
+type TrustRequestStatus = "loading" | "success" | "error";
+
 const initialTrustData: HomeTrustData = {
   qualityScore: null,
   judgedRecords: null,
@@ -184,27 +186,30 @@ const screens = [
   },
 ];
 
-const problems = [
-  "何を買えばいいか分からない",
-  "チャートが難しい",
-  "毎日1000銘柄も見られない",
-  "売買判断に迷う",
+const engineIndicators = [
+  ["⌁", "EMA", "トレンド分析"],
+  ["⌁", "VWAP", "公正価格分析"],
+  ["▥", "MACD", "売買タイミング"],
+  ["⌁", "RSI", "買われすぎを分析"],
+  ["◇", "Chart Pattern Engine", "チャートパターンAI分析"],
 ];
 
+const problems = ["何を買えばいいか分からない", "チャートが難しい", "毎日1000銘柄も見られない", "売買判断に迷う"];
 const solutions = [
-  ["🤖 AIが監視銘柄を分析","毎日多数の日本株をAIが自動でチェックします。"],
-  ["📈 注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
-  ["📊 複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
-  ["💬 初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
+  ["AIが監視銘柄を分析", "毎日多数の日本株をAIが自動でチェックします。"],
+  ["注目銘柄をランキング化", "スコアの高い銘柄を分かりやすく表示します。"],
+  ["複数指標を総合判定", "EMA・VWAP・MACD・RSIなどをAIが総合評価します。"],
+  ["初心者向けに解説", "難しい指標を、行動しやすい言葉で表示します。"],
 ];
 
 const features = [
-  ["🤖", "AI POWER", "AIが銘柄の強さをスコア化"],
-  ["📈", "AIランキング", "注目銘柄をランキング表示"],
-  ["📊", "テクニカル分析", "EMA・VWAP・MACD・RSIに対応"],
-  ["🔔", "LINE通知", "重要な銘柄情報を通知"],
-  ["📱", "スマホ対応", "毎朝スマホで確認しやすい画面"],
-  ["💬", "AIコメント", "初心者向けに分かりやすく解説"],
+  ["↗", "AI POWER", "銘柄の強さをスコア化"],
+  ["☆", "AIランキング", "注目銘柄をランキング表示"],
+  ["▥", "テクニカル分析", "複数指標をAIが総合判定"],
+  ["◌", "LINE通知", "重要な銘柄情報をリアルタイム通知"],
+  ["▯", "スマホ対応", "毎朝スマホで簡単チェック"],
+  ["●", "AIコメント", "初心者にも分かりやすく解説"],
+  ["⌘", "リアルチャート", "値動きと指標を確認"],
 ];
 
 const navLinks = [
@@ -212,13 +217,28 @@ const navLinks = [
   ["AI分析", "/scan-mobile"],
   ["AI実績・品質", "/trust"],
   ["AI進化", "/admin/evolution"],
+  ["使い方", "/dashboard"],
+  ["プラン", "#price"],
 ];
 
 
 
-function trustNumber(value: number | null, suffix = "") {
-  if (value === null || Number.isNaN(value)) return "確認中";
+function trustNumber(
+  value: number | null,
+  status: TrustRequestStatus,
+  suffix = "",
+) {
+  if (status === "loading") return "確認中";
+  if (status === "error" || value === null || Number.isNaN(value)) {
+    return "取得できませんでした";
+  }
   return `${Math.round(value).toLocaleString("ja-JP")}${suffix}`;
+}
+
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 export default function HomePage() {
@@ -227,7 +247,19 @@ export default function HomePage() {
   const [topStocksError, setTopStocksError] = useState(false);
   const [marketData, setMarketData] = useState<HomeMarketData>(initialMarketData);
   const [trustData, setTrustData] = useState<HomeTrustData>(initialTrustData);
-  const [trustLoading, setTrustLoading] = useState(true);
+  const [trustStatus, setTrustStatus] = useState<TrustRequestStatus>("loading");
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function closeMenu(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    window.addEventListener("keydown", closeMenu);
+    return () => window.removeEventListener("keydown", closeMenu);
+  }, [menuOpen]);
 
   useEffect(() => {
     let active = true;
@@ -276,55 +308,58 @@ export default function HomePage() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
     async function loadTrustData() {
-      try {
-        const response = await fetch("/api/evolution/summary?limit=30", {
-          cache: "no-store",
-        });
+      let settled = false;
 
-        if (!response.ok) {
-          throw new Error(
-            `Evolution summary request failed: ${response.status}`
-          );
+      try {
+        let latest: Record<string, unknown> | null = null;
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const response = await fetch("/api/evolution/summary?limit=30", {
+              cache: "no-store",
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              throw new Error(`Evolution summary request failed: ${response.status}`);
+            }
+
+            const json = await response.json();
+            const candidate = json?.latest ?? json?.history?.[0] ?? null;
+            if (!json?.success || !candidate || typeof candidate !== "object") {
+              throw new Error("Evolution summary response has no latest data");
+            }
+
+            latest = candidate as Record<string, unknown>;
+            break;
+          } catch (error) {
+            if (controller.signal.aborted || attempt === 1) throw error;
+          }
         }
 
-        const json = await response.json();
-        const latest = json?.latest ?? json?.history?.[0] ?? null;
-
-        if (!active) return;
+        if (!active || !latest) return;
 
         setTrustData({
-          qualityScore:
-            typeof latest?.qualityScore === "number"
-              ? latest.qualityScore
-              : null,
-          judgedRecords:
-            typeof latest?.judgedRecords === "number"
-              ? latest.judgedRecords
-              : null,
-          overallWinRate:
-            typeof latest?.overallWinRate === "number"
-              ? latest.overallWinRate
-              : null,
-          activeWeightRules:
-            typeof latest?.activeWeightRules === "number"
-              ? latest.activeWeightRules
-              : null,
-          changedCount:
-            typeof latest?.changedCount === "number"
-              ? latest.changedCount
-              : null,
-          patternCount:
-            typeof latest?.patternCount === "number"
-              ? latest.patternCount
-              : null,
-          cronStatus: String(latest?.cronStatus ?? "UNKNOWN"),
+          qualityScore: nullableNumber(latest.qualityScore),
+          judgedRecords: nullableNumber(latest.judgedRecords),
+          overallWinRate: nullableNumber(latest.overallWinRate),
+          activeWeightRules: nullableNumber(latest.activeWeightRules),
+          changedCount: nullableNumber(latest.changedCount),
+          patternCount: nullableNumber(latest.patternCount),
+          cronStatus: String(latest.cronStatus ?? "UNKNOWN"),
         });
-      } catch (error) {
-        console.error("home trust summary fetch error:", error);
+        setTrustStatus("success");
+        settled = true;
+      } catch {
+        if (active && !controller.signal.aborted) {
+          setTrustStatus("error");
+          settled = true;
+        }
       } finally {
-        if (active) setTrustLoading(false);
+        if (active && !controller.signal.aborted && !settled) setTrustStatus("error");
       }
     }
 
@@ -332,453 +367,392 @@ export default function HomePage() {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
   const marketView = getMarketView(marketData.marketPattern);
   const todayStats = [
     [
-      marketData.totalStockList.toLocaleString(),
-      "監視銘柄",
-      "AIが毎日チェックする日本株",
+      "◆",
+      topStocksLoading ? null : marketData.scannedCount,
+      "銘柄分析済み",
+      "本日のAIスキャン結果",
+      "text-blue-600 bg-blue-50",
     ],
     [
-      topStocksLoading
-        ? "取得中"
-        : topStocksError
-        ? "取得失敗"
-        : marketData.scannedCount.toLocaleString(),
-      "取得済み",
-      topStocksError
-        ? "AIランキングAPIを確認してください"
-        : "本日の分析完了銘柄",
+      "↗",
+      topStocksLoading ? null : marketData.hotCount,
+      "激熱銘柄",
+      "AI判定の最上位候補",
+      "text-orange-600 bg-orange-50",
     ],
     [
-      "TOP30",
-      "今日の激熱",
-      "AIおすすめ順の上位30銘柄",
+      "★",
+      topStocksLoading ? null : marketData.strongCount,
+      "本命銘柄",
+      "強いシグナルを検出",
+      "text-amber-600 bg-amber-50",
     ],
     [
-      "TOP100",
-      "本命候補",
-      "次に確認したい上位100銘柄",
+      "◕",
+      topStocksLoading || topStocksError ? null : marketView.badge.replace(/^[^\s]+\s/, ""),
+      "AI市場",
+      marketView.comment,
+      "text-indigo-600 bg-indigo-50",
     ],
     [
-      marketData.aiPowerVersion,
-      "AI ENGINE",
-      "最新AIエンジン",
+      "✓",
+      topStocksLoading || topStocksError ? null : marketData.aiPowerVersion,
+      "AIエンジン",
+      "スキャンAPI稼働中",
+      "text-emerald-600 bg-emerald-50",
     ],
   ];
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-950 md:pb-0">
+    <main className="lp-page min-h-screen overflow-x-clip bg-[#f7f9fc] text-slate-950">
       {/* HERO */}
-      <section className="relative overflow-hidden px-5 pb-14 pt-5 text-slate-950">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_36%),radial-gradient(circle_at_top_right,#dcfce7,transparent_32%),linear-gradient(180deg,#ffffff_0%,#f7f9fc_72%)]" />
+      <section className="relative overflow-hidden border-b border-blue-100 bg-white text-slate-950">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_36%,rgba(37,99,235,0.18),transparent_31%),linear-gradient(105deg,#ffffff_0%,#ffffff_44%,#edf5ff_75%,#dbeafe_100%)]" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-[78%] w-[58%] opacity-45 [background-image:linear-gradient(rgba(59,130,246,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.12)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+        <div className="pointer-events-none absolute bottom-0 left-[38%] right-0 h-52 opacity-50 [background:linear-gradient(153deg,transparent_0_42%,rgba(37,99,235,.24)_42.3%_42.8%,transparent_43.1%_100%),linear-gradient(165deg,transparent_0_55%,rgba(14,165,233,.2)_55.3%_55.8%,transparent_56.1%_100%)]" />
 
-        <div className="relative mx-auto max-w-6xl">
-          <header className="mb-8 flex items-center justify-between rounded-full border border-white/80 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-xl">
-            <Link href="/" aria-label="SIGNALX Home" className="flex items-center gap-2">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-200">
-                X
+        <header className="relative z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+          <div className="mx-auto flex min-h-[64px] max-w-[1180px] items-center justify-between gap-2 px-4 sm:px-5">
+            <Link href="/" aria-label="SIGNALX ホーム" className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg">
+              <span className="relative block h-8 w-8" aria-hidden="true">
+                <span className="absolute left-[13px] top-0 h-8 w-2 -rotate-45 rounded-sm bg-gradient-to-b from-cyan-400 to-blue-700" />
+                <span className="absolute left-[13px] top-0 h-8 w-2 rotate-45 rounded-sm bg-gradient-to-b from-blue-700 to-cyan-400" />
               </span>
-              <span className="text-xl font-black tracking-tight">
-                SIGNAL<span className="text-blue-600">X</span>
-              </span>
+              <span className="text-lg font-black tracking-[0.04em] text-[#071a3d] sm:text-[22px]">SIGNALX</span>
             </Link>
 
-            <nav className="hidden items-center gap-2 md:flex">
+            <nav className="hidden items-center gap-1 lg:flex" aria-label="メインナビゲーション">
               {navLinks.map(([label, href]) => (
                 <Link
                   key={label}
                   href={href}
-                  className="rounded-full px-4 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-blue-600"
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-[13px] font-bold text-[#0b1c3b] transition hover:bg-blue-50 hover:text-blue-600"
                 >
                   {label}
                 </Link>
               ))}
             </nav>
 
-            <Link
-              href="/login"
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-300 transition hover:bg-blue-600"
-            >
-              Googleログイン
-            </Link>
-          </header>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Link
+                href="/login"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[#10203f] shadow-sm transition hover:border-blue-400 hover:bg-blue-50 sm:px-5 sm:text-sm"
+              >
+                <span className="text-base font-black text-[#4285f4]" aria-hidden="true">G</span>
+                <span className="hidden sm:inline">Googleでログイン</span>
+                <span className="sm:hidden">無料ではじめる</span>
+              </Link>
+              <button
+                type="button"
+                aria-label={menuOpen ? "メニューを閉じる" : "メニューを開く"}
+                aria-controls="mobile-navigation"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                className="relative grid h-11 w-11 place-items-center rounded-xl text-[#071a3d] transition hover:bg-blue-50 lg:hidden"
+              >
+                <span className="relative h-5 w-5" aria-hidden="true">
+                  <span className={`absolute left-0 top-0.5 h-0.5 w-5 rounded bg-current transition duration-300 ${menuOpen ? "translate-y-2 rotate-45" : ""}`} />
+                  <span className={`absolute left-0 top-2.5 h-0.5 w-5 rounded bg-current transition duration-300 ${menuOpen ? "opacity-0" : ""}`} />
+                  <span className={`absolute left-0 top-[18px] h-0.5 w-5 rounded bg-current transition duration-300 ${menuOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+                </span>
+              </button>
+            </div>
+          </div>
+          <nav
+            id="mobile-navigation"
+            aria-label="スマートフォン用メインナビゲーション"
+            className={`mobile-menu absolute inset-x-0 top-full border-b border-slate-200 bg-white/98 px-4 shadow-xl lg:hidden ${menuOpen ? "mobile-menu-open" : ""}`}
+          >
+            <div className="mx-auto grid max-w-[1180px] py-2">
+              {navLinks.map(([label, href]) => (
+                <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-[#0b1c3b] hover:bg-blue-50 hover:text-blue-700">
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        </header>
 
-          <div className="grid items-center gap-10 lg:grid-cols-[1.06fr_0.94fr]">
-            <div className="text-center lg:text-left">
-              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-black text-blue-600 shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
+        <div className="relative mx-auto grid max-w-[1180px] items-center gap-7 px-4 pb-8 pt-7 sm:px-5 sm:pb-12 sm:pt-8 lg:min-h-[470px] lg:grid-cols-[1.03fr_0.9fr_0.62fr] lg:gap-5 lg:pb-0 lg:pt-7">
+          <div className="hero-fade-up relative z-20 text-center lg:self-start lg:pt-3 lg:text-left">
+              <p className="mb-5 inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-blue-200">
                 SIGNALX Ver1.0 公開準備中
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight text-slate-950 md:text-7xl">
-                AIの予測だけじゃない。
-                <span className="mt-2 block bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
-                  過去の実績まで、すべて公開。
+              <h1 className="text-[clamp(2.15rem,10.2vw,2.75rem)] font-black leading-[1.12] tracking-[-0.04em] text-[#071a3d] sm:text-6xl lg:text-[55px]">
+                <span className="whitespace-nowrap">約{marketData.totalStockList.toLocaleString("ja-JP")}銘柄を</span>
+                <span className="mt-1 block text-blue-600">
+                  AIが毎営業日分析
                 </span>
               </h1>
 
-              <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-8 text-slate-600 md:text-lg lg:mx-0">
-                SIGNALXは、AI POWER・勝率・過去の判定実績を公開する、
-                透明性重視の日本株AI分析サービスです。
+              <p className="mx-auto mt-5 max-w-lg text-base font-bold leading-7 text-[#172640] lg:mx-0">
+                ランキングを見るだけで注目銘柄が分かる。
+                <br />
+                AIの予測だけじゃない。過去の実績まで、すべて公開。
               </p>
 
-              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
-                <Link
-                  href="/scan-mobile"
-                  className="rounded-full bg-blue-600 px-9 py-4 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
-                >
-                  AIランキングを見る
-                </Link>
-
-                <Link
-  href={topStocks.length > 0 ? `/analysis/${topStocks[0].code}` : "/scan-mobile"}
-  className="rounded-full border border-slate-200 bg-white px-9 py-4 text-sm font-black text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600"
->
-  AI分析を見る
-</Link>
-
-                <Link
-                  href="/trust"
-                  className="rounded-full border border-blue-200 bg-blue-50 px-9 py-4 text-sm font-black text-blue-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-100"
-                >
-                  🛡 AI品質を見る
-                </Link>
-              </div>
-
-              <div className="mt-8 grid grid-cols-3 gap-3 rounded-[2rem] border border-white bg-white/70 p-3 shadow-sm backdrop-blur-xl">
-                {todayStats.slice(0, 3).map(([num, label]) => (
-                  <div key={label} className="rounded-3xl bg-slate-50 p-4">
-                    <p className="text-2xl font-black text-slate-950">{num}</p>
-                    <p className="mt-1 text-xs font-black text-slate-500">
-                      {label}
-                    </p>
-                  </div>
+              <div className="mt-5 flex flex-wrap justify-center gap-2 lg:justify-start">
+                {["AI POWER", "過去実績", "AI品質"].map((label, index) => (
+                  <span key={label} className="inline-flex items-center gap-2 rounded-lg border border-blue-100 bg-white/90 px-3 py-2 text-xs font-extrabold text-[#172640] shadow-sm">
+                    <span className="text-blue-600" aria-hidden="true">{index === 0 ? "◆" : index === 1 ? "▥" : "♢"}</span>
+                    {label}
+                  </span>
                 ))}
               </div>
-            </div>
 
-            {/* PHONE MOCKUP */}
-            <div className="mx-auto w-full max-w-sm">
-              <div className="rounded-[3rem] border border-slate-200 bg-slate-950 p-3 shadow-2xl shadow-blue-200">
-                <div className="rounded-[2.45rem] bg-white p-4">
-                  <div className="mx-auto mb-4 h-1.5 w-20 rounded-full bg-slate-200" />
-
-                  <div className="rounded-[2rem] bg-gradient-to-br from-slate-950 to-blue-950 p-5 text-white">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-black text-blue-200">
-                        今日のSIGNALX
-                      </p>
-                      <span className={`rounded-full px-3 py-1 text-xs font-black ${marketView.phoneBadgeClass}`}>
-                        {marketView.badge}
-                      </span>
-                    </div>
-
-                    <h2 className="mt-5 text-3xl font-black leading-tight">
-                      AI市場
-                      <br />
-                      スキャン
-                    </h2>
-
-                    <p className="mt-3 text-sm leading-6 text-slate-300">
-                      {marketView.comment}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {todayStats.slice(0, 4).map(([num, label]) => (
-                      <div
-                        key={label}
-                        className="rounded-3xl bg-slate-50 p-4 text-center"
-                      >
-                        <p className="text-3xl font-black">{num}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          {label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-black text-blue-700">
-                        AIエンジン
-                      </p>
-                      <span className="text-xs font-black text-blue-700">
-                        稼働中
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-                      EMA・VWAP・MACD・RSIを総合判定
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TODAY */}
-      <section className="px-5 py-10">
-        <div className="mx-auto max-w-6xl">
-          <div className="rounded-[2.5rem] border border-white bg-white p-6 shadow-sm md:p-8">
-            <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-              <div>
-                <p className="text-sm font-black text-blue-600">
-                  TODAY'S MARKET
-                </p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-                  今日のAI市場スキャン状況
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                  {marketView.comment}
-                </p>
-              </div>
-
-              <span
-                className={`w-fit rounded-full px-4 py-2 text-sm font-black ${marketView.badgeClass}`}
-              >
-                {marketView.badge}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              {todayStats.map(([num, label, caption]) => (
-                <div
-                  key={label}
-                  className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5"
-                >
-                  <p className="text-4xl font-black tracking-tight text-slate-950">
-                    {num}
-                  </p>
-                  <p className="mt-2 text-sm font-black text-slate-700">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                    {caption}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <Link
-              href="/trust"
-              className="mt-5 block rounded-[2rem] border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl text-white shadow-lg shadow-blue-200">
-                      🛡️
-                    </div>
-                    <div>
-                      <p className="text-xs font-black tracking-[0.16em] text-blue-600">
-                        AI TRUST CENTER
-                      </p>
-                      <h3 className="mt-1 text-xl font-black text-slate-950">
-                        AI品質を実データで公開
-                      </h3>
-                      <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-                        AI成長センターと同じ最新サマリーを表示しています。
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="shrink-0 text-sm font-black text-blue-600">
-                    詳しく見る →
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                    <p className="text-xs font-black text-slate-500">AI品質</p>
-                    <p className="mt-2 text-2xl font-black text-blue-700">
-                      {trustLoading
-                        ? "確認中"
-                        : trustNumber(trustData.qualityScore, "点")}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                    <p className="text-xs font-black text-slate-500">
-                      学習済み
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">
-                      {trustLoading
-                        ? "確認中"
-                        : trustNumber(trustData.judgedRecords, "件")}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                    <p className="text-xs font-black text-slate-500">
-                      予測的中率
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-emerald-700">
-                      {trustLoading || trustData.overallWinRate === null
-                        ? "確認中"
-                        : `${trustData.overallWinRate.toFixed(1)}%`}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                    <p className="text-xs font-black text-slate-500">
-                      勝ちパターン
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">
-                      {trustLoading
-                        ? "確認中"
-                        : trustNumber(trustData.activeWeightRules, "種類")}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                    <p className="text-xs font-black text-slate-500">
-                      改善数
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">
-                      {trustLoading
-                        ? "確認中"
-                        : trustNumber(trustData.changedCount, "ヶ所")}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-xs font-black">
-                  <span
-                    className={`rounded-full px-3 py-2 ${
-                      trustData.cronStatus === "SUCCESS"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {trustLoading
-                      ? "自動学習を確認中"
-                      : trustData.cronStatus === "SUCCESS"
-                      ? "自動学習 正常"
-                      : `自動学習 ${trustData.cronStatus}`}
-                  </span>
-
-                  <span className="rounded-full bg-blue-100 px-3 py-2 text-blue-700">
-                    判定済みパターン{" "}
-                    {trustNumber(trustData.patternCount, "件")}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* TOP STOCKS */}
-      <section className="px-5 py-12 md:py-14">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-black text-blue-600">AI PICKUP</p>
-              <h2 className="mt-2 text-4xl font-black tracking-tight">
-                今日のAI注目銘柄
-              </h2>
-              <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-600">
-                AIが選んだ今日のTOP30から、上位3銘柄を表示します。
-                迷ったら、この3銘柄から確認するだけでOKです。
-              </p>
-            </div>
-
-            <Link
-              href="/scan-mobile?budget=all"
-              className="w-fit rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:bg-blue-600"
-            >
-              ランキング一覧へ
-            </Link>
-          </div>
-
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {topStocksLoading &&
-              Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={`top-stock-loading-${index}`}
-                  className="animate-pulse rounded-[2rem] border border-white bg-white p-6 shadow-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="h-10 w-10 rounded-full bg-slate-200" />
-                    <div className="h-6 w-24 rounded-full bg-slate-200" />
-                  </div>
-                  <div className="mt-6 h-4 w-16 rounded bg-slate-200" />
-                  <div className="mt-3 h-7 w-40 rounded bg-slate-200" />
-                  <div className="mt-5 h-28 rounded-[1.5rem] bg-slate-200" />
-                  <div className="mt-4 h-16 rounded bg-slate-100" />
-                </div>
-              ))}
-
-            {!topStocksLoading &&
-              topStocks.map((stock) => (
-                <div
-                  key={stock.code}
-                  className="rounded-[2rem] border border-white bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-4xl">{stock.rank}</span>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${stock.labelClass}`}
-                    >
-                      {stock.label}
-                    </span>
-                  </div>
-
-                  <p className="mt-6 text-sm font-black text-slate-500">
-                    {stock.code}
-                  </p>
-                  <h3 className="mt-1 text-2xl font-black">{stock.name}</h3>
-
-                  <div className="mt-5 rounded-[1.5rem] bg-slate-950 p-5 text-white">
-                    <p className="text-xs font-black text-blue-300">AI POWER</p>
-                    <div className="mt-2 flex items-end justify-between">
-                      <p className="text-5xl font-black">{stock.score}</p>
-                      <p className="pb-1 text-xs font-bold text-slate-400">
-                        / 100
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
-                    {stock.comment}
-                  </p>
-
-                  <Link
-                    href={`/analysis/${stock.code}`}
-                    className="mt-5 inline-flex rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
-                  >
-                    詳しく見る
-                  </Link>
-                </div>
-              ))}
-
-            {!topStocksLoading && topStocksError && (
-              <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-7 md:col-span-3">
-                <p className="text-lg font-black text-amber-900">
-                  最新ランキングを取得できませんでした
-                </p>
-                <p className="mt-2 text-sm font-medium leading-7 text-amber-800">
-                  固定のサンプル値は表示せず、実際のAIランキングだけを表示しています。
-                  ランキング画面で最新結果を確認してください。
-                </p>
+              <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
                 <Link
                   href="/scan-mobile"
-                  className="mt-5 inline-flex rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-600"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-blue-600 px-7 py-3 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 active:translate-y-0 sm:w-auto"
                 >
-                  AIランキングを開く
+                  AIランキングを見る <span aria-hidden="true">→</span>
+                </Link>
+
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-blue-500 bg-white px-7 py-3 text-sm font-black text-blue-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-50 active:translate-y-0 sm:w-auto"
+                >
+                  無料ではじめる
                 </Link>
               </div>
+
+              <p className="mt-4 flex items-center justify-center gap-2 text-[11px] font-semibold text-slate-500 lg:justify-start">
+                <span className="text-blue-600" aria-hidden="true">♢</span>
+                投資判断をサポートする情報提供サービスです
+              </p>
+          </div>
+
+          {/* PHONE MOCKUP */}
+          <div className="hero-fade-up hero-delay-1 relative z-10 mx-auto h-[390px] w-full max-w-[300px] sm:h-[430px] sm:max-w-[330px] lg:-mb-20 lg:ml-[-12px] lg:rotate-[5deg]">
+            <div className="absolute inset-x-3 top-0 rounded-[44px] border-[7px] border-[#101216] bg-[#101216] p-1.5 shadow-[0_24px_60px_rgba(15,23,42,0.28)]">
+              <div className="h-[410px] overflow-hidden rounded-[34px] bg-[#f8fafc] sm:h-[456px]">
+                <div className="relative flex h-8 items-center justify-between px-5 text-[9px] font-black text-slate-950">
+                  <span>9:31</span>
+                  <span className="absolute left-1/2 top-1 h-5 w-[78px] -translate-x-1/2 rounded-full bg-black" />
+                  <span>▮ ●</span>
+                </div>
+                <div className="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
+                  <span className="font-black text-blue-600">X <span className="ml-1 text-xs tracking-wide text-slate-950">SIGNALX</span></span>
+                  <span className="text-sm">⌕　♧</span>
+                </div>
+                <div className="p-3.5">
+                  <h2 className="text-sm font-black text-[#071a3d]">AIランキング</h2>
+                  <p className="mt-0.5 text-[10px] font-semibold text-slate-500">今日の注目銘柄 TOP3</p>
+                  <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    {topStocksLoading && [0, 1, 2].map((item) => (
+                      <div key={item} className="flex h-[76px] items-center gap-3 border-b border-slate-100 px-3 last:border-0">
+                        <span className="h-7 w-7 animate-pulse rounded-full bg-slate-200" />
+                        <span className="h-3 flex-1 animate-pulse rounded bg-slate-200" />
+                      </div>
+                    ))}
+                    {!topStocksLoading && topStocks.map((stock, index) => (
+                      <Link key={stock.code} href={`/analysis/${stock.code}`} className="flex h-[76px] items-center gap-2.5 border-b border-slate-100 px-3 transition hover:bg-blue-50 last:border-0">
+                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white ${index === 0 ? "bg-amber-400" : index === 1 ? "bg-slate-400" : "bg-amber-700"}`}>{index + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[10px] font-black text-slate-500">{stock.code}</span>
+                          <span className="block truncate text-[11px] font-black text-slate-950">{stock.name}</span>
+                          <span className="text-[8px] font-bold text-slate-400">AI POWER</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-lg font-black text-[#071a3d]">{stock.score}</span>
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[8px] font-black text-emerald-600">{stock.label}</span>
+                        </span>
+                      </Link>
+                    ))}
+                    {!topStocksLoading && topStocksError && (
+                      <div className="p-8 text-center text-xs font-bold text-slate-500">ランキングを取得できませんでした</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI QUALITY */}
+          <aside className="hero-fade-up hero-delay-2 relative z-20 mx-auto w-full max-w-[330px] lg:max-w-[250px] lg:self-center lg:pb-10">
+            <div className="text-center">
+              <div className="mx-auto flex h-[164px] w-[164px] flex-col items-center justify-center rounded-full border border-white/80 bg-white/70 shadow-[0_20px_50px_rgba(37,99,235,0.16)] backdrop-blur-sm sm:h-[190px] sm:w-[190px]">
+                <p className="text-lg font-black text-[#172640]">AI品質</p>
+                <p className="mt-1 text-[52px] font-black leading-none text-[#071a3d]">
+                  {trustStatus === "success" && trustData.qualityScore !== null ? (
+                    <>{Math.round(trustData.qualityScore)}<span className="text-lg">点</span></>
+                  ) : (
+                    <span className="block max-w-36 text-base leading-6">
+                      {trustStatus === "loading" ? "確認中" : "取得できませんでした"}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-2 tracking-[0.12em] text-amber-400" aria-label="最高評価">★★★★★</p>
+              </div>
+            </div>
+            <Link href="/trust" className="mt-3 block rounded-2xl border border-white/90 bg-white/80 p-4 shadow-[0_16px_40px_rgba(30,64,175,0.13)] backdrop-blur-xl transition hover:-translate-y-0.5">
+              <dl className="space-y-3 text-xs font-bold text-[#172640]">
+                <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-2"><dt>学習件数</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.judgedRecords, trustStatus, "件")}</dd></div>
+                <div className="flex items-center justify-between gap-2 border-b border-blue-100 pb-2"><dt>累計勝率</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.overallWinRate, trustStatus, "%")}</dd></div>
+                <div className="flex items-center justify-between gap-2"><dt>改善数</dt><dd className="text-right text-sm font-black">{trustNumber(trustData.changedCount, trustStatus, "回")}</dd></div>
+              </dl>
+              <p className="mt-3 text-center text-xs font-black text-emerald-600">♢ 品質保証済</p>
+            </Link>
+          </aside>
+        </div>
+      </section>
+
+      {/* PHASE 2: TODAY / TRUST / PICKUP */}
+      <section className="px-4 py-4 sm:px-5 md:py-6">
+        <div className="mx-auto max-w-[1180px] space-y-4">
+          <section aria-labelledby="today-summary-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+            <h2 id="today-summary-title" className="mb-3 text-sm font-black text-[#0b1c3b]">本日のAI分析サマリー</h2>
+            {topStocksError && !topStocksLoading ? (
+              <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">本日の分析データを取得できませんでした。</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
+                {todayStats.map(([icon, value, label, caption, colorClass], index) => (
+                  <article key={String(label)} className={`flex min-h-32 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md ${index === todayStats.length - 1 ? "col-span-2 md:col-span-1" : ""}`}>
+                    <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base font-black sm:h-10 sm:w-10 sm:text-lg ${colorClass}`} aria-hidden="true">{icon}</span>
+                      <div className="min-w-0">
+                        <p className="min-h-6 whitespace-nowrap text-xl font-black leading-tight text-[#071a3d]">
+                          {value === null ? <span className="inline-block h-5 w-14 animate-pulse rounded bg-slate-200" /> : typeof value === "number" ? value.toLocaleString("ja-JP") : value}
+                        </p>
+                        <p className="mt-0.5 text-xs font-black text-slate-700">{label}</p>
+                      </div>
+                    </div>
+                    <p className="mt-auto line-clamp-3 pt-2 text-[11px] font-semibold leading-4 text-slate-500">{caption}</p>
+                  </article>
+                ))}
+              </div>
             )}
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+            <section aria-labelledby="trust-center-title" className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-blue-600 text-sm font-black text-white" aria-hidden="true">✓</span>
+                  <h2 id="trust-center-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">AI TRUST CENTER</h2>
+                </div>
+                <span className="text-[11px] font-black text-blue-700">AI品質を実データで公開</span>
+              </div>
+
+              <dl className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 sm:grid-cols-5">
+                {[
+                  ["AI品質", trustData.qualityScore, "点"],
+                  ["学習件数", trustData.judgedRecords, "件"],
+                  ["累計勝率", trustData.overallWinRate, "%"],
+                  ["勝ちパターン", trustData.activeWeightRules, "種類"],
+                  ["改善数", trustData.changedCount, "回"],
+                ].map(([label, value, suffix], index) => (
+                  <div key={String(label)} className={`min-w-0 border-b border-r border-slate-200 p-3 last:border-r-0 sm:border-b-0 ${index === 4 ? "col-span-2 sm:col-span-1" : ""} ${index < 3 ? "bg-blue-50/40" : ""}`}>
+                    <dt className="text-[11px] font-black text-slate-600">{label}</dt>
+                    <dd className="mt-2 whitespace-nowrap text-xl font-black text-[#071a3d]">
+                      {trustStatus === "loading" ? "確認中" : trustStatus === "error" || value === null ? <span className="whitespace-normal text-xs leading-4">取得できませんでした</span> : `${Number(value).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}${suffix}`}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {trustStatus === "loading" && <p className="mt-3 text-[10px] font-black text-slate-500">自動学習 確認中</p>}
+              {trustStatus === "error" && <p className="mt-3 text-[10px] font-black text-amber-700">自動学習 確認できませんでした</p>}
+              {trustStatus === "success" && [trustData.cronStatus, trustData.patternCount].some((value) => value !== null) && (
+                <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black">
+                  {trustData.cronStatus !== "UNKNOWN" && (
+                    <span className={`inline-flex min-h-11 items-center rounded-lg px-3 py-2 ${trustData.cronStatus === "SUCCESS" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                      自動学習 {trustData.cronStatus === "SUCCESS" ? "正常" : trustData.cronStatus}
+                    </span>
+                  )}
+                  {trustData.patternCount !== null && <span className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-slate-100 px-3 py-2 text-slate-700">判定済みパターン {trustData.patternCount.toLocaleString("ja-JP")}件</span>}
+                </div>
+              )}
+
+              <Link href="/trust" className="mt-auto flex min-h-11 items-center justify-center pt-3 text-center text-xs font-black text-blue-700 transition hover:text-blue-900">AI品質を詳しく見る　→</Link>
+            </section>
+
+            <section aria-labelledby="ai-pickup-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-blue-600 text-sm font-black text-white" aria-hidden="true">◆</span>
+                  <h2 id="ai-pickup-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">AI PICKUP</h2>
+                  <span className="hidden text-[11px] font-black text-blue-600 sm:inline">今日のAI注目銘柄 TOP3</span>
+                </div>
+                <Link href="/scan-mobile?budget=all" className="flex min-h-11 shrink-0 items-center text-[11px] font-black text-blue-700 transition hover:text-blue-900">ランキング一覧へ　→</Link>
+              </div>
+
+              <div className="mt-3 grid gap-2.5 md:grid-cols-3">
+                {topStocksLoading && Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-40 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+                ))}
+                {!topStocksLoading && topStocks.map((stock, index) => (
+                  <Link key={stock.code} href={`/analysis/${stock.code}`} className="group flex min-h-44 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md active:translate-y-0 md:p-3">
+                    <div className="flex items-start gap-2">
+                      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white ${index === 0 ? "bg-amber-400" : index === 1 ? "bg-slate-400" : "bg-amber-700"}`}>{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-slate-500">{stock.code}</p>
+                        <h3 className="truncate text-sm font-black text-[#071a3d] md:text-xs">{stock.name}</h3>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">
+                      <span className="text-[9px] font-black text-slate-500">AI POWER</span>
+                      <span className="text-3xl font-black leading-none text-emerald-600">{stock.score}</span>
+                    </div>
+                    <div className="mt-2 min-h-0">
+                      <p className="ai-pickup-comment text-xs font-semibold leading-4 text-slate-600 md:text-[10px]">{stock.comment}</p>
+                    </div>
+                    <span className={`rounded-md px-2 py-1 text-center text-[10px] font-black ${stock.labelClass}`}>{stock.label}</span>
+                    <span className="mt-auto flex min-h-11 items-end text-xs font-black text-blue-700 group-hover:text-blue-900 md:min-h-0 md:text-[10px]">詳細を見る　→</span>
+                  </Link>
+                ))}
+                {!topStocksLoading && topStocksError && (
+                  <p className="rounded-xl bg-amber-50 p-4 text-sm font-bold text-amber-800 sm:col-span-3">本日のランキングデータを取得できませんでした。</p>
+                )}
+              </div>
+            </section>
           </div>
         </div>
       </section>
 
+      {/* PHASE 3: AI ENGINE / FEATURES */}
+      <section className="px-4 pb-4 pt-0 sm:px-5 md:pb-5">
+        <div className="mx-auto grid max-w-[1180px] gap-4 lg:grid-cols-[0.78fr_1.22fr]">
+          <section aria-labelledby="ai-engine-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1"><h2 id="ai-engine-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">AI ENGINE</h2><p className="text-[11px] font-black text-blue-600">AIが複数指標を総合判定</p></div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{engineIndicators.map(([icon, title, text], index) => <article key={title} className={`flex min-h-32 flex-col items-center justify-center rounded-xl border bg-white p-3 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md ${index === engineIndicators.length - 1 ? "col-span-2 border-blue-300 bg-blue-50/60 sm:col-span-1" : "border-slate-200"}`}><span aria-hidden="true" className="grid h-9 w-9 place-items-center text-2xl font-black text-blue-600">{icon}</span><h3 className="mt-1 text-xs font-black leading-tight text-[#071a3d]">{title}</h3><p className="mt-2 text-[11px] font-semibold leading-4 text-slate-600">{text}</p></article>)}</div>
+            <p className="mt-3 text-[11px] font-semibold leading-4 text-slate-600">複数のテクニカル指標とチャートパターンをAIが総合的に分析します。</p>
+          </section>
+          <section aria-labelledby="features-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1"><h2 id="features-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">FEATURES</h2><p className="text-[11px] font-black text-blue-600">SIGNALXの主な機能</p></div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{features.map(([icon, title, text], index) => <article key={title} className="flex min-h-36 flex-col items-center rounded-xl border border-slate-200 bg-white p-3 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"><span aria-hidden="true" className={`grid h-10 w-10 place-items-center text-2xl font-black ${index === 1 ? "text-amber-500" : index === 3 ? "text-emerald-600" : "text-blue-600"}`}>{icon}</span><h3 className="mt-1 text-xs font-black leading-tight text-[#071a3d]">{title}</h3><p className="mt-2 text-[11px] font-semibold leading-4 text-slate-600">{text}</p></article>)}</div>
+          </section>
+        </div>
+      </section>
+
+      {/* PHASE 3: APP PREVIEW / START SIGNALX */}
+      <section className="px-4 pb-5 sm:px-5">
+        <div className="mx-auto grid max-w-[1180px] gap-4 lg:grid-cols-[1.18fr_1fr_0.8fr]">
+          <section aria-labelledby="app-preview-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1"><h2 id="app-preview-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">APP PREVIEW</h2><p className="text-[11px] font-black text-blue-600">実際の画面イメージ</p></div>
+            <div className="app-preview-track mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">{screens.map((screen, index) => <article key={screen.title} className="w-[78%] shrink-0 snap-center text-center first:snap-start last:snap-end sm:w-auto sm:min-w-0"><div className="overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200 bg-slate-50"><Image src={screen.image} alt={screen.alt} width={420} height={820} sizes="(max-width: 639px) 78vw, (max-width: 1024px) 30vw, 140px" className="h-auto max-h-[28rem] w-full object-cover object-top sm:h-56" /></div><h3 className="mt-2 text-xs font-black text-[#071a3d]">{index + 1} / {screens.length}　{screen.title.replace(/^\S+\s/, "")}</h3><p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-600">{screen.text}</p></article>)}</div>
+          </section>
+          <section aria-labelledby="release-title" className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50 via-white to-white p-5 text-center shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+            <div className="absolute inset-x-16 top-0 h-24 rounded-full bg-blue-200/30 blur-3xl" aria-hidden="true" /><p className="relative mx-auto w-fit bg-gradient-to-r from-amber-400 to-yellow-300 px-6 py-1.5 text-[11px] font-black text-[#3f2c00] shadow-md">Google Play公開記念　★</p><h2 id="release-title" className="relative mt-3 text-xl font-black text-[#071a3d]">Ver1.0</h2><p className="relative mt-1 text-4xl font-black tracking-tight text-blue-600">完全無料</p><p className="relative mt-2 text-sm font-black text-[#071a3d]">すべての機能を無料開放</p>
+            <div className="relative mt-5 grid grid-cols-5 gap-2">{features.slice(0, 5).map(([icon, title]) => <div key={title} className="min-w-0"><span aria-hidden="true" className="mx-auto grid h-10 w-10 max-w-full place-items-center rounded-xl border border-blue-100 bg-white text-lg font-black text-blue-600 shadow-sm">{icon}</span><p className="mt-2 truncate text-[9px] font-black text-slate-600">{title}</p></div>)}</div><p className="relative mt-5 text-[11px] font-bold text-slate-600">※ 将来プレミアム機能追加予定</p>
+          </section>
+          <section aria-labelledby="start-signalx-title" className="flex flex-col rounded-2xl border border-blue-300 bg-gradient-to-b from-blue-50 to-white p-5 shadow-[0_12px_36px_rgba(37,99,235,0.12)]">
+            <div className="flex items-center justify-between gap-3"><p className="text-xs font-black text-blue-700">START SIGNALX</p><span className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-black text-white">無料・Ver1.0</span></div><h2 id="start-signalx-title" className="mt-3 text-xl font-black leading-8 text-[#071a3d]">まずは無料で、<br />今日のAIランキングを確認。</h2><p className="mt-2 text-xs font-semibold leading-5 text-slate-600">約{marketData.totalStockList.toLocaleString("ja-JP")}銘柄をAIがスキャン。<br />迷ったら、まずは上位ランキングから見るだけでOKです。</p>
+            <div className="mt-5 space-y-3"><Link href="/scan-mobile" className="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">AIランキングを見る　→</Link><Link href="/login" className="flex min-h-12 w-full items-center justify-center rounded-xl border border-blue-500 bg-white px-4 text-sm font-black text-[#071a3d] transition hover:-translate-y-0.5 hover:bg-blue-50 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><span aria-hidden="true" className="mr-2 text-base text-blue-600">G</span>Googleでログイン</Link></div>
+            <div className="mt-5 border-t border-slate-200 pt-4"><p className="text-[11px] font-black text-slate-700">▣ ご利用前の注意</p><p className="mt-1 text-[10px] font-medium leading-4 text-slate-600">SIGNALXは、投資判断をサポートするための情報提供サービスです。ランキング・スコアは将来の成果を保証するものではありません。最終的な投資判断はご自身の責任で行ってください。</p></div>
+          </section>
+        </div>
+      </section>
+
+      <div className="hidden" aria-hidden="true">
       {/* SCREEN */}
       <section className="bg-white px-5 py-12 md:py-16">
         <div className="mx-auto max-w-6xl">
@@ -1061,9 +1035,10 @@ export default function HomePage() {
         </div>
       </section>
 
+      </div>
       {/* FOOTER */}
-      <footer className="border-t border-slate-200 bg-white py-10">
-        <div className="mx-auto max-w-6xl px-6 text-center">
+      <footer className="mt-3 border-t border-slate-300 bg-white py-10 sm:py-12">
+        <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
           <h2 className="text-2xl font-black">
             SIGNAL<span className="text-blue-600">X</span>
           </h2>
@@ -1072,28 +1047,28 @@ export default function HomePage() {
             AIが{marketData.totalStockList.toLocaleString()}銘柄を毎営業日分析する日本株AI分析サービス
           </p>
 
-          <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm font-bold">
+          <nav aria-label="フッターナビゲーション" className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm font-bold">
             <Link
               href="/terms"
-              className="text-slate-600 transition hover:text-blue-600"
+              className="inline-flex min-h-11 items-center px-1 text-slate-600 transition hover:text-blue-700"
             >
               利用規約
             </Link>
 
             <Link
               href="/privacy"
-              className="text-slate-600 transition hover:text-blue-600"
+              className="inline-flex min-h-11 items-center px-1 text-slate-600 transition hover:text-blue-700"
             >
               プライバシーポリシー
             </Link>
 
             <Link
               href="/contact"
-              className="text-slate-600 transition hover:text-blue-600"
+              className="inline-flex min-h-11 items-center px-1 text-slate-600 transition hover:text-blue-700"
             >
               お問い合わせ
             </Link>
-          </div>
+          </nav>
 
           <p className="mt-8 text-xs text-slate-400">
             © 2026 SIGNALX. All Rights Reserved.

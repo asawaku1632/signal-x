@@ -539,19 +539,63 @@ export async function fetchYahooChart(
     const necklineBreak = currentPrice > middleHigh * 0.998;
     const bouncedFromSecondLow = currentPrice > secondLow * 1.008;
 
-    if (lowsClose && bouncedFromSecondLow) {
-      patternSignal = "W_BOTTOM";
-      patternScore += 25;
-      patternReasons.push("Wボトム候補を検出");
-    }
-
+    // Wボトム候補と突破を同時加点しない。
+    // 突破時は「候補 +25」と「突破 +20」の二重加点を避け、突破点だけを採用する。
     if (lowsClose && bouncedFromSecondLow && necklineBreak) {
       patternSignal = "W_BOTTOM_BREAK";
+      patternScore += 35;
+      patternReasons.push("Wボトム突破を検出");
+    } else if (lowsClose && bouncedFromSecondLow) {
+      patternSignal = "W_BOTTOM";
       patternScore += 20;
-      patternReasons.push("ネックライン付近まで回復");
+      patternReasons.push("Wボトム候補を検出");
     }
   }
-const detectedPatterns = detectChartPatterns(levelCandles);
+
+  const detectedPatterns = detectChartPatterns(levelCandles);
+
+  // chartPatternEngine側のダブルボトム判定を最優先する。
+  // ネックライン上抜け済みなのに「Wボトム候補」と表示される矛盾を防ぐ。
+  const detectedDoubleBottom = detectedPatterns.find(
+    (pattern) => pattern.id === "pattern002"
+  );
+
+  if (detectedDoubleBottom) {
+    const hasNecklineBreak = detectedDoubleBottom.reasons.some(
+      (reason) => reason === "ネックラインを上抜け"
+    );
+
+    if (hasNecklineBreak) {
+      patternSignal = "W_BOTTOM_BREAK";
+
+      // 古い簡易判定で追加された候補表現を、突破確定表現へ統一する。
+      for (let index = patternReasons.length - 1; index >= 0; index--) {
+        if (
+          patternReasons[index] === "Wボトム候補を検出" ||
+          patternReasons[index] === "ネックライン付近まで回復"
+        ) {
+          patternReasons.splice(index, 1);
+        }
+      }
+
+      if (!patternReasons.includes("Wボトム突破を検出")) {
+        patternReasons.push("Wボトム突破を検出");
+      }
+    } else {
+      patternSignal = "W_BOTTOM";
+
+      if (!patternReasons.includes("Wボトム候補を検出")) {
+        patternReasons.push("Wボトム候補を検出");
+      }
+    }
+
+    for (const reason of detectedDoubleBottom.reasons) {
+      if (!patternReasons.includes(reason)) {
+        patternReasons.push(reason);
+      }
+    }
+  }
+
   const supportResistance = analyzeSupportResistance(
     levelCandles,
     currentPrice,

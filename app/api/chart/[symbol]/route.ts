@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { detectChartPatterns } from "../../../lib/chartPatternEngine";
 
 type Candle = {
   time: number;
