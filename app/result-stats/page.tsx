@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import BottomNav from "@/app/components/BottomNav";
 
 type DashboardData = {
   success: boolean;
@@ -265,6 +266,7 @@ export default function ResultStatsPage() {
           </>
         )}
       </div>
+      <BottomNav />
     </main>
   );
 }
