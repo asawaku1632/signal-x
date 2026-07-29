@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import DetectedPatternSummary, {
+  normalizeScanDetectedPatterns,
+  type ScanDetectedPattern,
+} from "@/app/components/scan/DetectedPatternSummary";
 
 type ApiStock = {
   code?: string | number;
@@ -19,6 +23,7 @@ type ApiStock = {
   notificationLevel?: string;
   takeProfit?: number;
   stopLoss?: number;
+  detectedPatterns?: unknown;
 };
 
 type Stock = {
@@ -34,6 +39,7 @@ type Stock = {
   notificationLevel: string;
   takeProfit?: number;
   stopLoss?: number;
+  detectedPatterns?: ScanDetectedPattern[];
 };
 
 type ScanResponse = {
@@ -62,6 +68,7 @@ function normalizeStocks(input: ApiStock[]): Stock[] {
       typeof stock.takeProfit === "number" ? stock.takeProfit : undefined,
     stopLoss:
       typeof stock.stopLoss === "number" ? stock.stopLoss : undefined,
+    detectedPatterns: normalizeScanDetectedPatterns(stock.detectedPatterns),
   }));
 }
 
@@ -152,6 +159,7 @@ export default function ScanPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初回表示時に既存のScan取得処理を開始するため。
     void fetchStocks();
 
     const intervalId = window.setInterval(() => {
@@ -227,7 +235,7 @@ export default function ScanPage() {
 
         {!loading && !errorText && (
           <div className="overflow-x-auto rounded-3xl border border-blue-900">
-            <table className="w-full min-w-[950px]">
+            <table className="w-full min-w-[1180px]">
               <thead className="bg-blue-700">
                 <tr className="text-left">
                   <th className="p-4">順位</th>
@@ -238,6 +246,7 @@ export default function ScanPage() {
                   <th className="p-4">RSI</th>
                   <th className="p-4">出来高</th>
                   <th className="p-4">AI</th>
+                  <th className="p-4">AI検出パターン</th>
                   <th className="p-4">判定</th>
                   <th className="p-4">詳細</th>
                 </tr>
@@ -276,6 +285,12 @@ export default function ScanPage() {
                       </td>
                       <td className="p-4 text-2xl font-black text-blue-300">
                         {stock.score}
+                      </td>
+                      <td className="w-56 p-3 align-top">
+                        <DetectedPatternSummary
+                          patterns={stock.detectedPatterns}
+                          compact
+                        />
                       </td>
                       <td className="p-4">
                         <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-black">

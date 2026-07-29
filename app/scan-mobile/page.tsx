@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import DetectedPatternSummary, {
+  type ScanDetectedPattern,
+} from "@/app/components/scan/DetectedPatternSummary";
 
 type Stock = {
   code: string;
@@ -18,6 +21,7 @@ type Stock = {
   trend?: string;
   patternSignal?: string;
   patternScore?: number;
+  detectedPatterns?: ScanDetectedPattern[];
 };
 
 type SignalFilter = "hot" | "strong" | "market-hot" | "market-watch" | "all";
@@ -93,6 +97,7 @@ function getMarketJudge(hot: number, strong: number) {
   return "🔵 静観";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 既存の市場コメント判定を将来の表示再利用のため維持する。
 function getMarketComment(hot: number, strong: number) {
   if (hot >= 80) {
     return "市場全体が非常に強い状態です。Sランク銘柄を積極的に狙える一日です。";
@@ -258,6 +263,7 @@ function ScanMobileContent() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初回表示時に既存のScan取得処理を開始するため。
     void fetchStocks();
 
     const timer = window.setInterval(() => {
@@ -265,6 +271,7 @@ function ScanMobileContent() {
     }, 60000);
 
     return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 既存の再取得条件をsignalFilter変更時に限定するため。
   }, [signalFilter]);
 
   const rankedStocks = useMemo(
@@ -421,6 +428,7 @@ function ScanMobileContent() {
             </Link>
 
             <button
+              type="button"
               onClick={() => void fetchStocks()}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xl shadow-sm transition active:scale-95"
               aria-label="再読み込み"
@@ -468,6 +476,7 @@ function ScanMobileContent() {
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
+              type="button"
               onClick={() => {
                 setSignalFilter("hot");
                 setTimeout(scrollToRanking, 100);
@@ -489,6 +498,7 @@ function ScanMobileContent() {
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 setSignalFilter("strong");
                 setTimeout(scrollToRanking, 100);
@@ -850,14 +860,13 @@ function StockRankingCard({
   onFavorite: () => void;
 }) {
   return (
-    <Link
-      href={`/analysis/${stock.code}`}
-      className={`block rounded-[2rem] border p-5 transition active:scale-[0.99] ${judgeBg(
+    <article
+      className={`min-w-0 rounded-[2rem] border p-4 transition ${judgeBg(
         stock.score,
       )}`}
     >
-      <div className="flex justify-between gap-4">
-        <div className="flex-1">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-white px-3 py-1 text-xs font-black shadow-sm">
               #{index + 1}
@@ -870,57 +879,64 @@ function StockRankingCard({
 
           <h3 className="mt-3 text-3xl font-black">{stock.code}</h3>
 
-          <p className="text-lg font-black text-slate-700">{stock.name}</p>
-
-          <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
-            {getAiAdvice(stock.score)}
-          </p>
-
-          <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-500">
-            {stock.reason || "AI理由なし"}
-          </p>
-
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              onFavorite();
-            }}
-            className="mt-4 rounded-2xl bg-yellow-300 px-4 py-2 text-xs font-black text-black transition active:scale-95"
-          >
-            ⭐ お気に入り
-          </button>
+          <p className="break-words text-lg font-black text-slate-700">{stock.name}</p>
         </div>
 
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <p className="text-xs font-black text-slate-400">AI POWER</p>
 
           <p className={`text-5xl font-black ${judgeColor(stock.score)}`}>
             {stock.score}
           </p>
-
-          <div className="mt-4 space-y-2 rounded-2xl bg-white/70 p-3 text-xs font-bold shadow-sm">
-            <p>株価 {yen(stock.price)}</p>
-            <p>100株 {yen(stock.price * 100)}</p>
-
-            <p>
-              変化率{" "}
-              <span
-                className={
-                  stock.changePercent >= 0 ? "text-red-500" : "text-emerald-600"
-                }
-              >
-                {stock.changePercent >= 0 ? "+" : ""}
-                {stock.changePercent}%
-              </span>
-            </p>
-
-            <p>RSI {stock.rsi}</p>
-
-            <p>{getPatternText(stock.patternSignal)}</p>
-          </div>
         </div>
       </div>
-    </Link>
+
+      <div className="mt-3">
+        <DetectedPatternSummary patterns={stock.detectedPatterns} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-white/70 p-3 text-xs font-bold shadow-sm">
+        <p className="break-words">株価 {yen(stock.price)}</p>
+        <p className="break-words">100株 {yen(stock.price * 100)}</p>
+        <p>
+          変化率{" "}
+          <span
+            className={
+              stock.changePercent >= 0 ? "text-red-500" : "text-emerald-600"
+            }
+          >
+            {stock.changePercent >= 0 ? "+" : ""}
+            {stock.changePercent}%
+          </span>
+        </p>
+        <p>RSI {stock.rsi}</p>
+        <p className="col-span-2">{getPatternText(stock.patternSignal)}</p>
+      </div>
+
+      <p className="mt-3 text-sm font-bold leading-7 text-slate-600">
+        {getAiAdvice(stock.score)}
+      </p>
+
+      <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-500">
+        {stock.reason || "AI理由なし"}
+      </p>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+        <Link
+          href={`/analysis/${stock.code}`}
+          className="flex min-h-11 items-center justify-center rounded-2xl bg-blue-600 px-3 text-center text-xs font-black text-white transition active:scale-[0.99]"
+        >
+          個別AI解析
+        </Link>
+        <button
+          type="button"
+          onClick={onFavorite}
+          className="min-h-11 rounded-2xl bg-yellow-300 px-3 text-xs font-black text-black transition active:scale-95"
+        >
+          ⭐ お気に入り
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -950,6 +966,7 @@ function ChipButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`rounded-2xl border px-3 py-3 text-sm font-black transition active:scale-95 ${
         active
