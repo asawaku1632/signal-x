@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import PatternList from "@/app/components/analysis/PatternList";
+import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
 
 type Signal = {
   code: string;
@@ -19,6 +21,7 @@ type Signal = {
   trend?: string;
   patternSignal?: string;
   patternScore?: number;
+  detectedPatterns?: unknown;
   supportPrice?: number | null;
   resistancePrice?: number | null;
   supportDistancePercent?: number | null;
@@ -39,8 +42,19 @@ type HistoryStats = {
   total: number;
   win: number;
   lose: number;
-  hold?: number;
-  winRate: number;
+  hold: number;
+  judged: number;
+  winRate: number | null;
+  cumulativeProfit: number | null;
+  recent30: {
+    total: number;
+    win: number;
+    lose: number;
+    hold: number;
+    judged: number;
+    winRate: number | null;
+    cumulativeProfit: number | null;
+  };
 };
 
 type PerformanceSummary = {
@@ -83,6 +97,17 @@ type AiComment = {
 function yen(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${Math.round(value).toLocaleString()}円`;
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!response.ok || !contentType.includes("application/json")) return null;
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 function levelYen(value?: number | null) {
@@ -132,19 +157,6 @@ function getPowerColor(power: number) {
   return "text-red-500";
 }
 
-function getPowerBarColor(power: number) {
-  if (power >= 95) return "bg-yellow-400";
-  if (power >= 85) return "bg-emerald-500";
-  if (power >= 75) return "bg-blue-500";
-  if (power >= 65) return "bg-yellow-500";
-  return "bg-red-500";
-}
-
-function getPowerBars(power: number) {
-  const filled = Math.round(power / 10);
-  return Array.from({ length: 10 }, (_, index) => index < filled);
-}
-
 function getPowerMessage(power: number) {
   if (power >= 95) return "AIが強く推奨しています。積極的に監視しましょう。";
   if (power >= 85) return "買い候補です。押し目を待つ戦略も有効です。";
@@ -163,13 +175,6 @@ function getPowerCardStyle(power: number) {
   if (power >= 65)
     return "border-yellow-200 bg-gradient-to-br from-yellow-50 to-orange-50";
   return "border-red-200 bg-gradient-to-br from-red-50 to-rose-100";
-}
-
-function getRankStyle(rank: number) {
-  if (rank === 1) return "bg-yellow-400 text-white shadow-yellow-200";
-  if (rank <= 10) return "bg-emerald-500 text-white shadow-emerald-200";
-  if (rank <= 50) return "bg-blue-500 text-white shadow-blue-200";
-  return "bg-slate-300 text-white shadow-slate-200";
 }
 
 function getRankLabel(rank: number) {
@@ -195,11 +200,6 @@ function getAiTrust(power: number, total: number, winRate: number) {
   const trust = Math.round(power * 0.7 + learningBonus + winBonus);
 
   return Math.min(trust, 99);
-}
-
-function getRankPercent(rank: number, total: number) {
-  if (!rank || !total) return "-";
-  return `${((rank / total) * 100).toFixed(1)}%`;
 }
 
 function getPatternText(pattern?: string) {
@@ -309,16 +309,16 @@ function getRiskReward(profitYen: number, lossYen: number) {
   return `${(profitYen / lossYen).toFixed(1)}`;
 }
 
-function getLearningMessage(total: number, winRate: number) {
+function getLearningMessage(total: number, winRate: number | null) {
   if (total < 10) {
     return "まだ検証数が少ないため、AIは学習中です。判断材料のひとつとして見ましょう。";
   }
 
-  if (winRate >= 70) {
+  if (winRate !== null && winRate >= 70) {
     return "この銘柄は過去実績が良く、AIが得意な可能性があります。";
   }
 
-  if (winRate < 50) {
+  if (winRate !== null && winRate < 50) {
     return "この銘柄は過去実績が弱く、慎重に見るべきです。";
   }
 
@@ -447,35 +447,42 @@ export default function AnalysisPage() {
           cache: "no-store",
         });
 
-        const scanJson = await scanRes.json();
+        const scanJson = await readJsonResponse<
+          Signal[] | { stocks?: Signal[]; totalStockList?: number }
+        >(scanRes);
         const stocks: Signal[] = Array.isArray(scanJson)
           ? scanJson
-          : scanJson.stocks || [];
+          : Array.isArray(scanJson?.stocks)
+            ? scanJson.stocks
+            : [];
 
         const target = stocks.find((item) => item.code === code) || null;
         setSignal(target);
 
         const rank = stocks.findIndex((item) => item.code === code) + 1;
         setAiRank(rank);
-        setTotalRank(scanJson.totalStockList || stocks.length);
+        setTotalRank(
+          !Array.isArray(scanJson) && typeof scanJson?.totalStockList === "number"
+            ? scanJson.totalStockList
+            : stocks.length,
+        );
 
         const historyRes = await fetch(`/api/learning/stats/${code}`, {
           cache: "no-store",
         });
 
-        const historyJson = await historyRes.json();
-        setHistoryStats(historyJson);
+        const historyJson = await readJsonResponse<HistoryStats>(historyRes);
+        setHistoryStats(historyJson?.success ? historyJson : null);
 
         const performanceRes = await fetch(`/api/performance/stock/${code}`, {
           cache: "no-store",
         });
 
-        if (performanceRes.ok) {
-          const performanceJson = await performanceRes.json();
-          setPerformance(performanceJson);
-        }
-      } catch (error) {
-        console.error(error);
+        const performanceJson = await readJsonResponse<PerformanceSummary>(performanceRes);
+        setPerformance(performanceJson?.success ? performanceJson : null);
+      } catch {
+        setHistoryStats(null);
+        setPerformance(null);
       } finally {
         setLoading(false);
       }
@@ -484,38 +491,34 @@ export default function AnalysisPage() {
     fetchSignal();
   }, [code]);
 
-  const loadFavorite = useCallback(async () => {
-    setFavoriteLoading(true);
-
-    try {
-      const res = await fetch("/api/favorites", {
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        setIsFavorite(false);
-        return;
-      }
-
-      const data = await res.json();
-      const favorites = Array.isArray(data?.favorites) ? data.favorites : [];
-
-      setIsFavorite(
-        favorites.some(
-          (item: { code?: string }) => String(item?.code ?? "") === code,
-        ),
-      );
-    } catch (error) {
-      console.error("favorite load error:", error);
-      setIsFavorite(false);
-    } finally {
-      setFavoriteLoading(false);
-    }
-  }, [code]);
-
   useEffect(() => {
+    let active = true;
+
+    async function loadFavorite() {
+      try {
+        const res = await fetch("/api/favorites", { cache: "no-store" });
+        const data = await readJsonResponse<{ favorites?: unknown }>(res);
+        const favorites = Array.isArray(data?.favorites) ? data.favorites : [];
+
+        if (active) {
+          setIsFavorite(
+            favorites.some(
+              (item: { code?: string }) => String(item?.code ?? "") === code,
+            ),
+          );
+        }
+      } catch {
+        if (active) setIsFavorite(false);
+      } finally {
+        if (active) setFavoriteLoading(false);
+      }
+    }
+
     void loadFavorite();
-  }, [loadFavorite]);
+    return () => {
+      active = false;
+    };
+  }, [code]);
 
   const toggleFavorite = async () => {
     if (!signal || favoriteSaving || favoriteLoading) return;
@@ -603,8 +606,8 @@ export default function AnalysisPage() {
   const total = historyStats?.total ?? 0;
   const win = historyStats?.win ?? 0;
   const lose = historyStats?.lose ?? 0;
-  const hold = historyStats?.hold ?? Math.max(total - win - lose, 0);
-  const winRate = historyStats?.winRate ?? 0;
+  const hold = historyStats?.hold ?? 0;
+  const winRate = historyStats?.winRate ?? null;
 
   const profitRate =
     signal.price > 0 ? ((takeProfit - signal.price) / signal.price) * 100 : 0;
@@ -612,8 +615,7 @@ export default function AnalysisPage() {
   const lossRate =
     signal.price > 0 ? ((signal.price - stopLoss) / signal.price) * 100 : 0;
 
-  const aiTrust = getAiTrust(power, total, winRate);
-  const rankPercent = getRankPercent(aiRank, totalRank);
+  const aiTrust = getAiTrust(power, total, winRate ?? 0);
   const riskReward = getRiskReward(profitYen, lossYen);
 
   const supportPrice = signal.supportPrice ?? null;
@@ -779,8 +781,13 @@ border border-blue-300/30"
                     {getRankLabel(aiRank)}
                   </span>
                   <span className="text-[9px] font-black text-slate-500">
-                    / {totalRank || "-"}銘柄中
+                    {totalRank || "-"}銘柄中
                   </span>
+                  {getRankPercentile(aiRank, totalRank) && (
+                    <span className="mt-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black text-amber-800">
+                      {getRankPercentile(aiRank, totalRank)}
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -811,6 +818,8 @@ border border-blue-300/30"
             </div>
           </div>
         </section>
+
+        <PatternList detectedPatterns={signal.detectedPatterns} code={signal.code} />
 
         <section className="mt-3 rounded-[1.5rem] border border-white bg-white px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between">
@@ -1102,35 +1111,37 @@ border border-blue-300/30"
                   過去実績スコア
                 </p>
                 <p className="mt-1 text-2xl font-black">
-                  {performance?.reliability.score ?? "-"}
+                  {historyStats && historyStats.total > 0
+                    ? (performance?.reliability.score ?? "-")
+                    : "蓄積中"}
+                </p>
+                <p className="mt-2 border-t border-white/20 pt-2 text-[10px] font-black text-blue-100">実績信頼度</p>
+                <p className="mt-0.5 whitespace-nowrap text-sm font-black tracking-[0.06em] text-amber-300" aria-label={`実績信頼度5段階中${getEvidenceConfidenceStars(historyStats?.judged ?? 0)}`}>
+                  {formatStars(getEvidenceConfidenceStars(historyStats?.judged ?? 0))}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-5">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 min-[390px]:grid-cols-3">
               <PerformanceMini
                 label="直近30件"
                 value={
-                  performance
-                    ? performance.summary30Days.judgedTotal >= 3
-                      ? `${performance.summary30Days.wins}勝${performance.summary30Days.losses}敗`
-                      : "データ蓄積中"
-                    : "集計中"
+                  historyStats && historyStats.recent30.total > 0
+                    ? `${historyStats.recent30.win}勝${historyStats.recent30.lose}敗`
+                    : "データ蓄積中"
                 }
               />
               <PerformanceMini
-                label="累計損益"
+                label="累計損益（全期間）"
                 value={
-                  performance
-                    ? `${performance.summary30Days.totalProfitYen >= 0 ? "+" : ""}${yen(
-                        performance.summary30Days.totalProfitYen,
-                      )}`
-                    : "-"
+                  historyStats?.cumulativeProfit === null || !historyStats
+                    ? "-"
+                    : `${historyStats.cumulativeProfit >= 0 ? "+" : ""}${yen(historyStats.cumulativeProfit)}`
                 }
                 valueClass={
-                  (performance?.summary30Days.totalProfitYen ?? 0) >= 0
+                  (historyStats?.cumulativeProfit ?? 0) >= 0
                     ? "text-emerald-600"
                     : "text-red-500"
                 }
@@ -1138,15 +1149,22 @@ border border-blue-300/30"
               <PerformanceMini
                 label="直近30件勝率"
                 value={
-                  performance ? `${performance.summary30Days.winRate}%` : "-"
+                  historyStats?.recent30.winRate === null || !historyStats
+                    ? "データ蓄積中"
+                    : `${historyStats.recent30.winRate}%`
                 }
                 valueClass="text-blue-600"
               />
+              <PerformanceMini
+                label="累計判定回数"
+                value={historyStats ? `${historyStats.judged}回` : "データ蓄積中"}
+              />
+              <PerformanceMini label="WIN（全期間）" value={`${win}`} valueClass="text-emerald-600" />
+              <PerformanceMini label="LOSE / HOLD" value={`${lose} / ${hold}`} valueClass="text-slate-700" />
             </div>
 
             <p className="mt-4 text-xs font-bold leading-6 text-slate-500">
-              直近30件の判定済み実績を表示しています。WINは翌日騰落率+2%以上、LOSEは-2%以下で判定しています。
-              判定数が少ない場合は「データ蓄積中」と表示します。
+              「直近30件」は新しい保存データ30件、「全期間」はこの銘柄の累計です。WIN・LOSE・HOLDは既存SIGNALXの判定結果を使用しています。
             </p>
 
             <Link
@@ -1179,7 +1197,9 @@ border border-blue-300/30"
 
           <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
             <p className="text-xs font-black text-slate-500">AI勝率</p>
-            <p className="mt-1 text-5xl font-black text-blue-600">{winRate}%</p>
+            <p className="mt-1 text-5xl font-black text-blue-600">
+              {winRate === null ? "データ蓄積中" : `${winRate}%`}
+            </p>
           </div>
 
           <p className="mt-4 text-sm font-bold leading-7 text-slate-600">
@@ -1297,21 +1317,6 @@ function Mini({
       >
         {value}
       </p>
-    </div>
-  );
-}
-
-function GlassMini({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
-      <p className="text-xs font-black text-blue-100">{label}</p>
-      <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
   );
 }

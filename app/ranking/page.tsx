@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { DetectedChartPattern } from "@/app/lib/chartPatternEngine";
+import { hasChartPatternCatalogItem } from "@/app/lib/chartPatternCatalog";
 
 type Stock = {
   code: string;
@@ -21,6 +23,7 @@ type Stock = {
   expectedProfitRate?: number;
   expectedProfitAmount?: number;
   reliabilityScore?: number;
+  detectedPatterns?: DetectedChartPattern[];
 };
 
 type SortMode =
@@ -111,6 +114,25 @@ function normalizeNumber(value: unknown, fallback = 0) {
   return fallback;
 }
 
+function isDetectedChartPattern(value: unknown): value is DetectedChartPattern {
+  if (!value || typeof value !== "object") return false;
+  const pattern = value as Partial<DetectedChartPattern>;
+
+  return (
+    typeof pattern.id === "string" &&
+    typeof pattern.name === "string" &&
+    (pattern.direction === "BUY" ||
+      pattern.direction === "SELL" ||
+      pattern.direction === "NEUTRAL") &&
+    typeof pattern.confidence === "number" &&
+    Number.isFinite(pattern.confidence) &&
+    typeof pattern.score === "number" &&
+    Number.isFinite(pattern.score) &&
+    Array.isArray(pattern.reasons) &&
+    pattern.reasons.every((reason) => typeof reason === "string")
+  );
+}
+
 function normalizeStock(raw: Record<string, unknown>): Stock {
   const score = normalizeNumber(raw.score ?? raw.aiPower ?? raw.power);
   const price = normalizeNumber(raw.price ?? raw.currentPrice ?? raw.current_price);
@@ -182,7 +204,77 @@ function normalizeStock(raw: Record<string, unknown>): Stock {
     expectedProfitRate,
     expectedProfitAmount,
     reliabilityScore,
+    detectedPatterns: Array.isArray(raw.detectedPatterns)
+      ? raw.detectedPatterns.filter(isDetectedChartPattern)
+      : undefined,
   };
+}
+
+const patternDirectionStyles = {
+  BUY: {
+    label: "BUY",
+    container: "border-emerald-200 bg-emerald-50",
+    badge: "bg-emerald-600 text-white",
+    confidence: "text-emerald-700",
+  },
+  SELL: {
+    label: "SELL",
+    container: "border-red-200 bg-red-50",
+    badge: "bg-red-600 text-white",
+    confidence: "text-red-700",
+  },
+  NEUTRAL: {
+    label: "NEUTRAL",
+    container: "border-blue-200 bg-blue-50",
+    badge: "bg-blue-600 text-white",
+    confidence: "text-blue-700",
+  },
+} as const;
+
+function DetectedPatternSummary({ patterns }: { patterns?: DetectedChartPattern[] }) {
+  const pattern = [...(patterns ?? [])].sort((a, b) => {
+    if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+    return Math.abs(b.score) - Math.abs(a.score);
+  })[0];
+
+  if (!pattern) return null;
+
+  const styles = patternDirectionStyles[pattern.direction];
+  const confidence = Math.round(Math.min(Math.max(pattern.confidence, 0), 100));
+  const catalogHref = hasChartPatternCatalogItem(pattern.id)
+    ? `/learning/patterns/${encodeURIComponent(pattern.id)}`
+    : "/learning/patterns";
+
+  return (
+    <section
+      className={`mt-3 min-w-0 rounded-2xl border p-3 ${styles.container}`}
+      aria-label={`AI検出パターン ${pattern.name}`}
+    >
+      <p className="text-[10px] font-black tracking-[0.14em] text-slate-500">
+        AI検出パターン
+      </p>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 break-words text-sm font-black leading-5 text-slate-900">
+          {pattern.name}
+        </p>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${styles.badge}`}>
+          {styles.label}
+        </span>
+      </div>
+      <div className="mt-2 flex min-w-0 flex-col gap-2 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between">
+        <p className={`shrink-0 text-xs font-black ${styles.confidence}`}>
+          信頼度 {confidence}%
+        </p>
+        <Link
+          href={catalogHref}
+          aria-label={`${pattern.name}をチャートパターン図鑑で見る`}
+          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/80 bg-white px-3 text-xs font-black text-blue-700 shadow-sm transition active:scale-[0.99] min-[360px]:w-auto"
+        >
+          図鑑で見る&nbsp;→
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 export default function RankingPage() {
@@ -235,6 +327,7 @@ export default function RankingPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初回表示時に既存のランキング取得処理を開始するため。
     void fetchRanking();
   }, []);
 
@@ -433,6 +526,8 @@ export default function RankingPage() {
               </div>
             </div>
 
+            <DetectedPatternSummary patterns={topStock.detectedPatterns} />
+
             <div className="mt-4 grid grid-cols-2 gap-3">
               <Mini label="判定" value={judge(topStock.score)} />
               <Mini label="勝率" value={percent(topStock.winRate, 1)} />
@@ -528,6 +623,8 @@ export default function RankingPage() {
                   </p>
                 </div>
               </div>
+
+              <DetectedPatternSummary patterns={stock.detectedPatterns} />
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Mini label="勝率" value={percent(stock.winRate, 1)} />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { formatStars, getEvidenceConfidenceStars } from "@/app/lib/displayMetrics";
 
 type PerformanceItem = {
   date: string;
@@ -486,6 +487,10 @@ export default function PerformancePage() {
                 </p>
                 <p className="mt-1 text-5xl font-black text-blue-600">
                   {reliability.score}
+                </p>
+                <p className="mt-3 text-xs font-black text-slate-500">実績信頼度</p>
+                <p className="mt-1 whitespace-nowrap text-xl font-black tracking-[0.08em] text-amber-500" aria-label={`実績信頼度5段階中${getEvidenceConfidenceStars(summary30Days.judgedTotal)}`}>
+                  {formatStars(getEvidenceConfidenceStars(summary30Days.judgedTotal))}
                 </p>
               </div>
             </div>

@@ -14,6 +14,15 @@ type Candle = {
   volume: number;
 };
 
+type RawCandle = {
+  time: unknown;
+  open: unknown;
+  high: unknown;
+  low: unknown;
+  close: unknown;
+  volume: unknown;
+};
+
 type SupportResistanceStatus =
   | "BREAKOUT"
   | "NEAR_RESISTANCE"
@@ -30,7 +39,6 @@ export type YahooChartAnalysis = ChartAnalysis & {
   resistanceDistancePercent?: number | null;
   supportResistanceStatus?: SupportResistanceStatus;
   breakoutExpectation?: number;
-  detectedPatterns?: ReturnType<typeof detectChartPatterns>;
 };
 
 type ChartData = {
@@ -64,7 +72,7 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function normalizeCandles(rawCandles: any[]): Candle[] {
+function normalizeCandles(rawCandles: RawCandle[]): Candle[] {
   return rawCandles
     .filter(
       (item) =>
@@ -395,7 +403,7 @@ export async function fetchYahooChart(
         close: quote?.close?.[index],
         volume: quote?.volume?.[index],
       }))
-      .filter((item: any) => item.close !== null && item.close !== undefined)
+      .filter((item) => item.close !== null && item.close !== undefined)
       .slice(-sliceLimit);
 
     const candles = normalizeCandles(rawCandles);
@@ -660,5 +668,8 @@ export async function analyzeStock(stock: Stock) {
     supportResistanceStatus:
       chart.supportResistanceStatus ?? "NO_DATA",
     breakoutExpectation: chart.breakoutExpectation ?? 0,
+    // AI分析画面が表示する上位3件に絞り、最大1,200銘柄のスキャンで
+    // 未使用の検出理由がレスポンスサイズを過度に増やすことを防ぐ。
+    detectedPatterns: chart.detectedPatterns?.slice(0, 3) ?? [],
   };
 }

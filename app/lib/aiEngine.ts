@@ -2,6 +2,7 @@ import {
   buildPatternLearning,
   type PatternLearningResult,
 } from "./patternLearning";
+import type { DetectedChartPattern } from "./chartPatternEngine";
 
 export type Candle = {
   time: number;
@@ -23,14 +24,7 @@ export type ChartAnalysis = {
   patternReasons: string[];
   candles: Candle[];
 
-  detectedPatterns?: {
-    id: string;
-    name: string;
-    direction?: "BUY" | "SELL" | "NEUTRAL";
-    confidence: number;
-    score?: number;
-    reasons?: string[];
-  }[];
+  detectedPatterns?: DetectedChartPattern[];
 };
 
 export type ScoreBreakdown = {
