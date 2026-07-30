@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 
 type HomeMarketData = {
   totalStockList: number;
@@ -191,7 +192,7 @@ const engineIndicators = [
   ["⌁", "VWAP", "公正価格分析"],
   ["▥", "MACD", "売買タイミング"],
   ["⌁", "RSI", "買われすぎを分析"],
-  ["◇", "Chart Pattern Engine", "チャートパターンAI分析"],
+  ["◇", "チャートパターン図鑑", "AIが検出するチャートの形を学ぶ"],
 ];
 
 const problems = ["何を買えばいいか分からない", "チャートが難しい", "毎日1000銘柄も見られない", "売買判断に迷う"];
@@ -723,7 +724,51 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-[1180px] gap-4 lg:grid-cols-[0.78fr_1.22fr]">
           <section aria-labelledby="ai-engine-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1"><h2 id="ai-engine-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">AI ENGINE</h2><p className="text-[11px] font-black text-blue-600">AIが複数指標を総合判定</p></div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{engineIndicators.map(([icon, title, text], index) => <article key={title} className={`flex min-h-32 flex-col items-center justify-center rounded-xl border bg-white p-3 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md ${index === engineIndicators.length - 1 ? "col-span-2 border-blue-300 bg-blue-50/60 sm:col-span-1" : "border-slate-200"}`}><span aria-hidden="true" className="grid h-9 w-9 place-items-center text-2xl font-black text-blue-600">{icon}</span><h3 className="mt-1 text-xs font-black leading-tight text-[#071a3d]">{title}</h3><p className="mt-2 text-[11px] font-semibold leading-4 text-slate-600">{text}</p></article>)}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {engineIndicators.map(([icon, title, text], index) => {
+                const isPatternCatalog = index === engineIndicators.length - 1;
+                const cardClassName = `flex min-h-32 min-w-0 flex-col items-center justify-center rounded-xl border bg-white p-3 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md ${
+                  isPatternCatalog
+                    ? "col-span-2 border-blue-300 bg-blue-50/60 sm:col-span-1"
+                    : "border-slate-200"
+                }`;
+                const content = (
+                  <>
+                    <span aria-hidden="true" className="grid h-9 w-9 place-items-center text-2xl font-black text-blue-600">
+                      {icon}
+                    </span>
+                    <h3 className="mt-1 break-words text-xs font-black leading-tight text-[#071a3d]">
+                      {title}
+                    </h3>
+                    <p className="mt-2 break-words text-[11px] font-semibold leading-4 text-slate-600">
+                      {text}
+                    </p>
+                  </>
+                );
+
+                if (isPatternCatalog) {
+                  return (
+                    <Link
+                      key={title}
+                      href="/learning/patterns"
+                      aria-label={`チャートパターン図鑑を見る・${chartPatternCatalog.length}パターン対応`}
+                      className={cardClassName}
+                    >
+                      {content}
+                      <span className="mt-2 inline-flex min-h-11 items-center justify-center rounded-lg bg-white px-2 text-[10px] font-black text-blue-700 shadow-sm">
+                        {chartPatternCatalog.length}パターン対応&nbsp;→
+                      </span>
+                    </Link>
+                  );
+                }
+
+                return (
+                  <article key={title} className={cardClassName}>
+                    {content}
+                  </article>
+                );
+              })}
+            </div>
             <p className="mt-3 text-[11px] font-semibold leading-4 text-slate-600">複数のテクニカル指標とチャートパターンをAIが総合的に分析します。</p>
           </section>
           <section aria-labelledby="features-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">

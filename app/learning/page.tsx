@@ -10,6 +10,7 @@ import DonutChart from "@/components/Learning/DonutChart";
 import RankingCard, {
   type StockRanking,
 } from "@/components/Learning/RankingCard";
+import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 
 type TrendItem = {
   date: string;
@@ -255,6 +256,29 @@ export default function LearningPage() {
             />
           </div>
         </section>
+
+        <Link
+          href="/learning/patterns"
+          className="mb-4 flex min-w-0 items-center gap-3 rounded-[24px] border border-violet-200 bg-gradient-to-br from-white to-violet-50 p-4 shadow-sm transition active:scale-[0.99]"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-2xl text-white">
+            ▰
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block break-words text-lg font-black leading-tight">
+              チャートパターン図鑑
+            </span>
+            <span className="mt-1 block break-words text-xs font-bold leading-5 text-slate-500">
+              AIが検出する形を学ぶ
+            </span>
+          </span>
+          <span className="shrink-0 text-right">
+            <span className="block text-sm font-black text-violet-700">
+              {chartPatternCatalog.length}パターン
+            </span>
+            <span className="text-xl text-slate-400">›</span>
+          </span>
+        </Link>
 
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-1 flex items-center justify-between gap-3">

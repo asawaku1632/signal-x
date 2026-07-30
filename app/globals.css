@@ -87,7 +87,22 @@ body {
   }
 }
 
+.pattern-fade-in,
+.pattern-card {
+  animation: pattern-fade-in 360ms ease-out both;
+}
+
+@keyframes pattern-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .pattern-page *,
+  .pattern-page *::before,
+  .pattern-page *::after,
   .lp-page *,
   .lp-page *::before,
   .lp-page *::after {

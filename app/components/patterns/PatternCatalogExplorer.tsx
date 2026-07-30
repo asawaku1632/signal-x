@@ -51,8 +51,8 @@ export default function PatternCatalogExplorer({ patterns }: { patterns: ChartPa
   }, [category, direction, patterns, query]);
 
   return (
-    <section className="mt-5" aria-labelledby="pattern-list-heading">
-      <h2 id="pattern-list-heading" className="text-2xl font-black">パターン一覧</h2>
+    <section className="mt-7" aria-labelledby="pattern-list-heading">
+      <h2 id="pattern-list-heading" className="text-xl font-black leading-tight min-[380px]:text-2xl">パターン一覧</h2>
 
       <div className="mt-3 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
         <label htmlFor="pattern-search" className="text-sm font-black text-slate-700">パターン名を検索</label>
@@ -97,25 +97,25 @@ export default function PatternCatalogExplorer({ patterns }: { patterns: ChartPa
       <p className="mt-4 text-sm font-black text-slate-500" aria-live="polite">{filteredPatterns.length}件を表示</p>
 
       {filteredPatterns.length > 0 ? (
-        <div className="mt-3 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid min-w-0 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredPatterns.map((pattern) => {
             const styles = directionDetails[pattern.direction];
             return (
-              <article key={pattern.id} className={`flex min-w-0 flex-col rounded-[1.5rem] border bg-white p-4 shadow-sm ${styles.card}`}>
+              <article key={pattern.id} className={`pattern-card flex min-w-0 flex-col rounded-[1.5rem] border bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg sm:p-5 ${styles.card}`}>
                 <PatternDiagram pattern={pattern} compact />
                 <div className="mt-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="break-all text-[10px] font-black tracking-wide text-slate-400">{pattern.id}</p>
-                    <h3 className="mt-1 break-words text-lg font-black leading-snug">{pattern.name}</h3>
+                    <h3 className="mt-1 break-words text-base font-black leading-relaxed min-[380px]:text-lg">{pattern.name}</h3>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${styles.badge}`}>{styles.label}</span>
                 </div>
-                <p className="mt-3 break-words text-sm font-bold leading-6 text-slate-600">{pattern.summary}</p>
+                <p className="mt-3 break-words text-[13px] font-bold leading-6 text-slate-600 min-[380px]:text-sm min-[380px]:leading-7">{pattern.summary}</p>
                 <dl className="mt-3 grid grid-cols-1 gap-2 text-xs min-[360px]:grid-cols-2">
                   <div className="rounded-xl bg-slate-50 p-2"><dt className="font-black text-slate-400">カテゴリ</dt><dd className="mt-1 break-words font-black text-slate-700">{pattern.category}</dd></div>
                   <div className="rounded-xl bg-slate-50 p-2"><dt className="font-black text-slate-400">難易度</dt><dd className="mt-1 font-black text-slate-700">{difficultyLabels[pattern.difficulty]}</dd></div>
                 </dl>
-                <Link href={`/learning/patterns/${encodeURIComponent(pattern.id)}`} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition active:scale-[0.99]">
+                <Link href={`/learning/patterns/${encodeURIComponent(pattern.id)}`} className="mt-5 flex min-h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-black text-white transition duration-200 hover:bg-blue-700 hover:shadow-md active:scale-[0.99]">
                   詳細を見る
                 </Link>
               </article>

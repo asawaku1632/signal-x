@@ -17,7 +17,7 @@ export default function PatternDiagram({
     <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white ${compact ? "p-2" : "p-4"}`}>
       <svg
         viewBox="0 0 100 58"
-        className={compact ? "h-24 w-full" : "h-40 w-full"}
+        className={compact ? "h-24 w-full" : "h-64 w-full sm:h-72"}
         role="img"
         aria-label={`${pattern.name}の簡易形状図`}
       >

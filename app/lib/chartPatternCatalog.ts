@@ -454,3 +454,42 @@ export function getChartPatternCatalogItem(id: string) {
 export function hasChartPatternCatalogItem(id: string) {
   return chartPatternCatalogById.has(id);
 }
+
+function catalogTextTokens(pattern: ChartPatternCatalogItem) {
+  const text = [...pattern.formation, ...pattern.aiChecks]
+    .join(" ")
+    .toLowerCase()
+    .replace(/[\s・、。,.()（）/]+/g, "");
+  const tokens = new Set<string>();
+
+  for (let index = 0; index < text.length - 1; index += 1) {
+    tokens.add(text.slice(index, index + 2));
+  }
+
+  return tokens;
+}
+
+export function getRelatedChartPatterns(
+  current: ChartPatternCatalogItem,
+  limit = 3,
+) {
+  const currentTokens = catalogTextTokens(current);
+
+  return chartPatternCatalog
+    .filter((candidate) => candidate.id !== current.id)
+    .map((candidate) => {
+      const commonTerms = [...catalogTextTokens(candidate)].filter((token) =>
+        currentTokens.has(token),
+      ).length;
+      const score =
+        (candidate.category === current.category ? 1_000_000 : 0) +
+        (candidate.direction === current.direction ? 10_000 : 0) +
+        (candidate.difficulty === current.difficulty ? 100 : 0) +
+        commonTerms;
+
+      return { candidate, score };
+    })
+    .sort((a, b) => b.score - a.score || a.candidate.id.localeCompare(b.candidate.id))
+    .slice(0, Math.max(0, limit))
+    .map(({ candidate }) => candidate);
+}
