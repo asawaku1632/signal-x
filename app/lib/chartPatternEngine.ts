@@ -1289,6 +1289,1196 @@ function detectPerfectOrders(
   }
 }
 
+function detectUpperWickStall(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 7) return;
+
+  const latest = candles[candles.length - 1];
+  const previous = candles.slice(-7, -1);
+  const body = Math.max(Math.abs(latest.close - latest.open), 0.0001);
+  const upperWick = latest.high - Math.max(latest.open, latest.close);
+  const lowerWick = Math.min(latest.open, latest.close) - latest.low;
+  const previousStart = previous[0].close;
+  const previousHigh = Math.max(...previous.map((candle) => candle.high));
+  const priorRise =
+    Math.max(...previous.map((candle) => candle.close)) >= previousStart * 1.02;
+  const atRecentHigh = latest.high >= previousHigh * 0.995;
+
+  if (
+    !priorRise ||
+    !atRecentHigh ||
+    upperWick < body * 2 ||
+    upperWick <= lowerWick * 1.3 ||
+    latest.close > latest.high - upperWick * 0.55
+  ) {
+    return;
+  }
+
+  let confidence = 66;
+  const reasons = ["高値圏で実体の2倍以上の上ヒゲ", "高値から強く売り戻された"];
+
+  if (latest.close < latest.open) {
+    confidence += 7;
+    reasons.push("陰線で終了");
+  }
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern010",
+    name: "上ヒゲ失速",
+    direction: "SELL",
+    confidence,
+    score: -23,
+    reasons,
+  });
+}
+
+function detectLowerHighDecline(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 12) return;
+
+  const window = candles.slice(-12);
+  const latest = window[window.length - 1];
+  const highLine = calculateRegressionLine(window.map((candle) => candle.high));
+  if (!highLine) return;
+  const normalizedHighSlope = getNormalizedSlope(highLine);
+  const earlyHigh = Math.max(...window.slice(0, 4).map((candle) => candle.high));
+  const lateHigh = Math.max(...window.slice(7, 11).map((candle) => candle.high));
+  const recentSupport = Math.min(...window.slice(6, 11).map((candle) => candle.low));
+
+  if (
+    normalizedHighSlope > -0.002 ||
+    lateHigh >= earlyHigh * 0.985 ||
+    latest.close >= recentSupport * 0.998 ||
+    latest.close >= latest.open
+  ) {
+    return;
+  }
+
+  let confidence = 70;
+  const reasons = ["直近高値が段階的に切り下がり", "終値が直近安値を更新"];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("下落時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern011",
+    name: "高値切り下げ下落",
+    direction: "SELL",
+    confidence,
+    score: -26,
+    reasons,
+  });
+}
+
+function detectPostSurgeStall(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 12) return;
+
+  const window = candles.slice(-12);
+  const latest = window[window.length - 1];
+  const baseline = average(window.slice(0, 4).map((candle) => candle.close));
+  const peak = Math.max(...window.slice(4).map((candle) => candle.high));
+  const peakIndex = window.findIndex((candle) => candle.high === peak);
+  const surged = peak >= baseline * 1.08;
+  const stalledAfterPeak = peakIndex >= 4 && peakIndex < window.length - 1;
+  const retreated = latest.close <= peak * 0.975;
+  const bearishLatest = latest.close < latest.open;
+
+  if (!surged || !stalledAfterPeak || !retreated || !bearishLatest) return;
+
+  let confidence = 68;
+  const reasons = ["短期間の急騰後に高値更新が停止", "高値から反落して陰線で終了"];
+
+  if (volumeRatio >= 1.5) {
+    confidence += 8;
+    reasons.push("失速局面で出来高急増");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern012",
+    name: "急騰後失速",
+    direction: "SELL",
+    confidence,
+    score: -25,
+    reasons,
+  });
+}
+
+function detectInitialBullishCandle(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 9) return;
+
+  const previous = candles.slice(-9, -1);
+  const latest = candles[candles.length - 1];
+  const averageBody = average(
+    previous.map((candle) => Math.abs(candle.close - candle.open))
+  );
+  const latestBody = latest.close - latest.open;
+  const previousHigh = Math.max(...previous.map((candle) => candle.high));
+  const priorChange =
+    (previous[previous.length - 1].close - previous[0].close) /
+    Math.max(previous[0].close, 0.0001);
+
+  if (
+    priorChange > 0.015 ||
+    latestBody <= Math.max(averageBody * 1.8, latest.open * 0.008) ||
+    latest.close <= previousHigh * 1.001
+  ) {
+    return;
+  }
+
+  let confidence = 67;
+  const reasons = ["下落または横ばい後に大きな陽線", "直近高値を終値で上抜け"];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 8;
+    reasons.push("初動陽線で出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern025",
+    name: "初動陽線",
+    direction: "BUY",
+    confidence,
+    score: 23,
+    reasons,
+  });
+}
+
+function detectVolumeLedSurge(
+  candles: PatternCandle[],
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 12) return;
+
+  const window = candles.slice(-12);
+  const latest = window[window.length - 1];
+  const leading = window[window.length - 2];
+  const reference = window.slice(0, -2);
+  const averageVolume = average(
+    reference
+      .map((candle) => candle.volume ?? 0)
+      .filter((volume) => volume > 0)
+  );
+  if (averageVolume <= 0) return;
+
+  const leadingVolumeRatio = (leading.volume ?? 0) / averageVolume;
+  const referenceHigh = Math.max(...reference.map((candle) => candle.high));
+  const referenceLow = Math.min(...reference.map((candle) => candle.low));
+  const referenceRange =
+    (referenceHigh - referenceLow) / Math.max(referenceLow, 0.0001);
+  const leadingMove =
+    Math.abs(leading.close - reference[reference.length - 1].close) /
+    Math.max(reference[reference.length - 1].close, 0.0001);
+  const latestRise = (latest.close - latest.open) / Math.max(latest.open, 0.0001);
+
+  if (
+    leadingVolumeRatio < 1.8 ||
+    referenceRange > 0.06 ||
+    leadingMove > 0.025 ||
+    latestRise < 0.01 ||
+    latest.close <= leading.close
+  ) {
+    return;
+  }
+
+  let confidence = 70;
+  const reasons = ["価格上昇に先行して出来高が急増", "先行出来高の次足で陽線上昇"];
+
+  if ((latest.volume ?? 0) >= averageVolume * 1.3) {
+    confidence += 7;
+    reasons.push("上昇開始後も出来高を維持");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern026",
+    name: "出来高先行急騰",
+    direction: "BUY",
+    confidence,
+    score: 29,
+    reasons,
+  });
+}
+
+function getProjectedValue(line: RegressionLine) {
+  return line.endValue + line.slope;
+}
+
+function getLineContainmentRate(
+  candles: PatternCandle[],
+  highLine: RegressionLine,
+  lowLine: RegressionLine,
+  tolerance = 0.008
+) {
+  let contained = 0;
+
+  for (let index = 0; index < candles.length; index++) {
+    const upper = highLine.intercept + highLine.slope * index;
+    const lower = lowLine.intercept + lowLine.slope * index;
+    const close = candles[index].close;
+
+    if (close <= upper * (1 + tolerance) && close >= lower * (1 - tolerance)) {
+      contained += 1;
+    }
+  }
+
+  return contained / candles.length;
+}
+
+function detectDescendingChannelBreakout(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const lookback = 30;
+  if (candles.length < lookback + 1) return;
+
+  const channel = candles.slice(-lookback - 1, -1);
+  const latest = candles[candles.length - 1];
+  const highLine = calculateRegressionLine(channel.map((candle) => candle.high));
+  const lowLine = calculateRegressionLine(channel.map((candle) => candle.low));
+  if (!highLine || !lowLine) return;
+
+  const highSlope = getNormalizedSlope(highLine);
+  const lowSlope = getNormalizedSlope(lowLine);
+  const initialWidth = highLine.startValue - lowLine.startValue;
+  const finalWidth = highLine.endValue - lowLine.endValue;
+  if (initialWidth <= 0 || finalWidth <= 0) return;
+
+  const widthRatio = finalWidth / initialWidth;
+  const slopeDifference = Math.abs(highSlope - lowSlope);
+  const parallelDecline =
+    highSlope <= -0.025 &&
+    lowSlope <= -0.025 &&
+    slopeDifference <= 0.025 &&
+    widthRatio >= 0.82 &&
+    widthRatio <= 1.18;
+  const contained = getLineContainmentRate(channel, highLine, lowLine) >= 0.8;
+  const projectedUpper = getProjectedValue(highLine);
+  const confirmedBreakout = latest.close > projectedUpper * 1.003;
+  const bullishClose = latest.close > latest.open;
+
+  if (!parallelDecline || !contained || !confirmedBreakout || !bullishClose) return;
+
+  let confidence = 74;
+  const reasons = [
+    "高値線と安値線が概ね平行に下降",
+    "終値の大半が下降チャネル内で推移",
+    "終値が下降チャネル上限を0.3%以上突破",
+  ];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 8;
+    reasons.push("出来高増加を伴うチャネルブレイク");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern009",
+    name: "下降チャネルブレイク",
+    direction: "BUY",
+    confidence,
+    score: 24,
+    reasons,
+  });
+}
+
+function detectFallingWedgeBreakout(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const lookback = 30;
+  if (candles.length < lookback + 1) return;
+
+  const wedge = candles.slice(-lookback - 1, -1);
+  const latest = candles[candles.length - 1];
+  const highLine = calculateRegressionLine(wedge.map((candle) => candle.high));
+  const lowLine = calculateRegressionLine(wedge.map((candle) => candle.low));
+  if (!highLine || !lowLine) return;
+
+  const highSlope = getNormalizedSlope(highLine);
+  const lowSlope = getNormalizedSlope(lowLine);
+  const initialWidth = highLine.startValue - lowLine.startValue;
+  const finalWidth = highLine.endValue - lowLine.endValue;
+  if (initialWidth <= 0 || finalWidth <= 0) return;
+
+  const contractionRate = finalWidth / initialWidth;
+  const fallingWedge =
+    highSlope <= -0.028 &&
+    lowSlope <= -0.018 &&
+    Math.abs(highSlope) > Math.abs(lowSlope) * 1.2 &&
+    contractionRate <= 0.72;
+  const contained = getLineContainmentRate(wedge, highLine, lowLine) >= 0.8;
+  const projectedUpper = getProjectedValue(highLine);
+  const confirmedBreakout = latest.close > projectedUpper * 1.003;
+
+  if (!fallingWedge || !contained || !confirmedBreakout || latest.close <= latest.open) {
+    return;
+  }
+
+  let confidence = 78;
+  const reasons = [
+    "高値側が安値側より速く低下して値幅が収束",
+    "下降ウェッジ内の終値推移を確認",
+    "終値がウェッジ上限を0.3%以上突破",
+  ];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 8;
+    reasons.push("出来高増加を伴うウェッジブレイク");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern001",
+    name: "下降ウェッジ上抜け",
+    direction: "BUY",
+    confidence,
+    score: 30,
+    reasons,
+  });
+}
+
+function detectPostSurgePullbackBounce(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const poleLength = 10;
+  const pullbackLength = 7;
+  const requiredLength = poleLength + pullbackLength + 1;
+  if (candles.length < requiredLength) return;
+
+  const recent = candles.slice(-requiredLength);
+  const pole = recent.slice(0, poleLength);
+  const pullback = recent.slice(poleLength, -1);
+  const latest = recent[recent.length - 1];
+  const poleLine = calculateRegressionLine(pole.map((candle) => candle.close));
+  const pullbackLine = calculateRegressionLine(
+    pullback.map((candle) => candle.close)
+  );
+  if (!poleLine || !pullbackLine) return;
+
+  const poleStart = pole[0].close;
+  const poleEnd = pole[pole.length - 1].close;
+  const poleMove = (poleEnd - poleStart) / Math.max(poleStart, 0.0001);
+  const poleSize = poleEnd - poleStart;
+  const pullbackLow = Math.min(...pullback.map((candle) => candle.low));
+  const retracement = (poleEnd - pullbackLow) / Math.max(poleSize, 0.0001);
+  const pullbackHighLine = calculateRegressionLine(
+    pullback.map((candle) => candle.high)
+  );
+  if (!pullbackHighLine) return;
+
+  const structuredSurge = poleMove >= 0.07 && getNormalizedSlope(poleLine) >= 0.055;
+  const orderlyPullback =
+    getNormalizedSlope(pullbackLine) <= -0.008 &&
+    retracement >= 0.18 &&
+    retracement <= 0.5;
+  const projectedPullbackHigh = getProjectedValue(pullbackHighLine);
+  const reboundConfirmed =
+    latest.close > projectedPullbackHigh * 1.002 &&
+    latest.close > latest.open &&
+    (latest.close - latest.open) / Math.max(latest.open, 0.0001) >= 0.008;
+
+  if (!structuredSurge || !orderlyPullback || !reboundConfirmed) return;
+
+  let confidence = 76;
+  const reasons = [
+    "7%以上の急騰を先行して確認",
+    "急騰幅の18〜50%で適度に押し目形成",
+    "終値が押し目の上値線を突破して再反発",
+  ];
+
+  if (volumeRatio >= 1.2) {
+    confidence += 7;
+    reasons.push("再反発時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern013",
+    name: "急騰後押し目反発",
+    direction: "BUY",
+    confidence,
+    score: 29,
+    reasons,
+  });
+}
+
+function detectBullFlagBreakout(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const poleLength = 12;
+  const flagLength = 10;
+  const requiredLength = poleLength + flagLength + 1;
+  if (candles.length < requiredLength) return;
+
+  const recent = candles.slice(-requiredLength);
+  const pole = recent.slice(0, poleLength);
+  const flag = recent.slice(poleLength, -1);
+  const latest = recent[recent.length - 1];
+  const poleLine = calculateRegressionLine(pole.map((candle) => candle.close));
+  const highLine = calculateRegressionLine(flag.map((candle) => candle.high));
+  const lowLine = calculateRegressionLine(flag.map((candle) => candle.low));
+  if (!poleLine || !highLine || !lowLine) return;
+
+  const poleMove =
+    (pole[pole.length - 1].close - pole[0].close) /
+    Math.max(pole[0].close, 0.0001);
+  const highSlope = getNormalizedSlope(highLine);
+  const lowSlope = getNormalizedSlope(lowLine);
+  const parallelPullback =
+    highSlope <= -0.003 &&
+    highSlope >= -0.055 &&
+    lowSlope < 0 &&
+    Math.abs(highSlope - lowSlope) <= 0.025;
+  const poleSize = pole[pole.length - 1].close - pole[0].close;
+  const flagRange =
+    Math.max(...flag.map((candle) => candle.high)) -
+    Math.min(...flag.map((candle) => candle.low));
+  const compactFlag = poleSize > 0 && flagRange <= poleSize * 0.7;
+  const confirmedBreakout = latest.close > getProjectedValue(highLine) * 1.003;
+
+  if (
+    poleMove < 0.06 ||
+    getNormalizedSlope(poleLine) < 0.045 ||
+    !parallelPullback ||
+    !compactFlag ||
+    !confirmedBreakout ||
+    latest.close <= latest.open
+  ) {
+    return;
+  }
+
+  let confidence = 78;
+  const reasons = [
+    "6%以上の上昇ポールを形成",
+    "高値・安値が平行に切り下がるフラッグを形成",
+    "終値がフラッグ上辺を0.3%以上突破",
+  ];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 8;
+    reasons.push("出来高増加を伴うフラッグブレイク");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern016",
+    name: "フラッグブレイク",
+    direction: "BUY",
+    confidence,
+    score: 30,
+    reasons,
+  });
+}
+
+function detectBullPennantBreakout(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const poleLength = 12;
+  const pennantLength = 10;
+  const requiredLength = poleLength + pennantLength + 1;
+  if (candles.length < requiredLength) return;
+
+  const recent = candles.slice(-requiredLength);
+  const pole = recent.slice(0, poleLength);
+  const pennant = recent.slice(poleLength, -1);
+  const latest = recent[recent.length - 1];
+  const highLine = calculateRegressionLine(pennant.map((candle) => candle.high));
+  const lowLine = calculateRegressionLine(pennant.map((candle) => candle.low));
+  if (!highLine || !lowLine) return;
+
+  const poleMove =
+    (pole[pole.length - 1].close - pole[0].close) /
+    Math.max(pole[0].close, 0.0001);
+  const highSlope = getNormalizedSlope(highLine);
+  const lowSlope = getNormalizedSlope(lowLine);
+  const initialWidth = highLine.startValue - lowLine.startValue;
+  const finalWidth = highLine.endValue - lowLine.endValue;
+  const poleSize = pole[pole.length - 1].close - pole[0].close;
+  const pennantRange =
+    Math.max(...pennant.map((candle) => candle.high)) -
+    Math.min(...pennant.map((candle) => candle.low));
+  const converging =
+    highSlope <= -0.012 &&
+    lowSlope >= 0.012 &&
+    initialWidth > 0 &&
+    finalWidth > 0 &&
+    finalWidth / initialWidth <= 0.72;
+  const compact = poleSize > 0 && pennantRange <= poleSize * 0.7;
+  const confirmedBreakout = latest.close > getProjectedValue(highLine) * 1.003;
+
+  if (
+    poleMove < 0.06 ||
+    !converging ||
+    !compact ||
+    !confirmedBreakout ||
+    latest.close <= latest.open
+  ) {
+    return;
+  }
+
+  let confidence = 79;
+  const reasons = [
+    "6%以上の急上昇ポールを形成",
+    "高値切り下げ・安値切り上げの収束形状",
+    "終値がペナント上辺を0.3%以上突破",
+  ];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 8;
+    reasons.push("出来高増加を伴うペナントブレイク");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern017",
+    name: "ペナント上抜け",
+    direction: "BUY",
+    confidence,
+    score: 29,
+    reasons,
+  });
+}
+
+type BollingerSnapshot = {
+  middle: number;
+  upper: number;
+  lower: number;
+  width: number;
+};
+
+function getBollingerSnapshot(
+  closes: number[],
+  endExclusive: number,
+  period = 20
+): BollingerSnapshot | null {
+  if (endExclusive < period || endExclusive > closes.length) return null;
+
+  const window = closes.slice(endExclusive - period, endExclusive);
+  const middle = average(window);
+  const deviation = standardDeviation(window, middle);
+  if (middle <= 0 || deviation <= 0) return null;
+
+  return {
+    middle,
+    upper: middle + deviation * 2,
+    lower: middle - deviation * 2,
+    width: (deviation * 4) / middle,
+  };
+}
+
+function getHistoricalBollingerWidths(
+  closes: number[],
+  endExclusive: number,
+  count: number,
+  period = 20
+) {
+  const widths: number[] = [];
+  const start = Math.max(period, endExclusive - count);
+
+  for (let end = start; end < endExclusive; end++) {
+    const snapshot = getBollingerSnapshot(closes, end, period);
+    if (snapshot) widths.push(snapshot.width);
+  }
+
+  return widths;
+}
+
+function detectBollingerBandSqueeze(
+  candles: PatternCandle[],
+  patterns: DetectedChartPattern[]
+) {
+  const period = 20;
+  if (candles.length < 70) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const current = getBollingerSnapshot(closes, closes.length, period);
+  const earlier = getBollingerSnapshot(closes, closes.length - 10, period);
+  const historicalWidths = getHistoricalBollingerWidths(
+    closes,
+    closes.length - 1,
+    50,
+    period
+  );
+  if (!current || !earlier || historicalWidths.length < 30) return;
+
+  const sortedWidths = [...historicalWidths].sort((a, b) => a - b);
+  const lowQuartile = sortedWidths[Math.floor(sortedWidths.length * 0.25)];
+  const latest = candles[candles.length - 1];
+  const contracted =
+    current.width >= 0.003 &&
+    current.width <= lowQuartile &&
+    current.width <= earlier.width * 0.75;
+  const remainsInside =
+    latest.close <= current.upper && latest.close >= current.lower;
+
+  if (!contracted || !remainsInside) return;
+
+  pushPattern(patterns, {
+    id: "pattern004",
+    name: "ボリンジャーバンドスクイーズ",
+    direction: "NEUTRAL",
+    confidence: 74,
+    score: 0,
+    reasons: [
+      "20期間バンド幅が過去50期間の下位25%",
+      "10期間前からバンド幅が25%以上収縮",
+      "終値がバンド内にあり方向確定前",
+    ],
+  });
+}
+
+function detectBollingerBandExpansion(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const period = 20;
+  if (candles.length < 70 || volumeRatio < 1.3) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const previous = getBollingerSnapshot(closes, closes.length - 1, period);
+  const current = getBollingerSnapshot(closes, closes.length, period);
+  const historicalWidths = getHistoricalBollingerWidths(
+    closes,
+    closes.length - 1,
+    50,
+    period
+  );
+  if (!previous || !current || historicalWidths.length < 30) return;
+
+  const sortedWidths = [...historicalWidths].sort((a, b) => a - b);
+  const lowQuartile = sortedWidths[Math.floor(sortedWidths.length * 0.25)];
+  const latest = candles[candles.length - 1];
+  const previousCandles = candles.slice(-11, -1);
+  const averageBody = average(
+    previousCandles.map((candle) => Math.abs(candle.close - candle.open))
+  );
+  const latestBody = Math.abs(latest.close - latest.open);
+  const expanded = current.width >= previous.width * 1.2;
+  const wasSqueezed = previous.width <= lowQuartile * 1.25;
+  const strongBody = latestBody >= Math.max(averageBody * 1.3, latest.open * 0.006);
+  const upwardBreakout = latest.close > previous.upper * 1.003;
+  const downwardBreakout = latest.close < previous.lower * 0.997;
+
+  if (!wasSqueezed || !expanded || !strongBody) return;
+  if (!upwardBreakout && !downwardBreakout) return;
+
+  const direction: PatternDirection = upwardBreakout ? "BUY" : "SELL";
+  pushPattern(patterns, {
+    id: "pattern005",
+    name: "ボリンジャーバンドエクスパンション",
+    direction,
+    confidence: volumeRatio >= 1.8 ? 86 : 78,
+    score: direction === "BUY" ? 28 : -28,
+    reasons: [
+      "直前までバンド幅が過去の低水準",
+      "最新足でバンド幅が20%以上拡大",
+      direction === "BUY"
+        ? "終値が直前の上側バンドを0.3%以上突破"
+        : "終値が直前の下側バンドを0.3%以上割り込み",
+      "出来高増加を伴うバンド拡大",
+    ],
+  });
+}
+
+function detectConfirmedPerfectOrder(
+  candles: PatternCandle[],
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 80) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const ema5 = calculateEmaSeries(closes, 5);
+  const ema20 = calculateEmaSeries(closes, 20);
+  const ema75 = calculateEmaSeries(closes, 75);
+  const current = closes.length - 1;
+
+  for (let offset = 0; offset < 3; offset++) {
+    const index = current - offset;
+    const short = ema5[index];
+    const middle = ema20[index];
+    const long = ema75[index];
+    if (short === null || middle === null || long === null) return;
+    if (!(short > middle && middle > long)) return;
+  }
+
+  const current5 = ema5[current];
+  const current20 = ema20[current];
+  const current75 = ema75[current];
+  const comparison5 = ema5[current - 3];
+  const comparison20 = ema20[current - 3];
+  const comparison75 = ema75[current - 3];
+  if (
+    current5 === null || current20 === null || current75 === null ||
+    comparison5 === null || comparison20 === null || comparison75 === null
+  ) return;
+
+  const allRising =
+    (current5 - comparison5) / comparison5 >= 0.002 &&
+    (current20 - comparison20) / comparison20 >= 0.001 &&
+    (current75 - comparison75) / comparison75 >= 0.0005;
+  const separated =
+    (current5 - current20) / current20 >= 0.003 &&
+    (current20 - current75) / current75 >= 0.003;
+
+  if (!allRising || !separated) return;
+
+  pushPattern(patterns, {
+    id: "pattern007",
+    name: "パーフェクトオーダー",
+    direction: "BUY",
+    confidence: 82,
+    score: 27,
+    reasons: [
+      "EMA5 > EMA20 > EMA75を3本連続で維持",
+      "3本のEMAがすべて上向き",
+      "EMA間に0.3%以上の間隔を確認",
+    ],
+  });
+}
+
+function detectPerfectOrderBreakdown(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 82) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const ema5 = calculateEmaSeries(closes, 5);
+  const ema20 = calculateEmaSeries(closes, 20);
+  const current = closes.length - 1;
+  const beforeBreakdown = current - 4;
+  const current5 = ema5[current];
+  const previous5 = ema5[current - 1];
+  const earlier5 = ema5[beforeBreakdown];
+  const current20 = ema20[current];
+  const previous20 = ema20[current - 1];
+  const earlier20 = ema20[beforeBreakdown];
+  if (
+    current5 === null || previous5 === null || earlier5 === null ||
+    current20 === null || previous20 === null || earlier20 === null
+  ) return;
+
+  const previouslyOrdered = earlier5 > earlier20;
+  const persistentBreak = current5 < current20 && previous5 < previous20;
+  const priceConfirmation =
+    closes[current] < current20 &&
+    closes[current] < Math.min(...closes.slice(current - 5, current));
+
+  if (!previouslyOrdered || !persistentBreak || !priceConfirmation) return;
+
+  let confidence = 76;
+  const reasons = [
+    "直前までEMA5がEMA20より上",
+    "EMA5がEMA20を2本連続で下回る",
+    "終値がEMA20と直近安値を下回る",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("崩れ局面で出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern008",
+    name: "パーフェクトオーダー崩れ",
+    direction: "SELL",
+    confidence,
+    score: -25,
+    reasons,
+  });
+}
+
+function detectEarlyTrendReversal(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 82 || volumeRatio < 1.15) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const ema5 = calculateEmaSeries(closes, 5);
+  const ema20 = calculateEmaSeries(closes, 20);
+  const ema75 = calculateEmaSeries(closes, 75);
+  const current = closes.length - 1;
+  const downtrendIndex = current - 5;
+  const current5 = ema5[current];
+  const previous5 = ema5[current - 1];
+  const downtrend5 = ema5[downtrendIndex];
+  const current20 = ema20[current];
+  const previous20 = ema20[current - 1];
+  const downtrend20 = ema20[downtrendIndex];
+  const downtrend75 = ema75[downtrendIndex];
+  if (
+    current5 === null || previous5 === null || downtrend5 === null ||
+    current20 === null || previous20 === null || downtrend20 === null ||
+    downtrend75 === null
+  ) return;
+
+  const priorDowntrend = downtrend5 < downtrend20 && downtrend20 < downtrend75;
+  const persistentCross = current5 > current20 && previous5 > previous20;
+  const priceBreakout =
+    closes[current] > Math.max(...closes.slice(current - 10, current)) * 1.002;
+  const shortTermAcceleration = current5 > previous5 && closes[current] > current20;
+
+  if (!priorDowntrend || !persistentCross || !priceBreakout || !shortTermAcceleration) {
+    return;
+  }
+
+  pushPattern(patterns, {
+    id: "pattern015",
+    name: "トレンド転換初動",
+    direction: "BUY",
+    confidence: volumeRatio >= 1.5 ? 84 : 77,
+    score: 27,
+    reasons: [
+      "EMA5 < EMA20 < EMA75の下降配列を先行して確認",
+      "EMA5がEMA20を2本連続で上回る",
+      "終値が直近10本高値を0.2%以上突破",
+      "出来高増加を伴う転換初動",
+    ],
+  });
+}
+
+function detectConfirmedBoxBreakout(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const lookback = 20;
+  if (candles.length < lookback + 1 || volumeRatio < 1.2) return;
+
+  const box = candles.slice(-lookback - 1, -1);
+  const latest = candles[candles.length - 1];
+  const highs = box.map((candle) => candle.high);
+  const lows = box.map((candle) => candle.low);
+  const highLine = calculateRegressionLine(highs);
+  const lowLine = calculateRegressionLine(lows);
+  if (!highLine || !lowLine) return;
+
+  const resistance = Math.max(...highs);
+  const support = Math.min(...lows);
+  const middle = (resistance + support) / 2;
+  const rangeRate = (resistance - support) / Math.max(middle, 0.0001);
+  const horizontal =
+    Math.abs(getNormalizedSlope(highLine)) <= 0.018 &&
+    Math.abs(getNormalizedSlope(lowLine)) <= 0.018;
+  const touchTolerance = Math.max(rangeRate * 0.14, 0.007);
+  const upperTouches = highs.filter(
+    (high) => (resistance - high) / resistance <= touchTolerance
+  ).length;
+  const lowerTouches = lows.filter(
+    (low) => (low - support) / support <= touchTolerance
+  ).length;
+  const containmentRate =
+    box.filter(
+      (candle) =>
+        candle.close <= resistance * 1.002 &&
+        candle.close >= support * 0.998
+    ).length / box.length;
+  const confirmed =
+    latest.close > resistance * 1.003 && latest.close > latest.open;
+
+  if (
+    !horizontal ||
+    rangeRate < 0.03 ||
+    rangeRate > 0.14 ||
+    upperTouches < 2 ||
+    lowerTouches < 2 ||
+    containmentRate < 0.9 ||
+    !confirmed
+  ) return;
+
+  pushPattern(patterns, {
+    id: "pattern019",
+    name: "ボックス上抜け",
+    direction: "BUY",
+    confidence: volumeRatio >= 1.5 ? 84 : 77,
+    score: 27,
+    reasons: [
+      "20期間の水平な上限・下限を複数回確認",
+      "終値の90%以上がボックス内で推移",
+      "終値がボックス上限を0.3%以上突破",
+      "出来高増加を伴う上抜け",
+    ],
+  });
+}
+
+function detectEmaConvergenceBounce(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 80) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const ema5 = calculateEmaSeries(closes, 5);
+  const ema20 = calculateEmaSeries(closes, 20);
+  const ema75 = calculateEmaSeries(closes, 75);
+  const current = closes.length - 1;
+  const convergenceIndex = current - 3;
+  const convergenceValues = [
+    ema5[convergenceIndex],
+    ema20[convergenceIndex],
+    ema75[convergenceIndex],
+  ];
+  if (convergenceValues.some((value) => value === null)) return;
+
+  const numericValues = convergenceValues as number[];
+  const convergenceMiddle = average(numericValues);
+  const spread =
+    (Math.max(...numericValues) - Math.min(...numericValues)) /
+    Math.max(convergenceMiddle, 0.0001);
+  const current5 = ema5[current];
+  const previous5 = ema5[current - 1];
+  const current20 = ema20[current];
+  const current75 = ema75[current];
+  if (
+    current5 === null || previous5 === null ||
+    current20 === null || current75 === null
+  ) return;
+
+  const latest = candles[current];
+  const recentHigh = Math.max(...candles.slice(current - 6, current).map((c) => c.high));
+  const confirmedBounce =
+    latest.close > latest.open &&
+    latest.close > current5 &&
+    latest.close > current20 &&
+    latest.close > current75 &&
+    latest.close > recentHigh * 1.002 &&
+    (current5 - previous5) / previous5 >= 0.002;
+
+  if (spread > 0.012 || !confirmedBounce) return;
+
+  let confidence = 75;
+  const reasons = [
+    "EMA5・EMA20・EMA75の幅が1.2%以内に収束",
+    "終値が3本のEMAを上回る",
+    "終値が直近6本高値を0.2%以上突破",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("反発時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern023",
+    name: "EMA収束反発",
+    direction: "BUY",
+    confidence,
+    score: 25,
+    reasons,
+  });
+}
+
+function detectLongTermAverageBounce(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 80) return;
+
+  const closes = candles.map((candle) => candle.close);
+  const ema75 = calculateEmaSeries(closes, 75);
+  const current = candles.length - 1;
+  const touchIndex = current - 1;
+  const currentAverage = ema75[current];
+  const touchAverage = ema75[touchIndex];
+  const earlierAverage = ema75[current - 5];
+  if (
+    currentAverage === null || touchAverage === null || earlierAverage === null
+  ) return;
+
+  const touch = candles[touchIndex];
+  const latest = candles[current];
+  const touched =
+    touch.low <= touchAverage * 1.008 &&
+    touch.low >= touchAverage * 0.985 &&
+    touch.close >= touchAverage * 0.995;
+  const risingLongTermAverage = currentAverage > earlierAverage;
+  const confirmedBounce =
+    latest.close > latest.open &&
+    latest.close > currentAverage * 1.003 &&
+    latest.close > touch.high * 1.002;
+
+  if (!touched || !risingLongTermAverage || !confirmedBounce) return;
+
+  let confidence = 76;
+  const reasons = [
+    "前足が上向きのEMA75付近まで調整",
+    "EMA75を終値で維持して下げ止まり",
+    "次足終値が前足高値を0.2%以上突破",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("反発足で出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern024",
+    name: "長期線タッチ反発",
+    direction: "BUY",
+    confidence,
+    score: 26,
+    reasons,
+  });
+}
+
+type SessionBoundary = {
+  startIndex: number;
+  medianInterval: number;
+  isDaily: boolean;
+};
+
+function findLatestSessionBoundary(
+  candles: PatternCandle[]
+): SessionBoundary | null {
+  if (candles.length < 3) return null;
+
+  const intervals = candles
+    .slice(1)
+    .map((candle, index) => candle.time - candles[index].time)
+    .filter((interval) => Number.isFinite(interval) && interval > 0)
+    .sort((a, b) => a - b);
+  if (intervals.length < 2) return null;
+
+  const rawMedianInterval = intervals[Math.floor(intervals.length / 2)];
+  const timeScale = Math.abs(candles[candles.length - 1].time) >= 100_000_000_000
+    ? 1000
+    : 1;
+  const medianInterval = rawMedianInterval / timeScale;
+  const isDaily = medianInterval >= 12 * 60 * 60;
+  if (isDaily) {
+    return { startIndex: candles.length - 1, medianInterval, isDaily };
+  }
+
+  const sessionGap = Math.max(medianInterval * 3, 4 * 60 * 60) * timeScale;
+  for (let index = candles.length - 1; index >= 1; index--) {
+    if (candles[index].time - candles[index - 1].time >= sessionGap) {
+      return { startIndex: index, medianInterval, isDaily: false };
+    }
+  }
+
+  return null;
+}
+
+function detectGapUpContinuation(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  const boundary = findLatestSessionBoundary(candles);
+  if (!boundary || boundary.startIndex < 1) return;
+
+  const latestIndex = candles.length - 1;
+  const barsSinceOpen = latestIndex - boundary.startIndex;
+  if (!boundary.isDaily && (barsSinceOpen < 1 || barsSinceOpen > 5)) return;
+
+  const previous = candles[boundary.startIndex - 1];
+  const sessionOpen = candles[boundary.startIndex];
+  const session = candles.slice(boundary.startIndex);
+  const latest = candles[latestIndex];
+  const gapUp = sessionOpen.open > previous.high * 1.01;
+  const gapHeld = Math.min(...session.map((candle) => candle.low)) >= previous.high * 0.997;
+  const continuation = boundary.isDaily
+    ? latest.close >= sessionOpen.open * 1.005
+    : latest.close >= sessionOpen.open * 1.008;
+  const positiveClose = latest.close >= latest.open;
+
+  if (!gapUp || !gapHeld || !continuation || !positiveClose) return;
+
+  let confidence = 77;
+  const reasons = [
+    "前セッション高値から1%以上GU",
+    "寄付き後も窓を埋めず高値圏を維持",
+    "終値で上昇継続を確認",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 7;
+    reasons.push("出来高増加を伴うGU継続");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern027",
+    name: "GU窓開け継続",
+    direction: "BUY",
+    confidence,
+    score: 28,
+    reasons,
+  });
+}
+
+function detectOpeningSurgeContinuation(
+  candles: PatternCandle[],
+  patterns: DetectedChartPattern[]
+) {
+  const boundary = findLatestSessionBoundary(candles);
+  if (!boundary || boundary.isDaily || boundary.medianInterval > 2 * 60 * 60) {
+    return;
+  }
+
+  const latestIndex = candles.length - 1;
+  const barsSinceOpen = latestIndex - boundary.startIndex;
+  if (boundary.startIndex < 10 || barsSinceOpen < 2 || barsSinceOpen > 5) return;
+
+  const session = candles.slice(boundary.startIndex);
+  const opening = session[0];
+  const latest = session[session.length - 1];
+  const sessionHigh = Math.max(...session.map((candle) => candle.high));
+  const postOpenLow = Math.min(...session.slice(1).map((candle) => candle.low));
+  const previous = candles.slice(Math.max(0, boundary.startIndex - 20), boundary.startIndex);
+  const previousAverageVolume = average(
+    previous.map((candle) => candle.volume ?? 0).filter((volume) => volume > 0)
+  );
+  const sessionAverageVolume = average(
+    session.map((candle) => candle.volume ?? 0).filter((volume) => volume > 0)
+  );
+  if (previousAverageVolume <= 0 || sessionAverageVolume < previousAverageVolume * 1.3) {
+    return;
+  }
+
+  const surged = latest.close >= opening.open * 1.03;
+  const heldHigh = latest.close >= sessionHigh * 0.985;
+  const shallowPullback = postOpenLow >= opening.open * 0.99;
+
+  if (!surged || !heldHigh || !shallowPullback || latest.close < latest.open) return;
+
+  pushPattern(patterns, {
+    id: "pattern028",
+    name: "寄付き急騰継続",
+    direction: "BUY",
+    confidence: 81,
+    score: 27,
+    reasons: [
+      "寄付きから5本以内に3%以上上昇",
+      "押しを1%以内に抑えてセッション高値圏を維持",
+      "寄付き後の平均出来高が前セッション比1.3倍以上",
+    ],
+  });
+}
+
 function optimizeDetectedPatterns(
   rawPatterns: DetectedChartPattern[]
 ): DetectedChartPattern[] {
@@ -1307,6 +2497,53 @@ function optimizeDetectedPatterns(
     if (!existing || normalized.confidence > existing.confidence) {
       uniqueById.set(pattern.id, normalized);
     }
+  }
+
+  const confirmedIds = new Set(uniqueById.keys());
+
+  // 同一形状の形成中シグナルと終値ブレイク確定シグナルを二重加点しない。
+  if (confirmedIds.has("pattern001")) {
+    uniqueById.delete("pattern041");
+    uniqueById.delete("pattern009");
+  }
+  if (confirmedIds.has("pattern013")) {
+    uniqueById.delete("pattern034");
+    uniqueById.delete("pattern006");
+  }
+  if (confirmedIds.has("pattern016")) {
+    uniqueById.delete("pattern034");
+  }
+  if (confirmedIds.has("pattern017")) {
+    uniqueById.delete("pattern042");
+  }
+  if (confirmedIds.has("pattern004")) {
+    uniqueById.delete("pattern045");
+  }
+  if (confirmedIds.has("pattern043") || confirmedIds.has("pattern044")) {
+    uniqueById.delete("pattern005");
+  }
+  if (confirmedIds.has("pattern007")) {
+    uniqueById.delete("pattern046");
+  }
+  if (confirmedIds.has("pattern043")) {
+    uniqueById.delete("pattern019");
+    uniqueById.delete("pattern027");
+    uniqueById.delete("pattern028");
+  }
+  if (confirmedIds.has("pattern019")) {
+    uniqueById.delete("pattern003");
+    uniqueById.delete("pattern018");
+    uniqueById.delete("pattern037");
+  }
+  if (confirmedIds.has("pattern023")) {
+    uniqueById.delete("pattern014");
+  }
+  if (confirmedIds.has("pattern024")) {
+    uniqueById.delete("pattern006");
+  }
+  if (confirmedIds.has("pattern028")) {
+    uniqueById.delete("pattern027");
+    uniqueById.delete("pattern018");
   }
 
   let patterns = [...uniqueById.values()];
@@ -1623,6 +2860,26 @@ export function detectChartPatterns(
   detectVolumeBreakouts(candles, volumeRatio, patterns);
   detectBollingerSqueeze(candles, volumeRatio, patterns);
   detectPerfectOrders(candles, patterns);
+  detectUpperWickStall(candles, volumeRatio, patterns);
+  detectLowerHighDecline(candles, volumeRatio, patterns);
+  detectPostSurgeStall(candles, volumeRatio, patterns);
+  detectInitialBullishCandle(candles, volumeRatio, patterns);
+  detectVolumeLedSurge(candles, patterns);
+  detectDescendingChannelBreakout(candles, volumeRatio, patterns);
+  detectFallingWedgeBreakout(candles, volumeRatio, patterns);
+  detectPostSurgePullbackBounce(candles, volumeRatio, patterns);
+  detectBullFlagBreakout(candles, volumeRatio, patterns);
+  detectBullPennantBreakout(candles, volumeRatio, patterns);
+  detectBollingerBandSqueeze(candles, patterns);
+  detectBollingerBandExpansion(candles, volumeRatio, patterns);
+  detectConfirmedPerfectOrder(candles, patterns);
+  detectPerfectOrderBreakdown(candles, volumeRatio, patterns);
+  detectEarlyTrendReversal(candles, volumeRatio, patterns);
+  detectConfirmedBoxBreakout(candles, volumeRatio, patterns);
+  detectEmaConvergenceBounce(candles, volumeRatio, patterns);
+  detectLongTermAverageBounce(candles, volumeRatio, patterns);
+  detectGapUpContinuation(candles, volumeRatio, patterns);
+  detectOpeningSurgeContinuation(candles, patterns);
   detectRangeBreakout(candles, volumeRatio, patterns);
   detectHighBreakout(candles, volumeRatio, patterns);
   detectSupportBreakdown(candles, volumeRatio, patterns);
