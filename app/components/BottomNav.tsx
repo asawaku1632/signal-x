@@ -18,28 +18,28 @@ const navItems: NavItem[] = [
     matchPaths: ["/dashboard"],
   },
   {
-    href: "/today-market",
-    icon: "🤖",
-    label: "市場",
-    matchPaths: ["/today-market", "/ai-analysis"],
+    href: "/scan-mobile",
+    icon: "⌕",
+    label: "スキャン",
+    matchPaths: ["/scan-mobile"],
   },
   {
-    href: "/ranking",
-    icon: "🏆",
-    label: "ランキング",
-    matchPaths: ["/ranking", "/scan-mobile", "/analysis"],
+    href: "/ai-analysis",
+    icon: "✦",
+    label: "AI分析",
+    matchPaths: ["/ai-analysis", "/analysis"],
   },
   {
-    href: "/learning",
-    icon: "🧠",
-    label: "学習",
-    matchPaths: ["/learning"],
+    href: "/learning/patterns",
+    icon: "▤",
+    label: "図鑑",
+    matchPaths: ["/learning/patterns"],
   },
   {
-    href: "/favorites",
-    icon: "⭐",
-    label: "お気に入り",
-    matchPaths: ["/favorites"],
+    href: "/menu",
+    icon: "★",
+    label: "メニュー",
+    matchPaths: ["/menu"],
   },
 ];
 
@@ -55,7 +55,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div className="mx-auto grid max-w-md grid-cols-5 px-1 py-2">
         {navItems.map((item) => {
           const active = isActive(item);
@@ -65,10 +65,11 @@ export default function BottomNav() {
               key={item.href}
               href={item.href}
               aria-label={item.label}
+              aria-current={active ? "page" : undefined}
               className={`flex min-w-0 flex-col items-center justify-center gap-1 text-center text-[11px] font-black transition ${
                 active
-                  ? "text-yellow-500"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "text-pink-500"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
               }`}
             >
               <span className="text-2xl leading-none">{item.icon}</span>

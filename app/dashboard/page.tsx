@@ -1112,7 +1112,7 @@ function BottomNav() {
       <Nav href="/today-market" icon="🤖" label="市場" />
       <Nav href="/ranking" icon="🏆" label="ランキング" />
       <Nav href="/learning" icon="🧠" label="学習" />
-      <Nav href="/favorites" icon="⭐" label="お気に入り" />
+      <Nav href="/menu" icon="★" label="メニュー" />
     </div>
     </nav>
   );
