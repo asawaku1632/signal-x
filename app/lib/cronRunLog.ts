@@ -2,9 +2,13 @@ import pool from "./postgres";
 
 export type CronRunStatus =
   | "STARTED"
+  | "SCAN_FINISHED"
   | "RANKING_SUCCESS"
+  | "MESSAGE_GENERATED"
+  | "LINE_API_RESPONSE"
   | "LINE_SUCCESS"
   | "LINE_FAILED"
+  | "COMPLETED"
   | "SKIPPED"
   | "ERROR";
 

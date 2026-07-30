@@ -16,6 +16,53 @@ type Stock = {
 
 const CRON_ROUTE = "/api/cron/line";
 const PUBLIC_URL = "https://signal-x-ppjg.vercel.app";
+const FETCH_TIMEOUT_MS = 25_000;
+const MAX_ATTEMPTS = 3;
+
+function lineLog(stage: string, details?: unknown) {
+  if (details === undefined) {
+    console.info(`[LINE] ${stage}`);
+    return;
+  }
+
+  console.info(`[LINE] ${stage}`, details);
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, label: string) {
+  let lastError: unknown;
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      lastResponse = response;
+
+      if (response.ok || (response.status < 500 && response.status !== 429)) {
+        return response;
+      }
+
+      lastError = new Error(`${label} returned HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    lineLog(`${label} retry`, { attempt, maxAttempts: MAX_ATTEMPTS });
+    if (attempt < MAX_ATTEMPTS) await delay(500 * attempt);
+  }
+
+  if (lastResponse) return lastResponse;
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`${label} failed after ${MAX_ATTEMPTS} attempts`);
+}
 
 function yen(value?: number) {
   if (value === undefined || value === null) return "-";
@@ -50,7 +97,7 @@ async function sendLine(message: string) {
     };
   }
 
-  const res = await fetch(
+  const res = await fetchWithRetry(
     "https://api.line.me/v2/bot/message/broadcast",
     {
       method: "POST",
@@ -66,7 +113,8 @@ async function sendLine(message: string) {
           },
         ],
       }),
-    }
+    },
+    "LINE API"
   );
 
   const text = await res.text();
@@ -79,6 +127,11 @@ async function sendLine(message: string) {
 }
 
 export async function GET(req: Request) {
+  lineLog("Cron Started", {
+    requestedAt: new Date().toISOString(),
+    userAgent: req.headers.get("user-agent"),
+  });
+
   await saveCronRunLog({
     route: CRON_ROUTE,
     status: "STARTED",
@@ -87,25 +140,42 @@ export async function GET(req: Request) {
       requestedAt: new Date().toISOString(),
       userAgent: req.headers.get("user-agent"),
       vercelCron: req.headers.get("x-vercel-cron"),
+      environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
+      hasLineAccessToken: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN),
+      hasLineChannelSecret: Boolean(process.env.LINE_CHANNEL_SECRET),
     },
   });
 
   try {
-    const url = new URL(req.url);
-    const baseUrl = url.origin;
+    const configuredBaseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      PUBLIC_URL;
+    const baseUrl = configuredBaseUrl.replace(/\/$/, "");
+    const rankingUrl = `${baseUrl}/api/ranking`;
 
-    const res = await fetch(`${baseUrl}/api/ranking`, {
+    const res = await fetchWithRetry(rankingUrl, {
       cache: "no-store",
-    });
+      headers: { Accept: "application/json" },
+    }, "Ranking API");
 
-    if (!res.ok) {
+    const rankingBody = await res.text();
+    const contentType = res.headers.get("content-type") ?? "";
+
+    if (!res.ok || !contentType.includes("application/json")) {
+      lineLog("Scan Failed", {
+        httpStatus: res.status,
+        contentType,
+        responseBody: rankingBody.slice(0, 1000),
+      });
       await saveCronRunLog({
         route: CRON_ROUTE,
         status: "ERROR",
         message: "ランキングAPIの取得に失敗しました",
         httpStatus: res.status,
         details: {
-          rankingUrl: `${baseUrl}/api/ranking`,
+          rankingUrl,
+          contentType,
+          responseBody: rankingBody.slice(0, 1000),
         },
       });
 
@@ -119,8 +189,25 @@ export async function GET(req: Request) {
       );
     }
 
-    const json = await res.json();
+    let json: { ranking?: Stock[]; totalStockList?: number };
+    try {
+      json = JSON.parse(rankingBody) as typeof json;
+    } catch (error) {
+      throw new Error(
+        `Ranking API returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     const ranking: Stock[] = json.ranking || [];
+
+    lineLog("Scan Finished", { rankingCount: ranking.length });
+
+    await saveCronRunLog({
+      route: CRON_ROUTE,
+      status: "SCAN_FINISHED",
+      message: "ランキングデータの取得と解析が完了しました",
+      httpStatus: res.status,
+      details: { rankingUrl, rankingCount: ranking.length },
+    });
 
     await saveCronRunLog({
       route: CRON_ROUTE,
@@ -208,7 +295,30 @@ export async function GET(req: Request) {
       `${top3}\n` +
       `━━━━━━━━━━━━━━`;
 
+    lineLog("Message Generated", {
+      topCode: top.code,
+      messageLength: message.length,
+    });
+    await saveCronRunLog({
+      route: CRON_ROUTE,
+      status: "MESSAGE_GENERATED",
+      message: "LINE通知メッセージを生成しました",
+      details: { topCode: top.code, messageLength: message.length },
+    });
+
     const line = await sendLine(message);
+
+    lineLog("LINE API Response", {
+      httpStatus: line.status,
+      responseBody: line.text,
+    });
+    await saveCronRunLog({
+      route: CRON_ROUTE,
+      status: "LINE_API_RESPONSE",
+      message: "LINE APIからレスポンスを受信しました",
+      httpStatus: line.status,
+      details: { responseBody: line.text },
+    });
 
     if (!line.ok) {
       await saveCronRunLog({
@@ -249,6 +359,15 @@ export async function GET(req: Request) {
       },
     });
 
+    lineLog("Completed", { httpStatus: line.status, topCode: top.code });
+    await saveCronRunLog({
+      route: CRON_ROUTE,
+      status: "COMPLETED",
+      message: "LINE通知Cronが正常完了しました",
+      httpStatus: line.status,
+      details: { topCode: top.code, rankingCount: ranking.length },
+    });
+
     let savedLog = null;
 
     try {
@@ -278,7 +397,7 @@ export async function GET(req: Request) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    console.error(error);
+    console.error("[LINE] Failed", error);
 
     await saveCronRunLog({
       route: CRON_ROUTE,
