@@ -62,6 +62,13 @@ function yen(value?: number) {
   return `${Math.round(value).toLocaleString()}円`;
 }
 
+function signedYen(value?: number) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "--";
+  const rounded = Math.round(value);
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toLocaleString()}円`;
+}
+
 function percent(value?: number, digits = 1) {
   if (value === undefined || value === null || Number.isNaN(value)) return "--";
   const sign = value > 0 ? "+" : "";
@@ -548,8 +555,11 @@ export default function RankingPage() {
             <DetectedPatternSummary patterns={topStock.detectedPatterns} />
 
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <Mini label="判定" value={judge(topStock.score)} />
               <Mini label="30日勝率" value={percent(topStock.winRate, 1)} />
+              <Mini
+                label="累計損益"
+                value={signedYen(topStock.totalProfitYen)}
+              />
               <Mini
                 label="判定済み"
                 value={
@@ -565,10 +575,9 @@ export default function RankingPage() {
                   topStock.losses === undefined ||
                   topStock.holds === undefined
                     ? "実績なし"
-                    : `${topStock.wins}勝${topStock.losses}敗 HOLD${topStock.holds}件`
+                    : `${topStock.wins}勝${topStock.losses}敗\nHOLD${topStock.holds}件`
                 }
               />
-              <Mini label="累計損益" value={yen(topStock.totalProfitYen)} />
               <Mini label="必要資金" value={yen(topStock.price * 100)} />
               <Mini
                 label="期待利益"
@@ -578,6 +587,7 @@ export default function RankingPage() {
                     : percent(topStock.expectedProfitRate, 1)
                 }
               />
+              <Mini label="判定" value={judge(topStock.score)} />
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -667,6 +677,10 @@ export default function RankingPage() {
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Mini label="30日勝率" value={percent(stock.winRate, 1)} />
                 <Mini
+                  label="累計損益"
+                  value={signedYen(stock.totalProfitYen)}
+                />
+                <Mini
                   label="判定済み"
                   value={
                     stock.judgedCount === undefined
@@ -681,10 +695,9 @@ export default function RankingPage() {
                     stock.losses === undefined ||
                     stock.holds === undefined
                       ? "実績なし"
-                      : `${stock.wins}勝${stock.losses}敗 HOLD${stock.holds}件`
+                      : `${stock.wins}勝${stock.losses}敗\nHOLD${stock.holds}件`
                   }
                 />
-                <Mini label="累計損益" value={yen(stock.totalProfitYen)} />
                 <Mini label="100株" value={yen(stock.price * 100)} />
                 <Mini
                   label="期待利益"
@@ -760,7 +773,9 @@ function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-center">
       <p className="text-[10px] font-black text-slate-500">{label}</p>
-      <p className="mt-1 text-base font-black">{value}</p>
+      <p className="mt-1 break-words whitespace-pre-line text-base font-black leading-6">
+        {value}
+      </p>
     </div>
   );
 }
