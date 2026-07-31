@@ -10,6 +10,7 @@ type Stock = {
   code: string;
   name: string;
   score: number;
+  rawAiPower?: number;
   price: number;
   changePercent?: number;
   rsi?: number;
@@ -124,6 +125,10 @@ function normalizeNumber(value: unknown, fallback = 0) {
   return fallback;
 }
 
+function aiPower(value: number) {
+  return `${Math.round(value)}`;
+}
+
 function normalizeOptionalNumber(value: unknown) {
   if (value === undefined || value === null || value === "") return undefined;
   const normalized = normalizeNumber(value, Number.NaN);
@@ -151,6 +156,7 @@ function isDetectedChartPattern(value: unknown): value is DetectedChartPattern {
 
 function normalizeStock(raw: Record<string, unknown>): Stock {
   const score = normalizeNumber(raw.score ?? raw.aiPower ?? raw.power);
+  const rawAiPower = normalizeOptionalNumber(raw.rawAiPower ?? raw.raw_ai_power);
   const price = normalizeNumber(raw.price ?? raw.currentPrice ?? raw.current_price);
   const changePercent = normalizeNumber(
     raw.changePercent ?? raw.change_rate ?? raw.changeRate,
@@ -214,6 +220,7 @@ function normalizeStock(raw: Record<string, unknown>): Stock {
     code: String(raw.code ?? raw.stockCode ?? raw.symbol ?? ""),
     name: String(raw.name ?? raw.stockName ?? raw.companyName ?? "銘柄名未取得"),
     score,
+    rawAiPower,
     price,
     changePercent,
     rsi: normalizeNumber(raw.rsi),
@@ -394,7 +401,17 @@ export default function RankingPage() {
           return (b.reliabilityScore ?? 0) - (a.reliabilityScore ?? 0);
         }
 
-        return (b.score ?? 0) - (a.score ?? 0);
+        const rawScoreDiff =
+          (b.rawAiPower ?? b.score) - (a.rawAiPower ?? a.score);
+        if (rawScoreDiff !== 0) return rawScoreDiff;
+
+        const changeDiff = (b.changePercent ?? 0) - (a.changePercent ?? 0);
+        if (changeDiff !== 0) return changeDiff;
+
+        const volumeDiff = (b.volumeRatio ?? 0) - (a.volumeRatio ?? 0);
+        if (volumeDiff !== 0) return volumeDiff;
+
+        return a.code.localeCompare(b.code, "ja", { numeric: true });
       })
       .slice(0, 100);
   }, [stocks, keyword, sortMode, budgetMode]);
@@ -451,7 +468,7 @@ export default function RankingPage() {
                   {topStock.code}
                 </p>
                 <p className="text-xs font-bold text-slate-500">
-                  AI POWER {topStock.score}
+                  AI POWER {aiPower(topStock.score)}
                 </p>
               </div>
             )}
@@ -547,7 +564,7 @@ export default function RankingPage() {
               <div className="text-right">
                 <p className="text-xs font-black text-slate-500">AI POWER</p>
                 <p className="text-5xl font-black text-blue-600">
-                  {topStock.score}
+                  {aiPower(topStock.score)}
                 </p>
               </div>
             </div>
@@ -660,7 +677,7 @@ export default function RankingPage() {
                 <div className="shrink-0 text-right">
                   <p className="text-xs font-black text-slate-500">AI POWER</p>
                   <p className="text-3xl font-black text-blue-600">
-                    {stock.score}
+                    {aiPower(stock.score)}
                   </p>
                   <p className="mt-1 text-xs font-black text-amber-500">
                     {reliabilityStars(

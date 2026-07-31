@@ -7,7 +7,7 @@ import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { calculateLearningBonus } from "@/app/lib/learningBonus";
 import { calculatePatternBonus } from "@/app/lib/patternBonus";
 import { calculateSectorBonus } from "@/app/lib/sectorBonus";
-import { calculateAiPower } from "./aiPowerEngine";
+import { calculateAiPowerResult } from "./aiPowerEngine";
 import { buildScoreBreakdown } from "./scoreBreakdownBuilder";
 import { getLearningResult } from "./learningEngine";
 import { getExperienceResult } from "./experienceEngine";
@@ -161,7 +161,7 @@ export async function runAiPipeline(params: PipelineParams) {
     },
   };
 
-  const finalScore = calculateAiPower({
+  const { rawAiPower, displayAiPower } = calculateAiPowerResult({
     baseScore: scored.score,
     marketBonus: learningResult.market.bonus,
     timeBonus: learningResult.time.bonus,
@@ -215,8 +215,9 @@ export async function runAiPipeline(params: PipelineParams) {
     sectorLabel,
     experienceKey,
     marketPattern,
-    score: finalScore,
-    aiPower: finalScore,
+    score: displayAiPower,
+    aiPower: displayAiPower,
+    rawAiPower,
     experienceBonus: finalExperienceBonus,
     legacyExperienceBonus,
     experienceAiBonus,
@@ -234,11 +235,11 @@ export async function runAiPipeline(params: PipelineParams) {
     timeJudged: learningResult.time.judged,
     timeConfidence: learningResult.time.confidence,
     rank:
-      finalScore >= 85
+      displayAiPower >= 85
         ? "S"
-        : finalScore >= 70
+        : displayAiPower >= 70
         ? "A"
-        : finalScore >= 50
+        : displayAiPower >= 50
         ? "B"
         : "C",
     scoreBreakdown,

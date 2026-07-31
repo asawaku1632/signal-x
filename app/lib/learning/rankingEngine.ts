@@ -18,6 +18,7 @@ export type RankingInputStock = Record<string, any> & {
   name?: string;
   score?: number;
   aiPower?: number;
+  rawAiPower?: number;
   finalScore?: number;
   changePercent?: number;
   price?: number;
@@ -81,6 +82,10 @@ export function getStockScore(stock: RankingInputStock): number {
   return toNumber(stock.score ?? stock.aiPower ?? stock.finalScore, 0);
 }
 
+export function getStockRawAiPower(stock: RankingInputStock): number {
+  return toNumber(stock.rawAiPower, getStockScore(stock));
+}
+
 export function classifyRankingLevel(
   score: number,
   options: Required<BuildRankingOptions> = DEFAULT_OPTIONS
@@ -92,11 +97,14 @@ export function classifyRankingLevel(
 }
 
 function compareStocks(a: RankingInputStock, b: RankingInputStock): number {
-  const scoreDiff = getStockScore(b) - getStockScore(a);
+  const scoreDiff = getStockRawAiPower(b) - getStockRawAiPower(a);
   if (scoreDiff !== 0) return scoreDiff;
 
   const changeDiff = toNumber(b.changePercent, 0) - toNumber(a.changePercent, 0);
   if (changeDiff !== 0) return changeDiff;
+
+  const volumeDiff = toNumber(b.volumeRatio, 0) - toNumber(a.volumeRatio, 0);
+  if (volumeDiff !== 0) return volumeDiff;
 
   return String(a.code ?? '').localeCompare(String(b.code ?? ''), 'ja');
 }

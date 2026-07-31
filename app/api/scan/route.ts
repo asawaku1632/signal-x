@@ -59,8 +59,8 @@ function toFiniteNumber(value: unknown, fallback = 0) {
 function sortStocksForRanking(stocks: any[]) {
   return [...stocks].sort((a, b) => {
     const scoreDiff =
-      toFiniteNumber(b?.score ?? b?.aiPower) -
-      toFiniteNumber(a?.score ?? a?.aiPower);
+      toFiniteNumber(b?.rawAiPower, b?.score ?? b?.aiPower) -
+      toFiniteNumber(a?.rawAiPower, a?.score ?? a?.aiPower);
 
     if (scoreDiff !== 0) return scoreDiff;
 

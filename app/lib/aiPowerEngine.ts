@@ -1,4 +1,4 @@
-type CalculateFinalAiPowerInput = {
+export type CalculateFinalAiPowerInput = {
   baseScore: number;
 
   learningBonus?: number;
@@ -16,8 +16,8 @@ type CalculateFinalAiPowerInput = {
   experienceRankingBonus?: number;
 };
 
-export function calculateFinalAiPower(input: CalculateFinalAiPowerInput) {
-  const finalScore =
+export function calculateRawAiPower(input: CalculateFinalAiPowerInput) {
+  return (
     input.baseScore +
     (input.learningBonus ?? 0) +
     (input.patternBonus ?? 0) +
@@ -29,9 +29,29 @@ export function calculateFinalAiPower(input: CalculateFinalAiPowerInput) {
     (input.riskBonus ?? 0) +
     (input.experienceBonus ?? 0) +
     (input.similarExperienceBonus ?? 0) +
-    (input.experienceRankingBonus ?? 0);
+    (input.experienceRankingBonus ?? 0)
+  );
+}
 
-  return clampAiPower(finalScore);
+function roundToOneDecimal(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+export function calculateDisplayAiPower(rawAiPower: number) {
+  if (!Number.isFinite(rawAiPower)) return 0;
+
+  if (rawAiPower <= 85) {
+    return roundToOneDecimal(Math.max(0, rawAiPower));
+  }
+
+  const decayedScore =
+    85 + 15 * (1 - Math.exp(-(rawAiPower - 85) / 20));
+
+  return roundToOneDecimal(Math.max(0, Math.min(100, decayedScore)));
+}
+
+export function calculateFinalAiPower(input: CalculateFinalAiPowerInput) {
+  return calculateDisplayAiPower(calculateRawAiPower(input));
 }
 
 export function clampAiPower(score: number) {

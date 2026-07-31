@@ -1,4 +1,8 @@
-import { calculateFinalAiPower } from "@/app/lib/aiPowerEngine";
+import {
+  calculateDisplayAiPower,
+  calculateFinalAiPower,
+  calculateRawAiPower,
+} from "@/app/lib/aiPowerEngine";
 
 export type CalculateAiPowerParams = {
   baseScore: number;
@@ -16,20 +20,16 @@ export type CalculateAiPowerParams = {
 };
 
 export function calculateAiPower(params: CalculateAiPowerParams) {
-  return calculateFinalAiPower({
-    baseScore: params.baseScore,
-    marketBonus: params.marketBonus,
-    timeBonus: params.timeBonus,
-    volatilityBonus: params.volatilityBonus,
-    eventBonus: params.eventBonus,
-    riskBonus: params.riskBonus,
-    learningBonus: params.learningBonus,
-    patternBonus: params.patternBonus,
-    sectorBonus: params.sectorBonus,
-    experienceBonus: params.experienceBonus,
-    similarExperienceBonus: params.similarExperienceBonus,
-    experienceRankingBonus: params.experienceRankingBonus,
-  });
+  return calculateFinalAiPower(params);
+}
+
+export function calculateAiPowerResult(params: CalculateAiPowerParams) {
+  const rawAiPower = calculateRawAiPower(params);
+
+  return {
+    rawAiPower,
+    displayAiPower: calculateDisplayAiPower(rawAiPower),
+  };
 }
 
 export function buildStockAiPowerResult(params: CalculateAiPowerParams) {
