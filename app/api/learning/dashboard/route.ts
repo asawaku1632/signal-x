@@ -35,6 +35,8 @@ function formatMonthDay(date: string) {
 
 function createAiComment({
   winRate,
+  latestPreviousBusinessDate,
+  processingDate,
   latestDaily,
   previousDaily,
   judgedTotal,
@@ -44,6 +46,8 @@ function createAiComment({
   unknown,
 }: {
   winRate: number;
+  latestPreviousBusinessDate?: string;
+  processingDate?: string;
   latestDaily?: TrendItem;
   previousDaily?: TrendItem;
   judgedTotal: number;
@@ -60,7 +64,7 @@ function createAiComment({
     return "現在は学習データを蓄積中です。翌営業日のWIN/LOSE判定後にAI勝率が表示されます。";
   }
 
-  const dailyComment = latestDaily
+  const confirmedDailyComment = latestDaily
     ? previousDaily
       ? (() => {
           const diff = latestDaily.winRate - previousDaily.winRate;
@@ -78,6 +82,12 @@ ${comparison}`;
         })()
       : `前営業日（${formatMonthDay(latestDaily.date)}）の日次勝率は${latestDaily.winRate}%でした。`
     : "日次勝率はまだ算出されていません。";
+
+  const dailyComment = processingDate
+    ? processingDate === latestPreviousBusinessDate
+      ? `最新の前営業日（${formatMonthDay(processingDate)}）は現在判定処理中です。\n\n${confirmedDailyComment}`
+      : `未判定バックログ（${formatMonthDay(processingDate)}）は現在判定処理中です。\n\n${confirmedDailyComment}`
+    : confirmedDailyComment;
 
   return `
 現在のAI累計勝率は${winRate}%です。
@@ -141,8 +151,9 @@ export async function GET() {
             COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
           FROM daily_stock_results
           WHERE date IS NOT NULL
-            AND result IN ('WIN', 'LOSE')
           GROUP BY date
+          HAVING COUNT(*) FILTER (WHERE result = 'UNKNOWN') = 0
+            AND COUNT(*) FILTER (WHERE result IN ('WIN', 'LOSE')) > 0
           ORDER BY date DESC
           LIMIT 5
         ) AS latest_days
@@ -154,6 +165,15 @@ export async function GET() {
             WHERE date IS NOT NULL
               AND result IN ('WIN', 'LOSE', 'HOLD')
           )::int AS date_count,
+          MAX(date) FILTER (
+            WHERE date IS NOT NULL
+              AND date::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::date
+          ) AS latest_previous_business_date,
+          MAX(date) FILTER (
+            WHERE date IS NOT NULL
+              AND result = 'UNKNOWN'
+              AND date::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::date
+          ) AS processing_date,
           MAX(GREATEST(created_at, COALESCE(checked_at, created_at))) AS updated_at
         FROM daily_stock_results
       `),
@@ -167,6 +187,12 @@ export async function GET() {
     const unknown = toNumber(summary.unknown);
     const metadata = metadataResult.rows[0] ?? {};
     const dateCount = toNumber(metadata.date_count);
+    const latestPreviousBusinessDate = metadata.latest_previous_business_date
+      ? String(metadata.latest_previous_business_date).slice(0, 10)
+      : undefined;
+    const processingDate = metadata.processing_date
+      ? String(metadata.processing_date).slice(0, 10)
+      : undefined;
     const updatedAt = metadata.updated_at ?? null;
 
     const judgedTotal = win + lose;
@@ -251,6 +277,8 @@ export async function GET() {
 
     const comment = createAiComment({
       winRate,
+      latestPreviousBusinessDate,
+      processingDate,
       latestDaily: judgedTrend.at(-1),
       previousDaily: judgedTrend.at(-2),
       judgedTotal,
@@ -278,6 +306,9 @@ export async function GET() {
       growthTrend,
       resultPie,
       comment,
+      latestPreviousBusinessDate: latestPreviousBusinessDate ?? null,
+      latestConfirmedDate: judgedTrend.at(-1)?.date ?? null,
+      processingDate: processingDate ?? null,
       updatedAt,
     });
   } catch (error) {
@@ -302,6 +333,9 @@ export async function GET() {
         growthTrend: [],
         resultPie: [],
         comment: "AI学習データの取得に失敗しました。",
+        latestPreviousBusinessDate: null,
+        latestConfirmedDate: null,
+        processingDate: null,
         updatedAt: new Date().toLocaleString("ja-JP"),
       },
       { status: 500 },

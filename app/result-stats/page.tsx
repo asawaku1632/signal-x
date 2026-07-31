@@ -36,6 +36,9 @@ type DashboardData = {
     winRate: number;
   }[];
   comment: string;
+  latestPreviousBusinessDate: string | null;
+  latestConfirmedDate: string | null;
+  processingDate: string | null;
   updatedAt: string;
 };
 
@@ -90,7 +93,7 @@ export default function ResultStatsPage() {
       <div className="mx-auto max-w-md px-4 pt-4">
         <header className="flex items-center justify-between mb-4">
           <Link
-            href="/"
+            href="/dashboard"
             className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
           >
             ‹
@@ -163,6 +166,18 @@ export default function ResultStatsPage() {
                 {data.comment ||
                   "AIは現在データ蓄積中です。検証数が増えるほど精度が安定します。"}
               </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <DateBox label="最新の前営業日" value={data.latestPreviousBusinessDate} />
+                <DateBox label="最新の確定済み" value={data.latestConfirmedDate} />
+                <DateBox label="判定処理中" value={data.processingDate} pending />
+              </div>
+
+              {data.processingDate && (
+                <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800">
+                  最新営業日の学習を実行中です。勝率には反映されていません。
+                </p>
+              )}
             </section>
 
             <section className="mt-4 rounded-[24px] bg-white border border-slate-200 p-4 shadow-sm">
@@ -338,5 +353,24 @@ function StockRow({
         </div>
       </div>
     </Link>
+  );
+}
+
+function DateBox({
+  label,
+  value,
+  pending = false,
+}: {
+  label: string;
+  value: string | null;
+  pending?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl p-2 text-center ${pending && value ? "bg-amber-50" : "bg-slate-50"}`}>
+      <p className="text-[10px] font-black text-slate-500">{label}</p>
+      <p className={`mt-1 text-xs font-black ${pending && value ? "text-amber-700" : "text-slate-900"}`}>
+        {value ?? "なし"}
+      </p>
+    </div>
   );
 }

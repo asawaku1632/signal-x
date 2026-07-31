@@ -96,10 +96,11 @@ export function isCronAuthorized(request: Request): boolean {
   );
 }
 
-async function findOldestComparableDate(
+async function findComparableDate(
   client: import("pg").PoolClient,
   todayJst: string,
   requestedDate?: string,
+  priority: "newest" | "oldest" = "newest",
 ): Promise<{ targetDate: string; priceDate: string } | null> {
   const { rows } = await client.query(
     `
@@ -140,7 +141,7 @@ async function findOldestComparableDate(
       AND future.price IS NOT NULL
       AND future.price > 0
     GROUP BY pair.target_date, pair.price_date
-    ORDER BY pair.target_date ASC
+    ORDER BY pair.target_date ${priority === "newest" ? "DESC" : "ASC"}
     LIMIT 1
     `,
     [todayJst, requestedDate ?? null],
@@ -236,6 +237,7 @@ async function runBatch(
   batchSize: number,
   todayJst: string,
   requestedDate?: string,
+  priority: "newest" | "oldest" = "newest",
 ): Promise<DailyCheckBatchReport | null> {
   const batchStartedAt = Date.now();
   const client = await pool.connect();
@@ -243,10 +245,11 @@ async function runBatch(
   try {
     await client.query("BEGIN");
 
-    const target = await findOldestComparableDate(
+    const target = await findComparableDate(
       client,
       todayJst,
       requestedDate,
+      priority,
     );
     if (!target) {
       await client.query("ROLLBACK");
@@ -446,6 +449,12 @@ export async function runDailyCheck(options?: {
         batchSize,
         todayJst,
         options?.targetDate,
+        // Process the newest date first, then reserve one early batch for the
+        // oldest backlog. The remaining batches return to newest-first work.
+        // Explicit date runs still process only the requested date.
+        !options?.targetDate && maxBatches > 1 && batch === 2
+          ? "oldest"
+          : "newest",
       );
       if (!report) {
         stopReason = "completed";
@@ -463,7 +472,7 @@ export async function runDailyCheck(options?: {
 
     if (
       stopReason === "max_batches" &&
-      !(await findOldestComparableDate(
+      !(await findComparableDate(
         lockClient,
         todayJst,
         options?.targetDate,
