@@ -19,25 +19,44 @@ const navItems: NavItem[] = [
   },
   {
     href: "/scan-mobile",
-    icon: "⌕",
+    icon: "🔍",
     label: "スキャン",
-    matchPaths: ["/scan-mobile"],
+    matchPaths: ["/scan-mobile", "/scan"],
+  },
+  {
+    href: "/today-market",
+    icon: "🤖",
+    label: "市場",
+    matchPaths: [
+      "/today-market",
+      "/ranking",
+      "/favorites",
+      "/favorites-alerts",
+      "/alerts",
+      "/history",
+      "/top-signals",
+      "/performance",
+      "/result-stats",
+      "/result-ranking",
+      "/results",
+      "/chart",
+    ],
   },
   {
     href: "/ai-analysis",
-    icon: "✦",
+    icon: "🧠",
     label: "AI分析",
     matchPaths: ["/ai-analysis", "/analysis"],
   },
   {
     href: "/learning/patterns",
-    icon: "▤",
+    icon: "📚",
     label: "図鑑",
-    matchPaths: ["/learning/patterns"],
+    matchPaths: ["/learning"],
   },
   {
     href: "/menu",
-    icon: "★",
+    icon: "☰",
     label: "メニュー",
     matchPaths: ["/menu"],
   },
@@ -55,8 +74,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="mx-auto grid max-w-md grid-cols-5 px-1 py-2">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto grid h-16 max-w-lg grid-cols-6 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
         {navItems.map((item) => {
           const active = isActive(item);
 
@@ -66,13 +85,13 @@ export default function BottomNav() {
               href={item.href}
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 text-center text-[11px] font-black transition ${
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 text-center text-[10px] font-black transition-colors ${
                 active
-                  ? "text-pink-500"
-                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                  ? "text-blue-600"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <span className="text-2xl leading-none">{item.icon}</span>
+              <span className="text-xl leading-none" aria-hidden="true">{item.icon}</span>
 
               <span className="w-full truncate leading-none">
                 {item.label}

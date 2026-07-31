@@ -362,7 +362,7 @@ export const chartPatternCatalog: ChartPatternCatalogItem[] = [
     diagramPoints: "4,49 30,7 43,19 54,34 65,23 76,31 86,25 95,5",
   }),
   definePattern({
-    id: "pattern004", name: "ボリンジャーバンドスクイーズ", engineNames: ["ボリンジャーバンドスクイーズ"], direction: "NEUTRAL", category: "ボラティリティ", difficulty: "INTERMEDIATE",
+    id: "pattern004", name: "ボリンジャーバンド収縮継続", engineNames: ["ボリンジャーバンドスクイーズ"], direction: "NEUTRAL", category: "ボラティリティ", difficulty: "INTERMEDIATE",
     summary: "ボリンジャーバンド幅が過去の低水準まで継続的に縮小し、次の方向確定を待つ形成中パターンです。",
     formation: ["20期間の値動きが縮小する", "バンド幅が過去50期間の下位25%に入る", "終値がバンド内に留まる"],
     aiChecks: ["現在のバンド幅", "10期間前からの収縮率", "過去幅分布での位置", "終値と上下バンドの関係"],
@@ -402,7 +402,7 @@ export const chartPatternCatalog: ChartPatternCatalogItem[] = [
     diagramPoints: "4,9 18,18 32,28 46,39 59,45 70,34 82,20 95,5",
   }),
   definePattern({
-    id: "pattern019", name: "ボックス上抜け", engineNames: ["ボックス上抜け"], direction: "BUY", category: "レンジ／ボックス", difficulty: "INTERMEDIATE",
+    id: "pattern019", name: "出来高付きボックス上抜け", engineNames: ["ボックス上抜け"], direction: "BUY", category: "レンジ／ボックス", difficulty: "INTERMEDIATE",
     summary: "20期間の明確なボックス相場を、出来高を伴う終値で上抜けた確定パターンです。",
     formation: ["水平な上限と下限を複数回確認する", "終値の大半がボックス内に収まる", "終値が上限を明確に突破する"],
     aiChecks: ["上下回帰線の水平性", "境界への接触回数", "範囲内終値率", "突破幅と出来高"],

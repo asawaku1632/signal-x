@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import DetectedPatternSummary, {
   type ScanDetectedPattern,
 } from "@/app/components/scan/DetectedPatternSummary";
+import BottomNav from "@/app/components/BottomNav";
 
 type Stock = {
   code: string;
@@ -124,6 +125,40 @@ function getAiAdvice(score: number) {
   if (score >= 70) return "本命候補です。押し目や出来高を確認しましょう。";
   if (score >= 50) return "今は静観寄り。無理に入らず確認優先です。";
   return "今日は見送り候補です。";
+}
+
+type BestSignalMetrics = {
+  stock: Stock;
+  takeProfit: number;
+  stopLoss: number;
+  expectedProfit: number;
+  riskRewardRatio: number;
+};
+
+function getBestSignalMetrics(stock: Stock): BestSignalMetrics | null {
+  const { price, takeProfit, stopLoss } = stock;
+
+  if (
+    !Number.isFinite(price) ||
+    !Number.isFinite(takeProfit) ||
+    !Number.isFinite(stopLoss) ||
+    price <= 0 ||
+    takeProfit === undefined ||
+    stopLoss === undefined ||
+    takeProfit <= price ||
+    stopLoss >= price
+  ) {
+    return null;
+  }
+
+  const expectedProfit = (takeProfit - price) * 100;
+  const riskRewardRatio = (takeProfit - price) / (price - stopLoss);
+
+  if (!Number.isFinite(expectedProfit) || !Number.isFinite(riskRewardRatio)) {
+    return null;
+  }
+
+  return { stock, takeProfit, stopLoss, expectedProfit, riskRewardRatio };
 }
 
 export default function ScanMobilePage() {
@@ -379,32 +414,42 @@ function ScanMobileContent() {
     strongSignalCodes,
   ]);
 
-  const bestSignal = filteredStocks[0];
+  const bestSignalMetrics = useMemo(() => {
+    const candidates = filteredStocks
+      .map(getBestSignalMetrics)
+      .filter((candidate): candidate is BestSignalMetrics => candidate !== null)
+      .sort((a, b) => b.stock.score - a.stock.score);
 
-  const hotTop3 = useMemo(() => hotSignals.slice(0, 3), [hotSignals]);
+    return (
+      candidates.find(
+        ({ expectedProfit, riskRewardRatio }) =>
+          riskRewardRatio >= 1.2 && expectedProfit >= 500,
+      ) ??
+      candidates.find(
+        ({ expectedProfit, riskRewardRatio }) =>
+          riskRewardRatio >= 1 && expectedProfit >= 300,
+      ) ??
+      null
+    );
+  }, [filteredStocks]);
+
+  const bestSignal = bestSignalMetrics?.stock;
+
+  const hotTop3 = useMemo(
+    () => filteredStocks.slice(0, HOT_TOP_LIMIT),
+    [filteredStocks],
+  );
 
   const marketJudge = getMarketJudge(rawHotCount, rawStrongCount);
   const winRate = bestSignal
     ? Math.min(95, Math.max(45, Math.round(bestSignal.score * 0.75 + 12)))
     : 0;
 
-  const takeProfit = bestSignal
-    ? (bestSignal.takeProfit ?? Math.round(bestSignal.price * 1.03))
-    : 0;
-
-  const stopLoss = bestSignal
-    ? (bestSignal.stopLoss ?? Math.round(bestSignal.price * 0.98))
-    : 0;
-
-  const expectedProfit = bestSignal ? (takeProfit - bestSignal.price) * 100 : 0;
-
-  const riskRewardRatio = bestSignal
-    ? Number(
-        (
-          (takeProfit - bestSignal.price) /
-          Math.max(bestSignal.price - stopLoss, 1)
-        ).toFixed(1),
-      )
+  const takeProfit = bestSignalMetrics?.takeProfit ?? 0;
+  const stopLoss = bestSignalMetrics?.stopLoss ?? 0;
+  const expectedProfit = bestSignalMetrics?.expectedProfit ?? 0;
+  const riskRewardRatio = bestSignalMetrics
+    ? Number(bestSignalMetrics.riskRewardRatio.toFixed(1))
     : 0;
 
   return (
@@ -591,7 +636,7 @@ function ScanMobileContent() {
         </section>
 
         {/* BEST SIGNAL */}
-        {bestSignal && (
+        {bestSignal ? (
           <section className="mt-5 overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-950 p-4 text-white shadow-xl shadow-blue-200">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -634,6 +679,20 @@ function ScanMobileContent() {
               個別AI解析を見る
             </Link>
           </section>
+        ) : (
+          !loading && (
+            <section className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-6 text-center shadow-sm">
+              <p className="text-xs font-black tracking-[0.18em] text-slate-400">
+                BEST SIGNAL
+              </p>
+              <p className="mt-3 text-lg font-black text-slate-700">
+                現在の条件では大本命候補がありません
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                予算や条件を変更して確認してください。
+              </p>
+            </section>
+          )
         )}
         {/* RANKING */}
         {(signalFilter === "market-hot" ||
@@ -707,7 +766,7 @@ function ScanMobileContent() {
         </section>
 
         {/* HOT TOP3 */}
-        {hotTop3.length > 0 && (
+        {!loading && (
           <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
             <div className="flex items-end justify-between gap-4">
               <div>
@@ -719,12 +778,13 @@ function ScanMobileContent() {
               </div>
 
               <p className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-600">
-                AIおすすめ順
+                選択中の並び順
               </p>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {hotTop3.map((stock, index) => (
+            {hotTop3.length > 0 ? (
+              <div className="mt-4 space-y-3">
+                {hotTop3.map((stock, index) => (
                 <Link
                   key={stock.code}
                   href={`/analysis/${stock.code}`}
@@ -757,8 +817,18 @@ function ScanMobileContent() {
                     </div>
                   </div>
                 </Link>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-3xl bg-slate-50 p-6 text-center">
+                <p className="text-lg font-black text-slate-700">
+                  条件に合うHOT SIGNALはありません
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  条件外の銘柄は補充していません。
+                </p>
+              </div>
+            )}
           </section>
         )}
         {/* SCAN STATUS */}
@@ -831,21 +901,7 @@ function ScanMobileContent() {
           </div>
         </section>
 
-        {/* BOTTOM NAV - APP WIDE STANDARD */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-2 py-2 backdrop-blur-xl">
-          <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-            <BottomNavItem href="/dashboard" icon="🏠" label="ホーム" />
-            <BottomNavItem href="/today-market" icon="🤖" label="市場" />
-            <BottomNavItem
-              href="/ranking"
-              icon="🏆"
-              label="ランキング"
-              active
-            />
-            <BottomNavItem href="/learning" icon="🧠" label="学習" />
-            <BottomNavItem href="/favorites" icon="⭐" label="お気に入り" />
-          </div>
-        </nav>
+        <BottomNav />
       </div>
     </main>
   );
@@ -939,7 +995,6 @@ function StockRankingCard({
     </article>
   );
 }
-
 function GlassMini({
   label,
   value,
@@ -1002,31 +1057,5 @@ function GuideStep({
         </p>
       </div>
     </div>
-  );
-}
-
-function BottomNavItem({
-  href,
-  icon,
-  label,
-  active = false,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`min-w-0 rounded-2xl px-1 py-2 text-center text-[10px] font-black transition ${
-        active
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
-          : "text-slate-500"
-      }`}
-    >
-      <div className="text-base leading-none">{icon}</div>
-      <div className="mt-1 truncate">{label}</div>
-    </Link>
   );
 }
