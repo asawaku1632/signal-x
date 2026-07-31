@@ -21,6 +21,8 @@ type Stock = {
   judgedCount?: number;
   wins?: number;
   losses?: number;
+  holds?: number;
+  totalProfitYen?: number;
   expectedProfitRate?: number;
   expectedProfitAmount?: number;
   reliabilityScore?: number;
@@ -56,12 +58,12 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 ];
 
 function yen(value?: number) {
-  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  if (value === undefined || value === null || Number.isNaN(value)) return "--";
   return `${Math.round(value).toLocaleString()}円`;
 }
 
 function percent(value?: number, digits = 1) {
-  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  if (value === undefined || value === null || Number.isNaN(value)) return "--";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}%`;
 }
@@ -115,6 +117,12 @@ function normalizeNumber(value: unknown, fallback = 0) {
   return fallback;
 }
 
+function normalizeOptionalNumber(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const normalized = normalizeNumber(value, Number.NaN);
+  return Number.isNaN(normalized) ? undefined : normalized;
+}
+
 function isDetectedChartPattern(value: unknown): value is DetectedChartPattern {
   if (!value || typeof value !== "object") return false;
   const pattern = value as Partial<DetectedChartPattern>;
@@ -141,19 +149,27 @@ function normalizeStock(raw: Record<string, unknown>): Stock {
     raw.changePercent ?? raw.change_rate ?? raw.changeRate,
   );
 
-  const wins = normalizeNumber(raw.wins ?? raw.winCount ?? raw.win_count);
-  const losses = normalizeNumber(raw.losses ?? raw.lossCount ?? raw.loss_count);
-  const judgedCount = normalizeNumber(
+  const wins = normalizeOptionalNumber(
+    raw.wins ?? raw.winCount ?? raw.win_count,
+  );
+  const losses = normalizeOptionalNumber(
+    raw.losses ?? raw.lossCount ?? raw.loss_count,
+  );
+  const holds = normalizeOptionalNumber(
+    raw.holds ?? raw.holdCount ?? raw.hold_count,
+  );
+  const judgedCount = normalizeOptionalNumber(
     raw.judgedCount ??
       raw.judgementCount ??
       raw.totalJudged ??
-      raw.judged_count ??
-      wins + losses,
+      raw.judged_count,
   );
-
-  const winRate =
-    normalizeNumber(raw.winRate ?? raw.winningRate ?? raw.win_rate) ||
-    (judgedCount > 0 ? (wins / judgedCount) * 100 : 0);
+  const winRate = normalizeOptionalNumber(
+    raw.winRate ?? raw.winningRate ?? raw.win_rate,
+  );
+  const totalProfitYen = normalizeOptionalNumber(
+    raw.totalProfitYen ?? raw.total_profit_yen,
+  );
 
   const takeProfit = normalizeNumber(
     raw.takeProfit ?? raw.targetPrice ?? raw.take_profit,
@@ -183,8 +199,8 @@ function normalizeStock(raw: Record<string, unknown>): Stock {
     ) ||
     Math.round(
       score * 0.45 +
-        Math.min(100, winRate) * 0.35 +
-        Math.min(100, judgedCount * 5) * 0.2,
+        Math.min(100, winRate ?? 0) * 0.35 +
+        Math.min(100, (judgedCount ?? 0) * 5) * 0.2,
     );
 
   return {
@@ -202,6 +218,8 @@ function normalizeStock(raw: Record<string, unknown>): Stock {
     judgedCount,
     wins,
     losses,
+    holds,
+    totalProfitYen,
     expectedProfitRate,
     expectedProfitAmount,
     reliabilityScore,
@@ -531,7 +549,26 @@ export default function RankingPage() {
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <Mini label="判定" value={judge(topStock.score)} />
-              <Mini label="勝率" value={percent(topStock.winRate, 1)} />
+              <Mini label="30日勝率" value={percent(topStock.winRate, 1)} />
+              <Mini
+                label="判定済み"
+                value={
+                  topStock.judgedCount === undefined
+                    ? "実績なし"
+                    : `${topStock.judgedCount}件`
+                }
+              />
+              <Mini
+                label="30日実績"
+                value={
+                  topStock.wins === undefined ||
+                  topStock.losses === undefined ||
+                  topStock.holds === undefined
+                    ? "実績なし"
+                    : `${topStock.wins}勝${topStock.losses}敗 HOLD${topStock.holds}件`
+                }
+              />
+              <Mini label="累計損益" value={yen(topStock.totalProfitYen)} />
               <Mini label="必要資金" value={yen(topStock.price * 100)} />
               <Mini
                 label="期待利益"
@@ -628,11 +665,26 @@ export default function RankingPage() {
               <DetectedPatternSummary patterns={stock.detectedPatterns} />
 
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <Mini label="勝率" value={percent(stock.winRate, 1)} />
+                <Mini label="30日勝率" value={percent(stock.winRate, 1)} />
                 <Mini
-                  label="判定"
-                  value={`${stock.judgedCount ?? 0}件`}
+                  label="判定済み"
+                  value={
+                    stock.judgedCount === undefined
+                      ? "実績なし"
+                      : `${stock.judgedCount}件`
+                  }
                 />
+                <Mini
+                  label="30日実績"
+                  value={
+                    stock.wins === undefined ||
+                    stock.losses === undefined ||
+                    stock.holds === undefined
+                      ? "実績なし"
+                      : `${stock.wins}勝${stock.losses}敗 HOLD${stock.holds}件`
+                  }
+                />
+                <Mini label="累計損益" value={yen(stock.totalProfitYen)} />
                 <Mini label="100株" value={yen(stock.price * 100)} />
                 <Mini
                   label="期待利益"

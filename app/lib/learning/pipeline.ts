@@ -64,7 +64,7 @@ export async function runAiPipeline(params: PipelineParams) {
 
   const learningStats = learningStatsMap.get(scored.code);
   const judgedLearning =
-    (learningStats?.win ?? 0) + (learningStats?.lose ?? 0);
+    (learningStats?.wins ?? 0) + (learningStats?.losses ?? 0);
 
   const learning =
     judgedLearning > 0
@@ -205,6 +205,12 @@ export async function runAiPipeline(params: PipelineParams) {
 
   return {
     ...scored,
+    wins: learningStats?.wins,
+    losses: learningStats?.losses,
+    holds: learningStats?.holds,
+    judgedCount: learningStats?.judgedCount,
+    winRate: learningStats?.winRate,
+    totalProfitYen: learningStats?.totalProfitYen,
     sectorKey,
     sectorLabel,
     experienceKey,

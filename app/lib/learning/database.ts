@@ -2,9 +2,12 @@ import pool from "@/app/lib/postgres";
 
 export type LearningStats = {
   code: string;
-  win: number;
-  lose: number;
+  wins: number;
+  losses: number;
+  holds: number;
+  judgedCount: number;
   winRate: number;
+  totalProfitYen: number;
 };
 
 export type PatternStats = {
@@ -43,7 +46,7 @@ function toNumber(value: unknown, fallback = 0): number {
 function calcWinRate(win: number, lose: number): number {
   const judged = win + lose;
   if (judged <= 0) return 0;
-  return Math.round((win / judged) * 100);
+  return Math.round((win / judged) * 1000) / 10;
 }
 
 function uniqueNonEmpty(values: string[]): string[] {
@@ -97,10 +100,22 @@ export async function getLearningStatsMap(
     `
     SELECT
       code,
-      SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) AS win,
-      SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END) AS lose
+      COUNT(*) FILTER (WHERE result = 'WIN')::int AS wins,
+      COUNT(*) FILTER (WHERE result = 'LOSE')::int AS losses,
+      COUNT(*) FILTER (WHERE result = 'HOLD')::int AS holds,
+      COALESCE(
+        SUM(ROUND((next_price - price) * 100)) FILTER (
+          WHERE result IN ('WIN', 'LOSE', 'HOLD')
+        ),
+        0
+      ) AS total_profit_yen
     FROM daily_stock_results
     WHERE code = ANY($1)
+      AND date::date >= CURRENT_DATE - INTERVAL '30 days'
+      AND date::date <= CURRENT_DATE
+      AND result IN ('WIN', 'LOSE', 'HOLD')
+      AND next_price IS NOT NULL
+      AND change_percent IS NOT NULL
     GROUP BY code
     `,
     [uniqueCodes]
@@ -108,14 +123,18 @@ export async function getLearningStatsMap(
 
   for (const row of rows) {
     const code = String(row.code);
-    const win = toNumber(row.win);
-    const lose = toNumber(row.lose);
+    const wins = toNumber(row.wins);
+    const losses = toNumber(row.losses);
+    const holds = toNumber(row.holds);
 
     map.set(code, {
       code,
-      win,
-      lose,
-      winRate: calcWinRate(win, lose),
+      wins,
+      losses,
+      holds,
+      judgedCount: wins + losses + holds,
+      winRate: calcWinRate(wins, losses),
+      totalProfitYen: toNumber(row.total_profit_yen),
     });
   }
 
