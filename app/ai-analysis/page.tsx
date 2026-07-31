@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAiRank } from "@/app/lib/aiRank";
+import BottomNav from "@/app/components/BottomNav";
 
 
 type Stock = {
@@ -530,6 +531,7 @@ function AiAnalysisContent() {
           </>
         )}
       </div>
+      <BottomNav />
     </main>
   );
 }
@@ -597,6 +599,7 @@ function AiAnalysisLoading() {
           <p className="font-bold text-zinc-500">AI分析データを読み込み中...</p>
         </section>
       </div>
+      <BottomNav />
     </main>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import BottomNav from "@/app/components/BottomNav";
 
 type FavoriteRecord = {
   code: string;
@@ -195,6 +196,7 @@ export default function FavoritesPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初回表示時に既存のお気に入り取得を開始するため。
     void loadFavorites();
   }, [loadFavorites]);
 
@@ -393,7 +395,6 @@ export default function FavoritesPage() {
     </main>
   );
 }
-
 function Mini({
   label,
   value,
@@ -406,50 +407,5 @@ function Mini({
       <p className="text-xs font-black text-slate-500">{label}</p>
       <p className="mt-1 break-words text-base font-black">{value}</p>
     </div>
-  );
-}
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-md grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/today-market" icon="🤖" label="市場" />
-        <Nav href="/ranking" icon="🏆" label="ランキング" />
-        <Nav href="/learning" icon="🧠" label="学習" />
-        <Nav
-          href="/favorites"
-          icon="⭐"
-          label="お気に入り"
-          active
-        />
-      </div>
-    </nav>
-  );
-}
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={
-        active
-          ? "text-center text-xs font-bold text-blue-600"
-          : "text-center text-xs font-bold text-slate-500"
-      }
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
-    </Link>
   );
 }

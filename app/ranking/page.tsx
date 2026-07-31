@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { DetectedChartPattern } from "@/app/lib/chartPatternEngine";
 import { hasChartPatternCatalogItem } from "@/app/lib/chartPatternCatalog";
+import BottomNav from "@/app/components/BottomNav";
 
 type Stock = {
   code: string;
@@ -709,42 +710,6 @@ function Mini({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] font-black text-slate-500">{label}</p>
       <p className="mt-1 text-base font-black">{value}</p>
     </div>
-  );
-}
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
-      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-      <Nav href="/dashboard" icon="🏠" label="ホーム" />
-      <Nav href="/today-market" icon="🤖" label="市場" />
-      <Nav href="/ranking" icon="🏆" label="ランキング" active />
-      <Nav href="/learning" icon="🧠" label="学習" />
-      <Nav href="/favorites" icon="⭐" label="お気に入り" />
-    </div>
-    </nav>
-  );
-}
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
-    </Link>
   );
 }
 

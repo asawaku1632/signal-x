@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
 import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
+import BottomNav from "@/app/components/BottomNav";
 
 type Signal = {
   code: string;
@@ -1265,20 +1266,11 @@ border border-blue-300/30"
           </p>
         </section>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
-            <BottomNavItem href="/dashboard" icon="🏠" label="ホーム" />
-            <BottomNavItem href="/today-market" icon="🤖" label="市場" />
-            <BottomNavItem href="/ranking" icon="🏆" label="ランキング" />
-            <BottomNavItem href="/learning" icon="🧠" label="学習" />
-            <BottomNavItem href="/favorites" icon="⭐" label="お気に入り" />
-          </div>
-        </nav>
+        <BottomNav />
       </div>
     </main>
   );
 }
-
 function Info({
   label,
   value,
@@ -1360,31 +1352,5 @@ function PerformanceMini({
       <p className="text-[10px] font-black text-slate-500">{label}</p>
       <p className={`mt-2 text-base font-black ${valueClass}`}>{value}</p>
     </div>
-  );
-}
-
-function BottomNavItem({
-  href,
-  icon,
-  label,
-  active = false,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-2xl px-3 py-2 text-center text-xs font-black transition ${
-        active
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
-          : "text-slate-500"
-      }`}
-    >
-      <div className="text-lg">{icon}</div>
-      <div className="mt-1">{label}</div>
-    </Link>
   );
 }

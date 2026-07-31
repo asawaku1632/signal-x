@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import BottomNav from "@/app/components/BottomNav";
 
 
 type TodayMarketData = {
@@ -97,9 +98,6 @@ function yen(value?: number | null) {
   return `${Math.round(value).toLocaleString()}円`;
 
 }
-
-
-
 function getRankLabel(score = 0) {
 
   if (score >= 95) return "👑 Sランク";
@@ -114,8 +112,6 @@ function getRankLabel(score = 0) {
 
 }
 
-
-
 function getPatternText(pattern?: string) {
 
   if (pattern === "W_BOTTOM_BREAK") return "Wボトム突破";
@@ -125,8 +121,6 @@ function getPatternText(pattern?: string) {
   return "通常";
 
 }
-
-
 
 export default function HomePage() {
   const router = useRouter();
@@ -1032,110 +1026,35 @@ function MenuCard({
 
 }
 
-
-
 function Winner({
-
   rank,
-
   code,
-
   name,
-
   win,
-
   gray,
-
 }: {
-
   rank: string;
-
   code: string;
-
   name: string;
-
   win: string;
-
   gray?: boolean;
-
 }) {
-
   return (
-
     <Link
-
       href={`/analysis/${code}`}
-
-      className="flex items-center gap-3 px-4 py-3 border-b border-slate-100"
-
+      className="flex items-center gap-3 border-b border-slate-100 px-4 py-3"
     >
-
       <span
-
-        className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black ${
-
+        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black text-white ${
           gray ? "bg-slate-300" : "bg-yellow-400"
-
         }`}
-
       >
-
         {rank}
-
       </span>
-
-
-
-      <div className="font-black text-sm flex-1">
-
+      <div className="flex-1 text-sm font-black">
         {code} {name}
-
       </div>
-
-
-
-      <div className="text-sm text-blue-600 font-black">AI {win}</div>
-
-    </Link>
-
-  );
-
-}
-
-
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200">
-      <div className="mx-auto max-w-md grid grid-cols-5 py-2">
-      <Nav href="/dashboard" icon="🏠" label="ホーム" active />
-      <Nav href="/today-market" icon="🤖" label="市場" />
-      <Nav href="/ranking" icon="🏆" label="ランキング" />
-      <Nav href="/learning" icon="🧠" label="学習" />
-      <Nav href="/menu" icon="★" label="メニュー" />
-    </div>
-    </nav>
-  );
-}
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={active ? "text-center text-xs font-bold text-blue-600" : "text-center text-xs font-bold text-slate-500"}
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
+      <div className="text-sm font-black text-blue-600">AI {win}</div>
     </Link>
   );
 }

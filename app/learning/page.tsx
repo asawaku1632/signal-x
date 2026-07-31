@@ -11,6 +11,7 @@ import RankingCard, {
   type StockRanking,
 } from "@/components/Learning/RankingCard";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
+import BottomNav from "@/app/components/BottomNav";
 
 type TrendItem = {
   date: string;
@@ -417,45 +418,5 @@ export default function LearningPage() {
 
       <BottomNav />
     </main>
-  );
-}
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-md grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/today-market" icon="🤖" label="市場" />
-        <Nav href="/ranking" icon="🏆" label="ランキング" />
-        <Nav href="/learning" icon="🧠" label="学習" active />
-        <Nav href="/favorites" icon="⭐" label="お気に入り" />
-      </div>
-    </nav>
-  );
-}
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={
-        active
-          ? "text-center text-xs font-bold text-blue-600"
-          : "text-center text-xs font-bold text-slate-500"
-      }
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
-    </Link>
   );
 }

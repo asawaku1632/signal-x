@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import BottomNav from "@/app/components/BottomNav";
 
 
    type TodayMarketData = {
@@ -335,7 +336,6 @@ setMarketData(data);
     </main>
   );
 }
-
 function InfoCard({
   icon,
   title,
@@ -363,43 +363,5 @@ function InfoCard({
       </p>
       <p className="text-xs text-slate-500 font-bold mt-1">{sub}</p>
     </div>
-  );
-}
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-md grid-cols-5 py-2">
-        <Nav href="/dashboard" icon="🏠" label="ホーム" />
-        <Nav href="/today-market" icon="🤖" label="市場" active />
-        <Nav href="/ranking" icon="🏆" label="ランキング" />
-        <Nav href="/learning" icon="🧠" label="学習" />
-        <Nav href="/favorites" icon="⭐" label="お気に入り" />
-      </div>
-    </nav>
-  );
-}
-
-function Nav({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`text-center text-xs font-bold ${
-        active ? "text-blue-600" : "text-slate-500"
-      }`}
-    >
-      <div className="text-2xl">{icon}</div>
-      {label}
-    </Link>
   );
 }
