@@ -30,6 +30,11 @@ function judgeLabel(score = 0) {
   return "🔴 見送り";
 }
 
+function powerStars(score: number) {
+  const filled = Math.max(1, Math.min(5, Math.ceil(score / 20)));
+  return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`;
+}
+
 function yen(value?: number) {
   if (!value) return "-";
   return `${Math.round(value).toLocaleString()}円`;
@@ -133,26 +138,22 @@ export async function GET() {
     const expectedLoss = (price - stopLoss) * 100;
 
     const message =
-  `🔥 ${bestStock.code} ${bestStock.name}\n` +
-  `🟢 強い 信頼度${score}%\n` +
-  `💴 ${yen(requiredMoney)}\n\n` +
-
-  `現在値 ${yen(price)}\n\n` +
-
-  `成行100株 (${yen(requiredMoney)})\n\n` +
-
-  `🎯 利確\n` +
-  `${yen(takeProfit)} (+${yen(expectedProfit)})\n\n` +
-
-  `🛡 損切\n` +
-  `${yen(stopLoss)} (-${yen(expectedLoss)})\n\n` +
-
-  `${shortReason(bestStock)}\n\n` +
-
-  `👇 個別AI解析\n` +
-  `${baseUrl}/analysis/${bestStock.code}`;
-      `${baseUrl}/analysis/${bestStock.code}\n` +
-      `━━━━━━━━━━━━━━`;
+      `🔥 買いシグナル発生！\n` +
+      `━━━━━━━━━━━━━━\n` +
+      `🟢 ${bestStock.code} ${bestStock.name}\n` +
+      `${powerStars(score)}  AI POWER ${score}\n` +
+      `${judgeLabel(score)}\n\n` +
+      `🛡️ 信頼度　${score}%\n` +
+      `💹 現在値　${yen(price)}\n` +
+      `💰 必要資金　${yen(requiredMoney)}（100株）\n\n` +
+      `🎯 利確目標　${yen(takeProfit)}\n` +
+      `　想定利益　+${yen(expectedProfit)}\n` +
+      `🛡️ 損切ライン　${yen(stopLoss)}\n` +
+      `　想定損失　-${yen(expectedLoss)}\n\n` +
+      `🤖 AI分析ポイント\n` +
+      `・${shortReason(bestStock)}\n\n` +
+      `👇 詳細なAI分析はこちら\n` +
+      `${baseUrl}/analysis/${bestStock.code}`;
 
     const res = await fetch(
       "https://api.line.me/v2/bot/message/broadcast",

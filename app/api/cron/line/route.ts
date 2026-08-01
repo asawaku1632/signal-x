@@ -86,6 +86,19 @@ function winRateText(score: number) {
   return 45;
 }
 
+function powerStars(score: number) {
+  const filled = Math.max(1, Math.min(5, Math.ceil(score / 20)));
+  return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`;
+}
+
+function rankLabel(score: number) {
+  if (score >= 95) return "Sランク・超激熱候補";
+  if (score >= 85) return "Aランク・激熱候補";
+  if (score >= 70) return "Bランク・注目候補";
+  if (score >= 50) return "Cランク・監視候補";
+  return "Dランク・見送り";
+}
+
 async function sendLine(message: string) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -254,8 +267,8 @@ export async function GET(req: Request) {
     const top3 = ranking
       .slice(0, 3)
       .map((stock, index) => {
-        const rank =
-          index === 0 ? "①" : index === 1 ? "②" : "③";
+        const medal =
+          index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
 
         const stockScore = aiScore(stock);
         const stockWinRate = winRateText(stockScore);
@@ -263,37 +276,40 @@ export async function GET(req: Request) {
           `${PUBLIC_URL}/analysis/${stock.code}`;
 
         return (
-          `${rank} ${stock.code} ${stock.name}\n` +
-          `【信頼度】${stockScore}%\n` +
-          `【勝率予測】${stockWinRate}%\n` +
-          `${tradeDecision(stockScore)}\n` +
-          `👇 個別AI解析\n` +
+          `${medal} ${stock.code} ${stock.name}\n` +
+          `　AI POWER ${stockScore}｜勝率予測 ${stockWinRate}%\n` +
+          `　${tradeDecision(stockScore)} ${powerStars(stockScore)}\n` +
+          `　🔎 詳細AI分析\n` +
           `${analysisUrl}`
         );
       })
       .join("\n\n");
 
     const message =
-      `【🏆 本日の大本命】\n` +
-      `${top.code} ${top.name}\n\n` +
-      `${tradeDecision(score)}\n\n` +
-      `【信頼度】${score}%\n` +
-      `【勝率予測】${winRate}%\n` +
-      `【AI順位】${rankText}\n\n` +
-      `【現在値】${yen(price)}\n` +
-      `【必要資金】${yen(requiredMoney)}\n\n` +
-      `【利確】${yen(takeProfit)}\n` +
-      `想定利益 +${yen(expectedProfit)}\n\n` +
-      `【損切】${yen(stopLoss)}\n` +
-      `想定損失 -${yen(expectedLoss)}\n\n` +
-      `【理由】\n` +
+      `🏆 本日のAIランキング1位\n` +
+      `━━━━━━━━━━━━━━\n` +
+      `🥇 ${top.code} ${top.name}\n` +
+      `🔥 ${rankLabel(score)}\n` +
+      `${powerStars(score)}  AI POWER ${score}\n\n` +
+      `🛡️ 信頼度　${score}%\n` +
+      `📈 勝率予測　${winRate}%\n` +
+      `👑 AI順位　${rankText}\n\n` +
+      `💹 現在値　${yen(price)}\n` +
+      `💰 必要資金　${yen(requiredMoney)}（100株）\n\n` +
+      `🎯 利確目標　${yen(takeProfit)}\n` +
+      `　想定利益　+${yen(expectedProfit)}\n` +
+      `🛡️ 損切ライン　${yen(stopLoss)}\n` +
+      `　想定損失　-${yen(expectedLoss)}\n\n` +
+      `🤖 AI分析ポイント\n` +
       `${top.reason || "AI理由なし"}\n\n` +
-      `👇 個別AI解析\n` +
+      `👇 詳細なAI分析はこちら\n` +
       `${PUBLIC_URL}/analysis/${top.code}\n\n` +
       `━━━━━━━━━━━━━━\n` +
-      `🔥 TOP3\n\n` +
-      `${top3}\n` +
-      `━━━━━━━━━━━━━━`;
+      `📊 今日のAIランキング TOP3\n` +
+      `━━━━━━━━━━━━━━\n` +
+      `${top3}\n\n` +
+      `ランキングをもっと見る\n` +
+      `${PUBLIC_URL}/ranking`;
 
     lineLog("Message Generated", {
       topCode: top.code,

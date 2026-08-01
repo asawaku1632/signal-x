@@ -27,6 +27,26 @@ function tradeDecision(score = 0) {
   return "🔴 見送り";
 }
 
+function winRateText(score: number) {
+  if (score >= 85) return 80;
+  if (score >= 70) return 70;
+  if (score >= 50) return 60;
+  return 45;
+}
+
+function powerStars(score: number) {
+  const filled = Math.max(1, Math.min(5, Math.ceil(score / 20)));
+  return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`;
+}
+
+function rankLabel(score: number) {
+  if (score >= 95) return "Sランク・超激熱候補";
+  if (score >= 85) return "Aランク・激熱候補";
+  if (score >= 70) return "Bランク・注目候補";
+  if (score >= 50) return "Cランク・監視候補";
+  return "Dランク・見送り";
+}
+
 async function sendLine(message: string) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -85,6 +105,8 @@ export async function GET(req: Request) {
     const requiredMoney = price * 100;
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
+    const winRate = winRateText(score);
+    const totalStockList = Number(json.totalStockList) || ranking.length;
 
     const top3 = ranking
   .slice(0, 3)
@@ -93,42 +115,44 @@ export async function GET(req: Request) {
     const s = aiScore(stock);
 
     return `${medal} ${stock.code} ${stock.name}
-${tradeDecision(s)}
-AI POWER ${s}%
-
-👉 個別AI解析
+　AI POWER ${s}｜勝率予測 ${winRateText(s)}%
+　${tradeDecision(s)} ${powerStars(s)}
+　🔎 詳細AI分析
 ${publicUrl}/analysis/${stock.code}`;
   })
   .join("\n\n");
 
-    const message = `━━━━━━━━━━━━━━
-🏆 本日の大本命
+    const message = `🏆 本日のAIランキング1位
 ━━━━━━━━━━━━━━
+🥇 ${top.code} ${top.name}
+🔥 ${rankLabel(score)}
+${powerStars(score)}  AI POWER ${score}
 
-${top.code} ${top.name}
+🛡️ 信頼度　${score}%
+📈 勝率予測　${winRate}%
+👑 AI順位　1位 / ${totalStockList.toLocaleString("ja-JP")}銘柄中
 
-${tradeDecision(score)}
-信頼度 ${score}%
+💹 現在値　${yen(price)}
+💰 必要資金　${yen(requiredMoney)}（100株）
 
-現在値 ${yen(price)}
-成行100株 ${yen(requiredMoney)}
+🎯 利確目標　${yen(takeProfit)}
+　想定利益　+${yen(expectedProfit)}
+🛡️ 損切ライン　${yen(stopLoss)}
+　想定損失　-${yen(expectedLoss)}
 
-🎯 利確 ${yen(takeProfit)}
-想定利益 +${yen(expectedProfit)}
+🤖 AI分析ポイント
+${top.reason || "AI理由なし"}
 
-🛡 損切 ${yen(stopLoss)}
-想定損失 -${yen(expectedLoss)}
-
-理由：${top.reason || "AI理由なし"}
-
-👇 個別AI解析
+👇 詳細なAI分析はこちら
 ${publicUrl}/analysis/${top.code}
 
 ━━━━━━━━━━━━━━
-TOP3
-
+📊 今日のAIランキング TOP3
+━━━━━━━━━━━━━━
 ${top3}
-━━━━━━━━━━━━━━`;
+
+ランキングをもっと見る
+${publicUrl}/ranking`;
 
     const line = await sendLine(message);
 
@@ -154,14 +178,14 @@ ${top3}
       savedLog,
       rankingCount: ranking.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
 
     return NextResponse.json(
       {
         success: false,
         error: "cron line ranking failed",
-        message: error?.message || String(error),
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
