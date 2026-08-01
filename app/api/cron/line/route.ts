@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
+import { requireCronAuth } from "@/app/lib/cronAuth";
 
 type Stock = {
   code: string;
@@ -149,6 +150,9 @@ async function sendLine(message: string) {
 }
 
 export async function GET(req: Request) {
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
+
   lineLog("Cron Started", {
     requestedAt: new Date().toISOString(),
     userAgent: req.headers.get("user-agent"),

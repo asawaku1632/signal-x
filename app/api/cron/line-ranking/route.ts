@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
+import { requireCronAuth } from "@/app/lib/cronAuth";
 
 type Stock = {
   code: string;
@@ -79,6 +80,9 @@ async function sendLine(message: string) {
 }
 
 export async function GET(req: Request) {
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;

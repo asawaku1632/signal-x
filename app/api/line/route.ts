@@ -1,4 +1,5 @@
 import { saveNotificationLog } from "@/app/lib/notificationLog";
+import { requireCronAuth } from "@/app/lib/cronAuth";
 import { NextResponse } from "next/server";
 
 type Stock = {
@@ -79,7 +80,10 @@ function shortReason(stock: Stock) {
   return stock.reason || "AI監視中";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const unauthorized = requireCronAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 

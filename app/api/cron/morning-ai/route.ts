@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/app/lib/cronAuth";
 
-async function fetchJson(url: string) {
+async function fetchJson(url: string, headers?: HeadersInit) {
   const res = await fetch(url, {
     cache: "no-store",
+    headers,
   });
 
   const data = await res.json();
@@ -14,7 +16,10 @@ async function fetchJson(url: string) {
   return data;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const unauthorized = requireCronAuth(request);
+  if (unauthorized) return unauthorized;
+
   const startedAt = Date.now();
 
   try {
@@ -78,7 +83,10 @@ export async function GET() {
 
     // ⑫ LINEランキング通知
     const lineData = await fetchJson(
-      `${baseUrl}/api/cron/line-ranking`
+      `${baseUrl}/api/cron/line-ranking`,
+      {
+        Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
+      },
     );
 
     // ⑬ QA監査
