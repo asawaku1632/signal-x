@@ -47,6 +47,15 @@ function rankLabel(score: number) {
   return "Dランク・見送り";
 }
 
+function analysisPointLines(reason?: string) {
+  const points = (reason || "AI理由なし")
+    .split(/\r?\n|[。！!｜・]+/u)
+    .map((point) => point.trim())
+    .filter(Boolean);
+
+  return points.map((point) => `✅ ${point}`).join("\n");
+}
+
 async function sendLine(message: string) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -114,19 +123,23 @@ export async function GET(req: Request) {
     const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
     const s = aiScore(stock);
 
-    return `${medal} ${stock.code} ${stock.name}
-　AI POWER ${s}｜勝率予測 ${winRateText(s)}%
-　${tradeDecision(s)} ${powerStars(s)}
-　🔎 詳細AI分析
+    return `${medal}【${index + 1}位】
+${stock.code} ${stock.name}
+AI POWER ${s}｜勝率予測 ${winRateText(s)}%
+${tradeDecision(s)} ${powerStars(s)}
+🔎 詳細AI分析
 ${publicUrl}/analysis/${stock.code}`;
   })
   .join("\n\n");
 
     const message = `🏆 本日のAIランキング1位
 ━━━━━━━━━━━━━━
-🥇 ${top.code} ${top.name}
+🥇 ${top.code}
+${top.name}
+
 🔥 ${rankLabel(score)}
-${powerStars(score)}  AI POWER ${score}
+${powerStars(score)}
+⚡ AI POWER ${score}
 
 🛡️ 信頼度　${score}%
 📈 勝率予測　${winRate}%
@@ -135,15 +148,16 @@ ${powerStars(score)}  AI POWER ${score}
 💹 現在値　${yen(price)}
 💰 必要資金　${yen(requiredMoney)}（100株）
 
-🎯 利確目標　${yen(takeProfit)}
-　想定利益　+${yen(expectedProfit)}
-🛡️ 損切ライン　${yen(stopLoss)}
-　想定損失　-${yen(expectedLoss)}
+🎯【利確目標】
+${yen(takeProfit)}　想定利益 +${yen(expectedProfit)}
 
-🤖 AI分析ポイント
-${top.reason || "AI理由なし"}
+🛡️【損切ライン】
+${yen(stopLoss)}　想定損失 -${yen(expectedLoss)}
 
-👇 詳細なAI分析はこちら
+🤖【AI分析ポイント】
+${analysisPointLines(top.reason)}
+
+👇【詳細なAI分析はこちら】
 ${publicUrl}/analysis/${top.code}
 
 ━━━━━━━━━━━━━━
@@ -151,8 +165,12 @@ ${publicUrl}/analysis/${top.code}
 ━━━━━━━━━━━━━━
 ${top3}
 
-ランキングをもっと見る
-${publicUrl}/ranking`;
+📊 ランキングをもっと見る
+${publicUrl}/ranking
+
+━━━━━━━━━━━━━━
+⚡ SIGNALX
+AI日本株分析サービス`;
 
     const line = await sendLine(message);
 

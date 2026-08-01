@@ -99,6 +99,15 @@ function rankLabel(score: number) {
   return "Dランク・見送り";
 }
 
+function analysisPointLines(reason?: string) {
+  const points = (reason || "AI理由なし")
+    .split(/\r?\n|[。！!｜・]+/u)
+    .map((point) => point.trim())
+    .filter(Boolean);
+
+  return points.map((point) => `✅ ${point}`).join("\n");
+}
+
 async function sendLine(message: string) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -276,10 +285,11 @@ export async function GET(req: Request) {
           `${PUBLIC_URL}/analysis/${stock.code}`;
 
         return (
-          `${medal} ${stock.code} ${stock.name}\n` +
-          `　AI POWER ${stockScore}｜勝率予測 ${stockWinRate}%\n` +
-          `　${tradeDecision(stockScore)} ${powerStars(stockScore)}\n` +
-          `　🔎 詳細AI分析\n` +
+          `${medal}【${index + 1}位】\n` +
+          `${stock.code} ${stock.name}\n` +
+          `AI POWER ${stockScore}｜勝率予測 ${stockWinRate}%\n` +
+          `${tradeDecision(stockScore)} ${powerStars(stockScore)}\n` +
+          `🔎 詳細AI分析\n` +
           `${analysisUrl}`
         );
       })
@@ -288,28 +298,33 @@ export async function GET(req: Request) {
     const message =
       `🏆 本日のAIランキング1位\n` +
       `━━━━━━━━━━━━━━\n` +
-      `🥇 ${top.code} ${top.name}\n` +
+      `🥇 ${top.code}\n` +
+      `${top.name}\n\n` +
       `🔥 ${rankLabel(score)}\n` +
-      `${powerStars(score)}  AI POWER ${score}\n\n` +
+      `${powerStars(score)}\n` +
+      `⚡ AI POWER ${score}\n\n` +
       `🛡️ 信頼度　${score}%\n` +
       `📈 勝率予測　${winRate}%\n` +
       `👑 AI順位　${rankText}\n\n` +
       `💹 現在値　${yen(price)}\n` +
       `💰 必要資金　${yen(requiredMoney)}（100株）\n\n` +
-      `🎯 利確目標　${yen(takeProfit)}\n` +
-      `　想定利益　+${yen(expectedProfit)}\n` +
-      `🛡️ 損切ライン　${yen(stopLoss)}\n` +
-      `　想定損失　-${yen(expectedLoss)}\n\n` +
-      `🤖 AI分析ポイント\n` +
-      `${top.reason || "AI理由なし"}\n\n` +
-      `👇 詳細なAI分析はこちら\n` +
+      `🎯【利確目標】\n` +
+      `${yen(takeProfit)}　想定利益 +${yen(expectedProfit)}\n\n` +
+      `🛡️【損切ライン】\n` +
+      `${yen(stopLoss)}　想定損失 -${yen(expectedLoss)}\n\n` +
+      `🤖【AI分析ポイント】\n` +
+      `${analysisPointLines(top.reason)}\n\n` +
+      `👇【詳細なAI分析はこちら】\n` +
       `${PUBLIC_URL}/analysis/${top.code}\n\n` +
       `━━━━━━━━━━━━━━\n` +
       `📊 今日のAIランキング TOP3\n` +
       `━━━━━━━━━━━━━━\n` +
       `${top3}\n\n` +
-      `ランキングをもっと見る\n` +
-      `${PUBLIC_URL}/ranking`;
+      `📊 ランキングをもっと見る\n` +
+      `${PUBLIC_URL}/ranking\n\n` +
+      `━━━━━━━━━━━━━━\n` +
+      `⚡ SIGNALX\n` +
+      `AI日本株分析サービス`;
 
     lineLog("Message Generated", {
       topCode: top.code,
