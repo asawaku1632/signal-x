@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
@@ -137,7 +138,7 @@ ${publicUrl}/analysis/${stock.code}`;
   })
   .join("\n\n");
 
-    const message = `🏆 本日のAIランキング1位
+    const message = withSingleLineBrand(`🏆 本日のAIランキング1位
 ━━━━━━━━━━━━━━
 🥇 ${top.code}
 ${top.name}
@@ -171,11 +172,7 @@ ${publicUrl}/analysis/${top.code}
 ${top3}
 
 📊 ランキングをもっと見る
-${publicUrl}/ranking
-
-━━━━━━━━━━━━━━
-⚡ SIGNALX
-AI日本株分析サービス`;
+${publicUrl}/ranking`);
 
     const line = await sendLine(message);
 

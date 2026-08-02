@@ -1,5 +1,6 @@
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 import { NextResponse } from "next/server";
 
@@ -157,7 +158,7 @@ export async function GET(request: Request) {
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
 
-    const message =
+    const message = withSingleLineBrand(
       `🔥 買いシグナル発生！\n` +
       `━━━━━━━━━━━━━━\n` +
       `🟢 ${bestStock.code}\n` +
@@ -176,10 +177,8 @@ export async function GET(request: Request) {
       `🤖【AI分析ポイント】\n` +
       `${analysisPointLines(shortReason(bestStock))}\n\n` +
       `👇【詳細なAI分析はこちら】\n` +
-      `${baseUrl}/analysis/${bestStock.code}\n\n` +
-      `━━━━━━━━━━━━━━\n` +
-      `⚡ SIGNALX\n` +
-      `AI日本株分析サービス`;
+      `${baseUrl}/analysis/${bestStock.code}`,
+    );
 
     const res = await fetch(
       "https://api.line.me/v2/bot/message/broadcast",

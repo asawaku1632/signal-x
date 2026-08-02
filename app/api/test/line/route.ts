@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
@@ -87,7 +88,7 @@ ${publicUrl}/analysis/${stock.code}`;
     })
     .join("\n\n");
 
-  return `🧪 LINE通知テスト
+  return withSingleLineBrand(`🧪 LINE通知テスト
 
 🏆 本日のAIランキング1位
 ━━━━━━━━━━━━━━
@@ -123,11 +124,7 @@ ${publicUrl}/analysis/${top.code}
 ${top3}
 
 📊 ランキングをもっと見る
-${publicUrl}/ranking
-
-━━━━━━━━━━━━━━
-⚡ SIGNALX
-AI日本株分析サービス`;
+${publicUrl}/ranking`);
 }
 
 export async function POST(request: Request) {

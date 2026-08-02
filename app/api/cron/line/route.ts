@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
@@ -274,7 +275,7 @@ export async function GET(req: Request) {
       })
       .join("\n\n");
 
-    const message =
+    const message = withSingleLineBrand(
       `🏆 本日のAIランキング1位\n` +
       `━━━━━━━━━━━━━━\n` +
       `🥇 ${top.code}\n` +
@@ -300,10 +301,8 @@ export async function GET(req: Request) {
       `━━━━━━━━━━━━━━\n` +
       `${top3}\n\n` +
       `📊 ランキングをもっと見る\n` +
-      `${baseUrl}/ranking\n\n` +
-      `━━━━━━━━━━━━━━\n` +
-      `⚡ SIGNALX\n` +
-      `AI日本株分析サービス`;
+      `${baseUrl}/ranking`,
+    );
 
     await saveCronRunLog({
       route: CRON_ROUTE,
