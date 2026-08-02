@@ -1,5 +1,17 @@
 import { NextResponse } from "next/server";
 
+import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
+
+type FavoriteAlert = {
+  code: string;
+  name: string;
+  judge: string;
+  score: number;
+  rank: number;
+  totalRank: number;
+  price?: number;
+};
+
 function yen(value?: number) {
   if (value === undefined || value === null) return "-";
   return `${Math.round(value).toLocaleString()}円`;
@@ -16,9 +28,7 @@ export async function GET() {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      "http://localhost:3000";
+    const baseUrl = getPublicBaseUrl();
 
     const favoritesRes = await fetch(
       `${baseUrl}/api/favorites-alerts`,
@@ -27,12 +37,14 @@ export async function GET() {
       }
     );
 
-    const favoritesJson = await favoritesRes.json();
-   const alerts =
-  (favoritesJson.alerts || [])
-    .filter((stock: any) => stock.score >= 70)
+    const favoritesJson = (await favoritesRes.json()) as {
+      alerts?: FavoriteAlert[];
+    };
+    const alerts =
+      (favoritesJson.alerts || [])
+    .filter((stock) => stock.score >= 70)
     .sort(
-      (a: any, b: any) =>
+      (a, b) =>
         b.score - a.score
     );
 
@@ -49,7 +61,7 @@ export async function GET() {
       `⭐ お気に入り監視\n` +
       `━━━━━━━━━━━━━━\n\n` +
       alerts
-        .map((stock: any) => {
+        .map((stock) => {
           return (
             `${stock.code} ${stock.name}\n` +
             `${stock.judge} 信頼度${stock.score}%\n` +

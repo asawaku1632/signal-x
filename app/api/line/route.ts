@@ -1,5 +1,6 @@
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 import { NextResponse } from "next/server";
 
 type Stock = {
@@ -94,9 +95,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      "https://signal-x-ppjg.vercel.app";
+    const baseUrl = getPublicBaseUrl();
 
     const scanRes = await fetch(`${baseUrl}/api/scan`, {
       cache: "no-store",

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
   code: string;
@@ -16,18 +17,8 @@ type Stock = {
 };
 
 const CRON_ROUTE = "/api/cron/line";
-const PUBLIC_URL = "https://signal-x-ppjg.vercel.app";
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_ATTEMPTS = 3;
-
-function lineLog(stage: string, details?: unknown) {
-  if (details === undefined) {
-    console.info(`[LINE] ${stage}`);
-    return;
-  }
-
-  console.info(`[LINE] ${stage}`, details);
-}
 
 function delay(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -54,7 +45,6 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string) {
       lastError = error;
     }
 
-    lineLog(`${label} retry`, { attempt, maxAttempts: MAX_ATTEMPTS });
     if (attempt < MAX_ATTEMPTS) await delay(500 * attempt);
   }
 
@@ -153,11 +143,6 @@ export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
-  lineLog("Cron Started", {
-    requestedAt: new Date().toISOString(),
-    userAgent: req.headers.get("user-agent"),
-  });
-
   await saveCronRunLog({
     route: CRON_ROUTE,
     status: "STARTED",
@@ -173,10 +158,7 @@ export async function GET(req: Request) {
   });
 
   try {
-    const configuredBaseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      PUBLIC_URL;
-    const baseUrl = configuredBaseUrl.replace(/\/$/, "");
+    const baseUrl = getPublicBaseUrl();
     const rankingUrl = `${baseUrl}/api/ranking`;
 
     const res = await fetchWithRetry(rankingUrl, {
@@ -188,11 +170,6 @@ export async function GET(req: Request) {
     const contentType = res.headers.get("content-type") ?? "";
 
     if (!res.ok || !contentType.includes("application/json")) {
-      lineLog("Scan Failed", {
-        httpStatus: res.status,
-        contentType,
-        responseBody: rankingBody.slice(0, 1000),
-      });
       await saveCronRunLog({
         route: CRON_ROUTE,
         status: "ERROR",
@@ -224,8 +201,6 @@ export async function GET(req: Request) {
       );
     }
     const ranking: Stock[] = json.ranking || [];
-
-    lineLog("Scan Finished", { rankingCount: ranking.length });
 
     await saveCronRunLog({
       route: CRON_ROUTE,
@@ -286,7 +261,7 @@ export async function GET(req: Request) {
         const stockScore = aiScore(stock);
         const stockWinRate = winRateText(stockScore);
         const analysisUrl =
-          `${PUBLIC_URL}/analysis/${stock.code}`;
+          `${baseUrl}/analysis/${stock.code}`;
 
         return (
           `${medal}【${index + 1}位】\n` +
@@ -319,21 +294,17 @@ export async function GET(req: Request) {
       `🤖【AI分析ポイント】\n` +
       `${analysisPointLines(top.reason)}\n\n` +
       `👇【詳細なAI分析はこちら】\n` +
-      `${PUBLIC_URL}/analysis/${top.code}\n\n` +
+      `${baseUrl}/analysis/${top.code}\n\n` +
       `━━━━━━━━━━━━━━\n` +
       `📊 今日のAIランキング TOP3\n` +
       `━━━━━━━━━━━━━━\n` +
       `${top3}\n\n` +
       `📊 ランキングをもっと見る\n` +
-      `${PUBLIC_URL}/ranking\n\n` +
+      `${baseUrl}/ranking\n\n` +
       `━━━━━━━━━━━━━━\n` +
       `⚡ SIGNALX\n` +
       `AI日本株分析サービス`;
 
-    lineLog("Message Generated", {
-      topCode: top.code,
-      messageLength: message.length,
-    });
     await saveCronRunLog({
       route: CRON_ROUTE,
       status: "MESSAGE_GENERATED",
@@ -343,10 +314,6 @@ export async function GET(req: Request) {
 
     const line = await sendLine(message);
 
-    lineLog("LINE API Response", {
-      httpStatus: line.status,
-      responseBody: line.text,
-    });
     await saveCronRunLog({
       route: CRON_ROUTE,
       status: "LINE_API_RESPONSE",
@@ -394,7 +361,6 @@ export async function GET(req: Request) {
       },
     });
 
-    lineLog("Completed", { httpStatus: line.status, topCode: top.code });
     await saveCronRunLog({
       route: CRON_ROUTE,
       status: "COMPLETED",

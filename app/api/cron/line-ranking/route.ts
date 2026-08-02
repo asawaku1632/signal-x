@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
   code: string;
@@ -86,7 +87,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;
-    const publicUrl = "https://signal-x-ppjg.vercel.app";
+    const publicUrl = getPublicBaseUrl();
 
     const res = await fetch(`${baseUrl}/api/ranking`, {
       cache: "no-store",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 
 type Stock = {
   code: string;
@@ -169,11 +170,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const publicUrl = (
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.NEXTAUTH_URL ||
-    new URL(request.url).origin
-  ).replace(/\/$/, "");
+  const publicUrl = getPublicBaseUrl();
   const totalStockList =
     Number(rankingJson.totalStockList) || ranking.length;
   const message = buildMessage(ranking, totalStockList, publicUrl);
