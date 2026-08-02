@@ -1,5 +1,5 @@
 const INTERVAL_MS = 5 * 60 * 1000;
-const SCAN_URL = "http://localhost:3000/api/scan";
+const SCAN_URL = "https://signal-x-ppjg.vercel.app/api/scan";
 
 async function runScan() {
   const now = new Date().toLocaleString("ja-JP");

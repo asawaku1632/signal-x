@@ -1,11 +1,7 @@
-param(
-    [string]$BaseUrl = $(if ($env:LINE_TEST_BASE_URL) { $env:LINE_TEST_BASE_URL } else { "http://127.0.0.1:3000" })
-)
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$BaseUrl = $BaseUrl.TrimEnd("/")
+$BaseUrl = "https://signal-x-ppjg.vercel.app"
 
 function Invoke-ApiOnce {
     param(

@@ -19,7 +19,7 @@ export async function GET() {
   const startedAt = Date.now();
 
   try {
-    const baseUrl = "http://localhost:3000";
+    const baseUrl = "https://signal-x-ppjg.vercel.app";
 
     const morningData = await fetchJson(`${baseUrl}/api/cron/morning-ai`);
 

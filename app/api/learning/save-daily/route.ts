@@ -99,7 +99,7 @@ async function savePatternLearningLogs(stocks: Stock[]) {
 }
 export async function GET(req: Request) {
   try {
-    const siteUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const siteUrl = process.env.NEXTAUTH_URL || "https://signal-x-ppjg.vercel.app";
 
     const scanRes = await fetch(`${siteUrl}/api/scan?limit=1000`, {
       cache: "no-store",

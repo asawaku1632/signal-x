@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
     "192.168.1.4",
     "192.168.1.6",
     "192.168.1.8",
-    "localhost",
   ],
 };
 

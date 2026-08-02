@@ -16,7 +16,7 @@ export async function GET() {
   try {
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
-      "http://localhost:3000";
+      "https://signal-x-ppjg.vercel.app";
 
     const res = await fetch(
       `${baseUrl}/api/scan`,

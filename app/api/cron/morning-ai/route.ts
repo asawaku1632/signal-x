@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     const baseUrl =
-      process.env.NEXTAUTH_URL || "http://localhost:3000";
+      process.env.NEXTAUTH_URL || "https://signal-x-ppjg.vercel.app";
 
     // ① 本番1000銘柄スキャン
     const scanData = await fetchJson(

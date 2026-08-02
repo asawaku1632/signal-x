@@ -17,7 +17,7 @@ type EventRanking = {
 
 async function getEventAnalytics() {
   const baseUrl =
-    process.env.NEXTAUTH_URL || "http://localhost:3000";
+    process.env.NEXTAUTH_URL || "https://signal-x-ppjg.vercel.app";
 
   const res = await fetch(
     `${baseUrl}/api/event-learning/analytics`,
