@@ -64,17 +64,42 @@ function getActionColor(score = 0) {
   return "bg-red-50 border-red-200 text-red-500";
 }
 
-function getTrendText(trend?: string) {
-  if (trend === "UPTREND") return "上昇トレンド";
-  if (trend === "DOWNTREND") return "下降トレンド";
-  return "判定なし";
-}
-
 function getPatternText(pattern?: string) {
   if (pattern === "W_BOTTOM_BREAK") return "Wボトム突破";
   if (pattern === "W_BOTTOM") return "Wボトム候補";
   if (pattern === "NONE") return "通常";
   return pattern || "通常";
+}
+
+function topFiveStyle(index: number, isCurrent: boolean) {
+  if (isCurrent) {
+    return "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-500 dark:bg-slate-800 dark:ring-blue-700";
+  }
+  if (index === 0)
+    return "border-amber-300 bg-white dark:border-amber-700 dark:bg-slate-900";
+  if (index === 1)
+    return "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900";
+  if (index === 2)
+    return "border-orange-200 bg-white dark:border-orange-800 dark:bg-slate-900";
+  return "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900";
+}
+
+function topFiveMedalStyle(index: number) {
+  if (index === 0)
+    return "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-slate-800 dark:text-amber-300 dark:ring-amber-700";
+  if (index === 1)
+    return "bg-slate-200 text-slate-700 ring-1 ring-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-600";
+  if (index === 2)
+    return "bg-orange-100 text-orange-800 ring-1 ring-orange-300 dark:bg-slate-800 dark:text-orange-300 dark:ring-orange-700";
+  return "bg-slate-50 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700";
+}
+
+function candidateNote(rank: string) {
+  if (rank === "S") return "評価は高水準です。買い時を個別解析で確認してください。";
+  if (rank === "A") return "評価は高めです。現在の行動と値動きを確認してください。";
+  if (rank === "B") return "条件を確認し、無理に追わず判断してください。";
+  if (rank === "C") return "慎重に値動きを確認したい候補です。";
+  return "現時点では様子見を優先したい候補です。";
 }
 
 
@@ -209,14 +234,19 @@ export default function AiAnalysisPage() {
 function AiAnalysisContent() {
   const searchParams = useSearchParams();
   const requestedSymbol = searchParams.get("symbol");
-
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [totalStockList, setTotalStockList] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchAiAnalysis = async () => {
+      setLoading(true);
+      setError(false);
+
       try {
         const res = await fetch("/api/scan?limit=1000", { cache: "no-store" });
+        if (!res.ok) throw new Error(`scan request failed: ${res.status}`);
         const json = await res.json();
 
         const list: Stock[] = Array.isArray(json)
@@ -225,38 +255,57 @@ function AiAnalysisContent() {
           ? json.stocks
           : [];
 
+        if (list.length === 0) {
+          setStocks([]);
+          return;
+        }
+
         setStocks(list);
+        if (!Array.isArray(json) && Number.isFinite(Number(json.totalStockList))) {
+          setTotalStockList(Number(json.totalStockList));
+        }
       } catch (error) {
         console.error("ai analysis fetch error:", error);
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAiAnalysis();
+    void fetchAiAnalysis();
   }, []);
 
+  const topFive = useMemo(() => stocks.slice(0, 5), [stocks]);
   const topStock = useMemo(() => {
-    if (!stocks.length) return undefined;
-
     if (requestedSymbol) {
-      const matched = stocks.find(
-        (stock) => String(stock.code) === requestedSymbol
+      const requestedStock = topFive.find(
+        (stock) => String(stock.code) === requestedSymbol,
       );
-      if (matched) return matched;
+      if (requestedStock) return requestedStock;
     }
 
     return stocks[0];
-  }, [stocks, requestedSymbol]);
-
-  const topRank = useMemo(() => {
-    if (!topStock) return 0;
-    return stocks.findIndex((stock) => stock.code === topStock.code) + 1;
-  }, [stocks, topStock]);
-
+  }, [requestedSymbol, stocks, topFive]);
+  const topRank = useMemo(
+    () => stocks.findIndex((stock) => stock.code === topStock?.code) + 1,
+    [stocks, topStock],
+  );
   const breakdown = topStock?.scoreBreakdown ?? null;
   const aiRank = topStock ? getAiRank(topStock.score) : null;
   const aiComments = topStock ? buildAiComment(topStock) : [];
+  const reasonItems = topStock
+    ? Array.from(
+        new Set(
+          [
+            ...(topStock.reason ?? "")
+              .split("・")
+              .map((reason) => reason.trim())
+              .filter(Boolean),
+            ...(topStock.patternReasons ?? []),
+          ].filter(Boolean),
+        ),
+      )
+    : [];
 
   const expectedProfit = topStock
     ? ((topStock.takeProfit ?? topStock.price) - topStock.price) * 100
@@ -268,6 +317,7 @@ function AiAnalysisContent() {
           topStock.price) *
         100
       : 0;
+  const requiredMoney = topStock ? topStock.price * 100 : 0;
 
   const aiWinRate = topStock
     ? Math.min(95, Math.max(45, Math.round(topStock.score * 0.75 + 12)))
@@ -286,169 +336,189 @@ function AiAnalysisContent() {
       : topStock && topStock.score >= 75
       ? "3〜5営業日"
       : "様子見";
+  const selectedCount = totalStockList ?? stocks.length;
+  const strongestReason = reasonItems[0] ?? getPatternText(topStock?.patternSignal);
 
   return (
-    <main className="min-h-screen bg-zinc-50 pb-28 text-zinc-900">
-      <div className="mx-auto max-w-md px-4 py-3">
-        <header className="pt-2">
-          <Link href="/dashboard" className="text-sm font-bold text-zinc-500">
+    <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto w-full max-w-2xl px-3 py-3 min-[380px]:px-4">
+        <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <Link href="/dashboard" className="text-sm font-bold text-blue-600 dark:text-blue-400">
             ← ホームへ戻る
           </Link>
-          <h1 className="mt-3 text-3xl font-black">🧠 AI分析</h1>
-          <p className="mt-1 text-xs font-bold text-zinc-500">
-            SIGNALXの判断理由と詳細分析を確認
+          <h1 className="mt-3 text-2xl font-black text-slate-950 dark:text-slate-100">AI分析</h1>
+          <p className="mt-1 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
+            AIが本日の上位候補を比較し、注目すべき銘柄を分かりやすく表示します
+          </p>
+          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+            {selectedCount > 0 ? `${selectedCount.toLocaleString("ja-JP")}銘柄から選出` : "監視銘柄から選出"}
           </p>
         </header>
 
-        <section className="mt-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 shadow-sm">
-          <p className="text-sm font-black text-emerald-700">
+        <section className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-800 dark:bg-slate-900">
+          <p className="text-xs font-black text-emerald-700 dark:text-emerald-300">
             🎉 Ver1.0公開記念｜現在、全機能を無料公開中
-          </p>
-          <p className="mt-1 text-[11px] font-bold leading-4 text-zinc-500">
-            SIGNALXをより多くの方に体験していただくため、AIの判断理由・AI POWER内訳・利確損切目安などを無料で公開しています。
           </p>
         </section>
 
         {loading && (
-          <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
-            <p className="font-bold text-zinc-500">
-              AI分析データを読み込み中...
-            </p>
+          <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="mx-auto h-7 w-7 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-400" />
+            <p className="mt-3 font-bold text-slate-600 dark:text-slate-300">AI分析候補を取得しています</p>
           </section>
         )}
 
-        {!loading && !topStock && (
-          <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
-            <p className="font-bold text-red-500">
-              AI分析データを取得できませんでした
-            </p>
+        {!loading && error && !topStock && (
+          <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <p className="font-black">データを取得できませんでした</p>
+            <button type="button" onClick={() => window.location.reload()} className="mt-4 min-h-12 rounded-xl bg-blue-600 px-6 font-black text-white transition hover:bg-blue-700 active:scale-[0.98]">再読み込み</button>
+          </section>
+        )}
+
+        {!loading && !error && !topStock && (
+          <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <p className="font-black">本日の候補が見つかりません</p>
+            <Link href="/scan-mobile" className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-blue-600 px-5 font-black text-white">Scanで条件を変更</Link>
           </section>
         )}
 
         {topStock && aiRank && (
           <>
-            <section className="mt-3 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-blue-500">本日のAI分析</p>
-              <div className="mt-2 flex items-start justify-between gap-3">
+            <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 dark:border-blue-800 dark:bg-slate-800">
+                <p className="text-base font-black text-blue-800 dark:text-blue-300">
+                  {topRank === 1 ? "本日のAIランキング1位" : `選択中：AIランキング${topRank}位`}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {selectedCount > 0 ? `${selectedCount.toLocaleString("ja-JP")}銘柄から選出` : "AIの監視銘柄から選出"}
+                </p>
+              </div>
+              {topRank > 1 && (
+                <Link
+                  href="/ai-analysis"
+                  className="mt-2 flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-black text-blue-700 transition hover:bg-blue-50 active:scale-[0.99] dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300"
+                >
+                  ← 今日のAIランキング1位へ戻る
+                </Link>
+              )}
+              <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h2 className="break-words text-2xl font-black leading-tight">
+                  <h2 className="break-words text-xl font-black leading-tight text-slate-950 dark:text-slate-100 min-[380px]:text-2xl">
                     {topStock.code} {topStock.name}
                   </h2>
-                  <p className="mt-1 text-sm font-bold text-zinc-500">
-                    現在値 <span className="text-lg text-zinc-900">{yen(topStock.price)}</span>
+                  <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-300">
+                    現在値 <span className="font-black text-slate-950 dark:text-slate-100">{yen(topStock.price)}</span>
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-300">
+                    必要資金 <span className="font-black text-slate-950 dark:text-slate-100">{yen(requiredMoney)}</span>
                   </p>
                 </div>
-                <div className={`shrink-0 rounded-2xl border px-3 py-2 text-center ${aiRank.bg}`}>
-                  <p className="text-[10px] font-black text-zinc-500">AI POWER</p>
-                  <p className={`text-4xl font-black leading-none ${aiRank.color}`}>{topStock.score}</p>
-                  <p className={`mt-1 text-sm font-black ${aiRank.color}`}>
-                    {aiRank.icon} {aiRank.rank}ランク
-                  </p>
-                  <p className="text-xs tracking-tight" aria-label={`${aiRank.stars} 星評価`}>
-                    {aiRank.stars}
-                  </p>
+                <div className="shrink-0 rounded-xl border border-blue-200 bg-white px-3 py-2 text-center dark:border-blue-800 dark:bg-slate-800">
+                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-300">AI POWER</p>
+                  <p className="text-5xl font-black leading-none text-blue-600 dark:text-blue-400">{topStock.score}</p>
                 </div>
               </div>
 
-              <p className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-600">
-                {aiRank.comment}
-              </p>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Mini label="AI順位" value={`${topRank}位`} color="text-yellow-600" />
-                <Mini
-                  label="チャート判定"
-                  value={getPatternText(topStock.patternSignal)}
-                  color="text-blue-600"
-                />
-                <Mini label="推奨行動" value={getAction(topStock.score)} color="text-green-600" className={getActionColor(topStock.score)} />
-                <Mini label="AI期待度" value={`${aiWinRate}%`} color="text-blue-600" />
-                <Mini label="リスク" value={riskLevel} color={riskLevel === "高" ? "text-red-500" : riskLevel === "中" ? "text-yellow-600" : "text-green-600"} />
-                <Mini label="推奨保有" value={holdTerm} color="text-purple-600" />
+              <div className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-slate-800">
+                  <p className="text-xs font-black text-blue-700 dark:text-blue-300">総合評価</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">銘柄の有望度</p>
+                  <p className="mt-2 text-lg font-black">{aiRank.rank}ランク</p>
+                  <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{aiRank.comment}</p>
+                  <p className="mt-1 text-[10px] text-amber-500" aria-label={`${aiRank.stars} 星評価`}>{aiRank.stars}</p>
+                </div>
+                <div className={`rounded-xl border p-3 dark:bg-slate-800 ${getActionColor(topStock.score)}`}>
+                  <p className="text-xs font-black">現在の行動</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-300">今の価格で取る行動</p>
+                  <p className="mt-2 text-lg font-black">{getAction(topStock.score)}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{candidateNote(aiRank.rank)}</p>
+                </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Mini
-                  label="利確目標"
-                  value={yen(topStock.takeProfit)}
-                  color="text-green-600"
-                />
-                <Mini
-                  label="損切目標"
-                  value={yen(topStock.stopLoss)}
-                  color="text-red-500"
-                />
-                <InsightCard
-                  title="💰 期待利益"
-                  value={`+${yen(expectedProfit)}`}
-                  note={`+${expectedProfitRate.toFixed(2)}%`}
-                  color="text-green-600"
-                  className="col-span-2"
-                />
-              </div>
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium leading-5 text-amber-900 dark:border-amber-800 dark:bg-slate-800 dark:text-amber-200">候補評価です。売買前に個別解析をご確認ください。</p>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Mini label="トレンド" value={getTrendText(topStock.trend)} color="text-blue-600" />
-                <Mini label="パターン点" value={`${topStock.patternScore ?? 0}`} color="text-zinc-900" />
-              </div>
-
-              <section className="mt-3 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-3">
-                <h2 className="text-base font-black text-blue-700">🤖 SIGNALX AIコメント</h2>
-                <p className="mt-2 line-clamp-4 text-sm font-bold leading-6">{aiComments[0]}</p>
-                <details className="group mt-2">
-                  <summary className="cursor-pointer list-none rounded-xl border border-blue-200 bg-white px-3 py-2 text-center text-xs font-black text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    <span className="group-open:hidden">AIコメントを詳しく見る ＋</span>
-                    <span className="hidden group-open:inline">AIコメントを閉じる −</span>
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    {aiComments.map((comment) => (
-                      <p key={comment} className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-bold leading-6">{comment}</p>
-                    ))}
-                  </div>
-                </details>
+              <section className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-slate-800">
+                <h3 className="text-xs font-black text-orange-800 dark:text-orange-300">AIが最も伝えたい情報</h3>
+                <p className="mt-2 text-sm font-bold leading-6 text-slate-800 dark:text-slate-200">{getAction(topStock.score)}です。{strongestReason}。{candidateNote(aiRank.rank)}</p>
               </section>
 
-              <details className="group mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                <summary className="cursor-pointer list-none text-sm font-black text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                  <span className="flex items-center justify-between">
-                    <span>AI判断理由を見る</span><span aria-hidden="true" className="group-open:rotate-180">⌄</span>
-                  </span>
-                </summary>
-                <p className="mt-3 text-sm font-bold leading-6">{topStock.reason || "AI理由なし"}</p>
-                <div className="mt-2 space-y-1.5">
-                  {(topStock.patternReasons ?? []).map((reason) => (
-                    <p key={reason} className="text-sm font-bold">✅ {reason}</p>
+              <section className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="text-base font-black">利益とリスク</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Mini label="利益確定目安" value={yen(topStock.takeProfit)} color="text-emerald-600 dark:text-emerald-400" />
+                  <Mini label="損失を抑える目安" value={yen(topStock.stopLoss)} color="text-red-600 dark:text-red-400" />
+                  <Mini label="期待利益" value={`+${yen(expectedProfit)}`} color="text-emerald-600 dark:text-emerald-400" />
+                  <Mini label="必要資金" value={yen(requiredMoney)} color="text-slate-950 dark:text-slate-100" />
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <Mini label="期待度" value={`${aiWinRate}%`} color="text-blue-600 dark:text-blue-400" />
+                  <Mini label="リスク" value={riskLevel} color={riskLevel === "高" ? "text-red-600 dark:text-red-400" : riskLevel === "中" ? "text-orange-600 dark:text-orange-400" : "text-emerald-600 dark:text-emerald-400"} />
+                  <Mini label="保有目安" value={holdTerm} color="text-slate-700 dark:text-slate-200" />
+                </div>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-300">期待利益率 +{expectedProfitRate.toFixed(2)}%</p>
+              </section>
+
+              <section className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="text-base font-black">主な注目理由</h3>
+                <div className="mt-2 space-y-2">
+                  {(reasonItems.length > 0 ? reasonItems : ["AI理由なし"]).slice(0, 3).map((reason) => (
+                    <p key={reason} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300"><span className="mt-1 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-blue-100 text-[10px] font-black text-blue-700 dark:bg-slate-800 dark:text-blue-300">✓</span><span className="min-w-0 break-words">{reason}</span></p>
                   ))}
                 </div>
-              </details>
+                {reasonItems.length > 3 && (
+                  <details className="group mt-2">
+                    <summary className="min-h-10 cursor-pointer list-none py-2 text-sm font-black text-blue-600 dark:text-blue-400"><span className="group-open:hidden">＋ほか{reasonItems.length - 3}件</span><span className="hidden group-open:inline">理由を閉じる</span></summary>
+                    <div className="space-y-2">{reasonItems.slice(3).map((reason) => <p key={reason} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300"><span className="text-blue-600">✓</span><span>{reason}</span></p>)}</div>
+                  </details>
+                )}
+              </section>
+
+              <section className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-slate-800">
+                <h3 className="text-base font-black text-blue-800 dark:text-blue-300">AIコメント</h3>
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">{aiComments[0]}</p>
+                {aiComments.length > 1 && <details className="group mt-2"><summary className="min-h-10 cursor-pointer list-none py-2 text-sm font-black text-blue-600 dark:text-blue-400"><span className="group-open:hidden">コメントを詳しく見る ＋</span><span className="hidden group-open:inline">コメントを閉じる</span></summary><div className="space-y-2">{aiComments.slice(1).map((comment) => <p key={comment} className="rounded-xl bg-white p-3 text-sm font-medium leading-6 dark:bg-slate-900 dark:text-slate-300">{comment}</p>)}</div></details>}
+              </section>
 
               {breakdown && (
-                <details className="group mt-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-                  <summary className="cursor-pointer list-none text-sm font-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    <span className="flex items-center justify-between gap-2">
-                      <span>🧠 AI POWER 内訳</span>
-                      <span className="flex items-center gap-2"><span className="text-blue-600">合計 {topStock.score}</span><span aria-hidden="true" className="group-open:rotate-180">⌄</span></span>
-                    </span>
-                  </summary>
+                <details className="group mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <summary className="cursor-pointer list-none text-sm font-black"><span className="flex items-center justify-between gap-2"><span>AI POWERの内訳を見る</span><span className="text-blue-600 dark:text-blue-400">合計 {topStock.score} <span aria-hidden="true">⌄</span></span></span></summary>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <ScoreItem label="📈 上昇率" score={breakdown.momentum} />
-                    <ScoreItem label="💴 低価格補正" score={breakdown.lowPriceBonus} />
-                    <ScoreItem label="📊 MA20" score={breakdown.trend} />
-                    <ScoreItem label="📈 EMA" score={breakdown.ema} />
-                    <ScoreItem label="💰 VWAP" score={breakdown.vwap} />
-                    <ScoreItem label="📉 MACD" score={breakdown.macd} />
-                    <ScoreItem label="🕯 パターン" score={breakdown.pattern} />
-                    <ScoreItem label="🪔 ローソク足" score={breakdown.candle} />
-                    <ScoreItem label="📦 出来高" score={breakdown.volume} />
-                    <ScoreItem label="📉 RSI" score={breakdown.rsi} />
-                    <ScoreItem label="✨ パターン補正" score={breakdown.patternBonus} />
+                    <ScoreItem label="上昇率" score={breakdown.momentum} /><ScoreItem label="低価格補正" score={breakdown.lowPriceBonus} /><ScoreItem label="MA20" score={breakdown.trend} /><ScoreItem label="EMA" score={breakdown.ema} /><ScoreItem label="VWAP" score={breakdown.vwap} /><ScoreItem label="MACD" score={breakdown.macd} /><ScoreItem label="パターン" score={breakdown.pattern} /><ScoreItem label="ローソク足" score={breakdown.candle} /><ScoreItem label="出来高" score={breakdown.volume} /><ScoreItem label="RSI" score={breakdown.rsi} /><ScoreItem label="パターン補正" score={breakdown.patternBonus} />
                   </div>
                 </details>
               )}
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link href={`/analysis/${topStock.code}`} className="flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-2 py-3 text-center text-sm font-black text-white">個別AI解析を見る</Link>
-                <Link href={`/chart/${topStock.code}`} className="flex min-h-12 items-center justify-center rounded-2xl border border-zinc-300 bg-white px-2 py-3 text-center text-sm font-black text-zinc-800">リアルチャートを見る</Link>
+              <Link href={`/analysis/${topStock.code}`} className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-black text-white transition hover:bg-blue-700 active:scale-[0.99]">個別解析を見る</Link>
+              <Link href={`/chart/${topStock.code}`} className="mt-2 flex min-h-11 w-full items-center justify-center text-sm font-black text-blue-600 dark:text-blue-400">チャートを見る →</Link>
+            </section>
+
+            <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
+              <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">銘柄を選ぶと、上部のAI分析が切り替わります</p>
+              <ol className="mt-3 space-y-2">
+                {topFive.map((stock, index) => {
+                  const isCurrent = stock.code === topStock.code;
+                  const rank = getAiRank(stock.score);
+                  const change = stock.changePercent ?? 0;
+                  return (
+                    <li key={stock.code}>
+                      <Link href={`/ai-analysis?symbol=${encodeURIComponent(stock.code)}`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${topFiveMedalStyle(index)}`} aria-label={`${index + 1}位`}>{index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
+                          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1.5"><p className="break-words text-sm font-black text-slate-950 dark:text-slate-100">{stock.code} {stock.name}</p>{isCurrent && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black text-white">✓ 表示中</span>}</div><p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">{rank.rank}ランク・{rank.comment}</p></div>
+                          <div className="shrink-0 text-right"><p className="text-[9px] font-black text-blue-600 dark:text-blue-400">AI POWER</p><p className="text-2xl font-black leading-none text-blue-600 dark:text-blue-400">{Math.round(stock.score)}</p></div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2 dark:border-slate-700"><CompactMetric label="変化率" value={`${change > 0 ? "+" : ""}${change}%`} valueClass={change > 0 ? "text-emerald-600 dark:text-emerald-400" : change < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} /><CompactMetric label="必要資金" value={yen(stock.price * 100)} /><CompactMetric label="候補" value={getAction(stock.score).replace(/^[^ ]+ /, "")} /></div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <div className="mt-4 grid gap-2 min-[420px]:grid-cols-3">
+                <Link href="/top-signals" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">今日の注目銘柄を見る</Link>
+                <Link href="/scan-mobile" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Scanで候補を探す</Link>
+                <Link href="/ranking" className="flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 text-center text-xs font-black text-blue-700 dark:border-blue-800 dark:bg-slate-800 dark:text-blue-300">AIランキングをもっと見る</Link>
               </div>
             </section>
           </>
@@ -471,38 +541,33 @@ function Mini({
   className?: string;
 }) {
   return (
-    <div className={`min-w-0 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-center ${className}`}>
-      <p className="text-[11px] font-bold text-zinc-500">{label}</p>
+    <div className={`min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-center dark:border-slate-700 dark:bg-slate-800 ${className}`}>
+      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">{label}</p>
       <p className={`mt-1 break-words text-base font-black leading-tight ${color}`}>{value}</p>
     </div>
   );
 }
 
-function InsightCard({
-  title,
+function CompactMetric({
+  label,
   value,
-  note,
-  color,
-  className = "",
+  valueClass = "text-slate-700 dark:text-slate-200",
 }: {
-  title: string;
+  label: string;
   value: string;
-  note: string;
-  color: string;
-  className?: string;
+  valueClass?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-center ${className}`}>
-      <p className="text-[11px] font-bold text-zinc-500">{title}</p>
-      <p className={`mt-1 text-lg font-black ${color}`}>{value}</p>
-      <p className="text-xs font-bold text-zinc-400 mt-1">{note}</p>
+    <div className="min-w-0 text-center">
+      <p className="text-[9px] font-bold text-slate-500 dark:text-slate-300">{label}</p>
+      <p className={`mt-1 break-words text-xs font-black ${valueClass}`}>{value}</p>
     </div>
   );
 }
 
 function ScoreItem({ label, score }: { label: string; score: number }) {
   return (
-    <div className={`flex min-w-0 items-center justify-between gap-1 rounded-xl border bg-white px-2.5 py-2 text-xs font-bold ${score === 0 ? "border-zinc-100 text-zinc-400" : "border-blue-100 text-zinc-800"}`}>
+    <div className={`flex min-w-0 items-center justify-between gap-1 rounded-xl border bg-white px-2.5 py-2 text-xs font-bold dark:bg-slate-900 ${score === 0 ? "border-slate-200 text-slate-400 dark:border-slate-700" : "border-blue-100 text-slate-800 dark:border-blue-800 dark:text-slate-200"}`}>
       <span className="truncate">{label}</span>
       <span className={score > 0 ? "text-blue-600" : "text-zinc-400"}>{score > 0 ? `+${score}` : score}</span>
     </div>
@@ -511,10 +576,10 @@ function ScoreItem({ label, score }: { label: string; score: number }) {
 
 function AiAnalysisLoading() {
   return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-900 pb-24">
-      <div className="max-w-md mx-auto p-4">
-        <section className="mt-6 rounded-3xl bg-white border border-zinc-200 shadow-sm p-5">
-          <p className="font-bold text-zinc-500">AI分析データを読み込み中...</p>
+    <main className="min-h-screen bg-slate-50 pb-24 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto max-w-2xl p-4">
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <p className="font-bold text-slate-500 dark:text-slate-300">AI分析候補を取得しています</p>
         </section>
       </div>
       <BottomNav />
