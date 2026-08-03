@@ -304,8 +304,8 @@ function ScanMobileContent() {
 
   return (
     <main className="min-h-screen bg-[#fafbfe] pb-28 text-[#101b3f]">
-      <div className="mx-auto w-full max-w-[1180px] px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-4 py-2">
+      <div className="mx-auto w-full max-w-[1180px] px-4 pb-10 pt-3 sm:px-6 lg:px-8">
+        <header className="flex items-center justify-between gap-4 py-1.5">
           <Link href="/dashboard" className="flex items-center gap-3" aria-label="SIGNALX ホーム">
             <span className="relative grid h-12 w-12 place-items-center text-4xl font-black italic text-violet-600" aria-hidden="true">X</span>
             <span>
@@ -313,39 +313,32 @@ function ScanMobileContent() {
               <span className="mt-1 block text-[9px] font-black tracking-[0.22em] text-slate-500">AI STOCK SCAN</span>
             </span>
           </Link>
-          <button type="button" onClick={() => void fetchStocks()} disabled={loading} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold shadow-[0_4px_14px_rgba(15,23,42,0.07)] transition hover:border-violet-200 hover:text-violet-700 disabled:opacity-50">
+          <button type="button" onClick={() => void fetchStocks()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold shadow-[0_4px_14px_rgba(15,23,42,0.07)] transition hover:border-violet-200 hover:text-violet-700 disabled:opacity-50">
             <span className={loading ? "animate-spin" : ""} aria-hidden="true">↻</span> 更新
           </button>
         </header>
 
-        <div className="mt-8">
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">スキャン</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500 sm:text-base">AIが約1000銘柄を監視して、今日の買い候補を抽出</p>
+        <div className="mt-4">
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">スキャン</h1>
+          <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">AIが約1000銘柄を監視して、今日の買い候補を抽出</p>
         </div>
 
-        <section className="mt-6 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_5px_20px_rgba(15,23,42,0.06)] sm:grid-cols-4">
+        <section className="mt-3.5 grid grid-cols-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_5px_20px_rgba(15,23,42,0.06)]">
           <StatusCell icon="◉" label="監視銘柄数" value={totalStocks || stocks.length} unit="銘柄" color="text-violet-600" />
           <StatusCell icon="✓" label="取得済み" value={stocks.length} unit="銘柄" color="text-emerald-600" />
           <StatusCell icon="◎" label="候補銘柄" value={candidateCount} unit="銘柄" color="text-blue-600" />
           <StatusCell icon="◷" label="最終更新" value={lastUpdated ? lastUpdated.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "--:--"} unit={lastUpdated ? "今日" : "更新待ち"} color="text-slate-500" last />
         </section>
 
-        <section className="mt-5 grid items-center rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-[0_5px_20px_rgba(15,23,42,0.06)] md:grid-cols-[1fr_1fr_.75fr] md:px-7">
-          <div className="flex items-center border-b border-slate-100 pb-5 md:border-b-0 md:border-r md:pb-0">
-            <div><p className="text-xs font-black tracking-[0.12em] text-violet-600">AI市場判定</p><p className="mt-1 text-2xl font-black text-emerald-600">{market.label}</p><p className="mt-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">AIが市場全体を分析</p></div>
+        <section className="mt-3 grid grid-cols-[1.25fr_.9fr_.8fr] items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_5px_20px_rgba(15,23,42,0.06)] sm:px-5">
+          <div className="flex min-w-0 items-center border-r border-slate-100 pr-2 sm:pr-5">
+            <div className="min-w-0"><p className="text-[9px] font-black tracking-[0.1em] text-violet-600 sm:text-xs">AI市場判定</p><p className="mt-0.5 text-xl font-black text-emerald-600 sm:text-2xl">{market.label}</p><p className="mt-0.5 truncate text-[8px] font-bold text-emerald-700 sm:text-[10px]">AIが市場全体を分析</p></div>
           </div>
-          <div className="flex items-center justify-center gap-5 border-b border-slate-100 py-5 md:border-b-0 md:border-r md:py-0">
-            <div className="relative h-20 w-36 overflow-hidden"><div className="absolute inset-x-0 top-0 h-36 rounded-full bg-[conic-gradient(from_270deg,#10b981_0deg,#10b981_calc(var(--strength)*1.8deg),#edf0f5_calc(var(--strength)*1.8deg),#edf0f5_180deg,transparent_180deg)]" style={{ "--strength": market.strength } as React.CSSProperties} /><div className="absolute inset-x-3 top-3 h-28 rounded-full bg-white" /></div>
-            <div className="-ml-32 mt-4 text-center"><p className="text-xs font-bold text-slate-500">強気度</p><p className="text-3xl font-black">{market.strength}<span className="text-sm">%</span></p></div>
+          <div className="flex items-center justify-center gap-1 border-r border-slate-100 px-2 sm:gap-3 sm:px-5">
+            <div className="relative h-10 w-16 shrink-0 overflow-hidden sm:h-12 sm:w-20"><div className="absolute inset-x-0 top-0 h-16 rounded-full bg-[conic-gradient(from_270deg,#10b981_0deg,#10b981_calc(var(--strength)*1.8deg),#e8edf4_calc(var(--strength)*1.8deg),#e8edf4_180deg,transparent_180deg)] sm:h-20" style={{ "--strength": market.strength } as React.CSSProperties} /><div className="absolute inset-x-1.5 top-1.5 h-14 rounded-full bg-white sm:h-16" /></div>
+            <div className="text-center"><p className="text-[8px] font-bold text-slate-400 sm:text-[10px]">強気度</p><p className="text-base font-black sm:text-xl">{market.strength}<span className="text-[9px]">%</span></p></div>
           </div>
-          <div className="pt-5 text-center md:pt-0"><p className="text-xs font-bold text-slate-500">市場リスク</p><p className="mt-2 text-2xl font-black text-amber-500"><span aria-hidden="true">▲</span> {market.risk}</p></div>
-        </section>
-
-        <section className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_5px_20px_rgba(15,23,42,0.06)] sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">候補条件</span><select value={signalFilter} onChange={(event) => setSignalFilter(event.target.value as SignalFilter)} className={selectClass}><option value="strong">買い候補</option><option value="hot">今日の最有力</option><option value="all">すべて</option><option value="market-hot">市場の激熱候補</option><option value="market-watch">市場の注目候補</option></select></label>
-          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">必要資金</span><select value={budgetFilter} onChange={(event) => setBudgetFilter(event.target.value === "all" ? "all" : Number(event.target.value) as BudgetFilter)} className={selectClass}>{budgetOptions.map((option) => <option key={option.label} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">並び順</span><select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className={selectClass}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <button type="button" onClick={() => rankingRef.current?.scrollIntoView({ behavior: "smooth" })} className="min-h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-200">条件を適用</button>
+          <div className="pl-2 text-center sm:pl-5"><p className="text-[8px] font-bold text-slate-400 sm:text-[10px]">市場リスク</p><p className="mt-0.5 text-base font-black text-amber-500 sm:text-xl"><span aria-hidden="true">▲</span> {market.risk}</p></div>
         </section>
 
         {loading && stocks.length === 0 ? <ScanLoadingCard /> : bestSignal ? (
@@ -361,6 +354,13 @@ function ScanMobileContent() {
             ))}
           </section>
         )}
+
+        <section className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_5px_20px_rgba(15,23,42,0.06)] sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">候補条件</span><select value={signalFilter} onChange={(event) => setSignalFilter(event.target.value as SignalFilter)} className={selectClass}><option value="strong">買い候補</option><option value="hot">今日の最有力</option><option value="all">すべて</option><option value="market-hot">市場の激熱候補</option><option value="market-watch">市場の注目候補</option></select></label>
+          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">必要資金</span><select value={budgetFilter} onChange={(event) => setBudgetFilter(event.target.value === "all" ? "all" : Number(event.target.value) as BudgetFilter)} className={selectClass}>{budgetOptions.map((option) => <option key={option.label} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="block"><span className="mb-2 block text-[11px] font-bold text-slate-500">並び順</span><select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className={selectClass}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <button type="button" onClick={() => rankingRef.current?.scrollIntoView({ behavior: "smooth" })} className="min-h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-200">条件を適用</button>
+        </section>
 
         <section ref={rankingRef} className="mt-7 scroll-mt-5">
           <div className="mb-3 flex items-end justify-between"><div><h2 className="text-xl font-black">AIランキング</h2><p className="mt-1 text-xs font-semibold text-slate-500">{signalLabel(signalFilter)}・{budgetLabel(budgetFilter)}</p></div><span className="text-xs font-bold text-slate-400">{filteredStocks.length}銘柄</span></div>
@@ -381,7 +381,7 @@ function ScanMobileContent() {
 }
 
 function StatusCell({ icon, label, value, unit, color, last = false }: { icon: string; label: string; value: number | string; unit: string; color: string; last?: boolean }) {
-  return <div className={`flex min-h-28 items-center gap-3 border-b border-r border-slate-100 px-4 py-4 sm:border-b-0 ${last ? "border-r-0" : ""}`}><span className={`text-2xl ${color}`} aria-hidden="true">{icon}</span><div><p className="text-xs font-bold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black tabular-nums sm:text-3xl">{typeof value === "number" ? value.toLocaleString() : value}</p><p className="text-xs font-semibold text-slate-500">{unit}</p></div></div>;
+  return <div className={`flex min-h-16 min-w-0 flex-col items-center justify-center border-r border-slate-100 px-1 py-2 text-center sm:min-h-20 sm:px-3 ${last ? "border-r-0" : ""}`}><p className="truncate text-[8px] font-bold text-slate-500 sm:text-[10px]">{label}</p><div className="mt-1 flex min-w-0 items-center justify-center gap-1"><span className={`text-sm sm:text-lg ${color}`} aria-hidden="true">{icon}</span><p className="truncate text-base font-black tabular-nums sm:text-2xl">{typeof value === "number" ? value.toLocaleString() : value}</p></div><p className="text-[8px] font-semibold text-slate-400 sm:text-[10px]">{unit}</p></div>;
 }
 
 function ScanLoadingCard() {
