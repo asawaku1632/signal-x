@@ -46,10 +46,12 @@ type TradingChartProps = {
 
 type GestureState = {
   startX: number;
+  startY: number;
   startOffset: number;
   startVisibleCount: number;
   startDistance: number;
   lastTapAt: number;
+  axis: "horizontal" | "vertical" | null;
 };
 
 function timeLabel(time: number) {
@@ -250,10 +252,12 @@ export default function TradingChart({
 
   const gestureRef = useRef<GestureState>({
     startX: 0,
+    startY: 0,
     startOffset: 0,
     startVisibleCount: maxVisible,
     startDistance: 0,
     lastTapAt: 0,
+    axis: null,
   });
 
   const chartRef = useRef<HTMLDivElement>(null);
@@ -304,13 +308,16 @@ export default function TradingChart({
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-
-    if (event.ctrlKey || Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+    if (event.ctrlKey) {
+      event.preventDefault();
       const factor = event.deltaY > 0 ? 1.12 : 0.88;
       zoomTo(safeVisibleCount * factor);
       return;
     }
+
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+
+    event.preventDefault();
 
     setOffsetFromEnd((current) =>
       clamp(
@@ -357,7 +364,9 @@ export default function TradingChart({
 
       gestureRef.current.lastTapAt = now;
       gestureRef.current.startX = event.touches[0].clientX;
+      gestureRef.current.startY = event.touches[0].clientY;
       gestureRef.current.startOffset = safeOffset;
+      gestureRef.current.axis = null;
       setDragging(true);
     }
 
@@ -369,12 +378,11 @@ export default function TradingChart({
   };
 
   const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
-    event.preventDefault();
-
     const rect = chartRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     if (event.touches.length === 2) {
+      event.preventDefault();
       const distance = touchDistance(event.touches);
       const startDistance = Math.max(gestureRef.current.startDistance, 1);
       const scale = distance / startDistance;
@@ -385,6 +393,21 @@ export default function TradingChart({
 
     if (event.touches.length === 1) {
       const deltaX = gestureRef.current.startX - event.touches[0].clientX;
+      const deltaY = gestureRef.current.startY - event.touches[0].clientY;
+
+      if (gestureRef.current.axis === null) {
+        if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 6) return;
+        gestureRef.current.axis =
+          Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+      }
+
+      if (gestureRef.current.axis === "vertical") {
+        setDragging(false);
+        setSelectedIndex(null);
+        return;
+      }
+
+      event.preventDefault();
       panByPixels(deltaX, rect.width);
 
       const x = clamp(event.touches[0].clientX - rect.left, 0, rect.width);
@@ -395,6 +418,7 @@ export default function TradingChart({
 
   const handleTouchEnd = () => {
     setDragging(false);
+    gestureRef.current.axis = null;
     window.setTimeout(() => setSelectedIndex(null), 900);
   };
 
@@ -802,7 +826,7 @@ export default function TradingChart({
         className={`relative cursor-crosshair select-none ${
           dragging ? "cursor-grabbing" : ""
         }`}
-        style={{ touchAction: "none" }}
+        style={{ touchAction: "pan-y" }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

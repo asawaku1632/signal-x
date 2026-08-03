@@ -253,8 +253,8 @@ export default function ChartPage() {
   const [stock, setStock] = useState<Stock | null>(null);
   const [chart, setChart] = useState<ChartApi | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
-  const [loading, setLoading] = useState(true);
-  const [chartLoading, setChartLoading] = useState(false);
+  const [stockLoading, setStockLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [showScrollCue, setShowScrollCue] = useState(true);
 
   useEffect(() => {
@@ -269,32 +269,20 @@ export default function ChartPage() {
   useEffect(() => {
     const controller = new AbortController();
 
-    const load = async () => {
-      setChartLoading(true);
+    const loadStock = async () => {
+      setStockLoading(true);
 
       try {
-        const [scanRes, chartRes] = await Promise.all([
-          fetch("/api/scan?limit=1000", {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-          fetch(`/api/chart/${code}?tf=${timeframe}`, {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-        ]);
+        const scanRes = await fetch("/api/scan?limit=1000", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
         if (!scanRes.ok) {
           throw new Error(`scan api error: ${scanRes.status}`);
         }
 
-        if (!chartRes.ok) {
-          throw new Error(`chart api error: ${chartRes.status}`);
-        }
-
         const scanData = await scanRes.json();
-        const chartData: ChartApi = await chartRes.json();
-
         const stocks: Stock[] = Array.isArray(scanData)
           ? scanData
           : Array.isArray(scanData.stocks)
@@ -304,24 +292,55 @@ export default function ChartPage() {
         const found = stocks.find((item) => String(item.code) === code);
 
         setStock(found ?? null);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("stock data error:", error);
+      } finally {
+        if (!controller.signal.aborted) {
+          setStockLoading(false);
+        }
+      }
+    };
+
+    loadStock();
+
+    return () => controller.abort();
+  }, [code]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadChart = async () => {
+      setChartLoading(true);
+
+      try {
+        const chartRes = await fetch(`/api/chart/${code}?tf=${timeframe}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!chartRes.ok) {
+          throw new Error(`chart api error: ${chartRes.status}`);
+        }
+
+        const chartData: ChartApi = await chartRes.json();
         setChart(chartData);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
-        console.error("chart page error:", error);
+        console.error("chart data error:", error);
       } finally {
         if (!controller.signal.aborted) {
-          setLoading(false);
           setChartLoading(false);
         }
       }
     };
 
-    load();
+    loadChart();
 
     return () => controller.abort();
   }, [code, timeframe]);
 
-  if (loading) {
+  if (stockLoading || (chartLoading && !chart)) {
     return (
       <main className="min-h-screen bg-[#f6f8fc] p-4 text-slate-900">
         <div className="mx-auto max-w-md rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-sm">
