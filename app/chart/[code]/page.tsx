@@ -513,7 +513,22 @@ export default function ChartPage() {
             </div>
           </section>
 
-          <AIPredictionCard
+          <a
+            href="#ai-future-prediction"
+            className="group flex min-h-9 items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-indigo-950 dark:hover:text-indigo-300"
+            aria-label="次のデータ、AI未来予測へ移動"
+          >
+            <span className="flex items-center gap-1" aria-hidden>
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+            </span>
+            <span>次のデータ・AI未来予測があります</span>
+            <span className="text-sm leading-none transition-transform group-hover:translate-y-0.5" aria-hidden>↓</span>
+          </a>
+
+          <div id="ai-future-prediction" className="scroll-mt-16">
+            <AIPredictionCard
   currentPrice={currentPrice}
   aiPower={power}
   trend={chart.trend}
@@ -536,6 +551,7 @@ export default function ChartPage() {
 
   requiredMoney={requiredMoney}
 />
+          </div>
 
           <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <ActionCard

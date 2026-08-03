@@ -239,7 +239,6 @@ export default function TradingChart({
   mobileHeight = 470,
   desktopHeight = 700,
 }: TradingChartProps) {
-  const [showHelp, setShowHelp] = useState(false);
   const fullData = useMemo(() => candles.slice(-120), [candles]);
   const maxVisible = Math.min(60, fullData.length);
   const minVisible = Math.min(12, Math.max(fullData.length, 1));
@@ -781,32 +780,22 @@ export default function TradingChart({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-center justify-end gap-1 border-b border-slate-100 px-1.5 py-1 dark:border-slate-800">
-        <button
-          type="button"
-          onClick={() => setShowHelp((value) => !value)}
-          aria-label="チャート操作ヘルプ"
-          aria-expanded={showHelp}
-          className="grid h-8 w-8 place-items-center rounded-lg text-sm font-black text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          ?
-        </button>
+      <div className="flex h-[30px] items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-2 dark:border-slate-800 dark:bg-slate-800/60">
+        <p className="flex min-w-0 items-center gap-1 text-[12px] font-bold text-slate-500 dark:text-slate-400 sm:text-[13px]">
+          <span className="text-[11px]" aria-hidden>↔</span>
+          <span className="truncate">ピンチで拡大・左右スワイプ</span>
+        </p>
         <button
           type="button"
           onClick={resetView}
           aria-label="全体表示"
           title="全体表示"
-          className="grid h-8 w-8 place-items-center rounded-lg text-lg font-black text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-black text-slate-600 transition hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
         >
-          ⛶
+          <span className="text-[13px] leading-none" aria-hidden>⛶</span>
+          <span>全体表示</span>
         </button>
       </div>
-
-      {showHelp && (
-        <p className="border-b border-slate-100 px-3 py-1.5 text-center text-[10px] font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          ピンチで拡大・左右スワイプ
-        </p>
-      )}
 
       <div
         ref={chartRef}
