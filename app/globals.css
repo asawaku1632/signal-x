@@ -92,6 +92,24 @@ body {
   animation: pattern-fade-in 360ms ease-out both;
 }
 
+.scroll-cue-arrow {
+  animation: scroll-cue-arrow 2.4s ease-in-out infinite;
+}
+
+@keyframes scroll-cue-arrow {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+  }
+  82% {
+    transform: translateY(2px);
+  }
+  91% {
+    transform: translateY(-1px);
+  }
+}
+
 @keyframes pattern-fade-in {
   from {
     opacity: 0;
@@ -100,6 +118,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scroll-cue-arrow {
+    animation: none;
+  }
+
   .pattern-page *,
   .pattern-page *::before,
   .pattern-page *::after,

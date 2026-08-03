@@ -255,6 +255,16 @@ export default function ChartPage() {
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
+  const [showScrollCue, setShowScrollCue] = useState(true);
+
+  useEffect(() => {
+    const updateScrollCue = () => setShowScrollCue(window.scrollY <= 12);
+
+    updateScrollCue();
+    window.addEventListener("scroll", updateScrollCue, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateScrollCue);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -513,19 +523,25 @@ export default function ChartPage() {
             </div>
           </section>
 
-          <a
-            href="#ai-future-prediction"
-            className="group flex min-h-9 items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-indigo-950 dark:hover:text-indigo-300"
-            aria-label="次のデータ、AI未来予測へ移動"
-          >
-            <span className="flex items-center gap-1" aria-hidden>
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-            </span>
-            <span>次のデータ・AI未来予測があります</span>
-            <span className="text-sm leading-none transition-transform group-hover:translate-y-0.5" aria-hidden>↓</span>
-          </a>
+          {showScrollCue && (
+            <a
+              href="#ai-future-prediction"
+              onClick={(event) => {
+                event.preventDefault();
+                const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                document.getElementById("ai-future-prediction")?.scrollIntoView({
+                  behavior: reduceMotion ? "auto" : "smooth",
+                  block: "start",
+                });
+              }}
+              className="group fixed bottom-3 left-1/2 z-20 flex min-h-9 w-[calc(100%-1rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-1.5 overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 px-2 py-1.5 text-center text-[11px] font-bold text-slate-500 shadow-sm backdrop-blur transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-400 dark:hover:border-indigo-700 dark:hover:bg-indigo-950 dark:hover:text-indigo-300 sm:gap-2 sm:px-3 sm:text-xs"
+              aria-label="この下にあるAI未来予測とAIアドバイスへ移動"
+            >
+              <span className="scroll-cue-arrow shrink-0 text-sm leading-none" aria-hidden>↓</span>
+              <span className="whitespace-nowrap sm:hidden">続きを見る（AI未来予測・AI分析）</span>
+              <span className="hidden whitespace-nowrap sm:inline">この下にAI未来予測・AIアドバイスがあります</span>
+            </a>
+          )}
 
           <div id="ai-future-prediction" className="scroll-mt-16">
             <AIPredictionCard
