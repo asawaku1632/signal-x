@@ -74,7 +74,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)]">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900">
       <div className="mx-auto grid h-16 max-w-lg grid-cols-6 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
         {navItems.map((item) => {
           const active = isActive(item);
@@ -87,8 +87,8 @@ export default function BottomNav() {
               aria-current={active ? "page" : undefined}
               className={`flex min-w-0 flex-col items-center justify-center gap-1 text-center text-[10px] font-black transition-colors ${
                 active
-                  ? "text-blue-600"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
               <span className="text-xl leading-none" aria-hidden="true">{item.icon}</span>
