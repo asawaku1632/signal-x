@@ -394,6 +394,14 @@ function FeaturedStock({ stock, metrics, onFavorite }: { stock: Stock; metrics: 
   const reasons = reasonItems(stock);
   const stars = Math.max(1, Math.min(5, Math.ceil(stock.score / 20)));
   const rr = riskReward({ ...stock, takeProfit, stopLoss });
+  const rsiText = Number.isFinite(stock.rsi) ? Math.round(stock.rsi).toString() : "—";
+  const requiredMoneyText = Number.isFinite(stock.price) ? yen(stock.price * 100) : "—";
+  const aiWinRateText = Number.isFinite(stock.score)
+    ? `${Math.min(95, Math.max(45, Math.round(stock.score * 0.75 + 12)))}%`
+    : "—";
+  const expectedProfitText = metrics && Number.isFinite(metrics.expectedProfit)
+    ? `${metrics.expectedProfit > 0 ? "+" : ""}${yen(metrics.expectedProfit)}`
+    : "—";
   const hasChangePercent = Number.isFinite(stock.changePercent);
   const changePercentText = hasChangePercent
     ? `${stock.changePercent > 0 ? "+" : ""}${stock.changePercent.toFixed(2)}%`
@@ -418,6 +426,12 @@ function FeaturedStock({ stock, metrics, onFavorite }: { stock: Stock; metrics: 
         <div className="mt-3.5 rounded-2xl border border-amber-200/80 bg-white/80 p-3.5 backdrop-blur">
           <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-black tracking-[0.18em] text-amber-700">AI総合評価</p><p data-testid="scan-mobile-ai-evaluation" className="mt-0.5 text-5xl font-black leading-none tracking-[-0.055em] text-slate-950 sm:text-6xl">{scoreText(stock.score)}<span className="ml-1 text-sm tracking-normal text-slate-400">/100</span></p></div><div className="text-right"><span className="inline-flex rounded-full border border-amber-300 bg-gradient-to-r from-amber-100 to-yellow-50 px-2.5 py-1 text-[10px] font-black tracking-wide text-amber-800 shadow-sm">{getSignal(stock.score)}</span><p className="mt-1.5 text-sm tracking-wider text-amber-500" aria-label={`5段階中${stars}`}>{"★".repeat(stars)}<span className="text-slate-200">{"★".repeat(5 - stars)}</span></p><span data-testid="scan-mobile-rank" className="mt-1 inline-flex rounded-md bg-slate-950 px-2 py-0.5 text-[11px] font-black text-white">{getRank(stock.score)}ランク</span></div></div>
           <div data-testid="scan-mobile-ai-power" className="mt-3"><div className="flex items-baseline justify-between gap-3 text-[11px] font-black"><span className="tracking-[0.16em] text-slate-500">AI POWER <span className="text-base text-slate-950">{scoreText(stock.score)}</span></span></div><div className="mt-1.5 h-2 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600" style={{ width: `${Math.min(Math.max(stock.score, 0), 100)}%` }} /></div></div>
+          <div className="mt-2.5 grid grid-cols-2 overflow-hidden border-t border-amber-100" data-testid="scan-mobile-ai-support-metrics">
+            <CompactEvaluationMetric label="RSI" value={rsiText} border="border-r border-amber-100" />
+            <CompactEvaluationMetric label="AI勝率" value={aiWinRateText} />
+            <CompactEvaluationMetric label="100株" value={requiredMoneyText} border="border-r border-t border-amber-100" />
+            <CompactEvaluationMetric label="期待利益" value={expectedProfitText} border="border-t border-amber-100" />
+          </div>
         </div>
 
         <section className="mt-3 rounded-2xl border border-amber-200/80 bg-white/80 p-3.5">
@@ -430,6 +444,10 @@ function FeaturedStock({ stock, metrics, onFavorite }: { stock: Stock; metrics: 
       </div>
     </article>
   );
+}
+
+function CompactEvaluationMetric({ label, value, border = "" }: { label: string; value: string; border?: string }) {
+  return <div className={`flex items-baseline justify-between gap-2 px-2 py-2 ${border}`}><p className="shrink-0 text-[9px] font-black tracking-wide text-slate-400">{label}</p><p className="truncate text-sm font-black tabular-nums text-slate-900 sm:text-base">{value}</p></div>;
 }
 
 function TradeMetric({ label, value, tone }: { label: string; value: string; tone: "emerald" | "red" | "blue" }) {
