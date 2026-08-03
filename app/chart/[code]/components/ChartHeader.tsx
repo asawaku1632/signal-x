@@ -1,19 +1,9 @@
 "use client";
 
 type ChartHeaderProps = {
-  code: string;
-  name: string;
-  power: number;
-  judge: string;
-  judgeClass: string;
-  trend: string;
-  trendIcon: string;
-  trendClass: string;
-  currentPrice: number | null;
-  ma20: number | null;
-  ema20: number | null;
-  vwap: number | null;
-  macd: number | null;
+  code: string; name: string; power: number; judge: string; judgeClass: string;
+  trend: string; trendIcon: string; trendClass: string; currentPrice: number | null;
+  ma20: number | null; ema20: number | null; vwap: number | null; macd: number | null;
 };
 
 function yen(value?: number | null) {
@@ -21,101 +11,51 @@ function yen(value?: number | null) {
   return `${Math.round(value).toLocaleString()}円`;
 }
 
-function MetricCard({
-  label,
-  value,
-  valueClass = "",
-  badgeClass = "",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-  badgeClass?: string;
-}) {
-  return (
-    <div className="rounded-[16px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-center">
-      <p className="text-[10px] font-black tracking-[0.12em] text-slate-500">
-        {label}
-      </p>
+export default function ChartHeader(props: ChartHeaderProps) {
+  const metrics = [
+    { label: "MA20", value: yen(props.ma20), color: "text-emerald-600 dark:text-emerald-400" },
+    { label: "EMA20", value: yen(props.ema20), color: "text-orange-500 dark:text-orange-400" },
+    { label: "VWAP", value: yen(props.vwap), color: "text-blue-600 dark:text-blue-400" },
+    { label: "MACD", value: props.macd === null || Number.isNaN(props.macd) ? "-" : props.macd.toFixed(2), color: "text-slate-500 dark:text-slate-400" },
+  ];
 
-      {badgeClass ? (
-        <span
-          className={`mt-2 inline-flex rounded-full border px-3 py-1.5 text-sm font-black ${badgeClass}`}
-        >
-          {value}
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-3.5">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h1 className="min-w-0 truncate text-xl font-black tracking-tight sm:text-2xl">
+          <span>{props.code}</span><span className="ml-2">{props.name}</span>
+        </h1>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-black ${props.trendClass}`}>
+          <span aria-hidden>{props.trendIcon}</span> {props.trend.replace("トレンド", "")}
         </span>
-      ) : (
-        <p className={`mt-1 text-lg font-black ${valueClass}`}>{value}</p>
-      )}
-    </div>
-  );
-}
+      </div>
 
-export default function ChartHeader({
-  code,
-  name,
-  power,
-  judge,
-  judgeClass,
-  trend,
-  trendIcon,
-  trendClass,
-  currentPrice,
-  ma20,
-  ema20,
-  vwap,
-  macd,
-}: ChartHeaderProps) {
-  return (
-    <section className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-sm md:p-4">
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <div>
-          <p className="text-xs font-black tracking-[0.16em] text-blue-600">
-            REAL STOCK CHART
-          </p>
-          <h1 className="mt-1 text-4xl font-black leading-none md:text-[44px]">
-            {code}
-          </h1>
-          <p className="mt-1 text-lg font-black md:text-xl">{name}</p>
+      <div className="mt-2 flex min-w-0 items-center gap-2.5 sm:gap-4">
+        <div className="flex shrink-0 items-baseline gap-1.5">
+          <span className="text-xs font-black text-slate-500 dark:text-slate-400">AI</span>
+          <span className="text-xl font-black leading-none text-blue-600 dark:text-blue-400">{props.power}</span>
         </div>
-
-        <div
-          className={`flex items-center justify-center gap-3 rounded-[16px] border px-4 py-2.5 font-black ${trendClass}`}
-        >
-          <span className="text-2xl md:text-[28px]">{trendIcon}</span>
-          <span className="text-lg md:text-xl">{trend}</span>
-        </div>
-
-        <div className="text-left md:text-right">
-          <p className="text-[10px] font-black tracking-[0.14em] text-slate-500">
-            AI POWER
-          </p>
-          <p className="mt-1 text-5xl font-black text-blue-600 md:text-[52px]">
-            {power}
-          </p>
-          <span
-            className={`mt-1.5 inline-flex rounded-full border px-3.5 py-1.5 text-sm font-black ${judgeClass}`}
-          >
-            {judge}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="flex flex-col leading-tight text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] font-black">総合評価</span>
+            <span className="text-[9px] font-bold">銘柄の有望度</span>
           </span>
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${props.judgeClass}`}>{props.judge}</span>
+        </div>
+        <div className="ml-auto min-w-0 text-right">
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">現在値 </span>
+          <span className="whitespace-nowrap text-base font-black sm:text-lg">{yen(props.currentPrice)}</span>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2.5 md:grid-cols-6">
-        <MetricCard
-          label="現在値"
-          value={yen(currentPrice)}
-          valueClass="text-blue-600"
-        />
-        <MetricCard label="MA20" value={yen(ma20)} />
-        <MetricCard label="EMA20" value={yen(ema20)} />
-        <MetricCard label="VWAP" value={yen(vwap)} />
-        <MetricCard
-          label="MACD"
-          value={macd === null || Number.isNaN(macd) ? "-" : macd.toFixed(2)}
-        />
-        <MetricCard label="判定" value={judge} badgeClass={judgeClass} />
-      </div>
+      <dl className="mt-2 grid grid-cols-2 border-t border-slate-200 pt-1.5 text-xs min-[390px]:grid-cols-4 dark:border-slate-700 sm:text-sm">
+        {metrics.map((metric, index) => (
+          <div key={metric.label} className={`flex min-w-0 items-baseline gap-1 py-0.5 ${index % 2 ? "border-l border-slate-200 pl-2 dark:border-slate-700" : ""} min-[390px]:justify-center min-[390px]:border-l min-[390px]:px-2 min-[390px]:first:border-l-0 dark:min-[390px]:border-slate-700`}>
+            <dt className={`shrink-0 font-black ${metric.color}`}>{metric.label}</dt>
+            <dd className="truncate font-bold text-slate-800 dark:text-slate-100">{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

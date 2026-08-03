@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 type Candle = {
   time: number;
   open: number;
@@ -36,8 +38,8 @@ type Scenario = {
   probability: number;
   prices: number[];
   stroke: string;
-  fill: string;
   text: string;
+  iconClass: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -212,10 +214,10 @@ function getActionLabel(up: number, side: number, down: number) {
 }
 
 function getActionTone(action: string) {
-  if (action === "買い継続") return { border: "border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-700", icon: "🟢" };
-  if (action === "押し目待ち") return { border: "border-blue-200", bg: "bg-blue-50", text: "text-blue-700", icon: "🔵" };
-  if (action === "見送り") return { border: "border-red-200", bg: "bg-red-50", text: "text-red-700", icon: "🔴" };
-  return { border: "border-amber-200", bg: "bg-amber-50", text: "text-amber-700", icon: "🟡" };
+  if (action === "買い継続") return { border: "border-emerald-200 dark:border-emerald-800", bg: "bg-emerald-50 dark:bg-emerald-950", text: "text-emerald-700 dark:text-emerald-300", icon: "🟢" };
+  if (action === "押し目待ち") return { border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-700 dark:text-blue-300", icon: "🔵" };
+  if (action === "見送り") return { border: "border-red-200 dark:border-red-800", bg: "bg-red-50 dark:bg-red-950", text: "text-red-700 dark:text-red-300", icon: "🔴" };
+  return { border: "border-amber-200 dark:border-amber-800", bg: "bg-amber-50 dark:bg-amber-950", text: "text-amber-700 dark:text-amber-300", icon: "🟡" };
 }
 
 function getStarRating(value: number) {
@@ -228,6 +230,7 @@ function probabilityBarClass(tone: "profit" | "loss") {
 }
 
 export default function AIPredictionCard(props: AIPredictionCardProps) {
+  const [storyExpanded, setStoryExpanded] = useState(false);
   let upScore = 38;
   let downScore = 27;
   let sideScore = 35;
@@ -298,30 +301,30 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
   const scenarios: Scenario[] = [
     {
       key: "up",
-      label: "上昇シナリオ",
+      label: "上昇",
       probability: probabilities.up,
       prices: paths.upward,
       stroke: "#16a34a",
-      fill: "#dcfce7",
       text: "#166534",
+      iconClass: "bg-emerald-500",
     },
     {
       key: "side",
-      label: "横ばいシナリオ",
+      label: "横ばい",
       probability: probabilities.side,
       prices: paths.sideways,
       stroke: "#d97706",
-      fill: "#fef3c7",
       text: "#92400e",
+      iconClass: "bg-slate-300",
     },
     {
       key: "down",
-      label: "下落シナリオ",
+      label: "下落",
       probability: probabilities.down,
       prices: paths.downward,
       stroke: "#dc2626",
-      fill: "#fee2e2",
       text: "#991b1b",
+      iconClass: "bg-red-500",
     },
   ];
 
@@ -350,9 +353,6 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
     ((price - chartMin) / Math.max(chartMax - chartMin, 0.0001)) *
       (bottom - top);
 
-  const strongest = [...scenarios].sort(
-    (a, b) => b.probability - a.probability,
-  )[0];
   const reasons = buildReasons(props);
 
   const confidence = clamp(
@@ -411,6 +411,9 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
         10,
         92,
       );
+  const ma20EventLabel = props.ma20 !== null && props.currentPrice < props.ma20
+    ? "MA20まで回復"
+    : "MA20まで調整";
 
   const resistanceBreakProbability = props.resistancePrice === null
     ? props.breakoutExpectation
@@ -435,13 +438,10 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
   ].filter(Boolean);
 
   return (
-    <section className="rounded-[28px] border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-4 shadow-sm md:p-6">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-[28px] border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 px-4 py-3 shadow-sm dark:border-indigo-800 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 md:px-5 md:py-4">
+      <div>
         <div>
-          <p className="text-xs font-black tracking-[0.18em] text-indigo-600">
-            AI FUTURE SCENARIO
-          </p>
-          <h2 className="mt-1 text-3xl font-black text-slate-950">
+          <h2 className="text-3xl font-black text-slate-950 dark:text-white">
             🤖 AI未来予測
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
@@ -449,39 +449,21 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-indigo-200 bg-white px-3 py-2 text-right shadow-sm">
-          <p className="text-[10px] font-black tracking-widest text-slate-400">
-            MAIN
-          </p>
-          <p className="text-lg font-black" style={{ color: strongest.stroke }}>
-            {strongest.label}
-          </p>
-          <p className="text-3xl font-black" style={{ color: strongest.stroke }}>
-            {strongest.probability}%
-          </p>
-        </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
         {scenarios.map((scenario) => (
           <div
             key={scenario.key}
-            className="rounded-2xl border p-3 text-center"
-            style={{
-              backgroundColor: scenario.fill,
-              borderColor: scenario.stroke,
-              color: scenario.text,
-            }}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-900"
           >
-            <p className="text-xs font-black">{scenario.label}</p>
-            <p className="mt-1 text-3xl font-black">
-              {scenario.probability}%
-            </p>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${scenario.iconClass}`} aria-hidden />
+            <p className="whitespace-nowrap text-sm font-black" style={{ color: scenario.text }}>{scenario.label} {scenario.probability}%</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2">
+      <div className="mt-3 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-auto w-full"
@@ -618,65 +600,66 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
         </svg>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className={`rounded-[24px] border p-5 ${actionTone.border} ${actionTone.bg}`}>
-          <p className="text-xs font-black tracking-[0.18em] text-slate-500">AI FINAL JUDGEMENT</p>
-          <div className="mt-3 flex items-start justify-between gap-4">
-            <div>
-              <p className={`text-2xl font-black ${actionTone.text}`}>{actionTone.icon} AI最終判断</p>
-              <p className="mt-2 text-4xl font-black text-slate-950">{action}</p>
+      <div className="mt-3 grid gap-2 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className={`rounded-[24px] border-2 p-4 shadow-md ${actionTone.border} ${actionTone.bg}`}>
+          <div className="flex items-start justify-between gap-2 sm:gap-4">
+            <div className="min-w-0">
+              <p className={`text-sm font-black ${actionTone.text}`}>{actionTone.icon} 現在の行動</p>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">今の価格で取る行動</p>
+              <p className="mt-1 text-3xl font-black tracking-tight text-slate-950 dark:text-white min-[390px]:text-4xl">{action}</p>
+              {action === "押し目待ち" && (
+                <p className="mt-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">下がった場面を待つ</p>
+              )}
             </div>
-            <div className="rounded-2xl bg-white/80 px-4 py-3 text-right shadow-sm">
+            <div className="shrink-0 rounded-2xl bg-white/80 px-3 py-3 text-right shadow-sm dark:bg-slate-900/80 sm:px-4">
               <p className="text-[10px] font-black text-slate-400">信頼度</p>
               <p className={`text-3xl font-black ${actionTone.text}`}>{confidence}%</p>
             </div>
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm">
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-white/80 p-3 text-center shadow-sm dark:bg-slate-900/80">
               <p className="text-xs font-black text-slate-500">AI推奨度</p>
               <p className="mt-1 text-xl font-black text-amber-500">{getStarRating(expectation)}</p>
             </div>
-            <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm">
+            <div className="rounded-2xl bg-white/80 p-3 text-center shadow-sm dark:bg-slate-900/80">
               <p className="text-xs font-black text-slate-500">期待値</p>
               <p className={`mt-1 text-3xl font-black ${actionTone.text}`}>{expectation}%</p>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-slate-200 bg-white p-5">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">TARGET SIMULATION</p>
-          <h3 className="mt-2 text-2xl font-black">🎯 到達確率</h3>
+        <section className="rounded-[24px] border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <h3 className="text-2xl font-black">🎯 到達確率</h3>
           <ProbabilityRow label="利確到達" probability={takeProfitProbability} price={props.takeProfit} money={props.takeProfitMoney} tone="profit" />
           <ProbabilityRow label="損切到達" probability={stopLossProbability} price={props.stopLoss} money={props.stopLossMoney} tone="loss" />
-          <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-center">
+          <div className="mt-2 rounded-2xl bg-slate-50 p-3 text-center dark:bg-slate-800">
             <p className="text-xs font-black text-slate-500">必要資金</p>
-            <p className="mt-1 text-xl font-black text-slate-900">{yen(props.requiredMoney)}</p>
+            <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{yen(props.requiredMoney)}</p>
           </div>
         </section>
       </div>
 
-      <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5">
-        <p className="text-xs font-black tracking-[0.18em] text-violet-600">NEXT EVENTS</p>
-        <h3 className="mt-2 text-2xl font-black">📅 次に起こりそうなイベント</h3>
-        <div className="mt-4 space-y-3">
-          <EventRow label="MA20タッチ" probability={ma20TouchProbability} />
+      <section className="mt-2 rounded-[24px] border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="text-2xl font-black">📅 次に起こりそうなイベント</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <EventRow label={ma20EventLabel} probability={ma20TouchProbability} />
           <EventRow label="抵抗線突破" probability={resistanceBreakProbability} />
           <EventRow label="利確到達" probability={takeProfitProbability} />
           <EventRow label="損切到達" probability={stopLossProbability} />
         </div>
       </section>
 
-      <section className="mt-5 rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
-        <p className="text-xs font-black tracking-[0.18em] text-blue-600">AI STORY</p>
-        <h3 className="mt-2 text-2xl font-black">🧠 AIストーリー</h3>
-        <div className="mt-4 space-y-2">
-          {storyParts.map((part) => (
-            <p key={part} className="text-sm font-bold leading-7 text-slate-700">{part}</p>
-          ))}
-        </div>
+      <section className="mt-2 rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:border-blue-800 dark:from-slate-900 dark:to-indigo-950">
+        <h3 className="text-2xl font-black">🧠 AIストーリー</h3>
+        <p className={`mt-3 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200 ${storyExpanded ? "" : "line-clamp-3"}`}>
+          {storyParts.join(" ")}
+        </p>
+        <button type="button" aria-expanded={storyExpanded} onClick={() => setStoryExpanded((value) => !value)} className="mt-2 text-sm font-black text-blue-700 dark:text-blue-300">
+          {storyExpanded ? "閉じる" : "続きを読む"}
+        </button>
       </section>
 
-      <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-4">
+      <div className="mt-3 rounded-[22px] border border-slate-200 bg-white p-4">
         <p className="text-sm font-black text-slate-900">予測根拠</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {reasons.map((reason) => (
@@ -690,9 +673,9 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-black text-amber-900">ご利用前の注意</p>
-        <p className="mt-2 text-xs font-bold leading-6 text-amber-800">
+      <div className="mt-2 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950">
+        <p className="text-sm font-black text-amber-900 dark:text-amber-200">ⓘ ご利用前の注意</p>
+        <p className="mt-2 text-xs font-bold leading-6 text-amber-800 dark:text-amber-300">
           この表示は、現在のテクニカル指標と過去データをもとに算出した参考シナリオです。
           将来の株価や利益を保証するものではありません。最終的な投資判断はご自身の責任で行ってください。
         </p>
@@ -703,10 +686,10 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
 
 function ProbabilityRow({ label, probability, price, money, tone }: { label: string; probability: number; price: number; money: number; tone: "profit" | "loss"; }) {
   return (
-    <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+    <div className="mt-3 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-slate-700">{label}</p>
+          <p className="text-sm font-black text-slate-700 dark:text-slate-200">{label}</p>
           <p className="mt-1 text-xs font-bold text-slate-500">{yen(price)} / 100株 {money >= 0 ? "+" : ""}{yen(money)}</p>
         </div>
         <p className={`text-3xl font-black ${tone === "profit" ? "text-emerald-600" : "text-red-500"}`}>{probability}%</p>
@@ -720,10 +703,10 @@ function ProbabilityRow({ label, probability, price, money, tone }: { label: str
 
 function EventRow({ label, probability }: { label: string; probability: number; }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+    <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-slate-50 p-2.5 dark:bg-slate-800">
       <div className="flex-1">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-black text-slate-700">{label}</p>
+          <p className="truncate text-sm font-black text-slate-700 dark:text-slate-200">{label}</p>
           <p className="text-lg font-black text-violet-600">{probability}%</p>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">

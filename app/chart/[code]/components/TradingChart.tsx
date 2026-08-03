@@ -31,6 +31,10 @@ type PriceLevel = {
 type TradingChartProps = {
   candles: Candle[];
   ma20: number | null;
+  ema20: number | null;
+  vwap: number | null;
+  macd: number | null;
+  macdSignal: number | null;
   currentPrice: number | null;
   takeProfit: number;
   stopLoss: number;
@@ -71,7 +75,7 @@ function buildLevels({
   stopLoss,
   supportPrice,
   resistancePrice,
-}: Omit<TradingChartProps, "candles" | "mobileHeight" | "desktopHeight">) {
+}: Pick<TradingChartProps, "ma20" | "currentPrice" | "takeProfit" | "stopLoss" | "supportPrice" | "resistancePrice">) {
   const levels: Array<PriceLevel | null> = [
     resistancePrice !== null
       ? {
@@ -189,17 +193,53 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function indicatorSeries(candles: Candle[]) {
+  let ema12: number | null = null;
+  let ema26: number | null = null;
+  let ema20: number | null = null;
+  let signal: number | null = null;
+  let cumulativePriceVolume = 0;
+  let cumulativeVolume = 0;
+
+  return candles.map((candle, index) => {
+    ema12 = ema12 === null ? candle.close : candle.close * (2 / 13) + ema12 * (11 / 13);
+    ema26 = ema26 === null ? candle.close : candle.close * (2 / 27) + ema26 * (25 / 27);
+    ema20 = ema20 === null ? candle.close : candle.close * (2 / 21) + ema20 * (19 / 21);
+    const macd = ema12 - ema26;
+    signal = signal === null ? macd : macd * (2 / 10) + signal * (8 / 10);
+    const volume = candle.volume ?? 0;
+    cumulativePriceVolume += ((candle.high + candle.low + candle.close) / 3) * volume;
+    cumulativeVolume += volume;
+    const window = candles.slice(Math.max(0, index - 19), index + 1);
+    const ma20 = window.reduce((sum, item) => sum + item.close, 0) / window.length;
+
+    return {
+      ma20,
+      ema20,
+      vwap: cumulativeVolume ? cumulativePriceVolume / cumulativeVolume : candle.close,
+      macd,
+      signal,
+      histogram: macd - signal,
+    };
+  });
+}
+
 export default function TradingChart({
   candles,
   ma20,
+  ema20,
+  vwap,
+  macd,
+  macdSignal,
   currentPrice,
   takeProfit,
   stopLoss,
   supportPrice,
   resistancePrice,
-  mobileHeight = 440,
+  mobileHeight = 470,
   desktopHeight = 700,
 }: TradingChartProps) {
+  const [showHelp, setShowHelp] = useState(false);
   const fullData = useMemo(() => candles.slice(-120), [candles]);
   const maxVisible = Math.min(60, fullData.length);
   const minVisible = Math.min(12, Math.max(fullData.length, 1));
@@ -384,8 +424,9 @@ export default function TradingChart({
     const chartRight = isDesktop ? 1035 : 230;
     const labelLeft = isDesktop ? 1060 : 240;
     const labelRight = isDesktop ? 1255 : 352;
-    const paddingTop = isDesktop ? 34 : 26;
-    const paddingBottom = isDesktop ? 58 : 38;
+    const paddingTop = isDesktop ? 48 : 38;
+    const paddingBottom = isDesktop ? 174 : 118;
+    const indicators = indicatorSeries(data);
 
     const candlePrices = data.flatMap((candle) => [
       candle.high,
@@ -418,6 +459,14 @@ export default function TradingChart({
     const plotTop = paddingTop;
     const plotBottom = height - paddingBottom;
     const plotHeight = plotBottom - plotTop;
+    const macdTop = plotBottom + (isDesktop ? 40 : 28);
+    const macdBottom = height - (isDesktop ? 28 : 18);
+    const macdValues = indicators.flatMap((item) => [item.macd, item.signal, item.histogram]);
+    const macdAbs = Math.max(...macdValues.map(Math.abs), 1);
+    const macdY = (value: number) => macdTop + ((macdAbs - value) / (macdAbs * 2)) * (macdBottom - macdTop);
+    const x = (index: number) => chartLeft + (index / Math.max(data.length - 1, 1)) * (chartRight - chartLeft);
+    const pathFor = (values: number[], mapY: (value: number) => number) =>
+      values.map((value, index) => `${index ? "L" : "M"} ${x(index)} ${mapY(value)}`).join(" ");
 
     const outerRatio = 0.14;
     const coreTop = plotTop + plotHeight * outerRatio;
@@ -479,10 +528,20 @@ export default function TradingChart({
           x={chartLeft}
           y={paddingTop}
           width={chartRight - chartLeft}
-          height={height - paddingTop - paddingBottom}
+          height={plotHeight}
           rx={isDesktop ? 22 : 16}
-          fill="#f8fafc"
+          className="fill-slate-50 dark:fill-slate-950"
         />
+
+        <text x={chartLeft} y={isDesktop ? 26 : 18} fontSize={isDesktop ? 15 : 9} fontWeight="800" fill="#10b981">
+          MA20 {ma20 === null ? "-" : Math.round(ma20).toLocaleString()}
+        </text>
+        <text x={chartLeft + (isDesktop ? 165 : 70)} y={isDesktop ? 26 : 18} fontSize={isDesktop ? 15 : 9} fontWeight="800" fill="#f97316">
+          EMA20 {ema20 === null ? "-" : Math.round(ema20).toLocaleString()}
+        </text>
+        <text x={chartLeft + (isDesktop ? 345 : 148)} y={isDesktop ? 26 : 18} fontSize={isDesktop ? 15 : 9} fontWeight="800" fill="#2563eb">
+          VWAP {vwap === null ? "-" : Math.round(vwap).toLocaleString()}
+        </text>
 
         {Array.from({ length: isDesktop ? 6 : 4 }, (_, index) => {
           const price =
@@ -526,6 +585,10 @@ export default function TradingChart({
           />
         ))}
 
+        <path d={pathFor(indicators.map((item) => item.ma20), y)} fill="none" stroke="#10b981" strokeWidth={isDesktop ? 2.3 : 1.4} />
+        <path d={pathFor(indicators.map((item) => item.ema20), y)} fill="none" stroke="#f97316" strokeWidth={isDesktop ? 2.3 : 1.4} />
+        <path d={pathFor(indicators.map((item) => item.vwap), y)} fill="none" stroke="#2563eb" strokeWidth={isDesktop ? 2.3 : 1.4} />
+
         {data.map((candle, index) => {
           const x =
             chartLeft +
@@ -564,6 +627,17 @@ export default function TradingChart({
             </g>
           );
         })}
+
+        <line x1={chartLeft} x2={chartRight} y1={macdY(0)} y2={macdY(0)} stroke="#cbd5e1" strokeWidth="1" />
+        <text x={chartLeft} y={macdTop - (isDesktop ? 12 : 8)} fontSize={isDesktop ? 14 : 9} fontWeight="800" fill="#475569">
+          MACD {macd === null ? "-" : macd.toFixed(2)} / Signal {macdSignal === null ? "-" : macdSignal.toFixed(2)}
+        </text>
+        {indicators.map((item, index) => {
+          const barTop = Math.min(macdY(item.histogram), macdY(0));
+          return <rect key={`macd-bar-${index}`} x={x(index) - Math.max(candleWidth * 0.35, 1)} y={barTop} width={Math.max(candleWidth * 0.7, 2)} height={Math.max(Math.abs(macdY(item.histogram) - macdY(0)), 1)} fill={item.histogram >= 0 ? "#10b981" : "#fb7185"} opacity="0.75" />;
+        })}
+        <path d={pathFor(indicators.map((item) => item.macd), macdY)} fill="none" stroke="#2563eb" strokeWidth={isDesktop ? 2 : 1.2} />
+        <path d={pathFor(indicators.map((item) => item.signal), macdY)} fill="none" stroke="#ef4444" strokeWidth={isDesktop ? 2 : 1.2} />
 
         {selected && selectedX !== null && (
           <g>
@@ -706,17 +780,33 @@ export default function TradingChart({
   };
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 text-[11px] font-black text-slate-500">
-        <span>🤏 ピンチで拡大・左右スワイプ</span>
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center justify-end gap-1 border-b border-slate-100 px-1.5 py-1 dark:border-slate-800">
+        <button
+          type="button"
+          onClick={() => setShowHelp((value) => !value)}
+          aria-label="チャート操作ヘルプ"
+          aria-expanded={showHelp}
+          className="grid h-8 w-8 place-items-center rounded-lg text-sm font-black text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        >
+          ?
+        </button>
         <button
           type="button"
           onClick={resetView}
-          className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700"
+          aria-label="全体表示"
+          title="全体表示"
+          className="grid h-8 w-8 place-items-center rounded-lg text-lg font-black text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
         >
-          全体表示
+          ⛶
         </button>
       </div>
+
+      {showHelp && (
+        <p className="border-b border-slate-100 px-3 py-1.5 text-center text-[10px] font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          ピンチで拡大・左右スワイプ
+        </p>
+      )}
 
       <div
         ref={chartRef}
@@ -734,7 +824,7 @@ export default function TradingChart({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="h-[440px] w-full md:hidden">{renderChart(false)}</div>
+        <div className="h-[470px] w-full md:hidden">{renderChart(false)}</div>
         <div className="hidden h-[700px] w-full md:block">
           {renderChart(true)}
         </div>

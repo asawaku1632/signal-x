@@ -9,8 +9,10 @@ import ActionCard from "./components/ActionCard";
 import ChartHeader from "./components/ChartHeader";
 import SupportResistanceCard from "./components/SupportResistanceCard";
 import AnalysisCard from "./components/AnalysisCard";
+import AIAdviceCard from "./components/AIAdviceCard";
 import AICommentCard from "./components/AICommentCard";
 import AIPredictionCard from "./components/AIPredictionCard";
+import { buildAIAdvice, getAIAdviceImportance } from "./aiAdvice";
 
 type SupportResistanceStatus =
   | "BREAKOUT"
@@ -102,22 +104,22 @@ function getPower(stock: Stock | null) {
   return stock?.score ?? stock?.aiPower ?? 0;
 }
 
-function getJudge(power: number) {
+function getJudge(power: number, trend: string) {
   if (power >= 95) return "大本命";
-  if (power >= 85) return "買い候補";
+  if (power >= 85) return trend === "DOWNTREND" ? "押し目候補" : "買い候補";
   if (power >= 75) return "押し目待ち";
   if (power >= 65) return "様子見";
   return "見送り";
 }
 
 function getJudgeClass(power: number) {
-  if (power >= 95) return "border-yellow-300 bg-yellow-100 text-yellow-800";
+  if (power >= 95) return "border-yellow-300 bg-yellow-100 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300";
   if (power >= 85) {
-    return "border-emerald-300 bg-emerald-100 text-emerald-800";
+    return "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
   }
-  if (power >= 75) return "border-blue-300 bg-blue-100 text-blue-800";
-  if (power >= 65) return "border-amber-300 bg-amber-100 text-amber-800";
-  return "border-indigo-200 bg-indigo-100 text-indigo-800";
+  if (power >= 75) return "border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300";
+  if (power >= 65) return "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300";
+  return "border-indigo-200 bg-indigo-100 text-indigo-800 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300";
 }
 
 function getTrendText(trend: string) {
@@ -134,12 +136,12 @@ function getTrendIcon(trend: string) {
 
 function getTrendClass(trend: string) {
   if (trend === "UPTREND") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-700";
+    return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
   }
   if (trend === "DOWNTREND") {
-    return "border-red-300 bg-red-50 text-red-700";
+    return "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300";
   }
-  return "border-amber-300 bg-amber-50 text-amber-700";
+  return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300";
 }
 
 function getPatternText(pattern: string) {
@@ -340,7 +342,7 @@ export default function ChartPage() {
   }
 
   const power = getPower(stock);
-  const judge = getJudge(power);
+  const judge = getJudge(power, chart.trend);
   const currentPrice = chart.currentPrice ?? stock.price;
 
   const takeProfit = stock.takeProfit ?? Math.round(currentPrice * 1.03);
@@ -382,36 +384,53 @@ export default function ChartPage() {
     stopLossMoney,
     requiredMoney,
   });
+  const aiAdviceItems = buildAIAdvice({
+    currentPrice,
+    trend: chart.trend,
+    status: supportResistanceStatus,
+    supportPrice,
+    resistancePrice,
+    breakoutExpectation,
+    volumeRatio: stock.volumeRatio,
+    aiPower: power,
+    ma20: chart.ma20,
+    ema20: chart.ema20,
+    stopLoss,
+  });
+  const aiAdviceImportance = getAIAdviceImportance({
+    trend: chart.trend,
+    status: supportResistanceStatus,
+    breakoutExpectation,
+    volumeRatio: stock.volumeRatio,
+    aiPower: power,
+  });
 
   return (
-    <main className="min-h-screen bg-[#f6f8fc] pb-24 text-slate-900">
-      <div className="mx-auto w-full max-w-md px-4 pt-4 md:max-w-7xl md:px-6">
-        <header className="sticky top-0 z-30 -mx-4 border-b border-slate-200/80 bg-[#f6f8fc]/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+    <main className="min-h-screen overflow-x-hidden bg-[#f6f8fc] pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto w-full max-w-md px-2.5 pt-1.5 md:max-w-7xl md:px-6 md:pt-2">
+        <header className="sticky top-0 z-30 -mx-2.5 border-b border-slate-200/80 bg-[#f6f8fc]/95 px-2.5 py-1.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:-mx-6 md:px-6">
           <div className="flex items-center justify-between">
             <Link
               href={`/analysis/${code}`}
-              className="grid h-12 w-12 place-items-center rounded-[18px] border border-slate-200 bg-white text-2xl font-black shadow-sm transition active:scale-95"
+              className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-2xl font-black shadow-sm transition active:scale-95 dark:border-slate-700 dark:bg-slate-900"
               aria-label="分析へ戻る"
             >
               ‹
             </Link>
 
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tight">
+              <div className="text-2xl font-black tracking-tight sm:text-3xl">
                 SIGNAL<span className="text-blue-600">X</span>
-              </div>
-              <div className="text-[10px] font-black tracking-[0.24em] text-slate-500">
-                AI CHART V4 MULTI TIMEFRAME
               </div>
             </div>
 
-            <div className="grid h-12 w-12 place-items-center rounded-[18px] border border-slate-200 bg-white text-xl shadow-sm">
+            <div className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-xl shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-hidden>
               📈
             </div>
           </div>
         </header>
 
-        <div className="mt-3 space-y-3.5">
+        <div className="mt-2 space-y-2">
           <ChartHeader
             code={stock.code}
             name={stock.name}
@@ -428,27 +447,9 @@ export default function ChartPage() {
             macd={chart.macd}
           />
 
-          <section className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-sm md:p-4.5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-black tracking-[0.16em] text-blue-600">
-                  MAIN CHART
-                </p>
-                <h2 className="mt-1 text-2xl font-black md:text-4xl">
-                  株価チャート
-                </h2>
-              </div>
-
-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 md:px-4 md:py-2 md:text-sm">
-                実データ
-              </span>
-            </div>
-
-            <div
-              className="mt-4 grid grid-cols-6 rounded-[16px] border border-slate-200 bg-slate-100 p-1"
-              role="tablist"
-              aria-label="チャート時間足"
-            >
+          <section className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-2">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="grid min-w-0 flex-1 grid-cols-6 rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800" role="tablist" aria-label="チャート時間足">
               {TIMEFRAMES.map((item) => {
                 const active = timeframe === item.value;
 
@@ -461,10 +462,10 @@ export default function ChartPage() {
                     aria-label={`${item.label}に切り替え`}
                     onClick={() => setTimeframe(item.value)}
                     disabled={chartLoading && active}
-                    className={`min-w-0 rounded-[12px] px-1 py-2.5 text-xs font-black transition-all duration-200 md:px-3 md:text-sm ${
+                    className={`min-h-10 min-w-0 rounded-[10px] px-0.5 py-2 text-xs font-black transition-all duration-200 md:px-3 md:text-sm ${
                       active
                         ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-500 hover:bg-white hover:text-slate-900"
+                        : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
                     } disabled:cursor-wait`}
                   >
                     <span className="md:hidden">{item.value}</span>
@@ -472,18 +473,13 @@ export default function ChartPage() {
                   </button>
                 );
               })}
+              </div>
+              <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-2 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="mr-1 text-[9px]">●</span>実データ
+              </span>
             </div>
 
-            <div className="mt-3 flex items-center justify-between px-1">
-              <p className="text-xs font-bold text-slate-500">
-                表示中：{TIMEFRAMES.find((item) => item.value === timeframe)?.label}
-              </p>
-              <p className="text-xs font-black text-blue-600">
-                {chartLoading ? "データ更新中..." : `${chart.candles.length}本`}
-              </p>
-            </div>
-
-            <div className="relative mt-3 min-h-[320px]">
+            <div className="relative mt-1 min-h-[320px]">
               <div
                 className={`transition-opacity duration-200 ${
                   chartLoading ? "opacity-40" : "opacity-100"
@@ -497,12 +493,16 @@ export default function ChartPage() {
                   stopLoss={stopLoss}
                   supportPrice={supportPrice}
                   resistancePrice={resistancePrice}
+                  ema20={chart.ema20}
+                  vwap={chart.vwap}
+                  macd={chart.macd}
+                  macdSignal={chart.macdSignal}
                 />
               </div>
 
               {chartLoading && (
-                <div className="absolute inset-0 z-10 grid place-items-center rounded-[18px] bg-white/45 backdrop-blur-[1px]">
-                  <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg">
+                <div className="absolute inset-0 z-10 grid place-items-center rounded-[18px] bg-white/45 backdrop-blur-[1px] dark:bg-slate-950/45">
+                  <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg dark:border-slate-700 dark:bg-slate-900">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
                     <span className="text-sm font-black text-slate-700">
                       {timeframe}を読み込み中
@@ -537,7 +537,7 @@ export default function ChartPage() {
   requiredMoney={requiredMoney}
 />
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <ActionCard
               title="🎯 利確目標"
               targetPrice={takeProfit}
@@ -557,7 +557,7 @@ export default function ChartPage() {
             />
           </section>
 
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="grid grid-cols-1 gap-2 lg:grid-cols-[1.05fr_0.95fr]">
             <SupportResistanceCard
               supportPrice={supportPrice}
               currentPrice={currentPrice}
@@ -569,12 +569,15 @@ export default function ChartPage() {
               comment={supportResistanceComment}
             />
 
-            <AnalysisCard
-              trend={getTrendText(chart.trend)}
-              pattern={getPatternText(chart.patternSignal)}
-              score={chart.patternScore}
-              candleSignal={chart.candleSignal}
-            />
+            <div className="space-y-2">
+              <AnalysisCard
+                trend={getTrendText(chart.trend)}
+                pattern={getPatternText(chart.patternSignal)}
+                aiScore={power}
+                candleSignal={chart.candleSignal}
+              />
+              <AIAdviceCard items={aiAdviceItems} importance={aiAdviceImportance} />
+            </div>
           </section>
 
           <AICommentCard items={aiCommentItems} />
