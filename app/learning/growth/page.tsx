@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
 
 type GrowthItem = {
@@ -100,16 +100,6 @@ export default function LearningGrowthPage() {
     void fetchLearning();
   }, []);
 
-  const history = useMemo(() => {
-    if (!data) return [];
-
-    return data.growthTrend.map((item, index, items) => ({
-      ...item,
-      increase:
-        index === 0 ? null : Math.max(0, item.total - items[index - 1].total),
-    }));
-  }, [data]);
-
   if (loading) {
     return (
       <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
@@ -138,12 +128,13 @@ export default function LearningGrowthPage() {
     );
   }
 
-  const firstTotal = history[0]?.total ?? 0;
-  const latestTotal = history.at(-1)?.total ?? data.total;
-  const totalIncrease = Math.max(0, latestTotal - firstTotal);
-  const averageIncrease =
-    history.length > 1
-      ? Math.round(totalIncrease / (history.length - 1))
+  const history = data.growthTrend;
+  const latestDailyTotal = history.at(-1)?.total ?? 0;
+  const averageDailyTotal =
+    history.length > 0
+      ? Math.round(
+          history.reduce((sum, item) => sum + item.total, 0) / history.length,
+        )
       : 0;
 
   const updatedAtJst = formatJstDateTime(data.updatedAt);
@@ -171,11 +162,11 @@ export default function LearningGrowthPage() {
 
         <section className="mb-4 rounded-[24px] border border-green-200 bg-gradient-to-br from-white to-green-50 p-4 shadow-sm">
           <p className="text-sm font-black text-green-700">
-            現在の累計学習件数
+            累計銘柄観測
           </p>
 
           <p className="mt-1 text-5xl font-black tracking-tight text-green-600">
-            {latestTotal.toLocaleString()}
+            {data.total.toLocaleString()}
           </p>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -185,13 +176,13 @@ export default function LearningGrowthPage() {
               color="text-green-600"
             />
             <Summary
-              label="期間内成長"
-              value={`+${totalIncrease.toLocaleString()}`}
+              label="最新日の観測"
+              value={`${latestDailyTotal.toLocaleString()}件`}
               color="text-green-600"
             />
             <Summary
-              label="平均増加"
-              value={`+${averageIncrease.toLocaleString()}`}
+              label="1日平均"
+              value={`${averageDailyTotal.toLocaleString()}件`}
               color="text-blue-600"
             />
           </div>
@@ -203,7 +194,7 @@ export default function LearningGrowthPage() {
 
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-black">📋 日別履歴</h2>
+            <h2 className="text-xl font-black">📋 日別観測件数</h2>
             <span className="text-xs font-black text-slate-500">
               {history.length}件
             </span>
@@ -222,7 +213,7 @@ export default function LearningGrowthPage() {
                     </p>
 
                     <p className="mt-1 text-xs font-bold text-slate-400">
-                      {index === 0 ? "最新記録" : "学習履歴"}
+                      {index === 0 ? "最新取引日" : "取引日"}
                     </p>
                   </div>
 
@@ -231,32 +222,14 @@ export default function LearningGrowthPage() {
                       {item.total.toLocaleString()}
                     </p>
                     <p className="text-[10px] font-black text-slate-400">
-                      累計学習件数
+                      当日の観測件数
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-blue-100 bg-white px-3 py-2">
-                  <span className="text-xs font-black text-slate-500">
-                    前回からの増加
-                  </span>
-
-                  <span
-                    className={`text-sm font-black ${
-                      item.increase === null
-                        ? "text-slate-400"
-                        : item.increase > 0
-                          ? "text-blue-600"
-                          : "text-slate-500"
-                    }`}
-                  >
-                    {item.increase === null
-                      ? "初回記録"
-                      : item.increase > 0
-                        ? `+${item.increase.toLocaleString()}件`
-                        : "増減なし"}
-                  </span>
-                </div>
+                <p className="mt-3 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-bold text-slate-500">
+                  この取引日に保存された銘柄スナップショット数です
+                </p>
               </article>
             ))}
           </div>

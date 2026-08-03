@@ -220,8 +220,8 @@ export default function EvolutionPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <GlassMini label="的中率" value={`${latest.overallWinRate}%`} />
-            <GlassMini label="学習件数" value={`${formatNumber(latest.judgedRecords)}件`} />
+            <GlassMini label="総合的中率" value={`${latest.overallWinRate}%`} />
+            <GlassMini label="判定済み学習データ" value={`${formatNumber(latest.judgedRecords)}件`} />
             <GlassMini label="改善候補数" value={`${formatNumber(latest.changedCount)}ヶ所`} />
             <GlassMini label="自動学習" value={cronLabel(latest.cronStatus)} />
           </div>
@@ -237,7 +237,7 @@ export default function EvolutionPage() {
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             icon="🎯"
-            title="予測的中率"
+            title="総合的中率"
             value={`${latest.overallWinRate}%`}
             description={`勝敗が確定したデータでは、100回中およそ${Math.round(latest.overallWinRate)}回の精度です。`}
             tone="blue"
@@ -245,7 +245,7 @@ export default function EvolutionPage() {
 
           <MetricCard
             icon="📚"
-            title="学習済みデータ"
+            title="判定済み学習データ"
             value={`${formatNumber(latest.judgedRecords)}件`}
             description="AIが実際の株価結果を見て学習した件数です。"
             tone="slate"
@@ -354,8 +354,8 @@ export default function EvolutionPage() {
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-700 md:grid-cols-3">
                   <HistoryItem label="AI完成度" value={`${item.qualityScore}点`} />
-                  <HistoryItem label="予測的中率" value={`${item.overallWinRate}%`} />
-                  <HistoryItem label="学習済みデータ" value={`${formatNumber(item.judgedRecords)}件`} />
+                  <HistoryItem label="総合的中率" value={`${item.overallWinRate}%`} />
+                  <HistoryItem label="判定済み学習データ" value={`${formatNumber(item.judgedRecords)}件`} />
                   <HistoryItem label="勝ちパターン" value={`${formatNumber(item.activeWeightRules)}種類`} />
                   <HistoryItem label="改善候補数" value={`${formatNumber(item.changedCount)}ヶ所`} />
                   <HistoryItem label="判定済みパターン" value={`${formatNumber(item.patternCount)}件`} />

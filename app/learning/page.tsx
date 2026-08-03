@@ -19,7 +19,9 @@ type TrendItem = {
   win: number;
   lose: number;
   hold: number;
+  pending: number;
   winRate: number;
+  status: "confirmed" | "processing" | "waiting_for_price";
 };
 
 type GrowthItem = {
@@ -45,6 +47,8 @@ type LearningDashboard = {
   growthTrend: GrowthItem[];
   comment: string;
   updatedAt: string;
+  latestSavedDate: string | null;
+  latestConfirmedDate: string | null;
 };
 
 
@@ -103,6 +107,21 @@ function formatJstDateTime(value?: string) {
 
 const DASHBOARD_TREND_LIMIT = 5;
 
+function trendStatus(item: TrendItem) {
+  if (item.status === "confirmed") {
+    return { label: "確定", className: "bg-green-50 text-green-700" };
+  }
+
+  if (item.status === "waiting_for_price") {
+    return {
+      label: "価格データ待ち",
+      className: "bg-slate-100 text-slate-600",
+    };
+  }
+
+  return { label: "判定中", className: "bg-amber-50 text-amber-700" };
+}
+
 export default function LearningPage() {
   const [data, setData] = useState<LearningDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,9 +178,7 @@ export default function LearningPage() {
     );
   }
 
-  const dailyWinRateTrend = data.winRateTrend
-    .filter((item) => item.win + item.lose > 0)
-    .slice(-DASHBOARD_TREND_LIMIT);
+  const dailyWinRateTrend = data.winRateTrend.slice(-DASHBOARD_TREND_LIMIT);
 
   const growthTrend = data.growthTrend
     .slice(-DASHBOARD_TREND_LIMIT)
@@ -210,9 +227,17 @@ export default function LearningPage() {
               </p>
 
               <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2">
-                <p className="text-xs font-black text-slate-500">更新</p>
+                <p className="text-xs font-black text-slate-500">
+                  データ最終更新
+                </p>
                 <p className="text-sm font-black text-slate-700">
                   {updatedAtJst}
+                </p>
+                <p className="mt-1 text-[10px] font-bold text-slate-500">
+                  最新保存取引日 {data.latestSavedDate ?? "-"}
+                </p>
+                <p className="text-[10px] font-bold text-slate-500">
+                  最新完全判定日 {data.latestConfirmedDate ?? "-"}
                 </p>
               </div>
             </div>
@@ -232,7 +257,7 @@ export default function LearningPage() {
               <div>
                 <p className="text-xs font-black text-slate-500">TOTAL</p>
                 <p className="text-[10px] font-bold text-slate-400">
-                  累計学習件数
+                  累計銘柄観測
                 </p>
               </div>
 
@@ -300,6 +325,7 @@ export default function LearningPage() {
               <div className="grid h-64 grid-cols-5 items-end gap-2 border-b border-slate-200 px-1">
                 {dailyWinRateTrend.map((item) => {
                   const judged = item.win + item.lose;
+                  const status = trendStatus(item);
                   const tone =
                     item.winRate >= 70
                       ? "bg-green-500"
@@ -312,15 +338,20 @@ export default function LearningPage() {
                       key={item.date}
                       className="flex h-full min-w-0 flex-col items-center justify-end"
                     >
-                      <span className="mb-2 text-sm font-black text-slate-900">
-                        {item.winRate}%
+                      <span className="mb-1 text-sm font-black text-slate-900">
+                        {judged > 0 ? `${item.winRate}%` : "--"}
+                      </span>
+                      <span
+                        className={`mb-2 rounded-full px-1.5 py-0.5 text-[9px] font-black ${status.className}`}
+                      >
+                        {status.label}
                       </span>
 
                       <div className="flex h-40 w-full items-end justify-center">
                         <div
                           className={`w-full max-w-10 rounded-t-xl ${tone} transition-all`}
                           style={{
-                            height: `${Math.max(item.winRate, 6)}%`,
+                            height: `${judged > 0 ? Math.max(item.winRate, 6) : 6}%`,
                           }}
                           title={`${item.winRate}%（${item.win}勝 / ${item.lose}敗）`}
                         />
@@ -335,6 +366,11 @@ export default function LearningPage() {
                       <span className="text-[10px] font-bold text-slate-400">
                         ({judged}件)
                       </span>
+                      {item.pending > 0 && (
+                        <span className="whitespace-nowrap text-[9px] font-bold text-amber-600">
+                          残り{item.pending}件
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -368,8 +404,10 @@ export default function LearningPage() {
 
         <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-black">🌱 AI成長グラフ</h2>
-            <span className="text-xs font-black text-green-600">直近5日</span>
+            <h2 className="text-xl font-black">📊 日別観測件数</h2>
+            <span className="text-xs font-black text-green-600">
+              直近5営業日
+            </span>
           </div>
 
           <LineChart data={growthTrend} colorClass="bg-green-600" />
@@ -378,7 +416,7 @@ export default function LearningPage() {
             href="/learning/growth"
             className="mt-4 block rounded-2xl border border-green-200 bg-green-50 py-3 text-center text-sm font-black text-green-700 transition active:scale-[0.98]"
           >
-            AI成長履歴を詳しく見る →
+            日別観測履歴を詳しく見る →
           </Link>
         </section>
 

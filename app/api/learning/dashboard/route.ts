@@ -20,7 +20,9 @@ type TrendItem = {
   win: number;
   lose: number;
   hold: number;
+  pending: number;
   winRate: number;
+  status: "confirmed" | "processing" | "waiting_for_price";
 };
 
 function toNumber(value: unknown) {
@@ -136,24 +138,24 @@ export async function GET() {
         GROUP BY code
       `),
       pool.query(`
-        SELECT
-          date,
-          total,
-          win,
-          lose,
-          hold
+          SELECT
+            date,
+            total,
+            win,
+            lose,
+            hold,
+            pending
         FROM (
           SELECT
             date,
             COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE result = 'WIN')::int AS win,
             COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose,
-            COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold
+            COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold,
+            COUNT(*) FILTER (WHERE result = 'UNKNOWN')::int AS pending
           FROM daily_stock_results
           WHERE date IS NOT NULL
           GROUP BY date
-          HAVING COUNT(*) FILTER (WHERE result = 'UNKNOWN') = 0
-            AND COUNT(*) FILTER (WHERE result IN ('WIN', 'LOSE')) > 0
           ORDER BY date DESC
           LIMIT 5
         ) AS latest_days
@@ -169,6 +171,17 @@ export async function GET() {
             WHERE date IS NOT NULL
               AND date::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::date
           ) AS latest_previous_business_date,
+          MAX(date) FILTER (WHERE date IS NOT NULL) AS latest_saved_date,
+          (
+            SELECT MAX(confirmed.date)
+            FROM (
+              SELECT date
+              FROM daily_stock_results
+              WHERE date IS NOT NULL
+              GROUP BY date
+              HAVING COUNT(*) FILTER (WHERE result = 'UNKNOWN') = 0
+            ) AS confirmed
+          ) AS latest_confirmed_date,
           MAX(date) FILTER (
             WHERE date IS NOT NULL
               AND result = 'UNKNOWN'
@@ -194,6 +207,12 @@ export async function GET() {
       ? String(metadata.processing_date).slice(0, 10)
       : undefined;
     const updatedAt = metadata.updated_at ?? null;
+    const latestSavedDate = metadata.latest_saved_date
+      ? String(metadata.latest_saved_date).slice(0, 10)
+      : undefined;
+    const latestConfirmedDate = metadata.latest_confirmed_date
+      ? String(metadata.latest_confirmed_date).slice(0, 10)
+      : undefined;
 
     const judgedTotal = win + lose;
     const winRate =
@@ -230,23 +249,32 @@ export async function GET() {
     const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
       const dayWin = toNumber(row.win);
       const dayLose = toNumber(row.lose);
+      const dayHold = toNumber(row.hold);
+      const pending = toNumber(row.pending);
       const judged = dayWin + dayLose;
+      const status =
+        pending === 0
+          ? "confirmed"
+          : dayWin + dayLose + dayHold === 0
+            ? "waiting_for_price"
+            : "processing";
 
       return {
         date: String(row.date ?? ""),
         total: toNumber(row.total),
         win: dayWin,
         lose: dayLose,
-        hold: toNumber(row.hold),
+        hold: dayHold,
+        pending,
         winRate:
           judged === 0 ? 0 : Math.round((dayWin / judged) * 100),
+        status,
       };
     });
 
     const judgedTrend = winRateTrend.filter(
       (item) => item.win + item.lose > 0,
     );
-
     const latestDailyWinRate =
       judgedTrend.length > 0
         ? judgedTrend[judgedTrend.length - 1].winRate
@@ -259,12 +287,10 @@ export async function GET() {
 
     const diff = latestDailyWinRate - previousWinRate;
 
-    let cumulativeTotal = 0;
     const growthTrend = winRateTrend.map((item) => {
-      cumulativeTotal += item.total;
       return {
         date: item.date,
-        total: cumulativeTotal,
+        total: item.total,
       };
     });
 
@@ -307,7 +333,8 @@ export async function GET() {
       resultPie,
       comment,
       latestPreviousBusinessDate: latestPreviousBusinessDate ?? null,
-      latestConfirmedDate: judgedTrend.at(-1)?.date ?? null,
+      latestConfirmedDate: latestConfirmedDate ?? null,
+      latestSavedDate: latestSavedDate ?? null,
       processingDate: processingDate ?? null,
       updatedAt,
     });

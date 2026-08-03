@@ -11,7 +11,7 @@ export default function WinRateRing({ winRate }: { winRate: number }) {
       <div className="w-28 h-28 rounded-full bg-white flex flex-col items-center justify-center shadow-inner">
         <p className="text-4xl font-black text-slate-900">{safeRate}%</p>
         <p className="text-xs font-black text-slate-500 mt-1">
-          現在のAI勝率
+          日次銘柄勝率
         </p>
       </div>
     </div>
