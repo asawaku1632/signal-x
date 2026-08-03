@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/check-daily",
       "schedule": "50 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/learning-save-monitor",
+      "schedule": "5 7 * * 1-5"
     }
   ]
 }

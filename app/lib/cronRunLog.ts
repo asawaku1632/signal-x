@@ -8,6 +8,7 @@ export type CronRunStatus =
   | "LINE_API_RESPONSE"
   | "LINE_SUCCESS"
   | "LINE_FAILED"
+  | "SAVE_SUCCESS"
   | "COMPLETED"
   | "SKIPPED"
   | "ERROR";
