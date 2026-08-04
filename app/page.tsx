@@ -168,21 +168,21 @@ function normalizeTopStocks(stocks: ApiStock[]): TopStock[] {
 
 const screens = [
   {
-    title: "📱 AIランキング",
-    text: "AIが注目銘柄を抽出",
-    image: "/images/ranking.png",
-    alt: "AIランキング画面",
+    title: "📱 AIスキャン",
+    text: "約1000銘柄から今日の注目候補をAIが抽出",
+    image: "/images/app-preview-scan.webp",
+    alt: "AIスキャン画面",
   },
   {
-    title: "📊 AI分析",
-    text: "EMA・VWAP・MACDをAIが解説",
-    image: "/images/analysis.png",
-    alt: "AI分析画面",
+    title: "📊 個別AI解析",
+    text: "AI POWER・現在の行動・利益とリスクを分かりやすく表示",
+    image: "/images/app-preview-analysis.webp",
+    alt: "個別AI解析画面",
   },
   {
     title: "📈 リアルチャート",
-    text: "チャートとテクニカル指標を確認",
-    image: "/images/chart.png",
+    text: "チャート・テクニカル指標・AI未来予測をまとめて確認",
+    image: "/images/app-preview-chart.webp",
     alt: "リアルチャート画面",
   },
 ];
@@ -783,7 +783,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-[1180px] gap-4 lg:grid-cols-[1.18fr_1fr_0.8fr]">
           <section aria-labelledby="app-preview-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1"><h2 id="app-preview-title" className="text-sm font-black tracking-wide text-[#0b1c3b]">APP PREVIEW</h2><p className="text-[11px] font-black text-blue-600">実際の画面イメージ</p></div>
-            <div className="app-preview-track mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">{screens.map((screen, index) => <article key={screen.title} className="w-[78%] shrink-0 snap-center text-center first:snap-start last:snap-end sm:w-auto sm:min-w-0"><div className="overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200 bg-slate-50"><Image src={screen.image} alt={screen.alt} width={420} height={820} sizes="(max-width: 639px) 78vw, (max-width: 1024px) 30vw, 140px" className="h-auto max-h-[28rem] w-full object-cover object-top sm:h-56" /></div><h3 className="mt-2 text-xs font-black text-[#071a3d]">{index + 1} / {screens.length}　{screen.title.replace(/^\S+\s/, "")}</h3><p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-600">{screen.text}</p></article>)}</div>
+            <div className="app-preview-track mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">{screens.map((screen, index) => <article key={screen.title} className="w-[78%] shrink-0 snap-center text-center first:snap-start last:snap-end sm:w-auto sm:min-w-0"><div className="overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200 bg-slate-50"><Image src={screen.image} alt={screen.alt} width={420} height={820} sizes="(max-width: 639px) 78vw, (max-width: 1024px) 30vw, 140px" className="h-auto max-h-[28rem] w-full object-contain object-top sm:h-56" /></div><h3 className="mt-2 text-xs font-black text-[#071a3d]">{index + 1} / {screens.length}　{screen.title.replace(/^\S+\s/, "")}</h3><p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-600">{screen.text}</p></article>)}</div>
           </section>
           <section aria-labelledby="release-title" className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50 via-white to-white p-5 text-center shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
             <div className="absolute inset-x-16 top-0 h-24 rounded-full bg-blue-200/30 blur-3xl" aria-hidden="true" /><p className="relative mx-auto w-fit bg-gradient-to-r from-amber-400 to-yellow-300 px-6 py-1.5 text-[11px] font-black text-[#3f2c00] shadow-md">Google Play公開記念　★</p><h2 id="release-title" className="relative mt-3 text-xl font-black text-[#071a3d]">Ver1.0</h2><p className="relative mt-1 text-4xl font-black tracking-tight text-blue-600">完全無料</p><p className="relative mt-2 text-sm font-black text-[#071a3d]">すべての機能を無料開放</p>
@@ -827,7 +827,7 @@ export default function HomePage() {
                     width={420}
                     height={820}
                     sizes="(max-width: 768px) 100vw, 33vw"
-                    className="h-80 w-full object-cover transition duration-300 group-hover:scale-105"
+                    className="h-80 w-full object-contain object-top transition duration-300 group-hover:scale-105"
                   />
                 </div>
 
