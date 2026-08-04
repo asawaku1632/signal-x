@@ -46,6 +46,66 @@ type SaveStage =
   | "related-learning-save"
   | "completed";
 
+type ScanResponseDiagnostics = {
+  status: number;
+  statusText: string;
+  contentType: string;
+  finalUrl: string;
+  redirected: boolean;
+  bodyPreview: string;
+  responseKind: string;
+};
+
+function classifyScanResponse(contentType: string, body: string) {
+  const normalized = body.trimStart().toLowerCase();
+
+  if (!body.trim()) return "empty-body";
+  if (!normalized.startsWith("<!doctype") && !normalized.startsWith("<html")) {
+    return contentType.includes("json") ? "invalid-json" : "non-json";
+  }
+  if (normalized.includes("deployment_not_found")) return "deployment-not-found";
+  if (normalized.includes("application error")) return "application-error";
+  if (normalized.includes("vercel authentication") || normalized.includes("_vercel_sso_nonce")) {
+    return "vercel-authentication";
+  }
+  if (normalized.includes("nextauth") || normalized.includes("sign in")) {
+    return "authentication-page";
+  }
+  if (normalized.includes("too many requests") || normalized.includes("rate limit")) {
+    return "rate-limit-page";
+  }
+  if (normalized.includes("gateway timeout") || normalized.includes("timed out")) {
+    return "timeout-page";
+  }
+  if (normalized.includes("404") || normalized.includes("not found")) {
+    return "not-found-page";
+  }
+  if (normalized.includes("500") || normalized.includes("internal server error")) {
+    return "server-error-page";
+  }
+  return "html-page";
+}
+
+function diagnosticPreview(body: string) {
+  return body
+    .slice(0, 500)
+    .replace(/((?:token|secret|nonce|code)["'=:\s]+)[^&"'<>\s]+/gi, "$1[masked]");
+}
+
+function diagnosticUrl(value: string) {
+  try {
+    const url = new URL(value);
+    for (const key of url.searchParams.keys()) {
+      if (/token|secret|nonce|code/i.test(key)) {
+        url.searchParams.set(key, "[masked]");
+      }
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function getJstDateString(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Tokyo",
@@ -214,6 +274,7 @@ export async function GET(req: Request) {
   let stage: SaveStage = "authorization";
   let fetchedCount = 0;
   let savedCount = 0;
+  let scanDiagnostics: ScanResponseDiagnostics | null = null;
 
   try {
     if (!(await isAuthorized(req))) {
@@ -298,26 +359,57 @@ export async function GET(req: Request) {
 
     const scanUrl = new URL("/api/scan?limit=1000", req.url);
     stage = "scan";
-    logSaveDaily(runId, stage, { targetDate, scanUrl: scanUrl.pathname });
+    logSaveDaily(runId, stage, {
+      targetDate,
+      scanUrl: scanUrl.toString(),
+      requestOrigin: new URL(req.url).origin,
+    });
+
+    const requestCookie = req.headers.get("cookie");
 
     const scanRes = await fetch(scanUrl, {
       cache: "no-store",
+      headers: requestCookie ? { cookie: requestCookie } : undefined,
       signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
     });
 
+    stage = "scan-response";
+    const responseText = await scanRes.text();
+    const contentType = scanRes.headers.get("content-type") ?? "";
+    const isJsonContentType = /(^|\s|;)application\/(?:[^;]+\+)?json(?:\s|;|$)/i.test(
+      contentType,
+    );
+    scanDiagnostics = {
+      status: scanRes.status,
+      statusText: scanRes.statusText,
+      contentType,
+      finalUrl: diagnosticUrl(scanRes.url),
+      redirected: scanRes.redirected,
+      bodyPreview: diagnosticPreview(responseText),
+      responseKind: classifyScanResponse(contentType, responseText),
+    };
+
     if (!scanRes.ok) {
-      const responseText = await scanRes.text().catch(() => "");
-      logSaveDaily(runId, stage, {
-        targetDate,
-        success: false,
-        scanStatus: scanRes.status,
-        scanError: responseText.slice(0, 500),
-      });
-      throw new Error(`scan api failed: ${scanRes.status}`);
+      throw new Error(
+        `scan api failed: ${scanRes.status} ${scanRes.statusText} (${scanDiagnostics.responseKind})`,
+      );
+    }
+    if (!responseText.trim()) {
+      throw new Error("scan api returned an empty response body");
+    }
+    if (!isJsonContentType) {
+      throw new Error(
+        `scan api returned non-JSON content: ${contentType || "missing content-type"} (${scanDiagnostics.responseKind})`,
+      );
     }
 
-    stage = "scan-response";
-    const scanJson = await scanRes.json();
+    let scanJson: { stocks?: Stock[] };
+    try {
+      scanJson = JSON.parse(responseText) as { stocks?: Stock[] };
+    } catch (parseError) {
+      scanDiagnostics.responseKind = "invalid-json";
+      throw new Error(`scan api returned invalid JSON: ${errorMessage(parseError)}`);
+    }
 
     const stocks: Stock[] = Array.isArray(scanJson?.stocks)
       ? scanJson.stocks
@@ -333,7 +425,7 @@ export async function GET(req: Request) {
       status: "SCAN_FINISHED",
       message: "全銘柄scanの取得が完了しました",
       httpStatus: scanRes.status,
-      details: { runId, targetDate, stage, fetchedCount },
+      details: { runId, targetDate, stage, fetchedCount, scanResponse: scanDiagnostics },
     });
 
     // 銘柄学習
@@ -438,6 +530,7 @@ export async function GET(req: Request) {
       success: false,
       timedOut,
       failureReason: message,
+      scanResponse: scanDiagnostics,
       durationMs: Date.now() - startedAt,
     });
 
@@ -454,6 +547,7 @@ export async function GET(req: Request) {
         savedCount,
         timedOut,
         failureReason: message,
+        scanResponse: scanDiagnostics,
         durationMs: Date.now() - startedAt,
       },
     });
