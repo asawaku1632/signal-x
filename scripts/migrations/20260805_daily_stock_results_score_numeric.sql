@@ -3,3 +3,8 @@
 ALTER TABLE public.daily_stock_results
 ALTER COLUMN score TYPE numeric
 USING score::numeric;
+
+-- Pattern learning stores the same decimal AI POWER value.
+ALTER TABLE public.pattern_learning_logs
+ALTER COLUMN ai_power TYPE numeric
+USING ai_power::numeric;
