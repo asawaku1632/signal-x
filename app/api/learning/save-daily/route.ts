@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 
 import pool from "@/app/lib/postgres";
 import { saveDailyStocks } from "@/app/lib/dailyLearning";
-import { saveSectorLearning } from "@/app/lib/sectorLearning";
-import { saveMarketLearning } from "@/app/lib/marketLearning";
-import { saveExperienceLearning } from "@/app/lib/experienceLearning";
 import { getAdminSession } from "@/app/lib/admin";
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { sendLine } from "@/app/lib/line/sendLine";
 import { isJstBusinessDay } from "@/app/lib/learning/learningSaveStatus";
+import { saveRelatedLearning } from "@/app/lib/relatedLearning";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -197,76 +195,6 @@ async function notifySaveFailure(input: {
   }
 }
 
-async function savePatternLearningLogs(stocks: Stock[]) {
-  const targets = stocks.filter((stock) => {
-    return (
-      stock.code &&
-      stock.name &&
-      stock.patternKey &&
-      stock.patternLearning &&
-      typeof (stock.aiPower ?? stock.score) === "number" &&
-      typeof stock.price === "number"
-    );
-  });
-
-  if (targets.length === 0) {
-    return {
-      patternAdded: 0,
-    };
-  }
-
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-
-  targets.forEach((stock, index) => {
-    const base = index * 10;
-    const pattern = stock.patternLearning!;
-
-    values.push(
-      stock.code,
-      stock.name,
-      stock.patternKey,
-      pattern.rsiBand ?? null,
-      pattern.macdKey ?? null,
-      pattern.vwapKey ?? null,
-      pattern.ema20Key ?? null,
-      pattern.trendKey ?? null,
-      stock.aiPower ?? stock.score,
-      stock.price
-    );
-
-    placeholders.push(
-      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${
-        base + 5
-      }, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${
-        base + 10
-      })`
-    );
-  });
-
-  await pool.query(
-    `
-    INSERT INTO pattern_learning_logs (
-      code,
-      name,
-      pattern_key,
-      rsi_band,
-      macd_key,
-      vwap_key,
-      ema20_key,
-      trend_key,
-      ai_power,
-      entry_price
-    )
-    VALUES ${placeholders.join(",")}
-    `,
-    values
-  );
-
-  return {
-    patternAdded: targets.length,
-  };
-}
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const runId = crypto.randomUUID();
@@ -453,24 +381,7 @@ export async function GET(req: Request) {
     });
 
     stage = "related-learning-save";
-    // パターン学習
-    const patternResult = await savePatternLearningLogs(stocks);
-
-    // セクター学習（V7）
-    const sectorResult = await saveSectorLearning(targetDate, stocks);
-
-    // 市場学習（V8）
-    const marketResult = await saveMarketLearning({
-      tradeDate: targetDate,
-      stocks,
-    });
-
-    // 経験学習（V9）
-    const experienceResult = await saveExperienceLearning({
-      tradeDate: targetDate,
-      stocks,
-      marketPattern: marketResult.market.marketPattern,
-    });
+    const relatedResult = await saveRelatedLearning(targetDate, stocks);
 
     stage = "completed";
     logSaveDaily(runId, stage, {
@@ -512,10 +423,7 @@ export async function GET(req: Request) {
       durationMs: Date.now() - startedAt,
 
       ...result,
-      ...patternResult,
-      ...sectorResult,
-      ...marketResult,
-      ...experienceResult,
+      ...relatedResult,
     });
   } catch (error: unknown) {
     const message = errorMessage(error);
