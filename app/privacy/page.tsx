@@ -7,20 +7,6 @@ export const metadata: Metadata = {
     "日本株のAI分析サービス「SIGNALX」における、利用者情報の取扱いについてご案内します。",
 };
 
-const sections = [
-  { id: "service", label: "1. SIGNALXが提供するサービス" },
-  { id: "information", label: "2. 取得する可能性のある情報" },
-  { id: "purpose", label: "3. 情報の利用目的" },
-  { id: "third-party", label: "4. 第三者提供" },
-  { id: "external-services", label: "5. 外部サービスの利用" },
-  { id: "cookies", label: "6. Cookie等の利用" },
-  { id: "management", label: "7. 保存・管理" },
-  { id: "deletion", label: "8. 削除依頼" },
-  { id: "minors", label: "9. 未成年者の利用" },
-  { id: "changes", label: "10. 本ポリシーの変更" },
-  { id: "contact", label: "11. お問い合わせ" },
-] as const;
-
 const sectionClass =
   "scroll-mt-6 border-t border-slate-200 pt-8 sm:pt-10";
 const headingClass =
@@ -28,6 +14,8 @@ const headingClass =
 const paragraphClass = "mt-4 text-sm leading-7 text-slate-700 sm:text-base sm:leading-8";
 const listClass =
   "mt-4 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-700 marker:text-blue-500 sm:text-base sm:leading-8";
+const tocLinkClass =
+  "block rounded-lg px-3 py-2 leading-5 hover:bg-white hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600";
 
 export default function PrivacyPage() {
   return (
@@ -69,16 +57,61 @@ export default function PrivacyPage() {
             role="list"
             className="mt-3 grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600"
           >
-            {sections.map((section) => (
-              <div key={section.id} role="listitem">
-                <a
-                  href={`#${section.id}`}
-                  className="block rounded-lg px-3 py-2 leading-5 hover:bg-white hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"
-                >
-                  {section.label}
-                </a>
-              </div>
-            ))}
+            <div role="listitem">
+              <a href="#service" className={tocLinkClass}>
+                1. SIGNALXが提供するサービス
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#information" className={tocLinkClass}>
+                2. 取得する可能性のある情報
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#purpose" className={tocLinkClass}>
+                3. 情報の利用目的
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#third-party" className={tocLinkClass}>
+                4. 第三者提供
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#external-services" className={tocLinkClass}>
+                5. 外部サービスの利用
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#cookies" className={tocLinkClass}>
+                6. Cookie等の利用
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#management" className={tocLinkClass}>
+                7. 保存・管理
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#deletion" className={tocLinkClass}>
+                8. 削除依頼
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#minors" className={tocLinkClass}>
+                9. 未成年者の利用
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#changes" className={tocLinkClass}>
+                10. 本ポリシーの変更
+              </a>
+            </div>
+            <div role="listitem">
+              <a href="#contact" className={tocLinkClass}>
+                11. お問い合わせ
+              </a>
+            </div>
           </div>
         </nav>
 
