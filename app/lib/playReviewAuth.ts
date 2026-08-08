@@ -13,11 +13,30 @@ type PlayReviewConfig = {
 
 type HeaderValue = string | string[] | undefined;
 
+const BCRYPT_HASH_PATTERN = /^\$2[aby]\$(?:0[4-9]|[12]\d|3[01])\$[./A-Za-z0-9]{53}$/;
+
+function isValidBcryptHash(value: string): boolean {
+  return BCRYPT_HASH_PATTERN.test(value);
+}
+
+function logReviewConfigDiagnostics(): void {
+  const email = process.env.PLAY_REVIEW_EMAIL ?? "";
+  const passwordHash = process.env.PLAY_REVIEW_PASSWORD_HASH ?? "";
+
+  console.info("[play-review-diagnostic] configuration", {
+    emailConfigured: email.trim().length > 0,
+    passwordHashConfigured: passwordHash.length > 0,
+    passwordHashFormatValid: isValidBcryptHash(passwordHash),
+  });
+}
+
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
 export function getPlayReviewConfig(): PlayReviewConfig | null {
+  logReviewConfigDiagnostics();
+
   if (
     process.env.VERCEL_ENV !== "production" ||
     process.env.PLAY_REVIEW_AUTH_ENABLED !== "true"
@@ -54,6 +73,7 @@ export async function authorizePlayReview(
       clearReviewLoginFailures,
       createReviewLoginIdentifier,
       isReviewLoginAllowed,
+      logReviewDatabaseAccessDiagnostics,
       recordReviewLoginFailure,
     } = await import("@/app/lib/playReviewRateLimit");
     const identifierHash = createReviewLoginIdentifier(
@@ -61,7 +81,13 @@ export async function authorizePlayReview(
       config.credentialVersion
     );
 
-    if (!(await isReviewLoginAllowed(identifierHash))) {
+    await logReviewDatabaseAccessDiagnostics();
+
+    const rateLimitAllowed = await isReviewLoginAllowed(identifierHash);
+    console.info("[play-review-diagnostic] rate limit", {
+      decision: rateLimitAllowed ? "allowed" : "blocked",
+    });
+    if (!rateLimitAllowed) {
       return null;
     }
 
@@ -75,10 +101,15 @@ export async function authorizePlayReview(
         ? credentials.password
         : "";
 
-    const [emailMatches, passwordMatches] = await Promise.all([
-      Promise.resolve(submittedEmail === config.email),
-      bcrypt.compare(submittedPassword, config.passwordHash),
-    ]);
+    const emailMatches = submittedEmail === config.email;
+    const passwordMatches =
+      isValidBcryptHash(config.passwordHash) &&
+      (await bcrypt.compare(submittedPassword, config.passwordHash));
+
+    console.info("[play-review-diagnostic] credential checks", {
+      emailMatches,
+      bcryptCompareResult: passwordMatches,
+    });
 
     if (!emailMatches || !passwordMatches) {
       await recordReviewLoginFailure(identifierHash);
@@ -95,10 +126,18 @@ export async function authorizePlayReview(
     };
   } catch (error) {
     // Rate-limit storage or password verification failures must fail closed.
-    console.error(
-      "Play review authentication failed safely:",
-      error instanceof Error ? error.message : "unknown internal error"
-    );
+    const postgresCode =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof error.code === "string" &&
+      /^[0-9A-Z]{5}$/.test(error.code)
+        ? error.code
+        : "unavailable";
+    console.error("[play-review-diagnostic] authentication", {
+      outcome: "failed_safely",
+      postgresCode,
+    });
     return null;
   }
 }
