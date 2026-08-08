@@ -65,18 +65,21 @@ export default function PrivacyPage() {
       <div className="mx-auto grid max-w-4xl gap-10 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <nav aria-label="プライバシーポリシー目次" className="lg:sticky lg:top-6 lg:self-start">
           <p className="text-sm font-bold text-slate-950">目次</p>
-          <ol className="mt-3 grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          <div
+            role="list"
+            className="mt-3 grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600"
+          >
             {sections.map((section) => (
-              <li key={section.id}>
+              <div key={section.id} role="listitem">
                 <a
                   href={`#${section.id}`}
                   className="block rounded-lg px-3 py-2 leading-5 hover:bg-white hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"
                 >
                   {section.label}
                 </a>
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         </nav>
 
         <article className="min-w-0 space-y-9 sm:space-y-10">
