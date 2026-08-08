@@ -1,7 +1,9 @@
-"use client";
-
-import { signIn } from "next-auth/react";
 import Link from "next/link";
+
+import { isPlayReviewAuthEnabled } from "@/app/lib/playReviewAuth";
+import GoogleLoginButton from "./GoogleLoginButton";
+
+export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
   return (
@@ -28,16 +30,16 @@ export default function LoginPage() {
             ログインすると、将来的にお気に入り銘柄や通知設定をアカウントに保存できるようになります。
           </p>
 
-          <button
-  onClick={() =>
-    signIn("google", {
-      callbackUrl: "/dashboard",
-    })
-  }
-  className="mt-8 w-full rounded-full bg-blue-600 px-6 py-4 text-sm font-black text-white shadow-lg shadow-blue-200"
->
-  Googleでログイン
-</button>
+          <GoogleLoginButton />
+
+          {isPlayReviewAuthEnabled() ? (
+            <Link
+              href="/login/play-review"
+              className="mt-8 inline-block text-xs font-bold text-slate-400 underline decoration-slate-300 underline-offset-4 hover:text-slate-600"
+            >
+              Google Play 審査担当者はこちら
+            </Link>
+          ) : null}
         </section>
       </div>
     </main>
