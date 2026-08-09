@@ -59,3 +59,69 @@ self.addEventListener("fetch", (event) => {
     })));
   }
 });
+
+const DEFAULT_PUSH_PAYLOAD = {
+  title: "SIGNALX",
+  body: "新しいお知らせがあります",
+  url: "/",
+  tag: "signalx-notification",
+};
+const ALLOWED_NOTIFICATION_PATHS = new Set(["/", "/mypage"]);
+
+function safeNotificationText(value, fallback, maxLength) {
+  return typeof value === "string" && value.trim()
+    ? value.trim().slice(0, maxLength)
+    : fallback;
+}
+
+function safeNotificationUrl(value) {
+  try {
+    const url = new URL(typeof value === "string" ? value : "/", self.location.origin);
+    if (url.origin !== self.location.origin || !ALLOWED_NOTIFICATION_PATHS.has(url.pathname)) return "/";
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return "/";
+  }
+}
+
+self.addEventListener("push", (event) => {
+  let received = {};
+  try {
+    received = event.data ? event.data.json() : {};
+  } catch {
+    received = {};
+  }
+  if (!received || typeof received !== "object" || Array.isArray(received)) received = {};
+
+  const payload = {
+    title: safeNotificationText(received.title, DEFAULT_PUSH_PAYLOAD.title, 80),
+    body: safeNotificationText(received.body, DEFAULT_PUSH_PAYLOAD.body, 240),
+    url: safeNotificationUrl(received.url),
+    tag: safeNotificationText(received.tag, DEFAULT_PUSH_PAYLOAD.tag, 64),
+  };
+
+  event.waitUntil(self.registration.showNotification(payload.title, {
+    body: payload.body,
+    tag: payload.tag,
+    icon: "/icons/signalx-192.png",
+    data: { url: payload.url },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetPath = safeNotificationUrl(event.notification.data?.url);
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const existing = windows.find((client) => {
+      try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
+    });
+    if (existing) {
+      if ("navigate" in existing) await existing.navigate(targetUrl);
+      return existing.focus();
+    }
+    return self.clients.openWindow(targetUrl);
+  })());
+});

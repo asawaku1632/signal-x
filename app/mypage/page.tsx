@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import PushNotificationButton from "@/app/components/push/PushNotificationButton";
 
 type SettingLink = {
   href: string;
@@ -194,6 +195,8 @@ export default function MyPage() {
             </div>
           </div>
         </section>
+
+        <PushNotificationButton />
 
         <section className="mt-5 rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-end justify-between gap-3">
