@@ -67,6 +67,7 @@ const DEFAULT_PUSH_PAYLOAD = {
   tag: "signalx-notification",
 };
 const ALLOWED_NOTIFICATION_PATHS = new Set(["/", "/mypage"]);
+const CANONICAL_ORIGIN = "https://signal-x-ppjg.vercel.app";
 
 function safeNotificationText(value, fallback, maxLength) {
   return typeof value === "string" && value.trim()
@@ -111,17 +112,39 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetPath = safeNotificationUrl(event.notification.data?.url);
-  const targetUrl = new URL(targetPath, self.location.origin).href;
+  const targetUrl = new URL(targetPath, CANONICAL_ORIGIN).href;
 
   event.waitUntil((async () => {
-    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    const existing = windows.find((client) => {
-      try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
-    });
-    if (existing) {
-      if ("navigate" in existing) await existing.navigate(targetUrl);
-      return existing.focus();
+    let windows = [];
+    try {
+      windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    } catch {
+      // Continue to openWindow when existing clients cannot be inspected.
     }
-    return self.clients.openWindow(targetUrl);
+
+    for (const client of windows) {
+      try {
+        if (new URL(client.url).origin !== CANONICAL_ORIGIN || !("navigate" in client)) continue;
+        const navigated = await client.navigate(targetUrl);
+        if (!navigated) continue;
+        await navigated.focus();
+        return;
+      } catch {
+        // Try another matching client, then fall back to openWindow.
+      }
+    }
+
+    try {
+      const opened = await self.clients.openWindow(targetUrl);
+      if (opened && "focus" in opened) {
+        try {
+          await opened.focus();
+        } catch {
+          // The URL was opened even if the browser cannot focus it explicitly.
+        }
+      }
+    } catch {
+      // Keep the notificationclick promise fulfilled when the browser refuses to open a window.
+    }
   })());
 });
