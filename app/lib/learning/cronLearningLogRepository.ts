@@ -1,6 +1,6 @@
 import pool from "@/app/lib/postgres";
 
-export type CronLearningLogStatus = "SUCCESS" | "ERROR";
+export type CronLearningLogStatus = "SUCCESS" | "ERROR" | "SKIPPED";
 
 export type CreateCronLearningLogInput = {
   status: CronLearningLogStatus;

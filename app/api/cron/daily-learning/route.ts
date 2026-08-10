@@ -4,6 +4,8 @@ import { runAutoLearning } from "@/app/lib/learning/autoLearningRunner";
 import { createCronLearningLog } from "@/app/lib/learning/cronLearningLogRepository";
 import { runEvolutionLogger } from "@/app/lib/learning/evolutionLogger";
 import { createEvolutionSummaryFromLog } from "@/app/lib/evolution/evolutionSummaryRepository";
+import pool from "@/app/lib/postgres";
+import { getJstDateString } from "@/app/lib/learning/learningSaveStatus";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -76,7 +78,7 @@ function logCronStage(
   );
 }
 
-export async function GET(request: NextRequest) {
+export async function runDailyLearningCron(request: NextRequest) {
   const runId = randomUUID();
   const cronStartedAt = Date.now();
   let evolutionLogId: number | null = null;
@@ -101,6 +103,84 @@ export async function GET(request: NextRequest) {
     }
 
     logCronStage(runId, "cron started");
+
+    const targetDate = getJstDateString();
+    const snapshotResult = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM daily_stock_results WHERE date = $1",
+      [targetDate],
+    );
+    const snapshotCount = Number(snapshotResult.rows[0]?.count ?? 0);
+    if (snapshotCount === 0) {
+      const savedLog = await createCronLearningLog({
+        status: "SKIPPED",
+        debugVersion: DEBUG_VERSION,
+        mode: "execute",
+        judgeLimit: Number.isFinite(limit) ? limit : 300,
+        minSampleCount: Number.isFinite(minSampleCount) ? minSampleCount : 3,
+        processedCount: 0,
+        updatedCount: 0,
+        winCount: 0,
+        loseCount: 0,
+        holdCount: 0,
+        unknownCount: 0,
+        errorCount: 0,
+        weightRuleUpsertedCount: 0,
+        errorMessage: null,
+        rawReport: { reason: "DAILY_SNAPSHOT_NOT_READY", targetDate, snapshotCount },
+      });
+      logCronStage(runId, "cron skipped", {
+        durationMs: Date.now() - cronStartedAt,
+        errorMessage: "DAILY_SNAPSHOT_NOT_READY",
+      });
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "DAILY_SNAPSHOT_NOT_READY",
+        targetDate,
+        snapshotCount,
+        savedLog,
+      });
+    }
+
+    const completedTodayResult = await pool.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM cron_learning_logs
+         WHERE status = 'SUCCESS'
+           AND (created_at AT TIME ZONE 'Asia/Tokyo')::date = $1::date
+       ) AS completed`,
+      [targetDate],
+    );
+    if (completedTodayResult.rows[0]?.completed === true) {
+      const savedLog = await createCronLearningLog({
+        status: "SKIPPED",
+        debugVersion: DEBUG_VERSION,
+        mode: "execute",
+        judgeLimit: Number.isFinite(limit) ? limit : 300,
+        minSampleCount: Number.isFinite(minSampleCount) ? minSampleCount : 3,
+        processedCount: 0,
+        updatedCount: 0,
+        winCount: 0,
+        loseCount: 0,
+        holdCount: 0,
+        unknownCount: 0,
+        errorCount: 0,
+        weightRuleUpsertedCount: 0,
+        errorMessage: null,
+        rawReport: { reason: "DAILY_LEARNING_ALREADY_COMPLETED", targetDate },
+      });
+      logCronStage(runId, "cron skipped", {
+        durationMs: Date.now() - cronStartedAt,
+        errorMessage: "DAILY_LEARNING_ALREADY_COMPLETED",
+      });
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "DAILY_LEARNING_ALREADY_COMPLETED",
+        targetDate,
+        snapshotCount,
+        savedLog,
+      });
+    }
 
     const dailyLearningStartedAt = Date.now();
     logCronStage(runId, "daily learning started");
@@ -234,4 +314,8 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  return runDailyLearningCron(request);
 }

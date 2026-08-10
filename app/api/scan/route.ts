@@ -25,6 +25,13 @@ type CacheData = {
   stocks: any[];
   marketPattern?: string;
   totalStockList?: number;
+  scanDiagnostics?: {
+    targetStockCount: number;
+    analyzedSuccessCount: number;
+    analyzedFailureCount: number;
+    failedStockCodes: string[];
+    errorTypes: Record<string, number>;
+  };
 };
 
 let cacheData: CacheData | null = null;
@@ -127,6 +134,7 @@ async function getFreshScanData(limit: number): Promise<CacheData> {
       stocks: sortedStocks,
       marketPattern: scanResult.marketPattern,
       totalStockList: scanResult.totalStockList,
+      scanDiagnostics: scanResult.diagnostics,
     };
 
     cacheData = freshCache;
@@ -170,6 +178,7 @@ export async function GET(req: Request) {
           stocks: responseStocks,
           summaryStocks: cacheData.stocks,
           marketPattern: cacheData.marketPattern,
+          scanDiagnostics: cacheData.scanDiagnostics,
           cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
         })
       );
@@ -189,6 +198,7 @@ export async function GET(req: Request) {
         stocks: responseStocks,
         summaryStocks: freshData.stocks,
         marketPattern: freshData.marketPattern,
+        scanDiagnostics: freshData.scanDiagnostics,
         scanMs: Date.now() - startedAt,
       })
     );
@@ -213,6 +223,7 @@ export async function GET(req: Request) {
           stocks: responseStocks,
           summaryStocks: cacheData.stocks,
           marketPattern: cacheData.marketPattern,
+          scanDiagnostics: cacheData.scanDiagnostics,
           error: String(error),
         })
       );

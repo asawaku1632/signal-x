@@ -68,6 +68,9 @@ export async function saveDailyStocks(
     return {
       added: 0,
       skipped: stocks.length,
+      validCount: 0,
+      invalidCount,
+      conflictCount: 0,
       total: totalResult.rows[0]?.total ?? 0,
     };
   }
@@ -121,6 +124,9 @@ export async function saveDailyStocks(
   return {
     added,
     skipped,
+    validCount: validStocks.length,
+    invalidCount,
+    conflictCount: conflictSkipped,
     total: totalResult.rows[0]?.total ?? 0,
   };
 }

@@ -29,6 +29,15 @@ export type ScanResult = {
   stocks: any[];
   ranking: any;
   batchSize: number;
+  diagnostics: ScanDiagnostics;
+};
+
+export type ScanDiagnostics = {
+  targetStockCount: number;
+  analyzedSuccessCount: number;
+  analyzedFailureCount: number;
+  failedStockCodes: string[];
+  errorTypes: Record<string, number>;
 };
 
 export function getUniqueStocks(stocks: Stock[]) {
@@ -56,19 +65,24 @@ async function runInBatches<T, R>(
   fn: (item: T) => Promise<R>
 ) {
   const results: R[] = [];
+  const failures: { item: T; errorType: string }[] = [];
 
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const settled = await Promise.allSettled(batch.map(fn));
 
-    for (const result of settled) {
-      if (result.status === "fulfilled") {
+    for (const [index, result] of settled.entries()) {
+      if (result.status === "fulfilled" && result.value) {
         results.push(result.value);
+      } else {
+        const reason = result.status === "rejected" ? result.reason : null;
+        const errorName = reason instanceof Error ? reason.name : "EmptyResult";
+        failures.push({ item: batch[index], errorType: errorName || "Error" });
       }
     }
   }
 
-  return results;
+  return { results, failures };
 }
 
 export async function runScan(limit: number): Promise<ScanResult> {
@@ -82,7 +96,7 @@ export async function runScan(limit: number): Promise<ScanResult> {
   const latestMarketBonus = await getLatestMarketBonus();
   const timeLearning = await getLearningTimeBonus();
 
-  const rawScored = await runInBatches(
+  const analysis = await runInBatches(
     targetStocks,
     BATCH_SIZE,
     async (stock) => {
@@ -90,7 +104,29 @@ export async function runScan(limit: number): Promise<ScanResult> {
     }
   );
 
-  const validScored = rawScored.filter(Boolean) as any[];
+  const validScored = analysis.results.filter(Boolean) as any[];
+  const errorTypes = analysis.failures.reduce<Record<string, number>>(
+    (summary, failure) => {
+      summary[failure.errorType] = (summary[failure.errorType] ?? 0) + 1;
+      return summary;
+    },
+    {},
+  );
+  const diagnostics: ScanDiagnostics = {
+    targetStockCount: targetStocks.length,
+    analyzedSuccessCount: validScored.length,
+    analyzedFailureCount: analysis.failures.length,
+    failedStockCodes: analysis.failures
+      .slice(0, 20)
+      .map((failure) => String((failure.item as Stock).code)),
+    errorTypes,
+  };
+
+  if (diagnostics.analyzedFailureCount > 0) {
+    console.warn(
+      JSON.stringify({ service: "scan-engine", event: "analysis-failures", ...diagnostics }),
+    );
+  }
 
   const patternKeys = validScored.map((stock) => stock.patternKey);
   const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
@@ -158,6 +194,7 @@ export async function runScan(limit: number): Promise<ScanResult> {
     stocks: ranking.rankedStocks,
     ranking,
     batchSize: BATCH_SIZE,
+    diagnostics,
   };
 }
 

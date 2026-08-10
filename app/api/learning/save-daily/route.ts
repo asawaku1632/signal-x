@@ -7,6 +7,10 @@ import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { sendLine } from "@/app/lib/line/sendLine";
 import { isJstBusinessDay } from "@/app/lib/learning/learningSaveStatus";
 import { saveRelatedLearning } from "@/app/lib/relatedLearning";
+import {
+  releaseDailySaveLock,
+  tryAcquireDailySaveLock,
+} from "@/app/lib/learning/dailySaveLock";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,6 +18,8 @@ export const maxDuration = 180;
 
 const SCAN_TIMEOUT_MS = 125_000;
 const DEBUG_VERSION = "SAVE_DAILY_V2_JST_DIAGNOSTICS";
+const SAVE_SCHEDULE_HOUR_JST = 15;
+const SAVE_SCHEDULE_MINUTE_JST = 35;
 
 type PatternLearning = {
   rsiBand?: string;
@@ -52,6 +58,14 @@ type ScanResponseDiagnostics = {
   redirected: boolean;
   bodyPreview: string;
   responseKind: string;
+};
+
+type AnalysisDiagnostics = {
+  targetStockCount: number;
+  analyzedSuccessCount: number;
+  analyzedFailureCount: number;
+  failedStockCodes: string[];
+  errorTypes: Record<string, number>;
 };
 
 function classifyScanResponse(contentType: string, body: string) {
@@ -111,6 +125,25 @@ function getJstDateString(date = new Date()) {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
+}
+
+function getScheduledFor(targetDate: string) {
+  return `${targetDate}T${String(SAVE_SCHEDULE_HOUR_JST).padStart(2, "0")}:${String(
+    SAVE_SCHEDULE_MINUTE_JST,
+  ).padStart(2, "0")}:00+09:00`;
+}
+
+function getRequestMetadata(request: Request) {
+  const url = new URL(request.url);
+  return {
+    host: request.headers.get("host") ?? url.host,
+    deploymentUrl: process.env.VERCEL_URL ?? null,
+    deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+    vercelEnvironment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
+    vercelId: request.headers.get("x-vercel-id"),
+    userAgent: request.headers.get("user-agent"),
+    hasVercelCronHeader: request.headers.has("x-vercel-cron"),
+  };
 }
 
 async function isAuthorized(request: Request) {
@@ -197,12 +230,42 @@ async function notifySaveFailure(input: {
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
+  const receivedAt = new Date(startedAt).toISOString();
   const runId = crypto.randomUUID();
   const targetDate = getJstDateString();
+  const scheduledFor = getScheduledFor(targetDate);
+  const delaySeconds = Math.max(
+    0,
+    Math.floor((startedAt - new Date(scheduledFor).getTime()) / 1000),
+  );
+  const requestMetadata = getRequestMetadata(req);
   let stage: SaveStage = "authorization";
   let fetchedCount = 0;
   let savedCount = 0;
+  let conflictCount = 0;
+  let analysisDiagnostics: AnalysisDiagnostics | null = null;
   let scanDiagnostics: ScanResponseDiagnostics | null = null;
+  let lockAcquired = false;
+
+  await saveCronRunLog({
+    route: "/api/learning/save-daily",
+    status: "RECEIVED",
+    message: "AI learning daily save request received",
+    details: {
+      runId,
+      targetDate,
+      scheduledFor,
+      receivedAt,
+      delaySeconds,
+      stage,
+      targetStockCount: 0,
+      analyzedSuccessCount: 0,
+      analyzedFailureCount: 0,
+      savedCount: 0,
+      conflictCount: 0,
+      ...requestMetadata,
+    },
+  });
 
   try {
     if (!(await isAuthorized(req))) {
@@ -217,6 +280,9 @@ export async function GET(req: Request) {
           fetchedCount,
           savedCount: 0,
           failureReason: "Unauthorized cron request",
+          scheduledFor,
+          receivedAt,
+          delaySeconds,
         },
         { status: 401 },
       );
@@ -233,16 +299,65 @@ export async function GET(req: Request) {
           fetchedCount,
           savedCount,
           failureReason: "Non-business day",
+          scheduledFor,
+          receivedAt,
+          delaySeconds,
         },
         { status: 409 },
       );
     }
 
+    const lock = await tryAcquireDailySaveLock(targetDate, runId);
+    if (!lock) {
+      await saveCronRunLog({
+        route: "/api/learning/save-daily",
+        status: "SKIPPED",
+        message: "AI learning daily save is already running",
+        httpStatus: 200,
+        details: {
+          runId,
+          targetDate,
+          scheduledFor,
+          receivedAt,
+          delaySeconds,
+          stage,
+          reason: "ALREADY_RUNNING",
+          durationMs: Date.now() - startedAt,
+          ...requestMetadata,
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "ALREADY_RUNNING",
+        runId,
+        targetDate,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
+        durationMs: Date.now() - startedAt,
+      });
+    }
+    lockAcquired = true;
+
     await saveCronRunLog({
       route: "/api/learning/save-daily",
       status: "STARTED",
       message: "AI学習の日次保存を開始しました",
-      details: { runId, targetDate, stage },
+      details: {
+        runId,
+        targetDate,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
+        stage,
+        targetStockCount: 0,
+        analyzedSuccessCount: 0,
+        analyzedFailureCount: 0,
+        savedCount: 0,
+        conflictCount: 0,
+        ...requestMetadata,
+      },
     });
 
     const existingResult = await pool.query(
@@ -258,12 +373,16 @@ export async function GET(req: Request) {
         status: "COMPLETED",
         message: "本日の銘柄スナップショットは保存済みです",
         httpStatus: 200,
-        details: {
+          details: {
           runId,
           targetDate,
           stage,
           savedCount: existingCount,
-          alreadySaved: true,
+            alreadySaved: true,
+            scheduledFor,
+            receivedAt,
+            delaySeconds,
+            durationMs: Date.now() - startedAt,
         },
       });
 
@@ -331,9 +450,12 @@ export async function GET(req: Request) {
       );
     }
 
-    let scanJson: { stocks?: Stock[] };
+    let scanJson: { stocks?: Stock[]; scanDiagnostics?: AnalysisDiagnostics };
     try {
-      scanJson = JSON.parse(responseText) as { stocks?: Stock[] };
+      scanJson = JSON.parse(responseText) as {
+        stocks?: Stock[];
+        scanDiagnostics?: AnalysisDiagnostics;
+      };
     } catch (parseError) {
       scanDiagnostics.responseKind = "invalid-json";
       throw new Error(`scan api returned invalid JSON: ${errorMessage(parseError)}`);
@@ -343,6 +465,13 @@ export async function GET(req: Request) {
       ? scanJson.stocks
       : [];
     fetchedCount = stocks.length;
+    analysisDiagnostics = scanJson.scanDiagnostics ?? {
+      targetStockCount: fetchedCount,
+      analyzedSuccessCount: fetchedCount,
+      analyzedFailureCount: 0,
+      failedStockCodes: [],
+      errorTypes: {},
+    };
 
     if (fetchedCount === 0) {
       throw new Error("scan api returned no stocks");
@@ -353,18 +482,30 @@ export async function GET(req: Request) {
       status: "SCAN_FINISHED",
       message: "全銘柄scanの取得が完了しました",
       httpStatus: scanRes.status,
-      details: { runId, targetDate, stage, fetchedCount, scanResponse: scanDiagnostics },
+      details: {
+        runId,
+        targetDate,
+        stage,
+        fetchedCount,
+        ...analysisDiagnostics,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
+        scanResponse: scanDiagnostics,
+      },
     });
 
     // 銘柄学習
     stage = "daily-stock-save";
     const result = await saveDailyStocks(targetDate, stocks);
     savedCount = result.added;
+    conflictCount = result.conflictCount;
     logSaveDaily(runId, stage, {
       targetDate,
       fetchedCount,
       savedCount,
       skippedCount: result.skipped,
+      conflictCount,
     });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
@@ -377,6 +518,11 @@ export async function GET(req: Request) {
         fetchedCount,
         savedCount,
         skippedCount: result.skipped,
+        conflictCount,
+        ...analysisDiagnostics,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
       },
     });
 
@@ -389,6 +535,7 @@ export async function GET(req: Request) {
       fetchedCount,
       savedCount,
       skippedCount: result.skipped,
+      conflictCount,
       durationMs: Date.now() - startedAt,
       success: true,
     });
@@ -404,6 +551,11 @@ export async function GET(req: Request) {
         fetchedCount,
         savedCount,
         skippedCount: result.skipped,
+        conflictCount,
+        ...analysisDiagnostics,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
         durationMs: Date.now() - startedAt,
       },
     });
@@ -435,6 +587,7 @@ export async function GET(req: Request) {
       targetDate,
       fetchedCount,
       savedCount,
+      conflictCount,
       success: false,
       timedOut,
       failureReason: message,
@@ -453,6 +606,11 @@ export async function GET(req: Request) {
         stage,
         fetchedCount,
         savedCount,
+        conflictCount,
+        ...analysisDiagnostics,
+        scheduledFor,
+        receivedAt,
+        delaySeconds,
         timedOut,
         failureReason: message,
         scanResponse: scanDiagnostics,
@@ -482,5 +640,13 @@ export async function GET(req: Request) {
       },
       { status: timedOut ? 504 : stage.startsWith("scan") ? 502 : 500 },
     );
+  } finally {
+    if (lockAcquired) {
+      try {
+        await releaseDailySaveLock(targetDate, runId);
+      } catch (unlockError) {
+        console.error("Failed to release daily save lock:", unlockError);
+      }
+    }
   }
 }

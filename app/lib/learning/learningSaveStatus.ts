@@ -1,4 +1,8 @@
 import pool from "@/app/lib/postgres";
+import {
+  classifyLearningSave,
+  type MonitorLog,
+} from "@/app/lib/learning/learningSaveMonitor";
 
 const SAVE_ROUTE = "/api/learning/save-daily";
 
@@ -44,17 +48,14 @@ export function isJstBusinessDay(date = new Date()) {
 
 function getPreviousWeekday(date = new Date()) {
   const cursor = new Date(date);
-
   do {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   } while (!isJstBusinessDay(cursor));
-
   return getJstDateString(cursor);
 }
 
 function mapLog(row?: SaveLogRow) {
   if (!row) return null;
-
   return {
     status: String(row.status ?? "UNKNOWN"),
     message: row.message ? String(row.message) : null,
@@ -64,120 +65,74 @@ function mapLog(row?: SaveLogRow) {
   };
 }
 
-export async function getLearningSaveStatus() {
-  const today = getJstDateString();
-  const businessDay = isJstBusinessDay();
-  const previousBusinessDay = getPreviousWeekday();
-
-  const [summaryResult, todayResult, latestCronResult, lastErrorResult] =
-    await Promise.all([
-      pool.query(`
-        SELECT
-          MAX(date) AS latest_saved_date,
-          (
-            SELECT MAX(confirmed.date)
-            FROM (
-              SELECT date
-              FROM daily_stock_results
-              WHERE date IS NOT NULL
-              GROUP BY date
-              HAVING COUNT(*) FILTER (WHERE result = 'UNKNOWN') = 0
-            ) AS confirmed
-          ) AS latest_confirmed_date
-        FROM daily_stock_results
-      `),
-      pool.query(
-        `
-          SELECT
-            COUNT(*)::int AS saved_count,
-            COUNT(*) FILTER (
-              WHERE result IN ('WIN', 'LOSE', 'HOLD')
-            )::int AS judged_count,
-            COUNT(*) FILTER (WHERE result = 'UNKNOWN')::int AS unknown_count
-          FROM daily_stock_results
-          WHERE date = $1
-        `,
-        [today],
-      ),
-      pool.query(
-        `
-          SELECT status, message, http_status, details, created_at
-          FROM cron_run_logs
-          WHERE route = $1
-            AND status IN ('COMPLETED', 'ERROR')
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [SAVE_ROUTE],
-      ),
-      pool.query(
-        `
-          SELECT status, message, http_status, details, created_at
-          FROM cron_run_logs
-          WHERE route = $1
-            AND status = 'ERROR'
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [SAVE_ROUTE],
-      ),
-    ]);
+export async function getLearningSaveStatus(now = new Date()) {
+  const today = getJstDateString(now);
+  const businessDay = isJstBusinessDay(now);
+  const previousBusinessDay = getPreviousWeekday(now);
+  const [summaryResult, todayResult, logsResult] = await Promise.all([
+    pool.query(`SELECT MAX(date) AS latest_saved_date FROM daily_stock_results`),
+    pool.query(
+      `SELECT COUNT(*)::int AS saved_count,
+              COUNT(*) FILTER (WHERE result IN ('WIN','LOSE','HOLD'))::int AS judged_count,
+              COUNT(*) FILTER (WHERE result = 'UNKNOWN')::int AS unknown_count
+       FROM daily_stock_results WHERE date = $1`,
+      [today],
+    ),
+    pool.query(
+      `SELECT status, message, http_status, details, created_at
+       FROM cron_run_logs
+       WHERE route = $1 AND details->>'targetDate' = $2
+       ORDER BY created_at DESC`,
+      [SAVE_ROUTE, today],
+    ),
+  ]);
 
   const summary = summaryResult.rows[0] ?? {};
   const todayStats = todayResult.rows[0] ?? {};
+  const savedCount = toNumber(todayStats.saved_count);
+  const logs = logsResult.rows.map(mapLog).filter(Boolean) as NonNullable<
+    ReturnType<typeof mapLog>
+  >[];
+  const monitor = classifyLearningSave({
+    savedCount,
+    logs: logs as MonitorLog[],
+    nowMs: now.getTime(),
+  });
   const latestSavedDate = summary.latest_saved_date
     ? String(summary.latest_saved_date).slice(0, 10)
     : null;
-  const latestConfirmedDate = summary.latest_confirmed_date
-    ? String(summary.latest_confirmed_date).slice(0, 10)
-    : null;
-  const savedCount = toNumber(todayStats.saved_count);
-  const judgedCount = toNumber(todayStats.judged_count);
-  const unknownCount = toNumber(todayStats.unknown_count);
-  const latestCron = mapLog(latestCronResult.rows[0]);
-  const lastError = mapLog(lastErrorResult.rows[0]);
-  const latestCronTime = latestCron?.createdAt
-    ? new Date(latestCron.createdAt).getTime()
-    : 0;
-  const lastErrorTime = lastError?.createdAt
-    ? new Date(lastError.createdAt).getTime()
-    : 0;
-  const unresolvedError = Boolean(
-    lastError && (!latestCron || lastErrorTime >= latestCronTime),
-  );
-  const scanFailed =
-    unresolvedError &&
-    (lastError?.details?.stage === "scan" ||
-      lastError?.details?.stage === "scan-response");
-  const cronFailed = latestCron?.status === "ERROR";
-  const cronMissing = businessDay && !latestCron;
-  const missingToday = businessDay && savedCount === 0;
-  const staleSavedDate =
-    businessDay &&
-    (!latestSavedDate || latestSavedDate <= previousBusinessDay);
 
-  const alerts = [
-    missingToday ? "営業日ですが、本日の保存件数が0件です" : null,
-    staleSavedDate ? "最新保存日が前営業日以前のままです" : null,
-    cronFailed ? "保存Cronの最終実行が失敗しています" : null,
-    cronMissing ? "保存Cronの実行履歴がありません" : null,
-    scanFailed ? "scan取得に失敗しています" : null,
-  ].filter((message): message is string => Boolean(message));
+  const alertByClassification: Record<string, string> = {
+    CRON_NOT_STARTED: "保存CronがAPIへ到達していません",
+    SCHEDULER_DELAY: `保存Cronが${Math.floor(monitor.delaySeconds / 60)}分遅延しました`,
+    SCAN_FAILED: "Scanまたは保存対象銘柄の取得に失敗しました",
+    DB_SAVE_FAILED: "日次スナップショットのDB保存に失敗しました",
+    POST_SAVE_FAILED: "日次保存後の関連学習保存に失敗しました",
+    CRON_STALLED: "保存Cronが開始後に停止または長時間実行中です",
+  };
+  const alerts = businessDay && alertByClassification[monitor.classification]
+    ? [alertByClassification[monitor.classification]]
+    : [];
 
   return {
-    checkedAt: new Date().toISOString(),
+    checkedAt: now.toISOString(),
     today,
     isBusinessDay: businessDay,
     previousBusinessDay,
     latestSavedDate,
-    latestConfirmedDate,
+    latestConfirmedDate: null,
     savedToday: savedCount > 0,
     savedCount,
-    judgedCount,
-    unknownCount,
-    latestCron,
-    lastError,
-    health: alerts.length > 0 ? "error" : "ok",
+    judgedCount: toNumber(todayStats.judged_count),
+    unknownCount: toNumber(todayStats.unknown_count),
+    latestCron: monitor.latest,
+    lastError: monitor.error,
+    classification: monitor.classification,
+    delaySeconds: monitor.delaySeconds,
+    scheduledFor: monitor.received?.details?.scheduledFor ?? `${today}T15:35:00+09:00`,
+    receivedAt: monitor.received?.details?.receivedAt ?? monitor.received?.createdAt ?? null,
+    stage: monitor.stage,
+    health: alerts.length > 0 ? "error" : monitor.classification === "RUNNING" ? "running" : "ok",
     alerts,
   };
 }

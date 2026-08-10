@@ -35,6 +35,13 @@ export type ScanResponsePayloadParams = {
   cacheAge?: number;
   fallback?: boolean;
   error?: string;
+  scanDiagnostics?: {
+    targetStockCount: number;
+    analyzedSuccessCount: number;
+    analyzedFailureCount: number;
+    failedStockCodes: string[];
+    errorTypes: Record<string, number>;
+  };
 };
 
 const HOT_SCORE_MIN = 95;
@@ -132,6 +139,7 @@ export function buildScanResponsePayload(params: ScanResponsePayloadParams) {
     totalStockList: params.totalStockList,
     scanMs: params.scanMs,
     batchSize: params.batchSize,
+    scanDiagnostics: params.scanDiagnostics,
     notificationSummary: buildNotificationSummary(summaryStocks),
     stocks: params.stocks,
   };

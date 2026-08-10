@@ -1,6 +1,7 @@
 import pool from "./postgres";
 
 export type CronRunStatus =
+  | "RECEIVED"
   | "STARTED"
   | "SCAN_FINISHED"
   | "RANKING_SUCCESS"
