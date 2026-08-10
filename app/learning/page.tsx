@@ -322,7 +322,7 @@ export default function LearningPage() {
 
           {dailyWinRateTrend.length > 0 ? (
             <>
-              <div className="grid h-64 grid-cols-5 items-end gap-2 border-b border-slate-200 px-1">
+              <div className="grid h-[19rem] grid-cols-5 gap-1 sm:gap-2">
                 {dailyWinRateTrend.map((item) => {
                   const judged = item.win + item.lose;
                   const status = trendStatus(item);
@@ -336,18 +336,18 @@ export default function LearningPage() {
                   return (
                     <div
                       key={item.date}
-                      className="flex h-full min-w-0 flex-col items-center justify-end"
+                      className="grid h-full min-w-0 grid-rows-[1.25rem_2.5rem_minmax(6rem,1fr)_1.5rem_2.5rem_1.25rem_1.25rem] items-center justify-items-center"
                     >
-                      <span className="mb-1 text-sm font-black text-slate-900">
+                      <span className="text-sm font-black text-slate-900">
                         {judged > 0 ? `${item.winRate}%` : "--"}
                       </span>
                       <span
-                        className={`mb-2 rounded-full px-1.5 py-0.5 text-[9px] font-black ${status.className}`}
+                        className={`flex max-h-9 min-h-7 w-[calc(100%-2px)] max-w-[4.5rem] items-center justify-center rounded-xl px-0.5 py-1 text-center text-[8px] font-black leading-[1.05] sm:text-[9px] ${status.className}`}
                       >
                         {status.label}
                       </span>
 
-                      <div className="flex h-40 w-full items-end justify-center">
+                      <div className="flex h-full w-full min-w-0 items-end justify-center border-b border-slate-200">
                         <div
                           className={`w-full max-w-10 rounded-t-xl ${tone} transition-all`}
                           style={{
@@ -357,26 +357,25 @@ export default function LearningPage() {
                         />
                       </div>
 
-                      <span className="mt-2 text-[11px] font-black text-slate-700">
+                      <span className="text-[11px] font-black text-slate-700">
                         {item.date.slice(5).replace("-", "/")}
                       </span>
-                      <span className="mt-1 whitespace-nowrap text-[10px] font-black text-slate-600">
-                        {item.win}勝 / {item.lose}敗
+                      <span className="flex w-full min-w-0 flex-col items-center justify-center whitespace-nowrap text-center text-[10px] font-black leading-4 text-slate-600 sm:text-[11px]">
+                        <span>{item.win}勝</span>
+                        <span>{item.lose}敗</span>
                       </span>
                       <span className="text-[10px] font-bold text-slate-400">
                         ({judged}件)
                       </span>
-                      {item.pending > 0 && (
-                        <span className="whitespace-nowrap text-[9px] font-bold text-amber-600">
-                          残り{item.pending}件
-                        </span>
-                      )}
+                      <span className="w-full min-w-0 whitespace-nowrap text-center text-[9px] font-bold text-amber-600 sm:text-[10px]">
+                        残り{item.pending}件
+                      </span>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3 text-[11px] font-bold text-slate-600">
+              <div className="mt-5 grid gap-2 rounded-2xl bg-slate-50 p-3 text-[11px] font-bold text-slate-600">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-green-500" />
                   <span>70%以上：非常に良い</span>
@@ -402,7 +401,7 @@ export default function LearningPage() {
           )}
         </section>
 
-        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="mb-4 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">📊 日別観測件数</h2>
             <span className="text-xs font-black text-green-600">

@@ -22,7 +22,6 @@ export default function LineChart({
 
   const width = 320;
   const height = 150;
-  const paddingX = 28;
   const paddingY = 24;
 
   const values = data.map((item) => item.value);
@@ -31,11 +30,7 @@ export default function LineChart({
   const range = max - min || 1;
 
   const points = data.map((item, index) => {
-    const x =
-      data.length === 1
-        ? width / 2
-        : paddingX +
-          (index / (data.length - 1)) * (width - paddingX * 2);
+    const x = ((index + 0.5) / data.length) * width;
 
     const y =
       height -
