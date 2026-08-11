@@ -5,6 +5,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getAiRank } from "@/app/lib/aiRank";
 import BottomNav from "@/app/components/BottomNav";
+import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
+import type { BollingerSignal } from "@/app/lib/bollingerBands";
 
 
 type Stock = {
@@ -30,6 +32,7 @@ type Stock = {
   patternSignal?: string;
   patternScore?: number;
   patternReasons?: string[];
+  bollinger?: BollingerSignal;
   scoreBreakdown?: {
     momentum: number;
     lowPriceBonus: number;
@@ -491,6 +494,8 @@ function AiAnalysisContent() {
               <Link href={`/analysis/${topStock.code}`} className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-black text-white transition hover:bg-blue-700 active:scale-[0.99]">個別解析を見る</Link>
               <Link href={`/chart/${topStock.code}`} className="mt-2 flex min-h-11 w-full items-center justify-center text-sm font-black text-blue-600 dark:text-blue-400">チャートを見る →</Link>
             </section>
+
+            <BollingerSignalCard signal={topStock.bollinger} className="mt-3" />
 
             <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
               <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>

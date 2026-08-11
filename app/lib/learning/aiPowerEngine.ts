@@ -17,6 +17,7 @@ export type CalculateAiPowerParams = {
   experienceBonus: number;
   similarExperienceBonus: number;
   experienceRankingBonus: number;
+  bbBonus?: number;
 };
 
 export function calculateAiPower(params: CalculateAiPowerParams) {

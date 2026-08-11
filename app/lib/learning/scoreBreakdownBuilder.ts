@@ -5,6 +5,7 @@ export function buildScoreBreakdown({
   patternLearningBonus,
   sectorBonus,
   experienceResult,
+  bollingerBonus,
 }: {
   scored: any;
   learningResult: any;
@@ -12,6 +13,7 @@ export function buildScoreBreakdown({
   patternLearningBonus: number;
   sectorBonus: number;
   experienceResult: any;
+  bollingerBonus: { bonus: number; reason: string; enabled: boolean };
 }) {
   const market = learningResult?.market ?? {
     bonus: 0,
@@ -89,5 +91,7 @@ export function buildScoreBreakdown({
     experience: experience.bonus ?? 0,
     similarExperience: similarExperience.bonus ?? 0,
     experienceRanking: experienceRanking.bonus ?? 0,
+    bollinger: bollingerBonus.bonus,
+    bollingerDetail: bollingerBonus,
   };
 }

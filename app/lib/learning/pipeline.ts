@@ -7,6 +7,7 @@ import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { calculateLearningBonus } from "@/app/lib/learningBonus";
 import { calculatePatternBonus } from "@/app/lib/patternBonus";
 import { calculateSectorBonus } from "@/app/lib/sectorBonus";
+import { calculateBollingerBonus } from "@/app/lib/bollingerBonus";
 import { calculateAiPowerResult } from "./aiPowerEngine";
 import { buildScoreBreakdown } from "./scoreBreakdownBuilder";
 import { getLearningResult } from "./learningEngine";
@@ -30,6 +31,7 @@ type PipelineParams = {
   experienceBonusMap: Map<string, any>;
   similarExperienceBonusMap: Map<string, any>;
   experienceRankingMap: Map<string, any>;
+  bollingerBonusEnabled?: boolean;
 };
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -51,6 +53,7 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceBonusMap,
     similarExperienceBonusMap,
     experienceRankingMap,
+    bollingerBonusEnabled,
   } = params;
 
   const sectorKey = getSectorKey(scored.code);
@@ -161,7 +164,11 @@ export async function runAiPipeline(params: PipelineParams) {
     },
   };
 
-  const { rawAiPower, displayAiPower } = calculateAiPowerResult({
+  const bollingerBonus = calculateBollingerBonus(
+    scored.bollinger,
+    bollingerBonusEnabled,
+  );
+  const aiPowerParams = {
     baseScore: scored.score,
     marketBonus: learningResult.market.bonus,
     timeBonus: learningResult.time.bonus,
@@ -174,6 +181,11 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceBonus: finalExperienceBonus,
     similarExperienceBonus: experienceResult.similarExperience.bonus,
     experienceRankingBonus: experienceResult.experienceRanking.bonus,
+  };
+  const beforeBollinger = calculateAiPowerResult(aiPowerParams);
+  const { rawAiPower, displayAiPower } = calculateAiPowerResult({
+    ...aiPowerParams,
+    bbBonus: bollingerBonus.bonus,
   });
 
   const timeLearningReason =
@@ -190,9 +202,12 @@ export async function runAiPipeline(params: PipelineParams) {
       ? `経験AI ${experienceAiBonus}`
       : "";
 
-  const reasons = [scored.reason, timeLearningReason, experienceAiReason].filter(
-    Boolean
-  );
+  const reasons = [
+    scored.reason,
+    timeLearningReason,
+    experienceAiReason,
+    bollingerBonus.reason,
+  ].filter(Boolean);
 
   const scoreBreakdown = buildScoreBreakdown({
     scored,
@@ -201,6 +216,7 @@ export async function runAiPipeline(params: PipelineParams) {
     patternLearningBonus: finalPatternBonus,
     sectorBonus: finalSectorBonus,
     experienceResult: mergedExperienceResult,
+    bollingerBonus,
   });
 
   return {
@@ -218,6 +234,11 @@ export async function runAiPipeline(params: PipelineParams) {
     score: displayAiPower,
     aiPower: displayAiPower,
     rawAiPower,
+    rawAiPowerBeforeBollinger: beforeBollinger.rawAiPower,
+    displayAiPowerBeforeBollinger: beforeBollinger.displayAiPower,
+    bbBonus: bollingerBonus.bonus,
+    bbBonusReason: bollingerBonus.reason,
+    bbBonusEnabled: bollingerBonus.enabled,
     experienceBonus: finalExperienceBonus,
     legacyExperienceBonus,
     experienceAiBonus,

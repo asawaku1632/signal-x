@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
 import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
+import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
+import type { BollingerSignal } from "@/app/lib/bollingerBands";
 
 type Signal = {
   code: string;
@@ -35,6 +37,7 @@ type Signal = {
     | "BREAKDOWN_RISK"
     | "NO_DATA";
   breakoutExpectation?: number;
+  bollinger?: BollingerSignal;
 };
 
 type HistoryStats = {
@@ -759,6 +762,8 @@ export default function AnalysisPage() {
           </div>
           <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-medium leading-5 text-slate-500 dark:border-slate-700 dark:text-slate-300">候補評価です。評価が高くても今すぐの購入を意味しません。</p>
         </section>
+
+        <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
 
         <section className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 shadow-sm dark:border-orange-800 dark:bg-slate-900">
           <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>

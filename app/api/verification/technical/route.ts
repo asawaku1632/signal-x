@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
+import { calculateBollingerSnapshot } from "@/app/lib/bollingerBands";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,15 @@ function calculateMA(values: number[], period: number) {
 }
 
 function calculateBollingerBands(values: number[], period = 20, multiplier = 2) {
-  if (values.length < period) {
+  const snapshot = calculateBollingerSnapshot(
+    values,
+    values.length,
+    period,
+    multiplier,
+    false,
+  );
+
+  if (!snapshot) {
     return {
       bbUpper: null,
       bbMiddle: null,
@@ -30,18 +39,10 @@ function calculateBollingerBands(values: number[], period = 20, multiplier = 2) 
     };
   }
 
-  const target = values.slice(-period);
-  const mean = target.reduce((sum, value) => sum + value, 0) / period;
-
-  const variance =
-    target.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / period;
-
-  const stdDev = Math.sqrt(variance);
-
   return {
-    bbUpper: Number((mean + multiplier * stdDev).toFixed(2)),
-    bbMiddle: Number(mean.toFixed(2)),
-    bbLower: Number((mean - multiplier * stdDev).toFixed(2)),
+    bbUpper: Number(snapshot.upper.toFixed(2)),
+    bbMiddle: Number(snapshot.middle.toFixed(2)),
+    bbLower: Number(snapshot.lower.toFixed(2)),
   };
 }
 

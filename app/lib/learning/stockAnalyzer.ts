@@ -1,6 +1,10 @@
 import type { Stock } from "@/app/lib/stockList";
 import { detectChartPatterns } from "@/app/lib/chartPatternEngine";
 import {
+  evaluateDailyBollingerSignal,
+  type BollingerSignal,
+} from "@/app/lib/bollingerBands";
+import {
   calculateAiScore,
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
@@ -39,6 +43,7 @@ export type YahooChartAnalysis = ChartAnalysis & {
   resistanceDistancePercent?: number | null;
   supportResistanceStatus?: SupportResistanceStatus;
   breakoutExpectation?: number;
+  bollinger?: BollingerSignal;
 };
 
 type ChartData = {
@@ -610,6 +615,15 @@ export async function fetchYahooChart(
     trend
   );
 
+  // BB Phase 1 is intentionally daily-only. Do not use `candles` here because
+  // it contains 5-minute bars whenever the intraday request succeeds.
+  const bollinger = dailyChart?.candles
+    ? evaluateDailyBollingerSignal(dailyChart.candles, {
+        patterns: detectedPatterns,
+        supportResistanceStatus: supportResistance.supportResistanceStatus,
+      })
+    : null;
+
   if (supportResistance.supportResistanceStatus === "BREAKOUT") {
     patternScore += 15;
     patternReasons.push("抵抗線ブレイクを検出");
@@ -640,7 +654,8 @@ export async function fetchYahooChart(
     patternScore,
     patternReasons,
     candles,
-     detectedPatterns,
+    detectedPatterns,
+    bollinger: bollinger ?? undefined,
     ...supportResistance,
   };
 }
@@ -668,6 +683,7 @@ export async function analyzeStock(stock: Stock) {
     supportResistanceStatus:
       chart.supportResistanceStatus ?? "NO_DATA",
     breakoutExpectation: chart.breakoutExpectation ?? 0,
+    bollinger: chart.bollinger,
     // AI分析画面が表示する上位3件に絞り、最大1,200銘柄のスキャンで
     // 未使用の検出理由がレスポンスサイズを過度に増やすことを防ぐ。
     detectedPatterns: chart.detectedPatterns?.slice(0, 3) ?? [],

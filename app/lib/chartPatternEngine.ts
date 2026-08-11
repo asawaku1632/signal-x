@@ -1,3 +1,8 @@
+import {
+  calculateBollingerSnapshot,
+  calculatePopulationStandardDeviation,
+} from "@/app/lib/bollingerBands";
+
 export type PatternCandle = {
   time: number;
   open: number;
@@ -1147,14 +1152,6 @@ function detectVolumeBreakouts(
   }
 }
 
-function standardDeviation(values: number[], mean: number) {
-  if (!values.length) return 0;
-  return Math.sqrt(
-    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
-      values.length
-  );
-}
-
 function detectBollingerSqueeze(
   candles: PatternCandle[],
   volumeRatio: number,
@@ -1173,14 +1170,19 @@ function detectBollingerSqueeze(
     const window = closes.slice(end - period, end);
     const mean = average(window);
     if (mean <= 0) continue;
-    historicalWidths.push((standardDeviation(window, mean) * 4) / mean);
+    historicalWidths.push(
+      (calculatePopulationStandardDeviation(window, mean) * 4) / mean,
+    );
   }
 
   if (historicalWidths.length < 20) return;
 
   const referenceWindow = closes.slice(-period - 1, -1);
   const middle = average(referenceWindow);
-  const deviation = standardDeviation(referenceWindow, middle);
+  const deviation = calculatePopulationStandardDeviation(
+    referenceWindow,
+    middle,
+  );
   if (middle <= 0 || deviation <= 0) return;
 
   const currentWidth = (deviation * 4) / middle;
@@ -1861,33 +1863,6 @@ function detectBullPennantBreakout(
   });
 }
 
-type BollingerSnapshot = {
-  middle: number;
-  upper: number;
-  lower: number;
-  width: number;
-};
-
-function getBollingerSnapshot(
-  closes: number[],
-  endExclusive: number,
-  period = 20
-): BollingerSnapshot | null {
-  if (endExclusive < period || endExclusive > closes.length) return null;
-
-  const window = closes.slice(endExclusive - period, endExclusive);
-  const middle = average(window);
-  const deviation = standardDeviation(window, middle);
-  if (middle <= 0 || deviation <= 0) return null;
-
-  return {
-    middle,
-    upper: middle + deviation * 2,
-    lower: middle - deviation * 2,
-    width: (deviation * 4) / middle,
-  };
-}
-
 function getHistoricalBollingerWidths(
   closes: number[],
   endExclusive: number,
@@ -1898,7 +1873,7 @@ function getHistoricalBollingerWidths(
   const start = Math.max(period, endExclusive - count);
 
   for (let end = start; end < endExclusive; end++) {
-    const snapshot = getBollingerSnapshot(closes, end, period);
+    const snapshot = calculateBollingerSnapshot(closes, end, period);
     if (snapshot) widths.push(snapshot.width);
   }
 
@@ -1913,8 +1888,12 @@ function detectBollingerBandSqueeze(
   if (candles.length < 70) return;
 
   const closes = candles.map((candle) => candle.close);
-  const current = getBollingerSnapshot(closes, closes.length, period);
-  const earlier = getBollingerSnapshot(closes, closes.length - 10, period);
+  const current = calculateBollingerSnapshot(closes, closes.length, period);
+  const earlier = calculateBollingerSnapshot(
+    closes,
+    closes.length - 10,
+    period,
+  );
   const historicalWidths = getHistoricalBollingerWidths(
     closes,
     closes.length - 1,
@@ -1958,8 +1937,12 @@ function detectBollingerBandExpansion(
   if (candles.length < 70 || volumeRatio < 1.3) return;
 
   const closes = candles.map((candle) => candle.close);
-  const previous = getBollingerSnapshot(closes, closes.length - 1, period);
-  const current = getBollingerSnapshot(closes, closes.length, period);
+  const previous = calculateBollingerSnapshot(
+    closes,
+    closes.length - 1,
+    period,
+  );
+  const current = calculateBollingerSnapshot(closes, closes.length, period);
   const historicalWidths = getHistoricalBollingerWidths(
     closes,
     closes.length - 1,

@@ -11,6 +11,10 @@ import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
 } from "@/app/lib/learning/dailySaveLock";
+import {
+  runBbObservation,
+  type BbObservationStock,
+} from "@/app/lib/learning/bbObservation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +34,7 @@ type PatternLearning = {
   patternKey?: string;
 };
 
-type Stock = {
+type Stock = BbObservationStock & {
   code: string;
   name: string;
   score?: number;
@@ -246,6 +250,8 @@ export async function GET(req: Request) {
   let analysisDiagnostics: AnalysisDiagnostics | null = null;
   let scanDiagnostics: ScanResponseDiagnostics | null = null;
   let lockAcquired = false;
+  let bbObservation: Awaited<ReturnType<typeof runBbObservation>> | null = null;
+  let bbObservationError: string | null = null;
 
   await saveCronRunLog({
     route: "/api/learning/save-daily",
@@ -529,6 +535,23 @@ export async function GET(req: Request) {
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
 
+    try {
+      bbObservation = await runBbObservation(targetDate, stocks);
+    } catch (bbError) {
+      bbObservationError = errorMessage(bbError);
+      console.error("BB observation failed independently:", bbError);
+      try {
+        await saveCronRunLog({
+          route: "/api/learning/save-daily",
+          status: "ERROR",
+          message: "BB observation failed after daily stock save",
+          details: { runId, targetDate, component: "bb-observation", error: bbObservationError },
+        });
+      } catch (bbLogError) {
+        console.error("BB observation error log failed independently:", bbLogError);
+      }
+    }
+
     stage = "completed";
     logSaveDaily(runId, stage, {
       targetDate,
@@ -576,6 +599,8 @@ export async function GET(req: Request) {
 
       ...result,
       ...relatedResult,
+      bbObservation,
+      bbObservationError,
     });
   } catch (error: unknown) {
     const message = errorMessage(error);
