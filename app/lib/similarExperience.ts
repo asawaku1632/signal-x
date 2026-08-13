@@ -24,6 +24,16 @@ export type SimilarExperienceResult = {
   items: SimilarExperienceItem[];
 };
 
+type ExperienceAggregateRow = {
+  experience_key: unknown;
+  win: unknown;
+  lose: unknown;
+};
+
+type SimilarExperienceBatchRow = ExperienceAggregateRow & {
+  target_experience_key: unknown;
+};
+
 function splitExperienceKey(key: string) {
   return String(key || "")
     .split("|")
@@ -89,6 +99,53 @@ function emptyResult(): SimilarExperienceResult {
   };
 }
 
+function buildSimilarExperienceResult(
+  experienceKey: string,
+  rows: ExperienceAggregateRow[],
+  minSimilarity: number,
+): SimilarExperienceResult {
+  const items: SimilarExperienceItem[] = rows
+    .map((row) => {
+      const key = String(row.experience_key);
+      const win = Number(row.win || 0);
+      const lose = Number(row.lose || 0);
+      const { matchCount, similarity } = calculateSimilarity(experienceKey, key);
+
+      return {
+        experienceKey: key,
+        win,
+        lose,
+        total: win + lose,
+        matchCount,
+        similarity,
+      };
+    })
+    .filter((item) => item.total > 0 && item.similarity >= minSimilarity)
+    .sort((a, b) => b.similarity - a.similarity || b.total - a.total);
+
+  const win = items.reduce((sum, item) => sum + item.win, 0);
+  const lose = items.reduce((sum, item) => sum + item.lose, 0);
+  const base = calculateExperienceBonus({ win, lose });
+  const averageSimilarity = items.length === 0
+    ? 0
+    : Math.round(items.reduce((sum, item) => sum + item.similarity, 0) / items.length);
+  const safety = applySimilaritySafety(base.bonus, averageSimilarity);
+
+  return {
+    bonus: safety.bonus,
+    baseBonus: base.bonus,
+    winRate: base.winRate,
+    total: base.total,
+    win: base.win,
+    lose: base.lose,
+    confidence: base.confidence,
+    similarityRate: safety.similarityRate,
+    similarCount: items.length,
+    averageSimilarity,
+    items: items.slice(0, 20),
+  };
+}
+
 export async function getSimilarExperienceBonus(
   experienceKey: string,
   options?: {
@@ -131,58 +188,7 @@ export async function getSimilarExperienceBonus(
     ]
   );
 
-  const items: SimilarExperienceItem[] = rows
-    .map((row) => {
-      const key = String(row.experience_key);
-      const win = Number(row.win || 0);
-      const lose = Number(row.lose || 0);
-      const { matchCount, similarity } = calculateSimilarity(
-        experienceKey,
-        key
-      );
-
-      return {
-        experienceKey: key,
-        win,
-        lose,
-        total: win + lose,
-        matchCount,
-        similarity,
-      };
-    })
-    .filter((item) => item.total > 0 && item.similarity >= minSimilarity)
-    .sort((a, b) => b.similarity - a.similarity || b.total - a.total);
-
-  const win = items.reduce((sum, item) => sum + item.win, 0);
-  const lose = items.reduce((sum, item) => sum + item.lose, 0);
-
-  const base = calculateExperienceBonus({
-    win,
-    lose,
-  });
-
-  const averageSimilarity =
-    items.length === 0
-      ? 0
-      : Math.round(
-          items.reduce((sum, item) => sum + item.similarity, 0) / items.length
-        );
-
-  const safety = applySimilaritySafety(base.bonus, averageSimilarity);
-
-  return {
-    bonus: safety.bonus,
-    baseBonus: base.bonus,
-    winRate: base.winRate,
-    total: base.total,
-    win: base.win,
-    lose: base.lose,
-    confidence: base.confidence,
-    similarityRate: safety.similarityRate,
-    similarCount: items.length,
-    averageSimilarity,
-    items: items.slice(0, 20),
-  };
+  return buildSimilarExperienceResult(experienceKey, rows, minSimilarity);
 }
 
 export async function getSimilarExperienceBonusMap(
@@ -194,6 +200,82 @@ export async function getSimilarExperienceBonusMap(
 ) {
   const map = new Map<string, SimilarExperienceResult>();
   const uniqueKeys = Array.from(new Set(experienceKeys.filter(Boolean)));
+  if (uniqueKeys.length === 0) return map;
+
+  const minSimilarity = options?.minSimilarity ?? 70;
+  const limit = options?.limit ?? 300;
+  const parts = uniqueKeys.map(splitExperienceKey);
+
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        input.target_experience_key,
+        candidate.experience_key,
+        candidate.win,
+        candidate.lose,
+        candidate.raw_total
+      FROM unnest(
+        $1::text[],
+        $2::text[],
+        $3::text[],
+        $4::text[]
+      ) WITH ORDINALITY AS input(
+        target_experience_key,
+        pattern_key,
+        sector_key,
+        market_pattern,
+        input_order
+      )
+      CROSS JOIN LATERAL (
+        SELECT
+          experience_key,
+          SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END)::int AS win,
+          SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END)::int AS lose,
+          COUNT(*)::int AS raw_total
+        FROM experience_learning_logs
+        WHERE result IN ('WIN', 'LOSE')
+          AND (
+            pattern_key = input.pattern_key
+            OR sector_key = input.sector_key
+            OR market_pattern = input.market_pattern
+          )
+        GROUP BY experience_key
+        ORDER BY raw_total DESC
+        LIMIT $5
+      ) AS candidate
+      ORDER BY input.input_order, candidate.raw_total DESC
+      `,
+      [
+        uniqueKeys,
+        parts.map((value) => value[0] ?? null),
+        parts.map((value) => value[value.length - 2] ?? null),
+        parts.map((value) => value[value.length - 1] ?? null),
+        limit,
+      ],
+    );
+
+    const rowsByKey = new Map<string, ExperienceAggregateRow[]>();
+    for (const row of rows as SimilarExperienceBatchRow[]) {
+      const key = String(row.target_experience_key);
+      const keyRows = rowsByKey.get(key) ?? [];
+      keyRows.push(row);
+      rowsByKey.set(key, keyRows);
+    }
+
+    for (const key of uniqueKeys) {
+      map.set(
+        key,
+        buildSimilarExperienceResult(key, rowsByKey.get(key) ?? [], minSimilarity),
+      );
+    }
+    return map;
+  } catch (error) {
+    console.warn(
+      "Similar Experience batch query failed; using per-key queries.",
+      error,
+    );
+  }
 
   for (const key of uniqueKeys) {
     const result = await getSimilarExperienceBonus(key, options);

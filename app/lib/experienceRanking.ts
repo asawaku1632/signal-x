@@ -26,6 +26,16 @@ export type ExperienceRankingResult = {
   items: ExperienceRankingItem[];
 };
 
+type ExperienceAggregateRow = {
+  experience_key: unknown;
+  win: unknown;
+  lose: unknown;
+};
+
+type ExperienceRankingBatchRow = ExperienceAggregateRow & {
+  target_experience_key: unknown;
+};
+
 function splitExperienceKey(key: string) {
   return String(key || "")
     .split("|")
@@ -115,6 +125,71 @@ function emptyResult(): ExperienceRankingResult {
   };
 }
 
+function buildExperienceRankingResult(
+  experienceKey: string,
+  rows: ExperienceAggregateRow[],
+  minSimilarity: number,
+  topLimit: number,
+): ExperienceRankingResult {
+  const rankedItems: ExperienceRankingItem[] = rows
+    .map((row) => {
+      const key = String(row.experience_key);
+      const win = Number(row.win || 0);
+      const lose = Number(row.lose || 0);
+      const total = win + lose;
+      const { matchCount, similarity } = calculateSimilarity(experienceKey, key);
+      const weight = getSimilarityWeight(similarity);
+
+      return {
+        experienceKey: key,
+        win,
+        lose,
+        total,
+        matchCount,
+        similarity,
+        weight,
+        weightedWin: Number((win * weight).toFixed(2)),
+        weightedLose: Number((lose * weight).toFixed(2)),
+      };
+    })
+    .filter((item) => item.total > 0 && item.similarity >= minSimilarity && item.weight > 0)
+    .sort((a, b) => {
+      if (b.similarity !== a.similarity) return b.similarity - a.similarity;
+      return b.total - a.total;
+    })
+    .slice(0, topLimit);
+
+  if (rankedItems.length === 0) return emptyResult();
+
+  const win = rankedItems.reduce((sum, item) => sum + item.win, 0);
+  const lose = rankedItems.reduce((sum, item) => sum + item.lose, 0);
+  const total = win + lose;
+  const weightedWin = rankedItems.reduce((sum, item) => sum + item.weightedWin, 0);
+  const weightedLose = rankedItems.reduce((sum, item) => sum + item.weightedLose, 0);
+  const weightedTotal = Number((weightedWin + weightedLose).toFixed(2));
+  const winRate = total === 0 ? 0 : Math.round((win / total) * 100);
+  const weightedWinRate = weightedTotal === 0
+    ? 0
+    : Math.round((weightedWin / weightedTotal) * 100);
+  const averageSimilarity = Math.round(
+    rankedItems.reduce((sum, item) => sum + item.similarity, 0) / rankedItems.length,
+  );
+
+  return {
+    bonus: calculateBonus(weightedWinRate, total),
+    winRate,
+    total,
+    win,
+    lose,
+    confidence: calculateConfidence(total),
+    weightedWinRate,
+    weightedTotal,
+    averageSimilarity,
+    topCount: rankedItems.length,
+    items: rankedItems,
+  };
+}
+
 export async function getExperienceRanking(
   experienceKey: string,
   options?: {
@@ -158,92 +233,12 @@ export async function getExperienceRanking(
     [patternKey, sectorKey, marketPattern, candidateLimit]
   );
 
-  const rankedItems: ExperienceRankingItem[] = rows
-    .map((row) => {
-      const key = String(row.experience_key);
-      const win = Number(row.win || 0);
-      const lose = Number(row.lose || 0);
-      const total = win + lose;
-
-      const { matchCount, similarity } = calculateSimilarity(
-        experienceKey,
-        key
-      );
-
-      const weight = getSimilarityWeight(similarity);
-
-      return {
-        experienceKey: key,
-        win,
-        lose,
-        total,
-        matchCount,
-        similarity,
-        weight,
-        weightedWin: Number((win * weight).toFixed(2)),
-        weightedLose: Number((lose * weight).toFixed(2)),
-      };
-    })
-    .filter(
-      (item) =>
-        item.total > 0 &&
-        item.similarity >= minSimilarity &&
-        item.weight > 0
-    )
-    .sort((a, b) => {
-      if (b.similarity !== a.similarity) {
-        return b.similarity - a.similarity;
-      }
-
-      return b.total - a.total;
-    })
-    .slice(0, topLimit);
-
-  if (rankedItems.length === 0) {
-    return emptyResult();
-  }
-
-  const win = rankedItems.reduce((sum, item) => sum + item.win, 0);
-  const lose = rankedItems.reduce((sum, item) => sum + item.lose, 0);
-  const total = win + lose;
-
-  const weightedWin = rankedItems.reduce(
-    (sum, item) => sum + item.weightedWin,
-    0
+  return buildExperienceRankingResult(
+    experienceKey,
+    rows,
+    minSimilarity,
+    topLimit,
   );
-
-  const weightedLose = rankedItems.reduce(
-    (sum, item) => sum + item.weightedLose,
-    0
-  );
-
-  const weightedTotal = Number((weightedWin + weightedLose).toFixed(2));
-
-  const winRate = total === 0 ? 0 : Math.round((win / total) * 100);
-
-  const weightedWinRate =
-    weightedTotal === 0
-      ? 0
-      : Math.round((weightedWin / weightedTotal) * 100);
-
-  const averageSimilarity = Math.round(
-    rankedItems.reduce((sum, item) => sum + item.similarity, 0) /
-      rankedItems.length
-  );
-
-  return {
-    bonus: calculateBonus(weightedWinRate, total),
-    winRate,
-    total,
-    win,
-    lose,
-    confidence: calculateConfidence(total),
-    weightedWinRate,
-    weightedTotal,
-    averageSimilarity,
-    topCount: rankedItems.length,
-    items: rankedItems,
-  };
 }
 
 export async function getExperienceRankingMap(
@@ -256,6 +251,88 @@ export async function getExperienceRankingMap(
 ) {
   const map = new Map<string, ExperienceRankingResult>();
   const uniqueKeys = Array.from(new Set(experienceKeys.filter(Boolean)));
+  if (uniqueKeys.length === 0) return map;
+
+  const minSimilarity = options?.minSimilarity ?? 70;
+  const candidateLimit = options?.candidateLimit ?? 500;
+  const topLimit = options?.topLimit ?? 10;
+  const parts = uniqueKeys.map(splitExperienceKey);
+
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        input.target_experience_key,
+        candidate.experience_key,
+        candidate.win,
+        candidate.lose,
+        candidate.raw_total
+      FROM unnest(
+        $1::text[],
+        $2::text[],
+        $3::text[],
+        $4::text[]
+      ) WITH ORDINALITY AS input(
+        target_experience_key,
+        pattern_key,
+        sector_key,
+        market_pattern,
+        input_order
+      )
+      CROSS JOIN LATERAL (
+        SELECT
+          experience_key,
+          SUM(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END)::int AS win,
+          SUM(CASE WHEN result = 'LOSE' THEN 1 ELSE 0 END)::int AS lose,
+          COUNT(*)::int AS raw_total
+        FROM experience_learning_logs
+        WHERE result IN ('WIN', 'LOSE')
+          AND (
+            pattern_key = input.pattern_key
+            OR sector_key = input.sector_key
+            OR market_pattern = input.market_pattern
+          )
+        GROUP BY experience_key
+        ORDER BY raw_total DESC
+        LIMIT $5
+      ) AS candidate
+      ORDER BY input.input_order, candidate.raw_total DESC
+      `,
+      [
+        uniqueKeys,
+        parts.map((value) => value[0] ?? null),
+        parts.map((value) => value[value.length - 2] ?? null),
+        parts.map((value) => value[value.length - 1] ?? null),
+        candidateLimit,
+      ],
+    );
+
+    const rowsByKey = new Map<string, ExperienceAggregateRow[]>();
+    for (const row of rows as ExperienceRankingBatchRow[]) {
+      const key = String(row.target_experience_key);
+      const keyRows = rowsByKey.get(key) ?? [];
+      keyRows.push(row);
+      rowsByKey.set(key, keyRows);
+    }
+
+    for (const key of uniqueKeys) {
+      map.set(
+        key,
+        buildExperienceRankingResult(
+          key,
+          rowsByKey.get(key) ?? [],
+          minSimilarity,
+          topLimit,
+        ),
+      );
+    }
+    return map;
+  } catch (error) {
+    console.warn(
+      "Experience Ranking batch query failed; using per-key queries.",
+      error,
+    );
+  }
 
   for (const key of uniqueKeys) {
     const result = await getExperienceRanking(key, options);
