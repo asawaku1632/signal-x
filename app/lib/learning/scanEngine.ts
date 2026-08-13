@@ -23,8 +23,9 @@ import {
   getVolatilityBand,
   preloadVolatilityStats,
 } from "@/app/lib/learning/volatilityLearning";
+import { allSettledWithConcurrency } from "@/app/lib/learning/promisePool";
 
-const BATCH_SIZE = 20;
+const SCAN_CONCURRENCY = 20;
 const MAX_SCAN_LIMIT = 1200;
 
 export type ScanResult = {
@@ -64,26 +65,22 @@ export function clampLimit(value: number) {
   return value;
 }
 
-async function runInBatches<T, R>(
+async function runWithConcurrency<T, R>(
   items: T[],
-  batchSize: number,
+  concurrency: number,
   fn: (item: T) => Promise<R>
 ) {
   const results: R[] = [];
   const failures: { item: T; errorType: string }[] = [];
+  const settled = await allSettledWithConcurrency(items, concurrency, fn);
 
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const settled = await Promise.allSettled(batch.map(fn));
-
-    for (const [index, result] of settled.entries()) {
-      if (result.status === "fulfilled" && result.value) {
-        results.push(result.value);
-      } else {
-        const reason = result.status === "rejected" ? result.reason : null;
-        const errorName = reason instanceof Error ? reason.name : "EmptyResult";
-        failures.push({ item: batch[index], errorType: errorName || "Error" });
-      }
+  for (const [index, result] of settled.entries()) {
+    if (result.status === "fulfilled" && result.value) {
+      results.push(result.value);
+    } else {
+      const reason = result.status === "rejected" ? result.reason : null;
+      const errorName = reason instanceof Error ? reason.name : "EmptyResult";
+      failures.push({ item: items[index], errorType: errorName || "Error" });
     }
   }
 
@@ -105,7 +102,7 @@ export async function runSingleStockScan(code: string): Promise<ScanResult> {
       totalStockList: uniqueStocks.length,
       stocks: [],
       ranking: buildRanking([]),
-      batchSize: BATCH_SIZE,
+      batchSize: SCAN_CONCURRENCY,
       diagnostics: {
         targetStockCount: 0,
         analyzedSuccessCount: 0,
@@ -133,9 +130,9 @@ async function runScanForTargets(
       getLearningTimeBonus(),
     ]);
 
-  const analysis = await runInBatches(
+  const analysis = await runWithConcurrency(
     targetStocks,
-    BATCH_SIZE,
+    SCAN_CONCURRENCY,
     async (stock) => {
       return analyzeStock(stock);
     }
@@ -245,7 +242,7 @@ async function runScanForTargets(
     marketPattern,
     stocks: ranking.rankedStocks,
     ranking,
-    batchSize: BATCH_SIZE,
+    batchSize: SCAN_CONCURRENCY,
     diagnostics,
   };
 }
