@@ -12,7 +12,11 @@ import { calculateAiPowerResult } from "./aiPowerEngine";
 import { buildScoreBreakdown } from "./scoreBreakdownBuilder";
 import { getLearningResult } from "./learningEngine";
 import { getExperienceResult } from "./experienceEngine";
-import { getExperienceReport } from "./experienceAiEngine";
+import {
+  getExperienceReport,
+  type ExperienceAiPreload,
+} from "./experienceAiEngine";
+import type { VolatilityStatsMap } from "./volatilityLearning";
 
 type PipelineParams = {
   scored: any;
@@ -31,6 +35,8 @@ type PipelineParams = {
   experienceBonusMap: Map<string, any>;
   similarExperienceBonusMap: Map<string, any>;
   experienceRankingMap: Map<string, any>;
+  experienceAiPreload?: ExperienceAiPreload;
+  volatilityStatsMap?: VolatilityStatsMap;
   bollingerBonusEnabled?: boolean;
 };
 
@@ -53,6 +59,8 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceBonusMap,
     similarExperienceBonusMap,
     experienceRankingMap,
+    experienceAiPreload,
+    volatilityStatsMap,
     bollingerBonusEnabled,
   } = params;
 
@@ -127,6 +135,7 @@ export async function runAiPipeline(params: PipelineParams) {
     eventBonus,
     riskKey,
     riskBonus,
+    volatilityStatsMap,
   });
 
   const experienceResult = getExperienceResult({
@@ -139,7 +148,7 @@ export async function runAiPipeline(params: PipelineParams) {
   const experienceAiReport = await getExperienceReport({
     patternKey: scored.patternKey,
     minSampleCount: 3,
-  });
+  }, experienceAiPreload);
 
   const experienceAiMatch = experienceAiReport.match;
   const experienceAiBonus = toNumber(experienceAiMatch?.experienceBonus, 0);

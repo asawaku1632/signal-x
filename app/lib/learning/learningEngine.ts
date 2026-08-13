@@ -1,5 +1,8 @@
 import { calculateMarketLearningBonus } from "./marketLearning";
-import { getLearningVolatilityBonus } from "./volatilityLearning";
+import {
+  getLearningVolatilityBonus,
+  type VolatilityStatsMap,
+} from "./volatilityLearning";
 import { getLearningEventBonus } from "./eventLearning";
 import { getLearningRiskBonus } from "./riskLearning";
 
@@ -13,6 +16,7 @@ export async function getLearningResult({
   eventBonus,
   riskKey,
   riskBonus,
+  volatilityStatsMap,
 }:{
   marketPattern:string;
   fixedMarketBonus:number;
@@ -23,6 +27,7 @@ export async function getLearningResult({
   eventBonus:number;
   riskKey:string;
   riskBonus:number;
+  volatilityStatsMap?:VolatilityStatsMap;
 }){
   const market=calculateMarketLearningBonus({
     marketPattern,
@@ -30,7 +35,10 @@ export async function getLearningResult({
     latestMarketBonus,
   });
 
-  const volatilityLearning=await getLearningVolatilityBonus(volatility);
+  const volatilityLearning=await getLearningVolatilityBonus(
+    volatility,
+    volatilityStatsMap,
+  );
 
   const event=getLearningEventBonus({
     eventKey,

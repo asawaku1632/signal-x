@@ -44,6 +44,12 @@ export type ExperienceReport = {
   nextAction: string;
 };
 
+export type ExperienceAiPreload = {
+  exactByPatternKey: Map<string, ExperienceMatch>;
+  candidates: ExperienceMatch[];
+  minSampleCount: number;
+};
+
 const DEBUG_VERSION = "V23_1_EXPERIENCE_AI_WIN_LOSE_RATE_0707";
 
 function normalizeText(value: string | null | undefined): string | null {
@@ -231,17 +237,66 @@ async function findCandidateExperiences(
   return rows.map(mapRowToExperience);
 }
 
+export async function preloadExperienceAi(
+  patternKeys: Array<string | null | undefined>,
+  minSampleCountInput = 3,
+): Promise<ExperienceAiPreload> {
+  const minSampleCount = safeMinSampleCount(minSampleCountInput);
+  const uniquePatternKeys = Array.from(
+    new Set(patternKeys.map(normalizeText).filter((key): key is string => Boolean(key))),
+  );
+
+  const exactPromise = uniquePatternKeys.length > 0
+    ? pool.query(
+        `
+        SELECT
+          pattern_key,
+          COUNT(*) FILTER (WHERE result = 'WIN')::int AS win_count,
+          COUNT(*) FILTER (WHERE result = 'LOSE')::int AS lose_count,
+          COUNT(*) FILTER (WHERE result = 'HOLD')::int AS hold_count
+        FROM pattern_learning_logs
+        WHERE
+          pattern_key = ANY($1::text[])
+          AND judge_status = 'JUDGED'
+          AND result IN ('WIN', 'LOSE', 'HOLD')
+        GROUP BY pattern_key
+        HAVING COUNT(*) FILTER (WHERE result IN ('WIN', 'LOSE')) >= $2
+        `,
+        [uniquePatternKeys, minSampleCount],
+      )
+    : Promise.resolve({ rows: [] });
+
+  const [exactResult, candidates] = await Promise.all([
+    exactPromise,
+    findCandidateExperiences(minSampleCount, 10),
+  ]);
+
+  const exactByPatternKey = new Map<string, ExperienceMatch>();
+  for (const row of exactResult.rows) {
+    const match = mapRowToExperience(row);
+    exactByPatternKey.set(match.patternKey, match);
+  }
+
+  return { exactByPatternKey, candidates, minSampleCount };
+}
+
 export async function getExperienceReport(
-  input: ExperienceSignalInput = {}
+  input: ExperienceSignalInput = {},
+  preload?: ExperienceAiPreload,
 ): Promise<ExperienceReport> {
   const minSampleCount = safeMinSampleCount(input.minSampleCount);
   const patternKey = buildPatternKey(input);
 
+  const canUsePreload = preload?.minSampleCount === minSampleCount;
   const match = patternKey
-    ? await findExactExperience(patternKey, minSampleCount)
+    ? canUsePreload
+      ? preload.exactByPatternKey.get(patternKey) ?? null
+      : await findExactExperience(patternKey, minSampleCount)
     : null;
 
-  const candidates = await findCandidateExperiences(minSampleCount, 10);
+  const candidates = canUsePreload
+    ? preload.candidates
+    : await findCandidateExperiences(minSampleCount, 10);
 
   return {
     success: true,

@@ -18,6 +18,11 @@ import { createExperienceKey } from "@/app/lib/experienceLearning";
 import { getExperienceBonusMap } from "@/app/lib/experienceBonus";
 import { getSimilarExperienceBonusMap } from "@/app/lib/similarExperience";
 import { getExperienceRankingMap } from "@/app/lib/experienceRanking";
+import { preloadExperienceAi } from "@/app/lib/learning/experienceAiEngine";
+import {
+  getVolatilityBand,
+  preloadVolatilityStats,
+} from "@/app/lib/learning/volatilityLearning";
 
 const BATCH_SIZE = 20;
 const MAX_SCAN_LIMIT = 1200;
@@ -162,6 +167,9 @@ async function runScanForTargets(
 
   const patternKeys = validScored.map((stock) => stock.patternKey);
   const sectorKeys = validScored.map((stock) => getSectorKey(stock.code));
+  const volatilityBands = validScored.map((stock) =>
+    getVolatilityBand(Math.abs(stock.changePercent ?? 0)),
+  );
 
   const experienceKeys = validScored.map((stock) => {
     const sectorKey = getSectorKey(stock.code);
@@ -181,6 +189,8 @@ async function runScanForTargets(
     experienceBonusMap,
     similarExperienceBonusMap,
     experienceRankingMap,
+    experienceAiPreload,
+    volatilityStatsMap,
   ] = await Promise.all([
     getPatternStatsMap(patternKeys),
     getWeightRuleMap(patternKeys),
@@ -195,6 +205,14 @@ async function runScanForTargets(
       minSimilarity: 70,
       candidateLimit: 500,
       topLimit: 10,
+    }),
+    preloadExperienceAi(patternKeys, 3).catch((error) => {
+      console.warn("Experience AI preload failed; using per-stock queries.", error);
+      return undefined;
+    }),
+    preloadVolatilityStats(volatilityBands).catch((error) => {
+      console.warn("Volatility preload failed; using per-stock queries.", error);
+      return undefined;
     }),
   ]);
 
@@ -213,6 +231,8 @@ async function runScanForTargets(
         experienceBonusMap,
         similarExperienceBonusMap,
         experienceRankingMap,
+        experienceAiPreload,
+        volatilityStatsMap,
       })
     )
   );
