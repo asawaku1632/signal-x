@@ -35,6 +35,24 @@ import BottomNav from "@/app/components/BottomNav";
   updatedAt: string;
 };
 
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--/-- --:--";
+
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "--";
+
+  return `${part("month")}/${part("day")} ${part("hour")}:${part("minute")}`;
+}
+
 export default function TodayMarketPage() {
   const [marketData, setMarketData] = useState<TodayMarketData | null>(null);
 
@@ -107,21 +125,22 @@ export default function TodayMarketPage() {
         </header>
 
         <section className="mb-3">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-black leading-tight">
-                🤖 今日の市場
-              </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                AIが本日の相場を分析しました
-              </p>
-            </div>
-
-            <p className="text-xs text-slate-400 font-bold whitespace-nowrap">
-              更新 {marketData.updatedAt}
-              {marketData.status === "stale" && "（前回値・更新中）"}
+          <h1 className="whitespace-nowrap text-3xl font-black leading-tight">
+            🤖 今日の市場
+          </h1>
+          <div className="mt-1 flex min-w-0 items-start justify-between gap-2">
+            <p className="min-w-0 whitespace-nowrap text-sm text-slate-500">
+              AIが本日の相場を分析しました
+            </p>
+            <p className="shrink-0 whitespace-nowrap text-xs font-bold text-slate-400">
+              更新 {formatUpdatedAt(marketData.updatedAt)}
             </p>
           </div>
+          {marketData.status === "stale" && (
+            <p className="mt-1 text-right text-[11px] font-bold text-amber-600">
+              前回値・更新中
+            </p>
+          )}
         </section>
 
         <section className="relative overflow-hidden rounded-[22px] border border-green-400 bg-gradient-to-br from-white to-green-50 p-4 mb-4 shadow-sm">

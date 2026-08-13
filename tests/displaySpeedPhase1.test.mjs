@@ -32,3 +32,12 @@ test("更新処理は共有DBロックで多重起動を防止する", async () 
   assert.match(source, /ON CONFLICT \(lock_key\) DO UPDATE/);
   assert.match(source, /memoryRefreshes/);
 });
+
+test("今日の市場はISO日時をJST短縮表示し、タイトル領域を圧縮しない", async () => {
+  const source = await read("app/today-market/page.tsx");
+  assert.match(source, /timeZone: "Asia\/Tokyo"/);
+  assert.match(source, /formatUpdatedAt\(marketData\.updatedAt\)/);
+  assert.match(source, /whitespace-nowrap text-3xl/);
+  assert.match(source, /shrink-0 whitespace-nowrap text-xs/);
+  assert.doesNotMatch(source, /更新 \{marketData\.updatedAt\}/);
+});
