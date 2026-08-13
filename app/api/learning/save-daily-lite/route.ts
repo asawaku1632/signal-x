@@ -31,6 +31,15 @@ type Stock = {
   patternKey?: string;
 };
 
+function getJstDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 async function savePatternLearningLogs(stocks: Stock[]) {
   const targets = stocks.filter(
     (stock) =>
@@ -105,7 +114,7 @@ export async function GET() {
       );
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getJstDateString();
 
     const dailyStartedAt = Date.now();
     const result = await saveDailyStocks(today, stocks);

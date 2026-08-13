@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
+import { calculateConfirmedWinRateDiff, calculateWinRate } from "@/app/lib/winRateDisplay";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ type TrendItem = {
   lose: number;
   hold: number;
   pending: number;
-  winRate: number;
+  winRate: number | null;
   status: "confirmed" | "processing" | "waiting_for_price";
 };
 
@@ -47,7 +48,7 @@ function createAiComment({
   hold,
   unknown,
 }: {
-  winRate: number;
+  winRate: number | null;
   latestPreviousBusinessDate?: string;
   processingDate?: string;
   latestDaily?: TrendItem;
@@ -69,7 +70,8 @@ function createAiComment({
   const confirmedDailyComment = latestDaily
     ? previousDaily
       ? (() => {
-          const diff = latestDaily.winRate - previousDaily.winRate;
+          const diff =
+            (latestDaily.winRate ?? 0) - (previousDaily.winRate ?? 0);
           const comparison =
             diff > 0
               ? `${diff}ポイント上昇しています。`
@@ -215,8 +217,7 @@ export async function GET() {
       : undefined;
 
     const judgedTotal = win + lose;
-    const winRate =
-      judgedTotal === 0 ? 0 : Math.round((win / judgedTotal) * 100);
+    const winRate = calculateWinRate(win, lose);
 
     const stockStats: StockStats[] = stockResult.rows.map((row) => {
       const stockWin = toNumber(row.win);
@@ -251,7 +252,6 @@ export async function GET() {
       const dayLose = toNumber(row.lose);
       const dayHold = toNumber(row.hold);
       const pending = toNumber(row.pending);
-      const judged = dayWin + dayLose;
       const status =
         pending === 0
           ? "confirmed"
@@ -266,26 +266,22 @@ export async function GET() {
         lose: dayLose,
         hold: dayHold,
         pending,
-        winRate:
-          judged === 0 ? 0 : Math.round((dayWin / judged) * 100),
+        winRate: calculateWinRate(dayWin, dayLose),
         status,
       };
     });
 
-    const judgedTrend = winRateTrend.filter(
-      (item) => item.win + item.lose > 0,
+    const confirmedTrend = winRateTrend.filter(
+      (item) => item.pending === 0 && item.winRate !== null,
     );
-    const latestDailyWinRate =
-      judgedTrend.length > 0
-        ? judgedTrend[judgedTrend.length - 1].winRate
-        : winRate;
-
-    const previousWinRate =
-      judgedTrend.length >= 2
-        ? judgedTrend[judgedTrend.length - 2].winRate
-        : latestDailyWinRate;
-
-    const diff = latestDailyWinRate - previousWinRate;
+    const previousWinRate = confirmedTrend.at(-2)?.winRate ?? null;
+    const diff = calculateConfirmedWinRateDiff(
+      winRateTrend.map((item) => ({
+        win: item.win,
+        lose: item.lose,
+        unknown: item.pending,
+      })),
+    );
 
     const growthTrend = winRateTrend.map((item) => {
       return {
@@ -305,8 +301,8 @@ export async function GET() {
       winRate,
       latestPreviousBusinessDate,
       processingDate,
-      latestDaily: judgedTrend.at(-1),
-      previousDaily: judgedTrend.at(-2),
+      latestDaily: confirmedTrend.at(-1),
+      previousDaily: confirmedTrend.at(-2),
       judgedTotal,
       win,
       lose,
@@ -349,9 +345,9 @@ export async function GET() {
         lose: 0,
         hold: 0,
         pending: 0,
-        winRate: 0,
-        previousWinRate: 0,
-        diff: 0,
+        winRate: null,
+        previousWinRate: null,
+        diff: null,
         growth: 0,
         dateCount: 0,
         bestStocks: [],

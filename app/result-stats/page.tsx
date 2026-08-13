@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
+import { getWinRateDisplay } from "@/app/lib/winRateDisplay";
 
 type DashboardData = {
   success: boolean;
@@ -10,9 +11,10 @@ type DashboardData = {
   win: number;
   lose: number;
   hold: number;
-  winRate: number;
-  previousWinRate: number;
-  diff: number;
+  pending: number;
+  winRate: number | null;
+  previousWinRate: number | null;
+  diff: number | null;
   growth: number;
   dateCount: number;
   bestStocks: {
@@ -33,7 +35,8 @@ type DashboardData = {
     win: number;
     lose: number;
     hold: number;
-    winRate: number;
+    pending: number;
+    winRate: number | null;
   }[];
   comment: string;
   latestPreviousBusinessDate: string | null;
@@ -41,11 +44,6 @@ type DashboardData = {
   processingDate: string | null;
   updatedAt: string;
 };
-
-function percent(value?: number) {
-  if (value === undefined || value === null) return "0%";
-  return `${Math.round(value)}%`;
-}
 
 export default function ResultStatsPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -79,12 +77,19 @@ export default function ResultStatsPage() {
     loadStats();
   }, []);
 
-  const aiAccuracy = useMemo(() => {
-    if (!data) return 0;
-    const judged = data.win + data.lose;
-    if (judged <= 0) return data.winRate ?? 0;
-    return Math.round((data.win / judged) * 100);
-  }, [data]);
+  const overallDisplay = useMemo(
+    () =>
+      data
+        ? getWinRateDisplay({
+            total: data.total,
+            win: data.win,
+            lose: data.lose,
+            hold: data.hold,
+            unknown: data.pending,
+          })
+        : null,
+    [data],
+  );
 
   const judgedCount = data ? data.win + data.lose : 0;
 
@@ -138,7 +143,7 @@ export default function ResultStatsPage() {
                     📊 AI勝率検証
                   </p>
                   <h1 className="mt-2 text-5xl font-black text-blue-600">
-                    {percent(aiAccuracy)}
+                    {overallDisplay?.label ?? "--"}
                   </h1>
                   <p className="mt-1 text-sm font-bold text-slate-500">
                     現在のAI実測勝率
@@ -157,7 +162,7 @@ export default function ResultStatsPage() {
                 <div
                   className="h-full rounded-full bg-blue-600"
                   style={{
-                    width: `${Math.min(aiAccuracy, 100)}%`,
+                    width: `${overallDisplay?.winRate ?? 0}%`,
                   }}
                 />
               </div>
@@ -201,32 +206,58 @@ export default function ResultStatsPage() {
                 <h2 className="text-xl font-black">📈 勝率推移</h2>
                 <p
                   className={`text-sm font-black ${
-                    data.diff >= 0 ? "text-green-600" : "text-red-500"
+                    data.diff === null
+                      ? "text-slate-400"
+                      : data.diff >= 0
+                        ? "text-green-600"
+                        : "text-red-500"
                   }`}
                 >
-                  {data.diff >= 0 ? "+" : ""}
-                  {data.diff}%
+                  {data.diff === null
+                    ? "--"
+                    : `${data.diff >= 0 ? "+" : ""}${data.diff}pt`}
                 </p>
               </div>
 
               <div className="space-y-3">
-                {(data.winRateTrend ?? []).map((item) => (
-                  <div key={item.date}>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span>{item.date}</span>
-                      <span>{item.winRate}%</span>
-                    </div>
+                {(data.winRateTrend ?? []).map((item) => {
+                  const display = getWinRateDisplay({
+                    ...item,
+                    unknown: item.pending,
+                  });
 
-                    <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-green-500"
-                        style={{
-                          width: `${Math.min(Math.max(item.winRate, 0), 100)}%`,
-                        }}
-                      />
+                  return (
+                    <div key={item.date}>
+                      <div className="mb-1 flex items-start justify-between gap-3 text-xs font-bold">
+                        <span>{item.date}</span>
+                        <span className="text-right">
+                          <span className="block">{display.label}</span>
+                          {(display.state === "provisional" ||
+                            display.state === "waiting") && (
+                            <span className="mt-0.5 block text-[10px] text-amber-600">
+                              {display.detail}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      {display.showBar ? (
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full ${
+                              display.state === "provisional"
+                                ? "bg-amber-400"
+                                : "bg-green-500"
+                            }`}
+                            style={{ width: `${display.winRate}%` }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-3 rounded-full border border-dashed border-slate-300 bg-slate-50" />
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 

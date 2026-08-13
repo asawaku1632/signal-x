@@ -1,5 +1,5 @@
-export default function WinRateRing({ winRate }: { winRate: number }) {
-  const safeRate = Math.max(0, Math.min(winRate, 100));
+export default function WinRateRing({ winRate }: { winRate: number | null }) {
+  const safeRate = Math.max(0, Math.min(winRate ?? 0, 100));
 
   return (
     <div
@@ -9,7 +9,9 @@ export default function WinRateRing({ winRate }: { winRate: number }) {
       }}
     >
       <div className="w-28 h-28 rounded-full bg-white flex flex-col items-center justify-center shadow-inner">
-        <p className="text-4xl font-black text-slate-900">{safeRate}%</p>
+        <p className="text-4xl font-black text-slate-900">
+          {winRate === null ? "--" : `${safeRate}%`}
+        </p>
         <p className="text-xs font-black text-slate-500 mt-1">
           日次銘柄勝率
         </p>

@@ -12,6 +12,7 @@ import RankingCard, {
 } from "@/components/Learning/RankingCard";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import BottomNav from "@/app/components/BottomNav";
+import { getWinRateDisplay } from "@/app/lib/winRateDisplay";
 
 type TrendItem = {
   date: string;
@@ -20,7 +21,7 @@ type TrendItem = {
   lose: number;
   hold: number;
   pending: number;
-  winRate: number;
+  winRate: number | null;
   status: "confirmed" | "processing" | "waiting_for_price";
 };
 
@@ -36,9 +37,9 @@ type LearningDashboard = {
   lose: number;
   hold: number;
   pending: number;
-  winRate: number;
-  previousWinRate: number;
-  diff: number;
+  winRate: number | null;
+  previousWinRate: number | null;
+  diff: number | null;
   growth: number;
   dateCount: number;
   bestStocks: StockRanking[];
@@ -326,10 +327,14 @@ export default function LearningPage() {
                 {dailyWinRateTrend.map((item) => {
                   const judged = item.win + item.lose;
                   const status = trendStatus(item);
+                  const display = getWinRateDisplay({
+                    ...item,
+                    unknown: item.pending,
+                  });
                   const tone =
-                    item.winRate >= 70
+                    (item.winRate ?? 0) >= 70
                       ? "bg-green-500"
-                      : item.winRate >= 40
+                      : (item.winRate ?? 0) >= 40
                         ? "bg-amber-400"
                         : "bg-red-500";
 
@@ -339,7 +344,7 @@ export default function LearningPage() {
                       className="grid h-full min-w-0 grid-rows-[1.25rem_2.5rem_minmax(6rem,1fr)_1.5rem_2.5rem_1.25rem_1.25rem] items-center justify-items-center"
                     >
                       <span className="text-sm font-black text-slate-900">
-                        {judged > 0 ? `${item.winRate}%` : "--"}
+                        {display.label}
                       </span>
                       <span
                         className={`flex max-h-9 min-h-7 w-[calc(100%-2px)] max-w-[4.5rem] items-center justify-center rounded-xl px-0.5 py-1 text-center text-[8px] font-black leading-[1.05] sm:text-[9px] ${status.className}`}
@@ -348,13 +353,21 @@ export default function LearningPage() {
                       </span>
 
                       <div className="flex h-full w-full min-w-0 items-end justify-center border-b border-slate-200">
-                        <div
-                          className={`w-full max-w-10 rounded-t-xl ${tone} transition-all`}
-                          style={{
-                            height: `${judged > 0 ? Math.max(item.winRate, 6) : 6}%`,
-                          }}
-                          title={`${item.winRate}%（${item.win}勝 / ${item.lose}敗）`}
-                        />
+                        {display.showBar ? (
+                          <div
+                            className={`w-full max-w-10 rounded-t-xl ${
+                              display.state === "provisional"
+                                ? "bg-amber-400"
+                                : tone
+                            } transition-all`}
+                            style={{
+                              height: `${Math.max(item.winRate ?? 0, 6)}%`,
+                            }}
+                            title={display.detail}
+                          />
+                        ) : (
+                          <div className="mb-2 h-2 w-full max-w-10 rounded-full border border-dashed border-slate-300 bg-slate-50" />
+                        )}
                       </div>
 
                       <span className="text-[11px] font-black text-slate-700">
