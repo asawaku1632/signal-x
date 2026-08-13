@@ -38,7 +38,7 @@ const TIMEFRAMES: Array<{ value: Timeframe; label: string }> = [
 type Stock = {
   code: string;
   name: string;
-  price: number;
+  price?: number;
   score?: number;
   aiPower?: number;
   changePercent?: number;
@@ -253,7 +253,6 @@ export default function ChartPage() {
   const [stock, setStock] = useState<Stock | null>(null);
   const [chart, setChart] = useState<ChartApi | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
-  const [stockLoading, setStockLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [showScrollCue, setShowScrollCue] = useState(true);
 
@@ -268,12 +267,11 @@ export default function ChartPage() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let timeoutId: number | undefined;
 
     const loadStock = async () => {
-      setStockLoading(true);
-
       try {
-        const scanRes = await fetch("/api/scan?limit=1000", {
+        const scanRes = await fetch(`/api/scan/stock/${code}`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -283,28 +281,24 @@ export default function ChartPage() {
         }
 
         const scanData = await scanRes.json();
-        const stocks: Stock[] = Array.isArray(scanData)
-          ? scanData
-          : Array.isArray(scanData.stocks)
-            ? scanData.stocks
-            : [];
-
-        const found = stocks.find((item) => String(item.code) === code);
-
-        setStock(found ?? null);
+        setStock(scanData.stock ?? null);
+        if (scanData.status === "loading" || scanData.status === "stale") {
+          timeoutId = window.setTimeout(loadStock, 2_000);
+        }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         console.error("stock data error:", error);
       } finally {
-        if (!controller.signal.aborted) {
-          setStockLoading(false);
-        }
+        // Stock metadata is progressive and never blocks the chart.
       }
     };
 
     loadStock();
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [code]);
 
   useEffect(() => {
@@ -340,7 +334,7 @@ export default function ChartPage() {
     return () => controller.abort();
   }, [code, timeframe]);
 
-  if (stockLoading || (chartLoading && !chart)) {
+  if (chartLoading && !chart) {
     return (
       <main className="min-h-screen bg-[#f6f8fc] p-4 text-slate-900">
         <div className="mx-auto max-w-md rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-sm">
@@ -353,7 +347,7 @@ export default function ChartPage() {
     );
   }
 
-  if (!stock || !chart?.success) {
+  if (!chart?.success) {
     return (
       <main className="min-h-screen bg-[#f6f8fc] p-4 text-slate-900">
         <div className="mx-auto max-w-md">
@@ -370,23 +364,24 @@ export default function ChartPage() {
     );
   }
 
-  const power = getPower(stock);
+  const resolvedStock: Stock = stock ?? { code, name: code };
+  const power = getPower(resolvedStock);
   const judge = getJudge(power, chart.trend);
-  const currentPrice = chart.currentPrice ?? stock.price;
+  const currentPrice = chart.currentPrice ?? resolvedStock.price ?? 0;
 
-  const takeProfit = stock.takeProfit ?? Math.round(currentPrice * 1.03);
-  const stopLoss = stock.stopLoss ?? Math.round(currentPrice * 0.98);
+  const takeProfit = resolvedStock.takeProfit ?? Math.round(currentPrice * 1.03);
+  const stopLoss = resolvedStock.stopLoss ?? Math.round(currentPrice * 0.98);
 
-  const supportPrice = chart.supportPrice ?? stock.supportPrice ?? null;
-  const resistancePrice = chart.resistancePrice ?? stock.resistancePrice ?? null;
+  const supportPrice = chart.supportPrice ?? resolvedStock.supportPrice ?? null;
+  const resistancePrice = chart.resistancePrice ?? resolvedStock.resistancePrice ?? null;
 
   const supportResistanceStatus =
     chart.supportResistanceStatus ??
-    stock.supportResistanceStatus ??
+    resolvedStock.supportResistanceStatus ??
     "NO_DATA";
 
   const breakoutExpectation =
-    chart.breakoutExpectation ?? stock.breakoutExpectation ?? 0;
+    chart.breakoutExpectation ?? resolvedStock.breakoutExpectation ?? 0;
 
   const lotSize = 100;
   const requiredMoney = currentPrice * lotSize;
@@ -420,7 +415,7 @@ export default function ChartPage() {
     supportPrice,
     resistancePrice,
     breakoutExpectation,
-    volumeRatio: stock.volumeRatio,
+    volumeRatio: resolvedStock.volumeRatio,
     aiPower: power,
     ma20: chart.ma20,
     ema20: chart.ema20,
@@ -430,7 +425,7 @@ export default function ChartPage() {
     trend: chart.trend,
     status: supportResistanceStatus,
     breakoutExpectation,
-    volumeRatio: stock.volumeRatio,
+    volumeRatio: resolvedStock.volumeRatio,
     aiPower: power,
   });
 
@@ -461,8 +456,8 @@ export default function ChartPage() {
 
         <div className="mt-2 space-y-2">
           <ChartHeader
-            code={stock.code}
-            name={stock.name}
+            code={resolvedStock.code}
+            name={resolvedStock.name}
             power={power}
             judge={judge}
             judgeClass={getJudgeClass(power)}
@@ -571,8 +566,8 @@ export default function ChartPage() {
   ema20={chart.ema20}
   vwap={chart.vwap}
   macdHistogram={chart.macdHistogram}
-  rsi={stock.rsi}
-  volumeRatio={stock.volumeRatio}
+  rsi={resolvedStock.rsi}
+  volumeRatio={resolvedStock.volumeRatio}
   breakoutExpectation={breakoutExpectation}
   resistancePrice={resistancePrice}
   supportPrice={supportPrice}

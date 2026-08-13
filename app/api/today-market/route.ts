@@ -1,210 +1,145 @@
+import { after } from "next/server";
+import {
+  getDisplaySnapshot,
+  saveDisplaySnapshot,
+} from "@/app/lib/displaySnapshot";
+import {
+  getLatestScanSnapshot,
+  refreshScanSnapshot,
+  SCAN_FRESH_MS,
+} from "@/app/lib/scanSnapshot";
+
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
-const SCAN_TIMEOUT_MS = 12_000;
+const MARKET_KEY = "today-market:latest";
 
-function getJstUpdatedAt() {
-  return new Date().toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+// Stored scan rows contain versioned, extensible score fields.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function power(stock: any) {
+  return Number(stock?.score ?? stock?.aiPower ?? stock?.power ?? stock?.totalScore ?? 0);
 }
 
-function getPower(stock: any) {
-  return Number(
-    stock?.score ??
-      stock?.aiPower ??
-      stock?.power ??
-      stock?.totalScore ??
-      0
-  );
-}
-
-function getExpected(stock: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function expected(stock: any) {
   if (stock?.expected) return String(stock.expected);
   if (stock?.expectedProfit) return String(stock.expectedProfit);
-
   const takeProfit = Number(stock?.takeProfit);
   const price = Number(stock?.price);
-
-  if (Number.isFinite(takeProfit) && Number.isFinite(price) && price > 0) {
-    return `+${(((takeProfit - price) / price) * 100).toFixed(1)}%`;
-  }
-
-  return "+0.0%";
+  return Number.isFinite(takeProfit) && Number.isFinite(price) && price > 0
+    ? `+${(((takeProfit - price) / price) * 100).toFixed(1)}%`
+    : "+0.0%";
 }
 
-function createFallbackResponse(error?: unknown) {
-  return Response.json({
-    success: false,
-    grade: "C",
-    action: "様子見",
-    marketCondition: "中立",
-    hotCount: 0,
-    watchCount: 0,
-    top5: [],
-    stocks: [],
-    topStock: {
-      code: "",
-      name: "取得中",
-      aiPower: 0,
-      expected: "+0.0%",
-      judge: "様子見",
-    },
-    strategy: ["無理に買わない", "候補を確認", "押し目を待つ"],
-    avoid: ["高値追い", "飛び乗り", "無理なエントリー"],
-    comment:
-      "市場データを取得できませんでした。安全のため様子見判定にしています。",
-    updatedAt: getJstUpdatedAt(),
-    error: error instanceof Error ? error.message : String(error ?? ""),
-  });
-}
-
-export async function GET(request: Request) {
-  const controller = new AbortController();
-
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, SCAN_TIMEOUT_MS);
-
-  try {
-    const url = new URL(request.url);
-    const scanUrl = `${url.origin}/api/scan?limit=20&top=20`;
-
-    const scanRes = await fetch(scanUrl, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    if (!scanRes.ok) {
-      throw new Error(`scan API failed: ${scanRes.status}`);
-    }
-
-    const scanData = await scanRes.json();
-
-    const stocks = Array.isArray(scanData)
-      ? scanData
-      : Array.isArray(scanData?.stocks)
-        ? scanData.stocks
-        : Array.isArray(scanData?.results)
-          ? scanData.results
-          : Array.isArray(scanData?.data)
-            ? scanData.data
-            : [];
-
-    if (stocks.length === 0) {
-      throw new Error("stocks is empty");
-    }
-
-    const sorted = [...stocks]
-      .filter(Boolean)
-      .sort((a: any, b: any) => getPower(b) - getPower(a));
-
-    const top = sorted[0];
-    const topPower = getPower(top);
-
-    const normalizedStocks = sorted.map((stock: any) => ({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildMarketPayload(stocks: any[]) {
+  const normalized = [...stocks]
+    .filter(Boolean)
+    .sort((a, b) => power(b) - power(a))
+    .map((stock) => ({
       ...stock,
       code: String(stock?.code ?? ""),
       name: String(stock?.name ?? "名称不明"),
-      score: getPower(stock),
-      aiPower: getPower(stock),
-      expected: getExpected(stock),
+      score: power(stock),
+      aiPower: power(stock),
+      expected: expected(stock),
     }));
+  if (!normalized.length) return null;
+  const top = normalized[0];
+  const topPower = power(top);
+  const grade = topPower >= 80 ? "A" : topPower >= 75 ? "B" : topPower >= 65 ? "C" : "D";
+  const action = grade === "A" ? "攻める日" : grade === "B" ? "慎重に攻める日" : grade === "C" ? "厳選の日" : "休む日";
+  const marketCondition = grade === "A" ? "強気" : grade === "B" ? "やや強気" : grade === "C" ? "中立" : "弱気";
+  const judge = topPower >= 80 ? "買い候補" : topPower >= 75 ? "押し目待ち" : topPower >= 65 ? "様子見" : "見送り";
 
-    const top5 = normalizedStocks
-      .slice(0, 5)
-      .map((stock: any, index: number) => ({
-        rank: index + 1,
-        code: stock.code,
-        name: stock.name,
-        aiPower: stock.aiPower,
-        score: stock.score,
-        price: stock?.price ?? null,
-        changePercent: stock?.changePercent ?? null,
-        reason: stock?.reason ?? "",
-        expected: stock.expected,
-      }));
+  return {
+    success: true,
+    grade,
+    action,
+    marketCondition,
+    hotCount: normalized.filter((stock) => power(stock) >= 75).length,
+    watchCount: normalized.filter((stock) => power(stock) >= 65 && power(stock) < 75).length,
+    top5: normalized.slice(0, 5).map((stock, index) => ({
+      rank: index + 1,
+      code: stock.code,
+      name: stock.name,
+      aiPower: stock.aiPower,
+      score: stock.score,
+      price: stock.price ?? null,
+      changePercent: stock.changePercent ?? null,
+      reason: stock.reason ?? "",
+      expected: stock.expected,
+    })),
+    stocks: normalized,
+    topStock: {
+      code: top.code,
+      name: top.name,
+      aiPower: topPower,
+      expected: expected(top),
+      judge,
+    },
+    strategy: grade === "D"
+      ? ["無理に買わない", "現金を守る", "次の好機を待つ"]
+      : ["押し目買い", "AI POWER上位を確認", "高値掴みを避ける"],
+    avoid: ["高値追い", "飛び乗り", "無理なエントリー"],
+    comment: grade === "D"
+      ? "今日は強い買い候補が少ないため、無理に売買せず次の好機を待つ戦略が有効です。"
+      : `本日の大本命は${top.code} ${top.name}です。AI POWERは${topPower}。高値追いは避け、押し目を待ちながら慎重に判断しましょう。`,
+  };
+}
 
-    // Scan画面の market-hot と同じ条件
-    // AI POWER 75以上
-    const hotCount = normalizedStocks.filter(
-      (stock: any) => getPower(stock) >= 75
-    ).length;
+async function rebuildMarketSnapshot() {
+  await refreshScanSnapshot(20);
+  const scan = await getLatestScanSnapshot();
+  const payload = scan ? buildMarketPayload(scan.payload.stocks.slice(0, 20)) : null;
+  if (!payload) return null;
+  return saveDisplaySnapshot(
+    MARKET_KEY,
+    { ...payload, dataUpdatedAt: scan?.updatedAt },
+    payload.stocks.length,
+  );
+}
 
-    // Scan画面の market-watch と同じ条件
-    // AI POWER 65以上75未満
-    const watchCount = normalizedStocks.filter((stock: any) => {
-      const power = getPower(stock);
-      return power >= 65 && power < 75;
-    }).length;
-
-    let grade = "D";
-    let action = "休む日";
-
-    if (topPower >= 80) {
-      grade = "A";
-      action = "攻める日";
-    } else if (topPower >= 75) {
-      grade = "B";
-      action = "慎重に攻める日";
-    } else if (topPower >= 65) {
-      grade = "C";
-      action = "厳選の日";
+export async function GET() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let snapshot = await getDisplaySnapshot<any>(MARKET_KEY);
+  if (!snapshot) {
+    const scan = await getLatestScanSnapshot();
+    const payload = scan ? buildMarketPayload(scan.payload.stocks.slice(0, 20)) : null;
+    if (payload) {
+      snapshot = await saveDisplaySnapshot(
+        MARKET_KEY,
+        { ...payload, dataUpdatedAt: scan?.updatedAt },
+        payload.stocks.length,
+      );
     }
+  }
 
-    const marketCondition =
-      grade === "A"
-        ? "強気"
-        : grade === "B"
-          ? "やや強気"
-          : grade === "C"
-            ? "中立"
-            : "弱気";
+  const dataUpdatedAt = snapshot?.payload.dataUpdatedAt ?? snapshot?.updatedAt;
+  const ageMs = dataUpdatedAt ? Date.now() - Date.parse(dataUpdatedAt) : Infinity;
+  if (!snapshot || ageMs >= SCAN_FRESH_MS) {
+    after(async () => {
+      await rebuildMarketSnapshot().catch((error) =>
+        console.error("today market refresh failed:", error),
+      );
+    });
+  }
 
-    const judge =
-      topPower >= 80
-        ? "買い候補"
-        : topPower >= 75
-          ? "押し目待ち"
-          : topPower >= 65
-            ? "様子見"
-            : "見送り";
-
+  if (!snapshot) {
     return Response.json({
       success: true,
-      grade,
-      action,
-      marketCondition,
-      hotCount,
-      watchCount,
-      top5,
-      stocks: normalizedStocks,
-      topStock: {
-        code: String(top?.code ?? ""),
-        name: String(top?.name ?? "名称不明"),
-        aiPower: topPower,
-        expected: getExpected(top),
-        judge,
-      },
-      strategy:
-        grade === "D"
-          ? ["無理に買わない", "現金を守る", "次の好機を待つ"]
-          : ["押し目買い", "AI POWER上位を確認", "高値掴みを避ける"],
-      avoid: ["高値追い", "飛び乗り", "無理なエントリー"],
-      comment:
-        grade === "D"
-          ? "今日は強い買い候補が少ないため、無理に売買せず次の好機を待つ戦略が有効です。"
-          : `本日の大本命は${top?.code} ${top?.name}です。AI POWERは${topPower}。高値追いは避け、押し目を待ちながら慎重に判断しましょう。`,
-      updatedAt: getJstUpdatedAt(),
-    });
-  } catch (error) {
-    console.error("today-market error:", error);
-    return createFallbackResponse(error);
-  } finally {
-    clearTimeout(timeoutId);
+      status: "loading",
+      updatedAt: null,
+      hotCount: null,
+      watchCount: null,
+      topStock: null,
+      top5: [],
+    }, { status: 202 });
   }
+
+  return Response.json({
+    ...snapshot.payload,
+    status: ageMs < SCAN_FRESH_MS ? "fresh" : "stale",
+    updatedAt: dataUpdatedAt,
+  });
 }

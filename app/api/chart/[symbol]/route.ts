@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
+import { getDisplaySnapshot, saveDisplaySnapshot } from "@/app/lib/displaySnapshot";
 import { detectChartPatterns } from "../../../lib/chartPatternEngine";
 
 type Candle = {
@@ -574,7 +576,7 @@ function emptyPayload(
   };
 }
 
-export async function GET(request: Request) {
+async function buildChartResponse(request: Request) {
   const url = new URL(request.url);
   const rawSymbol = url.pathname.split("/").pop() || "";
   const timeframe = normalizeTimeframe(url.searchParams.get("tf"));
@@ -784,4 +786,44 @@ export async function GET(request: Request) {
       }
     );
   }
+}
+
+const CHART_FRESH_MS = 60_000;
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const rawSymbol = url.pathname.split("/").pop() || "";
+  const timeframe = normalizeTimeframe(url.searchParams.get("tf"));
+  const snapshotKey = `chart:${rawSymbol}:${timeframe}`;
+  // Chart payload is the versioned API response including all indicators.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snapshot = await getDisplaySnapshot<any>(snapshotKey);
+  const ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+
+  const update = async () => {
+    const response = await buildChartResponse(new Request(request.url));
+    const payload = await response.json();
+    if (response.ok && payload?.success) {
+      await saveDisplaySnapshot(snapshotKey, payload, Number(payload.count ?? 0));
+    }
+    return { response, payload };
+  };
+
+  if (snapshot) {
+    if (ageMs >= CHART_FRESH_MS) {
+      after(async () => {
+        await update().catch((error) => console.error("chart snapshot refresh failed:", error));
+      });
+    }
+    return NextResponse.json({
+      ...snapshot.payload,
+      status: ageMs < CHART_FRESH_MS ? "fresh" : "stale",
+      updatedAt: snapshot.updatedAt,
+    });
+  }
+
+  const { response, payload } = await update();
+  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString() }, {
+    status: response.status,
+  });
 }

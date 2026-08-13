@@ -88,13 +88,45 @@ async function runInBatches<T, R>(
 export async function runScan(limit: number): Promise<ScanResult> {
   const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
   const targetStocks = uniqueStocks.slice(0, limit);
+  return runScanForTargets(targetStocks, uniqueStocks.length, limit);
+}
+
+export async function runSingleStockScan(code: string): Promise<ScanResult> {
+  const uniqueStocks = getUniqueStocks(ACTIVE_STOCKS);
+  const stock = uniqueStocks.find((item) => item.code === code);
+  if (!stock) {
+    return {
+      limit: 1,
+      totalStockList: uniqueStocks.length,
+      stocks: [],
+      ranking: buildRanking([]),
+      batchSize: BATCH_SIZE,
+      diagnostics: {
+        targetStockCount: 0,
+        analyzedSuccessCount: 0,
+        analyzedFailureCount: 0,
+        failedStockCodes: [],
+        errorTypes: {},
+      },
+    };
+  }
+  return runScanForTargets([stock], uniqueStocks.length, 1);
+}
+
+async function runScanForTargets(
+  targetStocks: Stock[],
+  totalStockList: number,
+  limit: number,
+): Promise<ScanResult> {
   const targetCodes = targetStocks.map((stock) => stock.code);
 
-  const learningStatsMap = await getLearningStatsMap(targetCodes);
-
-  const marketPattern = await getLatestMarketPattern();
-  const latestMarketBonus = await getLatestMarketBonus();
-  const timeLearning = await getLearningTimeBonus();
+  const [learningStatsMap, marketPattern, latestMarketBonus, timeLearning] =
+    await Promise.all([
+      getLearningStatsMap(targetCodes),
+      getLatestMarketPattern(),
+      getLatestMarketBonus(),
+      getLearningTimeBonus(),
+    ]);
 
   const analysis = await runInBatches(
     targetStocks,
@@ -189,7 +221,7 @@ export async function runScan(limit: number): Promise<ScanResult> {
 
   return {
     limit,
-    totalStockList: uniqueStocks.length,
+    totalStockList,
     marketPattern,
     stocks: ranking.rankedStocks,
     ranking,

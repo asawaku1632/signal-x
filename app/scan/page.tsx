@@ -49,6 +49,8 @@ type Stock = {
 
 type ScanResponse = {
   success?: boolean;
+  status?: "loading" | "stale" | "fresh" | "error";
+  updatedAt?: string | null;
   totalStockList?: number;
   scannedCount?: number;
   stocks?: ApiStock[];
@@ -137,6 +139,8 @@ export default function ScanPage() {
   const [totalStockList, setTotalStockList] = useState(0);
   const [scannedCount, setScannedCount] = useState(0);
   const [alerts, setAlerts] = useState<string[]>([]);
+  const [dataStatus, setDataStatus] = useState<ScanResponse["status"]>("loading");
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const fetchStocks = useCallback(async () => {
     const controller = new AbortController();
@@ -147,13 +151,17 @@ export default function ScanPage() {
         cache: "no-store",
         signal: controller.signal,
       });
-      if (!res.ok) throw new Error(`scan api error: ${res.status}`);
+      if (!res.ok && res.status !== 202) throw new Error(`scan api error: ${res.status}`);
       const data: ScanResponse | ApiStock[] = await res.json();
       const rawStocks = Array.isArray(data) ? data : Array.isArray(data.stocks) ? data.stocks : [];
       const normalized = normalizeStocks(rawStocks);
       setStocks(normalized);
       setTotalStockList(Array.isArray(data) ? normalized.length : Number(data.totalStockList ?? normalized.length));
       setScannedCount(Array.isArray(data) ? normalized.length : Number(data.scannedCount ?? normalized.length));
+      if (!Array.isArray(data)) {
+        setDataStatus(data.status ?? "fresh");
+        setUpdatedAt(data.updatedAt ?? null);
+      }
       const newAlerts = normalized
         .filter((stock) => stock.score >= 95)
         .map((stock) => `${new Date().toLocaleTimeString("ja-JP")} ${stock.code} ${stock.name} AI ${stock.score}`);
@@ -177,6 +185,12 @@ export default function ScanPage() {
     const intervalId = window.setInterval(() => void fetchStocks(), REFRESH_MS);
     return () => window.clearInterval(intervalId);
   }, [fetchStocks]);
+
+  useEffect(() => {
+    if (dataStatus !== "loading" && dataStatus !== "stale") return;
+    const intervalId = window.setInterval(() => void fetchStocks(), 3_000);
+    return () => window.clearInterval(intervalId);
+  }, [dataStatus, updatedAt, fetchStocks]);
 
   const stats = useMemo(() => {
     const hot = stocks.filter((stock) => stock.score >= 85).length;
@@ -218,7 +232,13 @@ export default function ScanPage() {
           <Stat label="平均AI" value={stats.average} />
         </section>
 
-        {loading && <LoadingCard />}
+        {updatedAt && (
+          <p className="mb-4 text-right text-xs font-bold text-slate-500">
+            {dataStatus === "stale" ? "前回の正常データを表示中・更新しています" : "更新"} {new Date(updatedAt).toLocaleString("ja-JP")}
+          </p>
+        )}
+
+        {loading && stocks.length === 0 && <LoadingCard />}
         {!loading && errorText && (
           <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700">{errorText}</div>
         )}

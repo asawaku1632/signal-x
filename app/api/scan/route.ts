@@ -1,236 +1,93 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
+import { clampLimit, getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
 import {
-  clampLimit,
-  getFallbackTotalStockList,
-  runScan,
-} from "@/app/lib/learning/scanEngine";
-import {
-  buildScanErrorPayload,
-  buildScanResponsePayload,
-} from "@/app/lib/learning/notificationEngine";
+  getLatestScanSnapshot,
+  refreshScanSnapshot,
+  SCAN_FRESH_MS,
+} from "@/app/lib/scanSnapshot";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const DEBUG_VERSION = "AI_POWER_V20_FINAL_ROUTE_REFACTOR_0706";
-const AI_POWER_VERSION = "V20.0";
-
-const CACHE_TIME = 60 * 1000;
-
 type MarketFilter = "market-hot" | "market-watch" | null;
 
-type CacheData = {
-  timestamp: number;
-  limit: number;
-  stocks: any[];
-  marketPattern?: string;
-  totalStockList?: number;
-  scanDiagnostics?: {
-    targetStockCount: number;
-    analyzedSuccessCount: number;
-    analyzedFailureCount: number;
-    failedStockCodes: string[];
-    errorTypes: Record<string, number>;
-  };
-};
-
-let cacheData: CacheData | null = null;
-let runningScanPromise: Promise<CacheData> | null = null;
-
-function clampTop(value: number | null) {
-  if (value === null || !Number.isFinite(value) || value < 1) {
-    return null;
-  }
-
-  // 通常のScanは最大100件まで返し、スマホ表示を軽く保つ
-  return Math.min(Math.floor(value), 100);
-}
-
-function parseMarketFilter(value: string | null): MarketFilter {
-  if (value === "market-hot" || value === "market-watch") {
-    return value;
-  }
-
-  return null;
-}
-
-function toFiniteNumber(value: unknown, fallback = 0) {
+function finite(value: unknown) {
   const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : fallback;
+  return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
-/**
- * AI POWERが同点でも、HomeとScanで順位が変わらないように
- * 共通の並び順をAPI側で確定する。
- */
-function sortStocksForRanking(stocks: any[]) {
-  return [...stocks].sort((a, b) => {
-    const scoreDiff =
-      toFiniteNumber(b?.rawAiPower, b?.score ?? b?.aiPower) -
-      toFiniteNumber(a?.rawAiPower, a?.score ?? a?.aiPower);
+// Scan payload is intentionally extensible across AI POWER versions.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function selectStocks(stocks: any[], top: number | null, filter: MarketFilter) {
+  const filtered = filter === "market-hot"
+    ? stocks.filter((stock) => finite(stock.score ?? stock.aiPower) >= 75)
+    : filter === "market-watch"
+      ? stocks.filter((stock) => {
+          const score = finite(stock.score ?? stock.aiPower);
+          return score >= 65 && score < 75;
+        })
+      : stocks;
+  return top ? filtered.slice(0, top) : filtered;
+}
 
-    if (scoreDiff !== 0) return scoreDiff;
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const limit = clampLimit(Number(url.searchParams.get("limit") || 200));
+  const requestedTop = Number(url.searchParams.get("top"));
+  const top = Number.isFinite(requestedTop) && requestedTop > 0
+    ? Math.min(Math.floor(requestedTop), 100)
+    : null;
+  const rawFilter = url.searchParams.get("filter");
+  const filter: MarketFilter = rawFilter === "market-hot" || rawFilter === "market-watch"
+    ? rawFilter
+    : null;
 
-    const changeDiff =
-      toFiniteNumber(b?.changePercent) -
-      toFiniteNumber(a?.changePercent);
+  let snapshot = await getLatestScanSnapshot();
+  const ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+  const coversRequest = Boolean(snapshot && snapshot.itemCount >= limit);
+  const blockingConsumer = limit > 100 && top === null && filter === null;
 
-    if (changeDiff !== 0) return changeDiff;
+  if (blockingConsumer && (!snapshot || ageMs >= SCAN_FRESH_MS || !coversRequest)) {
+    await refreshScanSnapshot(Math.max(limit, snapshot?.itemCount ?? 0));
+    snapshot = await getLatestScanSnapshot();
+  }
 
-    const volumeDiff =
-      toFiniteNumber(b?.volumeRatio) -
-      toFiniteNumber(a?.volumeRatio);
+  const responseAgeMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+  const responseCoversRequest = Boolean(snapshot && snapshot.itemCount >= limit);
 
-    if (volumeDiff !== 0) return volumeDiff;
-
-    return String(a?.code ?? "").localeCompare(String(b?.code ?? ""), "ja", {
-      numeric: true,
+  if (!blockingConsumer && (!snapshot || responseAgeMs >= SCAN_FRESH_MS || !responseCoversRequest)) {
+    after(async () => {
+      const refreshLimit = Math.max(limit, snapshot?.itemCount ?? 0);
+      await refreshScanSnapshot(refreshLimit).catch((error) =>
+        console.error("scan snapshot refresh failed:", error),
+      );
     });
+  }
+
+  if (!snapshot) {
+    return NextResponse.json({
+      success: true,
+      status: "loading",
+      cached: false,
+      updatedAt: null,
+      totalStockList: getFallbackTotalStockList(),
+      scannedCount: 0,
+      stocks: [],
+    }, { status: 202 });
+  }
+
+  const sourceStocks = snapshot.payload.stocks.slice(0, limit);
+  const stocks = selectStocks(sourceStocks, top, filter);
+  return NextResponse.json({
+    ...snapshot.payload,
+    status: responseAgeMs < SCAN_FRESH_MS && responseCoversRequest ? "fresh" : "stale",
+    cached: true,
+    cacheAge: Math.max(0, Math.floor(responseAgeMs / 1000)),
+    updatedAt: snapshot.updatedAt,
+    requestedLimit: top ?? limit,
+    count: stocks.length,
+    scannedCount: sourceStocks.length,
+    stocks,
   });
-}
-
-/**
- * Today Marketから遷移した場合だけ、全スキャン結果から先に抽出する。
- * 通常のScanは上位100件のままなので、通信量と表示速度を維持できる。
- */
-function filterStocks(stocks: any[], filter: MarketFilter) {
-  if (filter === "market-hot") {
-    return stocks.filter(
-      (stock) => toFiniteNumber(stock?.score ?? stock?.aiPower) >= 75
-    );
-  }
-
-  if (filter === "market-watch") {
-    return stocks.filter((stock) => {
-      const score = toFiniteNumber(stock?.score ?? stock?.aiPower);
-      return score >= 65 && score < 75;
-    });
-  }
-
-  return stocks;
-}
-
-function selectStocks(
-  stocks: any[],
-  top: number | null,
-  filter: MarketFilter
-) {
-  const filteredStocks = filterStocks(stocks, filter);
-  return top ? filteredStocks.slice(0, top) : filteredStocks;
-}
-
-async function getFreshScanData(limit: number): Promise<CacheData> {
-  if (runningScanPromise) {
-    return runningScanPromise;
-  }
-
-  runningScanPromise = (async () => {
-    const scanResult = await runScan(limit);
-    const sortedStocks = sortStocksForRanking(scanResult.stocks);
-
-    const freshCache: CacheData = {
-      timestamp: Date.now(),
-      limit,
-      stocks: sortedStocks,
-      marketPattern: scanResult.marketPattern,
-      totalStockList: scanResult.totalStockList,
-      scanDiagnostics: scanResult.diagnostics,
-    };
-
-    cacheData = freshCache;
-    return freshCache;
-  })();
-
-  try {
-    return await runningScanPromise;
-  } finally {
-    runningScanPromise = null;
-  }
-}
-
-export async function GET(req: Request) {
-  const startedAt = Date.now();
-  const now = Date.now();
-
-  try {
-    const { searchParams } = new URL(req.url);
-    const limit = clampLimit(Number(searchParams.get("limit") || 200));
-    const top = clampTop(
-      searchParams.has("top") ? Number(searchParams.get("top")) : null
-    );
-    const filter = parseMarketFilter(searchParams.get("filter"));
-
-    if (
-      cacheData &&
-      cacheData.limit === limit &&
-      now - cacheData.timestamp < CACHE_TIME
-    ) {
-      const responseStocks = selectStocks(cacheData.stocks, top, filter);
-
-      return NextResponse.json(
-        buildScanResponsePayload({
-          debugVersion: DEBUG_VERSION,
-          aiPowerVersion: AI_POWER_VERSION,
-          cached: true,
-          limit: top ?? responseStocks.length,
-          totalStockList:
-            cacheData.totalStockList ?? getFallbackTotalStockList(),
-          stocks: responseStocks,
-          summaryStocks: cacheData.stocks,
-          marketPattern: cacheData.marketPattern,
-          scanDiagnostics: cacheData.scanDiagnostics,
-          cacheAge: Math.floor((now - cacheData.timestamp) / 1000),
-        })
-      );
-    }
-
-    const freshData = await getFreshScanData(limit);
-    const responseStocks = selectStocks(freshData.stocks, top, filter);
-
-    return NextResponse.json(
-      buildScanResponsePayload({
-        debugVersion: DEBUG_VERSION,
-        aiPowerVersion: AI_POWER_VERSION,
-        cached: false,
-        limit: top ?? responseStocks.length,
-        totalStockList:
-          freshData.totalStockList ?? getFallbackTotalStockList(),
-        stocks: responseStocks,
-        summaryStocks: freshData.stocks,
-        marketPattern: freshData.marketPattern,
-        scanDiagnostics: freshData.scanDiagnostics,
-        scanMs: Date.now() - startedAt,
-      })
-    );
-  } catch (error) {
-    if (cacheData) {
-      const { searchParams } = new URL(req.url);
-      const top = clampTop(
-        searchParams.has("top") ? Number(searchParams.get("top")) : null
-      );
-      const filter = parseMarketFilter(searchParams.get("filter"));
-      const responseStocks = selectStocks(cacheData.stocks, top, filter);
-
-      return NextResponse.json(
-        buildScanResponsePayload({
-          debugVersion: DEBUG_VERSION,
-          aiPowerVersion: AI_POWER_VERSION,
-          cached: true,
-          fallback: true,
-          limit: top ?? responseStocks.length,
-          totalStockList:
-            cacheData.totalStockList ?? getFallbackTotalStockList(),
-          stocks: responseStocks,
-          summaryStocks: cacheData.stocks,
-          marketPattern: cacheData.marketPattern,
-          scanDiagnostics: cacheData.scanDiagnostics,
-          error: String(error),
-        })
-      );
-    }
-
-    return NextResponse.json(buildScanErrorPayload(DEBUG_VERSION, error), {
-      status: 500,
-    });
-  }
 }

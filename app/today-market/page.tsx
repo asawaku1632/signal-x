@@ -6,11 +6,12 @@ import BottomNav from "@/app/components/BottomNav";
 
 
    type TodayMarketData = {
+  status: "loading" | "stale" | "fresh" | "error";
   grade: string;
   action: string;
   marketCondition: string;
-  hotCount: number;
-  watchCount: number;
+  hotCount: number | null;
+  watchCount: number | null;
   top5: {
     rank: number;
     code: string;
@@ -27,7 +28,7 @@ import BottomNav from "@/app/components/BottomNav";
     aiPower: number;
     expected: string;
     judge: string;
-  };
+  } | null;
   strategy: string[];
   avoid: string[];
   comment: string;
@@ -38,6 +39,8 @@ export default function TodayMarketPage() {
   const [marketData, setMarketData] = useState<TodayMarketData | null>(null);
 
   useEffect(() => {
+    let active = true;
+    let timeoutId: number | undefined;
     const loadMarket = async () => {
       try {
         const res = await fetch("/api/today-market", {
@@ -46,22 +49,24 @@ export default function TodayMarketPage() {
 
         const data = await res.json();
 
-        console.log("TODAY MARKET DATA:", data);
-
-        setMarketData(data);
-        console.log("SET DATA", data);
-setMarketData(data);
+        if (!active) return;
+        setMarketData((previous) => data.status === "loading" && previous?.topStock ? previous : data);
+        if (data.status === "loading" || data.status === "stale") {
+          timeoutId = window.setTimeout(loadMarket, 3_000);
+        }
       } catch (error) {
         console.error("today-market API error:", error);
       }
     };
 
     loadMarket();
+    return () => {
+      active = false;
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, []);
 
-  console.log("marketData =", marketData);
-
-  if (!marketData) {
+  if (!marketData || !marketData.topStock) {
     return (
       <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
         <div className="mx-auto max-w-md px-4 pt-6">
@@ -114,6 +119,7 @@ setMarketData(data);
 
             <p className="text-xs text-slate-400 font-bold whitespace-nowrap">
               更新 {marketData.updatedAt}
+              {marketData.status === "stale" && "（前回値・更新中）"}
             </p>
           </div>
         </section>
@@ -158,7 +164,7 @@ setMarketData(data);
             <InfoCard
               icon="🔥"
               title="激熱候補"
-              value={`${marketData.hotCount}件`}
+              value={marketData.hotCount === null ? "取得中" : `${marketData.hotCount}件`}
               sub="▼ タップして一覧を見る"
               green
             />
@@ -171,7 +177,7 @@ setMarketData(data);
             <InfoCard
               icon="👀"
               title="注目候補"
-              value={`${marketData.watchCount}件`}
+              value={marketData.watchCount === null ? "取得中" : `${marketData.watchCount}件`}
               sub="▼ タップして一覧を見る"
               green
             />
