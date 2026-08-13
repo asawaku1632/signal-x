@@ -5,8 +5,10 @@ import {
   runSnapshotRefresh,
   saveDisplaySnapshot,
 } from "@/app/lib/displaySnapshot";
+import { shouldReplaceSnapshot } from "@/app/lib/learning/snapshotCoverage";
 
 export const SCAN_SNAPSHOT_KEY = "scan:latest";
+export const TODAY_MARKET_SCAN_SNAPSHOT_KEY = "scan:today-market";
 export const SCAN_FRESH_MS = 60_000;
 const DEBUG_VERSION = "AI_POWER_V20_FINAL_ROUTE_REFACTOR_0706";
 const AI_POWER_VERSION = "V20.0";
@@ -41,9 +43,13 @@ export async function getLatestScanSnapshot() {
   return getDisplaySnapshot<StoredScanPayload>(SCAN_SNAPSHOT_KEY);
 }
 
-export async function refreshScanSnapshot(limit: number) {
+export async function getTodayMarketScanSnapshot() {
+  return getDisplaySnapshot<StoredScanPayload>(TODAY_MARKET_SCAN_SNAPSHOT_KEY);
+}
+
+async function refreshSnapshot(key: string, limit: number) {
   return runSnapshotRefresh(
-    SCAN_SNAPSHOT_KEY,
+    key,
     async () => {
       const startedAt = Date.now();
       const result = await runScan(limit);
@@ -65,10 +71,21 @@ export async function refreshScanSnapshot(limit: number) {
         updatedAt: new Date().toISOString(),
       };
       // itemCount represents requested scan coverage, not only successful rows.
-      await saveDisplaySnapshot(SCAN_SNAPSHOT_KEY, payload, result.limit);
+      const existing = await getDisplaySnapshot<StoredScanPayload>(key);
+      if (shouldReplaceSnapshot(existing?.itemCount ?? null, result.limit)) {
+        await saveDisplaySnapshot(key, payload, result.limit);
+      }
       return payload;
     },
   );
+}
+
+export function refreshScanSnapshot(limit: number) {
+  return refreshSnapshot(SCAN_SNAPSHOT_KEY, limit);
+}
+
+export function refreshTodayMarketScanSnapshot(limit = 20) {
+  return refreshSnapshot(TODAY_MARKET_SCAN_SNAPSHOT_KEY, limit);
 }
 
 export async function getStockSnapshot(code: string) {

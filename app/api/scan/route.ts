@@ -77,6 +77,19 @@ export async function GET(request: Request) {
     }, { status: 202 });
   }
 
+  if (blockingConsumer && !responseCoversRequest) {
+    return NextResponse.json(
+      {
+        success: false,
+        status: "insufficient_snapshot_coverage",
+        requestedLimit: limit,
+        snapshotItemCount: snapshot.itemCount,
+        error: "scan snapshot does not cover the requested full scan",
+      },
+      { status: 503 },
+    );
+  }
+
   const sourceStocks = snapshot.payload.stocks.slice(0, limit);
   const stocks = selectStocks(sourceStocks, top, filter);
   return NextResponse.json({

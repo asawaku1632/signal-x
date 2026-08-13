@@ -6,6 +6,8 @@ import { getAdminSession } from "@/app/lib/admin";
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { sendLine } from "@/app/lib/line/sendLine";
 import { isJstBusinessDay } from "@/app/lib/learning/learningSaveStatus";
+import { getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
+import { validateDailyScanCoverage } from "@/app/lib/learning/dailyScanGuard";
 import { saveRelatedLearning } from "@/app/lib/relatedLearning";
 import {
   releaseDailySaveLock,
@@ -48,8 +50,10 @@ type Stock = BbObservationStock & {
 
 type SaveStage =
   | "authorization"
+  | "existing-snapshot-check"
   | "scan"
   | "scan-response"
+  | "scan-coverage-check"
   | "daily-stock-save"
   | "related-learning-save"
   | "completed";
@@ -373,6 +377,16 @@ export async function GET(req: Request) {
     const existingCount = Number(existingResult.rows[0]?.count ?? 0);
 
     if (existingCount > 0) {
+      stage = "existing-snapshot-check";
+      const coverage = validateDailyScanCoverage(
+        existingCount,
+        getFallbackTotalStockList(),
+      );
+      if (!coverage.valid) {
+        throw new Error(
+          `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
+        );
+      }
       stage = "completed";
       await saveCronRunLog({
         route: "/api/learning/save-daily",
@@ -481,6 +495,17 @@ export async function GET(req: Request) {
 
     if (fetchedCount === 0) {
       throw new Error("scan api returned no stocks");
+    }
+
+    stage = "scan-coverage-check";
+    const coverage = validateDailyScanCoverage(
+      fetchedCount,
+      getFallbackTotalStockList(),
+    );
+    if (!coverage.valid) {
+      throw new Error(
+        `daily scan coverage is insufficient: ${fetchedCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
+      );
     }
 
     await saveCronRunLog({

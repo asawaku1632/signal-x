@@ -7,6 +7,7 @@ export type DailyCheckStopReason =
   | "max_batches"
   | "time_budget"
   | "no_progress"
+  | "incomplete_price_coverage"
   | "already_running";
 
 type DailyResult = "WIN" | "LOSE" | "HOLD";
@@ -463,6 +464,14 @@ export async function runDailyCheck(options?: {
 
       batches.push(report);
       console.info("[check-daily] batch completed", report);
+
+      if (
+        report.remainingCount > 0 &&
+        report.comparableRemainingCount === 0
+      ) {
+        stopReason = "incomplete_price_coverage";
+        break;
+      }
 
       if (report.updatedCount === 0) {
         stopReason = "no_progress";

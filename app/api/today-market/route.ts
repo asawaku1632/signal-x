@@ -4,8 +4,8 @@ import {
   saveDisplaySnapshot,
 } from "@/app/lib/displaySnapshot";
 import {
-  getLatestScanSnapshot,
-  refreshScanSnapshot,
+  getTodayMarketScanSnapshot,
+  refreshTodayMarketScanSnapshot,
   SCAN_FRESH_MS,
 } from "@/app/lib/scanSnapshot";
 
@@ -89,8 +89,8 @@ function buildMarketPayload(stocks: any[]) {
 }
 
 async function rebuildMarketSnapshot() {
-  await refreshScanSnapshot(20);
-  const scan = await getLatestScanSnapshot();
+  await refreshTodayMarketScanSnapshot(20);
+  const scan = await getTodayMarketScanSnapshot();
   const payload = scan ? buildMarketPayload(scan.payload.stocks.slice(0, 20)) : null;
   if (!payload) return null;
   return saveDisplaySnapshot(
@@ -104,7 +104,7 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let snapshot = await getDisplaySnapshot<any>(MARKET_KEY);
   if (!snapshot) {
-    const scan = await getLatestScanSnapshot();
+    const scan = await getTodayMarketScanSnapshot();
     const payload = scan ? buildMarketPayload(scan.payload.stocks.slice(0, 20)) : null;
     if (payload) {
       snapshot = await saveDisplaySnapshot(
