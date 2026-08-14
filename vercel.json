@@ -23,6 +23,14 @@
     {
       "path": "/api/cron/learning-save-monitor",
       "schedule": "25 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/bb-observation",
+      "schedule": "10 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/bb-evaluation",
+      "schedule": "0 8 * * 1-5"
     }
   ]
 }

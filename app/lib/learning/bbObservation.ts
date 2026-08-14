@@ -2,12 +2,29 @@ import pool from "@/app/lib/postgres";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
 import {
   BB_EVALUATION_HORIZONS,
+  BB_EVALUATION_CONCURRENCY,
+  BB_EVALUATION_MAX_EVENTS,
+  BB_EVALUATION_REQUEST_TIMEOUT_MS,
+  BB_EVALUATION_TIME_BUDGET_MS,
+  BB_SIGNAL_BATCH_SIZE,
+  chunkBbItems,
+  clampBbEvaluationOptions,
+  findDuplicateCodes,
   getFutureTradingEvaluation,
   getObservationState,
   shouldCreateBbEvent,
   type BbSignalState,
   type TradingCandle,
 } from "@/app/lib/learning/bbObservationCore";
+import { allSettledWithConcurrency } from "@/app/lib/learning/promisePool";
+
+export {
+  BB_SIGNAL_BATCH_SIZE,
+  BB_EVALUATION_MAX_EVENTS,
+  BB_EVALUATION_CONCURRENCY,
+  BB_EVALUATION_REQUEST_TIMEOUT_MS,
+  BB_EVALUATION_TIME_BUDGET_MS,
+};
 
 export type BbObservationStock = {
   code: string;
@@ -23,14 +40,24 @@ export type BbObservationStock = {
   aiPower?: number;
 };
 
+type BbQueryResult = { rows: Record<string, unknown>[]; rowCount: number | null };
+type BbQueryClient = {
+  query: (text: string, values?: unknown[]) => Promise<BbQueryResult>;
+  release: () => void;
+};
+export type BbObservationDatabase = {
+  query: (text: string, values?: unknown[]) => Promise<BbQueryResult>;
+  connect: () => Promise<BbQueryClient>;
+};
+
 function finite(value: unknown, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-async function loadStates(codes: string[]) {
+async function loadStates(codes: string[], database: BbObservationDatabase) {
   if (codes.length === 0) return new Map<string, BbSignalState>();
-  const result = await pool.query(
+  const result = await database.query(
     `SELECT code, side, status, upper_regime, active
        FROM bb_signal_states WHERE code = ANY($1::text[])`,
     [codes],
@@ -46,76 +73,93 @@ async function loadStates(codes: string[]) {
 export async function saveBbSignalEvents(
   signalDate: string,
   stocks: BbObservationStock[],
+  options: {
+    batchSize?: number;
+    database?: BbObservationDatabase;
+  } = {},
 ) {
-  const states = await loadStates(stocks.map((stock) => stock.code));
-  const client = await pool.connect();
+  const batchSize = options.batchSize ?? BB_SIGNAL_BATCH_SIZE;
+  const database = options.database ?? (pool as unknown as BbObservationDatabase);
+  const duplicateCodes = findDuplicateCodes(stocks.map((stock) => stock.code));
+  if (duplicateCodes.length > 0) {
+    throw new Error(`duplicate BB snapshot codes: ${duplicateCodes.join(",")}`);
+  }
+  const states = await loadStates(stocks.map((stock) => stock.code), database);
+  const client = await database.connect();
   let created = 0;
   let continued = 0;
   let reset = 0;
+  let updatedStates = 0;
+  let batchCount = 0;
 
   try {
     await client.query("BEGIN");
-    for (const stock of stocks) {
-      const current = getObservationState(stock.bollinger);
-      const previous = states.get(stock.code);
-      const createEvent = shouldCreateBbEvent(previous, current);
+    for (const batch of chunkBbItems(stocks, batchSize)) {
+      batchCount += 1;
+      const eventValues: unknown[] = [];
+      const eventRows: string[] = [];
+      const stateValues: unknown[] = [];
+      const stateRows: string[] = [];
 
-      if (!current.active) {
-        if (previous?.active) reset += 1;
-      } else if (createEvent && stock.bollinger) {
-        const signal = stock.bollinger;
-        const eventSignalDate = signal.tradeDate ?? signalDate;
+      for (const stock of batch) {
+        const current = getObservationState(stock.bollinger);
+        const previous = states.get(stock.code);
+        const createEvent = shouldCreateBbEvent(previous, current);
+        const tradeDate = stock.bollinger?.tradeDate ?? signalDate;
+
+        if (!current.active) {
+          if (previous?.active) reset += 1;
+        } else if (createEvent && stock.bollinger) {
+          const signal = stock.bollinger;
+          const base = eventValues.length;
+          eventValues.push(
+            stock.code, stock.name, tradeDate, finite(stock.price), signal.side,
+            signal.status, signal.upperRegime ?? "NONE", signal.expectation,
+            signal.bandWalkRisk, finite(stock.bbBonus), stock.bbBonusReason ?? "",
+            stock.bbBonusEnabled !== false, signal.upper, signal.middle, signal.lower,
+            signal.distancePercent, signal.bandWidthPercent,
+            finite(stock.rawAiPowerBeforeBollinger), finite(stock.rawAiPower),
+            finite(stock.displayAiPowerBeforeBollinger), finite(stock.aiPower),
+            JSON.stringify(signal.confirmations), JSON.stringify(signal.warnings),
+          );
+          eventRows.push(`(${Array.from({ length: 23 }, (_, index) => {
+            const parameter = `$${base + index + 1}`;
+            return index >= 21 ? `${parameter}::jsonb` : parameter;
+          }).join(",")})`);
+        } else if (current.active) {
+          continued += 1;
+        }
+
+        const stateBase = stateValues.length;
+        stateValues.push(
+          stock.code, current.side, current.status, current.upperRegime,
+          current.active, tradeDate,
+        );
+        stateRows.push(`(${Array.from({ length: 6 }, (_, index) => `$${stateBase + index + 1}`).join(",")},NOW())`);
+        states.set(stock.code, current);
+      }
+
+      if (eventRows.length > 0) {
         const inserted = await client.query(
           `INSERT INTO bb_signal_events (
              code, name, signal_date, entry_price, side, status, upper_regime,
              expectation, band_walk_risk, bb_bonus, bb_bonus_reason,
              bb_bonus_enabled, upper_band, middle_band, lower_band,
-             distance_percent, band_width_percent,
-             raw_ai_power_before_bb, raw_ai_power_after_bb,
-             display_ai_power_before_bb, display_ai_power_after_bb,
-             confirmations, warnings
-           ) VALUES (
-             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-             $18,$19,$20,$21,$22::jsonb,$23::jsonb
-           )
-           ON CONFLICT ON CONSTRAINT bb_signal_events_idempotency_key DO NOTHING
-           RETURNING id`,
-          [
-            stock.code,
-            stock.name,
-            eventSignalDate,
-            finite(stock.price),
-            signal.side,
-            signal.status,
-            signal.upperRegime ?? "NONE",
-            signal.expectation,
-            signal.bandWalkRisk,
-            finite(stock.bbBonus),
-            stock.bbBonusReason ?? "",
-            stock.bbBonusEnabled !== false,
-            signal.upper,
-            signal.middle,
-            signal.lower,
-            signal.distancePercent,
-            signal.bandWidthPercent,
-            finite(stock.rawAiPowerBeforeBollinger),
-            finite(stock.rawAiPower),
-            finite(stock.displayAiPowerBeforeBollinger),
-            finite(stock.aiPower),
-            JSON.stringify(signal.confirmations),
-            JSON.stringify(signal.warnings),
-          ],
+             distance_percent, band_width_percent, raw_ai_power_before_bb,
+             raw_ai_power_after_bb, display_ai_power_before_bb,
+             display_ai_power_after_bb, confirmations, warnings
+           ) VALUES ${eventRows.join(",")}
+           ON CONFLICT ON CONSTRAINT bb_signal_events_idempotency_key DO NOTHING`,
+          eventValues,
         );
         created += inserted.rowCount ?? 0;
-      } else if (current.active) {
-        continued += 1;
       }
 
-      await client.query(
+      const stateResult = await client.query(
         `INSERT INTO bb_signal_states (
            code, side, status, upper_regime, active, entered_trade_date,
            last_seen_trade_date, updated_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$6,NOW())
+         ) VALUES ${stateRows.join(",")}
          ON CONFLICT (code) DO UPDATE SET
            side = EXCLUDED.side,
            status = EXCLUDED.status,
@@ -130,20 +174,22 @@ export async function saveBbSignalEvents(
              ELSE bb_signal_states.entered_trade_date
            END,
            last_seen_trade_date = EXCLUDED.last_seen_trade_date,
-           updated_at = NOW()`,
-        [
-          stock.code,
-          current.side,
-          current.status,
-          current.upperRegime,
-          current.active,
-          stock.bollinger?.tradeDate ?? signalDate,
-        ],
+           updated_at = NOW()
+         WHERE bb_signal_states.last_seen_trade_date <= EXCLUDED.last_seen_trade_date`,
+        stateValues,
       );
-      states.set(stock.code, current);
+      updatedStates += stateResult.rowCount ?? 0;
     }
     await client.query("COMMIT");
-    return { created, continued, reset, processed: stocks.length };
+    return {
+      created,
+      continued,
+      reset,
+      processed: stocks.length,
+      updatedStates,
+      batchCount,
+      batchSize,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -161,10 +207,13 @@ function toTradeDate(timestamp: number) {
   }).format(new Date(timestamp * 1_000));
 }
 
-async function fetchDailyCandles(code: string): Promise<TradingCandle[]> {
+async function fetchDailyCandles(
+  code: string,
+  timeoutMs = BB_EVALUATION_REQUEST_TIMEOUT_MS,
+): Promise<TradingCandle[]> {
   const response = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}.T?range=1y&interval=1d`,
-    { cache: "no-store", signal: AbortSignal.timeout(15_000) },
+    { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) },
   );
   if (!response.ok) throw new Error(`BB evaluation chart failed: ${code}`);
   const json = await response.json();
@@ -179,8 +228,22 @@ async function fetchDailyCandles(code: string): Promise<TradingCandle[]> {
   });
 }
 
-export async function evaluatePendingBbEvents(limit = 1_000) {
-  const pending = await pool.query(
+export type BbEvaluationOptions = {
+  limit?: number;
+  concurrency?: number;
+  requestTimeoutMs?: number;
+  timeBudgetMs?: number;
+  fetchCandles?: (code: string, timeoutMs: number) => Promise<TradingCandle[]>;
+  database?: BbObservationDatabase;
+};
+
+export async function evaluatePendingBbEvents(options: BbEvaluationOptions = {}) {
+  const { limit, concurrency, requestTimeoutMs, timeBudgetMs } =
+    clampBbEvaluationOptions(options);
+  const fetcher = options.fetchCandles ?? fetchDailyCandles;
+  const database = options.database ?? (pool as unknown as BbObservationDatabase);
+  const startedAt = Date.now();
+  const pending = await database.query(
     `SELECT e.id, e.code, e.signal_date::text, e.entry_price
        FROM bb_signal_events e
       WHERE EXISTS (
@@ -194,20 +257,25 @@ export async function evaluatePendingBbEvents(limit = 1_000) {
       LIMIT $1`,
     [limit],
   );
-  const candleCache = new Map<string, TradingCandle[]>();
-  let evaluated = 0;
-
-  for (const event of pending.rows) {
-    const code = String(event.code);
-    let candles = candleCache.get(code);
-    if (!candles) {
-      try {
-        candles = await fetchDailyCandles(code);
-        candleCache.set(code, candles);
-      } catch {
-        continue;
-      }
+  const candleCache = new Map<string, Promise<TradingCandle[]>>();
+  const settled = await allSettledWithConcurrency(pending.rows, concurrency, async (event) => {
+    if (Date.now() - startedAt >= timeBudgetMs) {
+      return { evaluated: 0, apiFailed: false, budgetSkipped: true };
     }
+    const code = String(event.code);
+    let candlePromise = candleCache.get(code);
+    if (!candlePromise) {
+      candlePromise = fetcher(code, requestTimeoutMs);
+      candleCache.set(code, candlePromise);
+    }
+    let candles: TradingCandle[];
+    try {
+      candles = await candlePromise;
+    } catch {
+      candleCache.delete(code);
+      return { evaluated: 0, apiFailed: true, budgetSkipped: false };
+    }
+    let evaluated = 0;
     for (const horizon of BB_EVALUATION_HORIZONS) {
       const value = getFutureTradingEvaluation(
         candles,
@@ -216,7 +284,7 @@ export async function evaluatePendingBbEvents(limit = 1_000) {
         finite(event.entry_price),
       );
       if (!value) continue;
-      const inserted = await pool.query(
+      const inserted = await database.query(
         `INSERT INTO bb_signal_event_results (
            event_id, horizon, future_price, return_percent, evaluated_trade_date
          ) VALUES ($1,$2,$3,$4,$5)
@@ -225,15 +293,30 @@ export async function evaluatePendingBbEvents(limit = 1_000) {
       );
       evaluated += inserted.rowCount ?? 0;
     }
-  }
-  return { pendingEvents: pending.rowCount ?? 0, evaluated };
-}
-
-export async function runBbObservation(
-  signalDate: string,
-  stocks: BbObservationStock[],
-) {
-  const saved = await saveBbSignalEvents(signalDate, stocks);
-  const evaluation = await evaluatePendingBbEvents();
-  return { saved, evaluation };
+    return { evaluated, apiFailed: false, budgetSkipped: false };
+  });
+  const summary = settled.reduce(
+    (result, item) => {
+      if (item.status === "rejected") {
+        result.failedEvents += 1;
+      } else {
+        result.evaluated += item.value.evaluated;
+        if (item.value.apiFailed) result.apiFailedEvents += 1;
+        if (item.value.budgetSkipped) result.budgetSkippedEvents += 1;
+      }
+      return result;
+    },
+    { evaluated: 0, failedEvents: 0, apiFailedEvents: 0, budgetSkippedEvents: 0 },
+  );
+  return {
+    pendingEvents: pending.rowCount ?? 0,
+    attemptedEvents: settled.length,
+    ...summary,
+    remainingExpected: (pending.rowCount ?? 0) === limit,
+    durationMs: Date.now() - startedAt,
+    limit,
+    concurrency,
+    requestTimeoutMs,
+    timeBudgetMs,
+  };
 }

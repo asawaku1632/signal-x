@@ -10,6 +10,7 @@ export type CronRunStatus =
   | "LINE_SUCCESS"
   | "LINE_FAILED"
   | "SAVE_SUCCESS"
+  | "PROGRESS"
   | "COMPLETED"
   | "SKIPPED"
   | "ERROR";

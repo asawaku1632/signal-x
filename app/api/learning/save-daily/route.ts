@@ -13,10 +13,6 @@ import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
 } from "@/app/lib/learning/dailySaveLock";
-import {
-  runBbObservation,
-  type BbObservationStock,
-} from "@/app/lib/learning/bbObservation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,7 +32,7 @@ type PatternLearning = {
   patternKey?: string;
 };
 
-type Stock = BbObservationStock & {
+type Stock = {
   code: string;
   name: string;
   score?: number;
@@ -56,7 +52,13 @@ type SaveStage =
   | "scan-coverage-check"
   | "daily-stock-save"
   | "related-learning-save"
-  | "completed";
+  | "completed"
+  | "DAILY_SAVE_STARTED"
+  | "SNAPSHOT_SAVED"
+  | "RELATED_LEARNING_STARTED"
+  | "RELATED_LEARNING_COMPLETED"
+  | "BEFORE_COMPLETED"
+  | "COMPLETED";
 
 type ScanResponseDiagnostics = {
   status: number;
@@ -254,8 +256,6 @@ export async function GET(req: Request) {
   let analysisDiagnostics: AnalysisDiagnostics | null = null;
   let scanDiagnostics: ScanResponseDiagnostics | null = null;
   let lockAcquired = false;
-  let bbObservation: Awaited<ReturnType<typeof runBbObservation>> | null = null;
-  let bbObservationError: string | null = null;
 
   await saveCronRunLog({
     route: "/api/learning/save-daily",
@@ -350,6 +350,9 @@ export async function GET(req: Request) {
     }
     lockAcquired = true;
 
+    stage = "DAILY_SAVE_STARTED";
+    const dailySaveStartedAt = Date.now();
+    logSaveDaily(runId, stage, { targetDate, durationMs: 0, processedCount: 0 });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
       status: "STARTED",
@@ -361,6 +364,9 @@ export async function GET(req: Request) {
         receivedAt,
         delaySeconds,
         stage,
+        timestamp: new Date().toISOString(),
+        durationMs: 0,
+        processedCount: 0,
         targetStockCount: 0,
         analyzedSuccessCount: 0,
         analyzedFailureCount: 0,
@@ -508,6 +514,7 @@ export async function GET(req: Request) {
       );
     }
 
+    stage = "scan-coverage-check";
     await saveCronRunLog({
       route: "/api/learning/save-daily",
       status: "SCAN_FINISHED",
@@ -531,12 +538,15 @@ export async function GET(req: Request) {
     const result = await saveDailyStocks(targetDate, stocks);
     savedCount = result.added;
     conflictCount = result.conflictCount;
+    stage = "SNAPSHOT_SAVED";
     logSaveDaily(runId, stage, {
       targetDate,
       fetchedCount,
       savedCount,
+      processedCount: savedCount,
       skippedCount: result.skipped,
       conflictCount,
+      durationMs: Date.now() - dailySaveStartedAt,
     });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
@@ -546,6 +556,9 @@ export async function GET(req: Request) {
         runId,
         targetDate,
         stage,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - dailySaveStartedAt,
+        processedCount: savedCount,
         fetchedCount,
         savedCount,
         skippedCount: result.skipped,
@@ -557,27 +570,59 @@ export async function GET(req: Request) {
       },
     });
 
+    stage = "RELATED_LEARNING_STARTED";
+    const relatedLearningStartedAt = Date.now();
+    logSaveDaily(runId, stage, {
+      targetDate,
+      durationMs: Date.now() - dailySaveStartedAt,
+      processedCount: fetchedCount,
+    });
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning save started",
+      details: {
+        runId,
+        targetDate,
+        stage,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - dailySaveStartedAt,
+        processedCount: fetchedCount,
+      },
+    });
+
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
 
-    try {
-      bbObservation = await runBbObservation(targetDate, stocks);
-    } catch (bbError) {
-      bbObservationError = errorMessage(bbError);
-      console.error("BB observation failed independently:", bbError);
-      try {
-        await saveCronRunLog({
-          route: "/api/learning/save-daily",
-          status: "ERROR",
-          message: "BB observation failed after daily stock save",
-          details: { runId, targetDate, component: "bb-observation", error: bbObservationError },
-        });
-      } catch (bbLogError) {
-        console.error("BB observation error log failed independently:", bbLogError);
-      }
-    }
+    stage = "RELATED_LEARNING_COMPLETED";
+    logSaveDaily(runId, stage, {
+      targetDate,
+      durationMs: Date.now() - relatedLearningStartedAt,
+      processedCount: fetchedCount,
+      patternAdded: relatedResult.patternAdded,
+      experienceAdded: relatedResult.experienceAdded,
+      sectorAdded: relatedResult.sectorAdded,
+      marketAdded: relatedResult.marketAdded,
+    });
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning save completed",
+      details: {
+        runId,
+        targetDate,
+        stage,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - relatedLearningStartedAt,
+        processedCount: fetchedCount,
+        patternAdded: relatedResult.patternAdded,
+        experienceAdded: relatedResult.experienceAdded,
+        sectorAdded: relatedResult.sectorAdded,
+        marketAdded: relatedResult.marketAdded,
+      },
+    });
 
-    stage = "completed";
+    stage = "BEFORE_COMPLETED";
     logSaveDaily(runId, stage, {
       targetDate,
       fetchedCount,
@@ -589,6 +634,22 @@ export async function GET(req: Request) {
     });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Required daily save processing completed",
+      details: {
+        runId,
+        targetDate,
+        stage,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+        processedCount: fetchedCount,
+        savedCount,
+      },
+    });
+
+    stage = "COMPLETED";
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
       status: "COMPLETED",
       message: "AI学習の日次保存が正常完了しました",
       httpStatus: 200,
@@ -596,6 +657,8 @@ export async function GET(req: Request) {
         runId,
         targetDate,
         stage,
+        timestamp: new Date().toISOString(),
+        processedCount: fetchedCount,
         fetchedCount,
         savedCount,
         skippedCount: result.skipped,
@@ -624,8 +687,6 @@ export async function GET(req: Request) {
 
       ...result,
       ...relatedResult,
-      bbObservation,
-      bbObservationError,
     });
   } catch (error: unknown) {
     const message = errorMessage(error);

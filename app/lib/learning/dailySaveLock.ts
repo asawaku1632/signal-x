@@ -1,6 +1,10 @@
 import pool from "@/app/lib/postgres";
 
-const LOCK_LEASE_SECONDS = 4 * 60;
+export const DAILY_SAVE_LOCK_LEASE_SECONDS = 4 * 60;
+
+export function isDailySaveLockLeaseExpired(expiresAt: Date | string, now = new Date()) {
+  return new Date(expiresAt).getTime() <= now.getTime();
+}
 
 function isMissingLockTable(error: unknown) {
   return Boolean(
@@ -23,7 +27,7 @@ export async function tryAcquireDailySaveLock(targetDate: string, ownerId: strin
          expires_at = EXCLUDED.expires_at
        WHERE cron_execution_locks.expires_at <= NOW()
        RETURNING lock_key, owner_id, acquired_at, expires_at`,
-      [lockKey, ownerId, LOCK_LEASE_SECONDS],
+      [lockKey, ownerId, DAILY_SAVE_LOCK_LEASE_SECONDS],
     );
     return rows[0] ?? null;
   } catch (error) {
