@@ -340,34 +340,9 @@ export default function HomePage() {
   </button>
 </form>
 
-<Link
-  href="/scan-mobile"
-  className="mb-4 block rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-5 shadow-lg transition hover:scale-[1.02]"
->
-  <div className="flex items-center justify-between">
-    <div>
-      <p className="text-xs font-black tracking-wider text-emerald-600">
-        💴 BUDGET STOCK SEARCH
-      </p>
-
-      <h2 className="mt-1 text-xl font-black text-slate-900">
-        予算から銘柄を探す
-      </h2>
-
-      <p className="mt-2 text-sm text-slate-600">
-        10万円・30万円・50万円・100万円以内で
-        AIがおすすめ銘柄を表示します。
-      </p>
-    </div>
-
-    <div className="text-4xl">
-      💰
-    </div>
-  </div>
-</Link>
 <div className="mb-5">
   <p className="mb-3 text-sm font-black text-slate-600">
-    人気の予算
+    予算から銘柄を探す
   </p>
 
   <div className="grid grid-cols-2 gap-3">
