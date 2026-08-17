@@ -253,11 +253,21 @@ function ScanMobileContent() {
 
   async function addFavorite(code: string, name: string) {
     try {
-      await fetch("/api/favorites", {
+      const response = await fetch("/api/favorites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, name }),
       });
+
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("お気に入りの登録に失敗しました");
+      }
+
       alert(`${name} をお気に入り登録しました`);
     } catch (error) {
       console.error(error);

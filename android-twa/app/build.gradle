@@ -23,7 +23,7 @@ plugins {
 def twaManifest = [
     applicationId: 'com.signalx.app',
     hostName: 'signal-x-ppjg.vercel.app', // The domain being opened in the TWA.
-    launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
+    launchUrl: '/dashboard', // The start path for the TWA. Must be relative to the domain.
     name: 'SIGNALX', // The application name.
     launcherName: 'SIGNALX', // The name shown on the Android Launcher.
     themeColor: '#FFFFFF', // The color used for the status bar.

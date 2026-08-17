@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type FavoriteAlert = {
@@ -14,6 +15,7 @@ type FavoriteAlert = {
 export default function FavoritesAlertsPage() {
   const [favorites, setFavorites] = useState<FavoriteAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loginRequired, setLoginRequired] = useState(false);
 
   function judgeColor(score = 0) {
     if (score >= 85) return "text-red-400";
@@ -28,6 +30,12 @@ export default function FavoritesAlertsPage() {
         cache: "no-store",
       });
 
+      if (res.status === 401) {
+        setLoginRequired(true);
+        setFavorites([]);
+        return;
+      }
+
       const json = await res.json();
       setFavorites(json.alerts || []);
     } catch (error) {
@@ -38,7 +46,8 @@ export default function FavoritesAlertsPage() {
   }
 
   useEffect(() => {
-    fetchData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初回表示時に認証済みユーザーのお気に入り通知を取得するため。
+    void fetchData();
   }, []);
 
   return (
@@ -53,6 +62,21 @@ export default function FavoritesAlertsPage() {
         {loading && (
           <p className="text-center text-zinc-500">AI監視中...</p>
         )}
+
+        {loginRequired ? (
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 text-center">
+            <p className="text-sm font-black">ログインが必要です</p>
+            <p className="mt-2 text-xs text-zinc-400">
+              お気に入り銘柄の通知を確認するにはGoogleログインしてください。
+            </p>
+            <Link
+              href="/login"
+              className="mt-4 block rounded-xl bg-yellow-300 px-4 py-3 text-sm font-black text-black"
+            >
+              ログインする
+            </Link>
+          </section>
+        ) : null}
 
         <div className="space-y-2">
           {favorites.map((stock) => (

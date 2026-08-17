@@ -12,7 +12,7 @@
   "navigationDividerColorDark": "#00000000",
   "backgroundColor": "#ffffff",
   "enableNotifications": true,
-  "startUrl": "/",
+  "startUrl": "/dashboard",
   "iconUrl": "https://signal-x-ppjg.vercel.app/icons/signalx-512.png",
   "maskableIconUrl": "https://signal-x-ppjg.vercel.app/icons/signalx-maskable-512.png",
   "splashScreenFadeOutDuration": 300,

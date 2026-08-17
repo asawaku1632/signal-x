@@ -565,6 +565,11 @@ export default function AnalysisPage() {
 
       const data = await res.json().catch(() => null);
 
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
       if (!res.ok || data?.success === false) {
         throw new Error(data?.error || "お気に入りの更新に失敗しました");
       }
