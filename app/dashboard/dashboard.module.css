@@ -1,0 +1,55 @@
+.page {
+  width: 100%;
+}
+
+.shell {
+  width: 100%;
+}
+
+/*
+ * Android's desktop-site mode can expose a desktop-sized CSS viewport while
+ * still being used on a phone. Scaling the dashboard's Tailwind design tokens
+ * preserves its existing 392px composition without zooming the rendered page.
+ */
+.wideMobile {
+  --container-md: 100vw;
+  --container-lg: 100vw;
+  --spacing: 1.020408vw;
+  --text-xs: 3.061224vw;
+  --text-xs--line-height: 4.081633vw;
+  --text-sm: 3.571429vw;
+  --text-sm--line-height: 5.102041vw;
+  --text-base: 4.081633vw;
+  --text-base--line-height: 6.122449vw;
+  --text-lg: 4.591837vw;
+  --text-lg--line-height: 7.142857vw;
+  --text-xl: 5.102041vw;
+  --text-xl--line-height: 7.142857vw;
+  --text-2xl: 6.122449vw;
+  --text-2xl--line-height: 8.163265vw;
+  --text-3xl: 7.653061vw;
+  --text-3xl--line-height: 9.183673vw;
+  --text-4xl: 9.183673vw;
+  --text-4xl--line-height: 10.204082vw;
+  --text-5xl: 12.244898vw;
+  --text-5xl--line-height: 1;
+  --radius-xl: 3.061224vw;
+  --radius-2xl: 4.081633vw;
+  --radius-3xl: 6.122449vw;
+}
+
+.wideMobile :global(.text-\[10px\]) {
+  font-size: 2.55102vw;
+}
+
+.wideMobile :global(.text-\[11px\]) {
+  font-size: 2.806122vw;
+}
+
+.wideMobile :global(.h-\[72px\]) {
+  height: 18.367347vw;
+}
+
+.wideMobile :global(.rounded-\[24px\]) {
+  border-radius: 6.122449vw;
+}

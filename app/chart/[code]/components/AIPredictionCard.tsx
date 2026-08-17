@@ -438,32 +438,32 @@ export default function AIPredictionCard(props: AIPredictionCardProps) {
   ].filter(Boolean);
 
   return (
-    <section className="rounded-[28px] border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 px-4 py-3 shadow-sm dark:border-indigo-800 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 md:px-5 md:py-4">
+    <section className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 px-2.5 py-2.5 shadow-sm dark:border-indigo-800 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 md:px-5 md:py-4">
       <div>
         <div>
-          <h2 className="text-3xl font-black text-slate-950 dark:text-white">
+          <h2 className="text-xl font-black text-slate-950 dark:text-white md:text-3xl">
             🤖 AI未来予測
           </h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          <p className="mt-1 text-[11px] font-bold leading-4 text-slate-600 md:mt-2 md:text-sm md:leading-6">
             現在の指標と直近の値動きから、次の5本を3つのシナリオで可視化します。
           </p>
         </div>
 
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-1.5">
+      <div className="mt-2 grid grid-cols-3 gap-1 md:mt-3 md:gap-1.5">
         {scenarios.map((scenario) => (
           <div
             key={scenario.key}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-900"
+            className="flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-1.5 text-center dark:border-slate-700 dark:bg-slate-900 md:gap-1.5 md:rounded-xl md:px-2 md:py-2"
           >
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${scenario.iconClass}`} aria-hidden />
-            <p className="whitespace-nowrap text-sm font-black" style={{ color: scenario.text }}>{scenario.label} {scenario.probability}%</p>
+            <span className={`h-2 w-2 shrink-0 rounded-full md:h-2.5 md:w-2.5 ${scenario.iconClass}`} aria-hidden />
+            <p className="whitespace-nowrap text-xs font-black md:text-sm" style={{ color: scenario.text }}>{scenario.label} {scenario.probability}%</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2">
+      <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 md:mt-3 md:rounded-[24px] md:p-2">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-auto w-full"

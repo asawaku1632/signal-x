@@ -14,10 +14,10 @@ export default function PatternDiagram({
   compact?: boolean;
 }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white ${compact ? "p-2" : "p-4"}`}>
+    <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white ${compact ? "p-1 sm:p-2" : "p-2 sm:p-4"}`}>
       <svg
         viewBox="0 0 100 58"
-        className={compact ? "h-24 w-full" : "h-64 w-full sm:h-72"}
+        className={compact ? "h-12 w-full sm:h-24" : "h-32 w-full sm:h-72"}
         role="img"
         aria-label={`${pattern.name}の簡易形状図`}
       >
@@ -40,7 +40,7 @@ export default function PatternDiagram({
         />
         <circle cx="94" cy={pattern.diagramPoints.trim().split(" ").at(-1)?.split(",")[1] ?? "29"} r="3.5" fill={strokeColors[pattern.direction]} />
       </svg>
-      <p className="mt-1 text-center text-[10px] font-bold leading-4 text-slate-400">
+      <p className="mt-1 text-center text-[5px] font-bold leading-2 text-slate-400 sm:text-[10px] sm:leading-4">
         形状を理解するための簡易図です。実際の値動きは一定ではありません。
       </p>
     </div>

@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import styles from "./dashboard.module.css";
 
 
 type TodayMarketData = {
@@ -123,6 +124,34 @@ function getPatternText(pattern?: string) {
 }
 
 export default function HomePage() {
+  const [wideMobile, setWideMobile] = useState(false);
+
+  useEffect(() => {
+    const updateWideMobile = () => {
+      const userAgentData = (navigator as Navigator & {
+        userAgentData?: {
+          platform?: string;
+        };
+      }).userAgentData;
+      const androidEnvironment = /android/i.test(
+        `${navigator.userAgent} ${navigator.platform} ${userAgentData?.platform ?? ""}`,
+      );
+
+      const isWideMobile =
+        window.innerWidth >= 1200 &&
+        navigator.maxTouchPoints > 0 &&
+        androidEnvironment;
+
+      setWideMobile(isWideMobile);
+    };
+
+    updateWideMobile();
+    window.addEventListener("resize", updateWideMobile);
+
+    return () => {
+      window.removeEventListener("resize", updateWideMobile);
+    };
+  }, []);
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -252,9 +281,11 @@ export default function HomePage() {
 
   return (
 
-    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
+    <main className={`${styles.page} ${wideMobile ? styles.wideMobile : ""} min-h-screen bg-[#f7f9fc] text-slate-900 pb-24`}>
 
-      <div className="mx-auto max-w-md px-4 pt-4">
+      <div
+        className={`${styles.shell} mx-auto max-w-md px-4 pt-4`}
+      >
 
         <header className="flex items-center justify-between mb-3">
 

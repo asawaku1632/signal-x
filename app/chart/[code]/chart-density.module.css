@@ -1,0 +1,5 @@
+@media (max-width: 639px) {
+  .denseMobile {
+    --chart-page-gap: 0.5rem;
+  }
+}
