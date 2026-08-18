@@ -270,9 +270,9 @@ export default function HomePage() {
 
               AI MARKET SYSTEM
 
-            </div>
+              </div>
 
-          </div>
+            </div>
 
 
 
@@ -340,57 +340,53 @@ export default function HomePage() {
   </button>
 </form>
 
-<div className="mb-5">
-  <p className="mb-3 text-sm font-black text-slate-600">
+<div className="mb-3 sm:mb-5">
+  <p className="mb-2 text-sm font-black text-slate-600 sm:mb-3">
     予算から銘柄を探す
   </p>
 
-  <div className="grid grid-cols-2 gap-3">
+  <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3">
     <Link
       href="/scan-mobile?budget=100000"
-      className="rounded-2xl bg-emerald-500 p-4 text-center font-black text-white shadow"
+      className="whitespace-nowrap rounded-xl bg-emerald-500 px-1 py-2 text-center text-[11px] font-black text-white shadow sm:rounded-2xl sm:p-4 sm:text-base"
     >
       💴
-      <br />
+      <br className="hidden sm:block" />
       10万円以内
     </Link>
 
     <Link
       href="/scan-mobile?budget=300000"
-      className="rounded-2xl bg-blue-500 p-4 text-center font-black text-white shadow"
+      className="whitespace-nowrap rounded-xl bg-blue-500 px-1 py-2 text-center text-[11px] font-black text-white shadow sm:rounded-2xl sm:p-4 sm:text-base"
     >
       💴
-      <br />
+      <br className="hidden sm:block" />
       30万円以内
     </Link>
 
     <Link
       href="/scan-mobile?budget=500000"
-      className="rounded-2xl bg-orange-500 p-4 text-center font-black text-white shadow"
+      className="whitespace-nowrap rounded-xl bg-orange-500 px-1 py-2 text-center text-[11px] font-black text-white shadow sm:rounded-2xl sm:p-4 sm:text-base"
     >
       💴
-      <br />
+      <br className="hidden sm:block" />
       50万円以内
     </Link>
 
     <Link
       href="/scan-mobile?budget=1000000"
-      className="rounded-2xl bg-purple-500 p-4 text-center font-black text-white shadow"
+      className="whitespace-nowrap rounded-xl bg-purple-500 px-1 py-2 text-center text-[11px] font-black text-white shadow sm:rounded-2xl sm:p-4 sm:text-base"
     >
       💴
-      <br />
+      <br className="hidden sm:block" />
       100万円以内
     </Link>
   </div>
 </div>
 
-        <Link
+        <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-3 mb-3 shadow-sm sm:p-4">
 
-          href="/ai-analysis"
-
-          className="block rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-4 mb-3 shadow-sm"
-
-        >
+          <Link href="/ai-analysis" className="block">
 
           <div className="flex items-start justify-between">
 
@@ -402,7 +398,7 @@ export default function HomePage() {
 
               </p>
 
-              <h2 className="text-3xl font-black mt-2">
+              <h2 className="mt-1 text-2xl font-black sm:mt-2 sm:text-3xl">
 
                 {loadingScan ? "解析中..." : "今日の市場総評"}
 
@@ -420,7 +416,7 @@ export default function HomePage() {
 
 
 
-          <div className="grid grid-cols-4 gap-2 mt-4">
+          <div className="mt-3 grid grid-cols-4 gap-2 sm:mt-4">
 
             <MiniStat
 
@@ -512,19 +508,31 @@ export default function HomePage() {
 
               </div>
 
-
-
-              <p className="mt-3 text-sm font-bold leading-6">
-
+              <p className="mt-3 hidden text-sm font-bold leading-6 sm:block">
                 {aiSummary.topStock.reason || "AI理由なし"}
-
               </p>
+
+
 
             </div>
 
           )}
 
-        </Link>
+          </Link>
+
+          {aiSummary.topStock && (
+            <details className="group mt-2 rounded-xl border border-blue-500 bg-white/80 sm:hidden">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-sm font-black text-blue-600 [&::-webkit-details-marker]:hidden">
+                <span>詳細はこちら</span>
+                <span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <p className="border-t border-blue-100 px-4 py-3 text-sm font-bold leading-6">
+                {aiSummary.topStock.reason || "AI理由なし"}
+              </p>
+            </details>
+          )}
+
+        </section>
 
 
 
