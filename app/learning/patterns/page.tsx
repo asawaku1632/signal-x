@@ -13,8 +13,9 @@ const sortedPatterns = [...chartPatternCatalog].sort((a, b) => {
 
 export default function ChartPatternCatalogPage() {
   return (
-    <main className={`${styles.denseMobile} min-h-screen bg-[#f7f9fc] pb-24 text-slate-900`}>
-      <div className="pattern-page mx-auto max-w-6xl px-4 pt-5 sm:px-6 sm:pt-7">
+    <>
+      <main className={`${styles.denseMobile} min-h-screen bg-[#f7f9fc] pb-24 text-slate-900`}>
+        <div className="pattern-page mx-auto max-w-6xl px-4 pt-5 sm:px-6 sm:pt-7">
         <header className="flex items-center gap-3">
           <Link href="/learning" aria-label="AI学習へ戻る" className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl font-black shadow-sm">‹</Link>
           <div className="min-w-0">
@@ -29,9 +30,10 @@ export default function ChartPatternCatalogPage() {
           <p className="mt-3 text-xs font-black text-blue-700">Chart Pattern Engine 実装済み {chartPatternCatalog.length}パターンID</p>
         </section>
 
-        <PatternCatalogExplorer patterns={sortedPatterns} />
-      </div>
+          <PatternCatalogExplorer patterns={sortedPatterns} />
+        </div>
+      </main>
       <BottomNav />
-    </main>
+    </>
   );
 }

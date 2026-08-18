@@ -32,40 +32,23 @@ const difficultyLabels = {
 } as const;
 
 export default function PatternCatalogExplorer({ patterns }: { patterns: ChartPatternCatalogItem[] }) {
-  const [query, setQuery] = useState("");
   const [direction, setDirection] = useState<DirectionFilter>("ALL");
   const [category, setCategory] = useState<CategoryFilter>("ALL");
 
   const filteredPatterns = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("ja");
-
     return patterns.filter((pattern) => {
       const matchesDirection = direction === "ALL" || pattern.direction === direction;
       const matchesCategory = category === "ALL" || pattern.category === category;
-      const searchableText = [pattern.name, pattern.summary, pattern.category, pattern.id, ...pattern.engineNames]
-        .join(" ")
-        .toLocaleLowerCase("ja");
-      const matchesQuery = normalizedQuery.length === 0 || searchableText.includes(normalizedQuery);
-      return matchesDirection && matchesCategory && matchesQuery;
+      return matchesDirection && matchesCategory;
     });
-  }, [category, direction, patterns, query]);
+  }, [category, direction, patterns]);
 
   return (
     <section className="mt-7" aria-labelledby="pattern-list-heading">
       <h2 id="pattern-list-heading" className="text-xl font-black leading-tight min-[380px]:text-2xl">パターン一覧</h2>
 
       <div className="mt-3 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <label htmlFor="pattern-search" className="text-sm font-black text-slate-700">パターン名を検索</label>
-        <input
-          id="pattern-search"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="名前・説明・カテゴリ・ID"
-          className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-base font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        />
-
-        <fieldset className="mt-4 min-w-0">
+        <fieldset className="min-w-0">
           <legend className="text-sm font-black text-slate-700">方向</legend>
           <div className="mt-2 grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
             {directionFilters.map((filter) => (
@@ -125,7 +108,7 @@ export default function PatternCatalogExplorer({ patterns }: { patterns: ChartPa
       ) : (
         <div className="mt-3 rounded-[1.5rem] border border-slate-200 bg-white p-6 text-center">
           <p className="font-black text-slate-700">条件に一致するパターンがありません</p>
-          <button type="button" onClick={() => { setQuery(""); setDirection("ALL"); setCategory("ALL"); }} className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-black text-blue-700">
+          <button type="button" onClick={() => { setDirection("ALL"); setCategory("ALL"); }} className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-black text-blue-700">
             条件をリセット
           </button>
         </div>
