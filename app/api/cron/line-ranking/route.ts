@@ -3,6 +3,7 @@ import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
+import { formatAiRankingPosition } from "@/app/lib/rankingUniverse";
 
 type Stock = {
   code: string;
@@ -121,7 +122,7 @@ export async function GET(req: Request) {
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
     const winRate = winRateText(score);
-    const totalStockList = Number(json.totalStockList) || ranking.length;
+    const rankText = formatAiRankingPosition(1, json.rankingUniverseCount);
 
     const top3 = ranking
   .slice(0, 3)
@@ -149,7 +150,7 @@ ${powerStars(score)}
 
 🛡️ 信頼度　${score}%
 📈 勝率予測　${winRate}%
-👑 AI順位　1位 / ${totalStockList.toLocaleString("ja-JP")}銘柄中
+👑 AI順位　${rankText}
 
 💹 現在値　${yen(price)}
 💰 必要資金　${yen(requiredMoney)}（100株）

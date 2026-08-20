@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
+import { formatAiRankingPosition } from "@/app/lib/rankingUniverse";
 
 type Stock = {
   code: string;
@@ -61,7 +62,7 @@ function analysisPointLines(reason?: string) {
 
 function buildMessage(
   ranking: Stock[],
-  totalStockList: number,
+  rankingUniverseCount: number | null,
   publicUrl: string,
 ) {
   const top = ranking[0];
@@ -101,7 +102,7 @@ ${powerStars(score)}
 
 🛡️ 信頼度　${score}%
 📈 勝率予測　${winRateText(score)}%
-👑 AI順位　1位 / ${totalStockList.toLocaleString("ja-JP")}銘柄中
+👑 AI順位　${formatAiRankingPosition(1, rankingUniverseCount)}
 
 💹 現在値　${yen(price)}
 💰 必要資金　${yen(requiredMoney)}（100株）
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
 
   const rankingJson = (await rankingResponse.json()) as {
     ranking?: Stock[];
-    totalStockList?: number;
+    rankingUniverseCount?: number;
   };
   const ranking = rankingJson.ranking ?? [];
 
@@ -168,9 +169,12 @@ export async function POST(request: Request) {
   }
 
   const publicUrl = getPublicBaseUrl();
-  const totalStockList =
-    Number(rankingJson.totalStockList) || ranking.length;
-  const message = buildMessage(ranking, totalStockList, publicUrl);
+  const rankingUniverseCount = Number.isFinite(
+    Number(rankingJson.rankingUniverseCount),
+  )
+    ? Number(rankingJson.rankingUniverseCount)
+    : null;
+  const message = buildMessage(ranking, rankingUniverseCount, publicUrl);
 
   const lineResponse = await fetch(
     "https://api.line.me/v2/bot/message/push",

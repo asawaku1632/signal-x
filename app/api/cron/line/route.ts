@@ -5,6 +5,7 @@ import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
+import { formatAiRankingPosition } from "@/app/lib/rankingUniverse";
 
 type Stock = {
   code: string;
@@ -193,7 +194,7 @@ export async function GET(req: Request) {
       );
     }
 
-    let json: { ranking?: Stock[]; totalStockList?: number };
+    let json: { ranking?: Stock[]; rankingUniverseCount?: number };
     try {
       json = JSON.parse(rankingBody) as typeof json;
     } catch (error) {
@@ -218,7 +219,7 @@ export async function GET(req: Request) {
       httpStatus: res.status,
       details: {
         rankingCount: ranking.length,
-        totalStockList: json.totalStockList ?? null,
+        rankingUniverseCount: json.rankingUniverseCount ?? null,
       },
     });
 
@@ -248,8 +249,10 @@ export async function GET(req: Request) {
     const expectedProfit = (takeProfit - price) * 100;
     const expectedLoss = (price - stopLoss) * 100;
 
-    const rankText =
-      `1位 / ${json.totalStockList ?? 1006}銘柄中`;
+    const rankText = formatAiRankingPosition(
+      1,
+      json.rankingUniverseCount,
+    );
 
     const winRate = winRateText(score);
 

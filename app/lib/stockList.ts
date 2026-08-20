@@ -1,6 +1,12 @@
+export type StockStatus = "ACTIVE" | "DELISTED" | "TRANSFERRED";
+
 export type Stock = {
   code: string;
   name: string;
+  status?: StockStatus;
+  listedFrom?: string;
+  listedUntil?: string;
+  successorCode?: string;
 };
 
 export const STOCKS: Stock[] = [
@@ -818,7 +824,19 @@ export const STOCKS: Stock[] = [
   { code: "4432", name: "ウイングアーク" },
   { code: "4433", name: "ヒトコムHD" },
   { code: "4436", name: "ミンカブ" },
-  { code: "4449", name: "ギフティ" },
+  {
+    code: "4449",
+    name: "ギフティ",
+    status: "TRANSFERRED",
+    listedUntil: "2026-06-29",
+    successorCode: "590A",
+  },
+  {
+    code: "590A",
+    name: "ギフティグループ",
+    status: "ACTIVE",
+    listedFrom: "2026-07-01",
+  },
   { code: "4462", name: "石原ケミカル" },
   { code: "4471", name: "三洋化成" },
 

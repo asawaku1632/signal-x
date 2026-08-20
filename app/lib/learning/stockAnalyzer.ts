@@ -8,6 +8,10 @@ import {
   calculateAiScore,
   type ChartAnalysis,
 } from "@/app/lib/aiEngine";
+import {
+  isYahooDailyBarFresh,
+  StaleYahooBarError,
+} from "@/app/lib/yahooBarFreshness";
 
 type Candle = {
   time: number;
@@ -37,6 +41,7 @@ type SupportResistanceStatus =
 
 export type YahooChartAnalysis = ChartAnalysis & {
   dataSource?: string;
+  latestBarTimestamp?: number;
   supportPrice?: number | null;
   resistancePrice?: number | null;
   supportDistancePercent?: number | null;
@@ -50,6 +55,7 @@ type ChartData = {
   candles: Candle[];
   closes: number[];
   currentPrice: number;
+  latestBarTimestamp: number;
 };
 
 type PriceLevel = {
@@ -414,13 +420,15 @@ export async function fetchYahooChart(
     const candles = normalizeCandles(rawCandles);
     const closes = candles.map((candle) => candle.close);
     const currentPrice = closes[closes.length - 1] ?? null;
+    const latestBarTimestamp = candles[candles.length - 1]?.time ?? null;
 
-      if (!currentPrice) return null;
+      if (!currentPrice || !latestBarTimestamp) return null;
 
       return {
         candles,
         closes,
         currentPrice,
+        latestBarTimestamp,
       };
     } catch (error) {
       const isAbortError =
@@ -454,7 +462,14 @@ export async function fetchYahooChart(
 
   if (!chartData) return null;
 
-  const { candles, closes, currentPrice } = chartData;
+  if (
+    dataSource === "daily_fallback" &&
+    !isYahooDailyBarFresh(chartData.latestBarTimestamp)
+  ) {
+    throw new StaleYahooBarError(code, chartData.latestBarTimestamp);
+  }
+
+  const { candles, closes, currentPrice, latestBarTimestamp } = chartData;
   const levelCandles =
     dailyChart?.candles && dailyChart.candles.length >= 20
       ? dailyChart.candles
@@ -646,6 +661,7 @@ export async function fetchYahooChart(
   return {
     success: true,
     dataSource,
+    latestBarTimestamp,
     currentPrice,
     ma20: ma20 === null ? null : Number(ma20.toFixed(2)),
     trend,

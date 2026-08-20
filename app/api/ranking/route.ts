@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 
+type RankingStock = {
+  score?: number;
+  [key: string]: unknown;
+};
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = url.origin;
 
-    const res = await fetch(`${baseUrl}/api/scan`, {
+    const res = await fetch(`${baseUrl}/api/scan?limit=1200`, {
       cache: "no-store",
     });
 
@@ -21,26 +26,37 @@ export async function GET(req: Request) {
     }
 
     const json = await res.json();
-    const stocks = json.stocks || [];
+    const stocks: RankingStock[] = json.stocks || [];
+    const rankingUniverseCount = Number.isFinite(
+      Number(json.scanDiagnostics?.analyzedSuccessCount),
+    )
+      ? Number(json.scanDiagnostics.analyzedSuccessCount)
+      : stocks.length;
 
     const ranking = stocks
-      .filter((stock: any) => (stock.score ?? 0) >= 50)
-      .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
+      .filter((stock) => (stock.score ?? 0) >= 50)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, 20);
 
     return NextResponse.json({
       success: true,
       count: ranking.length,
       ranking,
+      rankingUniverseCount,
+      activeStockCount: Number(json.totalStockList) || null,
+      rankingCount: ranking.length,
+      snapshotUpdatedAt: json.updatedAt ?? null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
+
+    const message = error instanceof Error ? error.message : String(error);
 
     return NextResponse.json(
       {
         success: false,
         error: "ranking failed",
-        message: error?.message || String(error),
+        message,
       },
       { status: 500 }
     );
