@@ -7,6 +7,7 @@ import {
   getChartPatternCatalogItem,
   getRelatedChartPatterns,
 } from "@/app/lib/chartPatternCatalog";
+import styles from "../patterns-density.module.css";
 
 const directionDetails = {
   BUY: { label: "買いパターン", badge: "bg-emerald-600 text-white" },
@@ -93,7 +94,8 @@ export default async function ChartPatternDetailPage({
   const relatedPatterns = getRelatedChartPatterns(pattern);
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
+    <>
+      <main className={`${styles.denseMobile} min-h-screen bg-[#f7f9fc] pb-24 text-slate-900`}>
       <div className="pattern-page mx-auto max-w-4xl px-4 pt-5 sm:px-6 sm:pt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href={analysisBackHref} className="inline-flex min-h-11 items-center rounded-2xl border border-blue-200 bg-white px-4 text-sm font-black text-blue-700 shadow-sm transition hover:bg-blue-50">
@@ -124,7 +126,7 @@ export default async function ChartPatternDetailPage({
           <p className="mt-3 break-words text-base font-bold leading-8 text-slate-700">{pattern.summary}</p>
         </section>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5">
           <GuideSection title="特徴" items={pattern.formation} />
           <GuideSection title="AIチェック項目" items={pattern.aiChecks} checks />
           <GuideSection title="エントリー例" items={pattern.entryGuide} />
@@ -138,7 +140,7 @@ export default async function ChartPatternDetailPage({
             <p className="text-xs font-black tracking-[0.14em] text-blue-600">PATTERN INSIGHT</p>
             <h2 className="mt-1 text-xl font-black">SIGNALX AI評価</h2>
           </div>
-          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+          <dl className="mt-5 grid grid-cols-2 gap-3">
             {aiRatings.map((rating) => (
               <div key={rating.label} className="flex items-center justify-between gap-4 rounded-2xl border border-white bg-white/90 px-4 py-3 shadow-sm">
                 <dt className="text-sm font-black text-slate-700">{rating.label}</dt>
@@ -195,7 +197,8 @@ export default async function ChartPatternDetailPage({
           Pattern ID: {pattern.id}
         </p>
       </div>
+      </main>
       <BottomNav />
-    </main>
+    </>
   );
 }

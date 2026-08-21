@@ -238,7 +238,7 @@ export default function TradingChart({
   stopLoss,
   supportPrice,
   resistancePrice,
-  mobileHeight = 470,
+  mobileHeight = 320,
   desktopHeight = 700,
 }: TradingChartProps) {
   const fullData = useMemo(() => candles.slice(-120), [candles]);
@@ -444,11 +444,11 @@ export default function TradingChart({
     const height = isDesktop ? desktopHeight : mobileHeight;
 
     const chartLeft = isDesktop ? 78 : 38;
-    const chartRight = isDesktop ? 1035 : 230;
-    const labelLeft = isDesktop ? 1060 : 240;
-    const labelRight = isDesktop ? 1255 : 352;
+    const chartRight = isDesktop ? 1035 : 275;
+    const labelLeft = isDesktop ? 1060 : 281;
+    const labelRight = isDesktop ? 1255 : 356;
     const paddingTop = isDesktop ? 48 : 38;
-    const paddingBottom = isDesktop ? 174 : 118;
+    const paddingBottom = isDesktop ? 174 : 110;
     const indicators = indicatorSeries(data);
 
     const candlePrices = data.flatMap((candle) => [
@@ -482,8 +482,8 @@ export default function TradingChart({
     const plotTop = paddingTop;
     const plotBottom = height - paddingBottom;
     const plotHeight = plotBottom - plotTop;
-    const macdTop = plotBottom + (isDesktop ? 40 : 28);
-    const macdBottom = height - (isDesktop ? 28 : 18);
+    const macdTop = plotBottom + (isDesktop ? 40 : 20);
+    const macdBottom = height - (isDesktop ? 28 : 38);
     const macdValues = indicators.flatMap((item) => [item.macd, item.signal, item.histogram]);
     const macdAbs = Math.max(...macdValues.map(Math.abs), 1);
     const macdY = (value: number) => macdTop + ((macdAbs - value) / (macdAbs * 2)) * (macdBottom - macdTop);
@@ -539,6 +539,9 @@ export default function TradingChart({
           (selectedIndex / Math.max(data.length - 1, 1)) *
             (chartRight - chartLeft)
         : null;
+    const timeTickIndexes = Array.from({ length: 5 }, (_, index) =>
+      Math.round((index / 4) * Math.max(data.length - 1, 0)),
+    );
 
     return (
       <svg
@@ -726,8 +729,11 @@ export default function TradingChart({
         ))}
 
         {data.map((candle, index) => {
-          const every = isDesktop ? 12 : 10;
-          if (index % every !== 0 && index !== data.length - 1) return null;
+          if (isDesktop) {
+            if (index % 12 !== 0 && index !== data.length - 1) return null;
+          } else if (!timeTickIndexes.includes(index)) {
+            return null;
+          }
 
           const x =
             chartLeft +
@@ -738,9 +744,9 @@ export default function TradingChart({
             <text
               key={`time-${candle.time}`}
               x={x}
-              y={height - (isDesktop ? 18 : 10)}
+              y={height - (isDesktop ? 18 : 12)}
               textAnchor="middle"
-              fontSize={isDesktop ? 13 : 8}
+              fontSize={isDesktop ? 13 : 8.5}
               fill="#64748b"
               fontWeight="700"
             >
@@ -837,7 +843,7 @@ export default function TradingChart({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="h-[470px] w-full md:hidden">{renderChart(false)}</div>
+        <div className="h-[320px] w-full md:hidden">{renderChart(false)}</div>
         <div className="hidden h-[700px] w-full md:block">
           {renderChart(true)}
         </div>

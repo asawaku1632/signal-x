@@ -2,6 +2,7 @@ import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import PatternCatalogExplorer from "@/app/components/patterns/PatternCatalogExplorer";
 import { CHART_PATTERN_CATEGORIES, chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
+import styles from "./patterns-density.module.css";
 
 const categoryOrder = new Map(CHART_PATTERN_CATEGORIES.map((category, index) => [category, index]));
 const sortedPatterns = [...chartPatternCatalog].sort((a, b) => {
@@ -13,7 +14,7 @@ const sortedPatterns = [...chartPatternCatalog].sort((a, b) => {
 export default function ChartPatternCatalogPage() {
   return (
     <>
-      <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
+      <main className={`${styles.denseMobile} min-h-screen bg-[#f7f9fc] pb-24 text-slate-900`}>
         <div className="pattern-page mx-auto max-w-6xl px-4 pt-5 sm:px-6 sm:pt-7">
         <header className="flex items-center gap-3">
           <Link href="/learning" aria-label="AI学習へ戻る" className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl font-black shadow-sm">‹</Link>

@@ -13,6 +13,7 @@ import AIAdviceCard from "./components/AIAdviceCard";
 import AICommentCard from "./components/AICommentCard";
 import AIPredictionCard from "./components/AIPredictionCard";
 import { buildAIAdvice, getAIAdviceImportance } from "./aiAdvice";
+import densityStyles from "./chart-density.module.css";
 
 type SupportResistanceStatus =
   | "BREAKOUT"
@@ -430,8 +431,8 @@ export default function ChartPage() {
   });
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f6f8fc] pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-md px-2.5 pt-1.5 md:max-w-7xl md:px-6 md:pt-2">
+    <main className={`${densityStyles.denseMobile} min-h-screen overflow-x-hidden bg-[#f6f8fc] pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100`}>
+      <div className="mx-auto w-full max-w-7xl px-2.5 pt-1.5 md:px-6 md:pt-2">
         <header className="sticky top-0 z-30 -mx-2.5 border-b border-slate-200/80 bg-[#f6f8fc]/95 px-2.5 py-1.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:-mx-6 md:px-6">
           <div className="flex items-center justify-between">
             <Link
@@ -458,17 +459,12 @@ export default function ChartPage() {
           <ChartHeader
             code={resolvedStock.code}
             name={resolvedStock.name}
-            power={power}
             judge={judge}
             judgeClass={getJudgeClass(power)}
             trend={getTrendText(chart.trend)}
             trendIcon={getTrendIcon(chart.trend)}
             trendClass={getTrendClass(chart.trend)}
             currentPrice={currentPrice}
-            ma20={chart.ma20}
-            ema20={chart.ema20}
-            vwap={chart.vwap}
-            macd={chart.macd}
           />
 
           <section className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-2">
@@ -486,19 +482,18 @@ export default function ChartPage() {
                     aria-label={`${item.label}に切り替え`}
                     onClick={() => setTimeframe(item.value)}
                     disabled={chartLoading && active}
-                    className={`min-h-10 min-w-0 rounded-[10px] px-0.5 py-2 text-xs font-black transition-all duration-200 md:px-3 md:text-sm ${
+                    className={`min-h-9 min-w-0 rounded-[10px] px-0.5 py-1.5 text-[11px] font-black transition-all duration-200 md:min-h-10 md:px-3 md:py-2 md:text-sm ${
                       active
                         ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
                     } disabled:cursor-wait`}
                   >
-                    <span className="md:hidden">{item.value}</span>
-                    <span className="hidden md:inline">{item.label}</span>
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
               </div>
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-2 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1.5 text-[11px] font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 md:px-2.5 md:py-2 md:text-xs">
                 <span className="mr-1 text-[9px]">●</span>実データ
               </span>
             </div>
@@ -583,7 +578,7 @@ export default function ChartPage() {
 />
           </div>
 
-          <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <section className="grid grid-cols-2 gap-2">
             <ActionCard
               title="🎯 利確目標"
               targetPrice={takeProfit}

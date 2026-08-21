@@ -80,7 +80,7 @@ export default function PatternCatalogExplorer({ patterns }: { patterns: ChartPa
       <p className="mt-4 text-sm font-black text-slate-500" aria-live="polite">{filteredPatterns.length}件を表示</p>
 
       {filteredPatterns.length > 0 ? (
-        <div className="mt-4 grid min-w-0 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid min-w-0 grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
           {filteredPatterns.map((pattern) => {
             const styles = directionDetails[pattern.direction];
             return (
