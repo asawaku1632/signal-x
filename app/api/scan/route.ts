@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { clampLimit, getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
 import {
   getLatestScanSnapshot,
+  getLatestScanSnapshotSlice,
   refreshScanSnapshot,
   SCAN_FRESH_MS,
 } from "@/app/lib/scanSnapshot";
@@ -43,14 +44,32 @@ export async function GET(request: Request) {
     ? rawFilter
     : null;
 
-  let snapshot = await getLatestScanSnapshot();
+  const blockingConsumer = limit > 100 && top === null && filter === null;
+  const partialStockLimit = blockingConsumer
+    ? null
+    : top !== null && filter === null
+      ? Math.min(limit, top)
+      : limit;
+  let snapshot = partialStockLimit === null
+    ? await getLatestScanSnapshot()
+    : await getLatestScanSnapshotSlice(partialStockLimit);
+  if (snapshot && !Array.isArray(snapshot.payload?.stocks)) {
+    console.warn("scan snapshot fallback: invalid stocks payload");
+    snapshot = null;
+  }
   const ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
   const coversRequest = Boolean(snapshot && snapshot.itemCount >= limit);
-  const blockingConsumer = limit > 100 && top === null && filter === null;
 
   if (blockingConsumer && (!snapshot || ageMs >= SCAN_FRESH_MS || !coversRequest)) {
-    await refreshScanSnapshot(Math.max(limit, snapshot?.itemCount ?? 0));
-    snapshot = await getLatestScanSnapshot();
+    const refreshed = await refreshScanSnapshot(
+      Math.max(limit, snapshot?.itemCount ?? 0),
+      snapshot,
+    );
+    snapshot = refreshed ?? await getLatestScanSnapshot();
+    if (snapshot && !Array.isArray(snapshot.payload?.stocks)) {
+      console.warn("scan snapshot fallback: refreshed stocks payload is invalid");
+      snapshot = null;
+    }
   }
 
   const responseAgeMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
@@ -59,7 +78,7 @@ export async function GET(request: Request) {
   if (!blockingConsumer && (!snapshot || responseAgeMs >= SCAN_FRESH_MS || !responseCoversRequest)) {
     after(async () => {
       const refreshLimit = Math.max(limit, snapshot?.itemCount ?? 0);
-      await refreshScanSnapshot(refreshLimit).catch((error) =>
+      await refreshScanSnapshot(refreshLimit, snapshot).catch((error) =>
         console.error("scan snapshot refresh failed:", error),
       );
     });
@@ -92,6 +111,9 @@ export async function GET(request: Request) {
 
   const sourceStocks = snapshot.payload.stocks.slice(0, limit);
   const stocks = selectStocks(sourceStocks, top, filter);
+  const scannedCount = "payloadStockCount" in snapshot
+    ? Math.min(limit, snapshot.payloadStockCount)
+    : sourceStocks.length;
   return NextResponse.json({
     ...snapshot.payload,
     status: responseAgeMs < SCAN_FRESH_MS && responseCoversRequest ? "fresh" : "stale",
@@ -100,7 +122,7 @@ export async function GET(request: Request) {
     updatedAt: snapshot.updatedAt,
     requestedLimit: top ?? limit,
     count: stocks.length,
-    scannedCount: sourceStocks.length,
+    scannedCount,
     stocks,
   });
 }

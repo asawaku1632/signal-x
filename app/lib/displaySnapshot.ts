@@ -8,6 +8,10 @@ export type DisplaySnapshot<T> = {
   updatedAt: string;
 };
 
+export type DisplaySnapshotSlice<T> = DisplaySnapshot<T> & {
+  payloadStockCount: number;
+};
+
 const memorySnapshots = new Map<string, DisplaySnapshot<unknown>>();
 const memoryRefreshes = new Map<string, Promise<unknown>>();
 
@@ -36,6 +40,124 @@ export async function getDisplaySnapshot<T>(key: string) {
   } catch (error) {
     if (!isMissingTable(error)) console.warn("display snapshot read fallback:", error);
     return (memorySnapshots.get(key) as DisplaySnapshot<T> | undefined) ?? null;
+  }
+}
+
+export async function getDisplaySnapshotStockSlice<T>(key: string, stockLimit: number) {
+  const safeLimit = Number.isFinite(stockLimit)
+    ? Math.max(0, Math.floor(stockLimit))
+    : 0;
+  try {
+    const { rows } = await pool.query(
+      `SELECT snapshot_key,
+              CASE
+                WHEN jsonb_typeof(payload->'stocks') = 'array' THEN
+                  jsonb_set(
+                    payload,
+                    '{stocks}',
+                    COALESCE(
+                      (
+                        SELECT jsonb_agg(stock.value ORDER BY stock.ordinality)
+                        FROM jsonb_array_elements(payload->'stocks')
+                          WITH ORDINALITY AS stock(value, ordinality)
+                        WHERE stock.ordinality <= $2
+                      ),
+                      '[]'::jsonb
+                    )
+                  )
+                ELSE payload
+              END AS payload,
+              item_count,
+              updated_at,
+              CASE
+                WHEN jsonb_typeof(payload->'stocks') = 'array'
+                  THEN jsonb_array_length(payload->'stocks')
+                ELSE 0
+              END AS payload_stock_count
+       FROM display_snapshots
+       WHERE snapshot_key = $1`,
+      [key, safeLimit],
+    );
+    const row = rows[0];
+    if (!row) {
+      const memory = memorySnapshots.get(key) as DisplaySnapshot<T> | undefined;
+      if (!memory) return null;
+      const payload = memory.payload as T & { stocks?: unknown[] };
+      return {
+        ...memory,
+        payload: ({
+          ...(payload as object),
+          stocks: Array.isArray(payload?.stocks) ? payload.stocks.slice(0, safeLimit) : payload?.stocks,
+        } as T),
+        payloadStockCount: Array.isArray(payload?.stocks) ? payload.stocks.length : 0,
+      } satisfies DisplaySnapshotSlice<T>;
+    }
+    return {
+      key: row.snapshot_key,
+      payload: row.payload as T,
+      itemCount: Number(row.item_count ?? 0),
+      updatedAt: new Date(row.updated_at).toISOString(),
+      payloadStockCount: Number(row.payload_stock_count ?? 0),
+    } satisfies DisplaySnapshotSlice<T>;
+  } catch (error) {
+    if (!isMissingTable(error)) console.warn("display snapshot slice read fallback:", error);
+    const fallback = await getDisplaySnapshot<T>(key);
+    if (!fallback) return null;
+    const payload = fallback.payload as T & { stocks?: unknown[] };
+    return {
+      ...fallback,
+      payload: ({
+        ...(payload as object),
+        stocks: Array.isArray(payload?.stocks) ? payload.stocks.slice(0, safeLimit) : payload?.stocks,
+      } as T),
+      payloadStockCount: Array.isArray(payload?.stocks) ? payload.stocks.length : 0,
+    } satisfies DisplaySnapshotSlice<T>;
+  }
+}
+
+export async function getDisplaySnapshotStock<T>(key: string, code: string) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT snapshot_key,
+              stock.value AS payload,
+              item_count,
+              updated_at
+       FROM display_snapshots
+       CROSS JOIN LATERAL jsonb_array_elements(
+         CASE
+           WHEN jsonb_typeof(payload->'stocks') = 'array' THEN payload->'stocks'
+           ELSE '[]'::jsonb
+         END
+       )
+         WITH ORDINALITY AS stock(value, ordinality)
+       WHERE snapshot_key = $1
+         AND stock.value->>'code' = $2
+       ORDER BY stock.ordinality
+       LIMIT 1`,
+      [key, code],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      key: `scan:stock:${code}`,
+      payload: row.payload as T,
+      itemCount: 1,
+      updatedAt: new Date(row.updated_at).toISOString(),
+    } satisfies DisplaySnapshot<T>;
+  } catch (error) {
+    if (!isMissingTable(error)) console.warn("display snapshot stock read fallback:", error);
+    const fallback = await getDisplaySnapshot<{ stocks?: T[] }>(key);
+    const fallbackStocks = fallback?.payload?.stocks;
+    const stock = Array.isArray(fallbackStocks) ? fallbackStocks.find(
+      (item) => String((item as { code?: unknown })?.code) === code,
+    ) : undefined;
+    if (!fallback || !stock) return null;
+    return {
+      key: `scan:stock:${code}`,
+      payload: stock,
+      itemCount: 1,
+      updatedAt: fallback.updatedAt,
+    } satisfies DisplaySnapshot<T>;
   }
 }
 

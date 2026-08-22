@@ -2,6 +2,8 @@ import { buildScanResponsePayload } from "@/app/lib/learning/notificationEngine"
 import { runScan, runSingleStockScan } from "@/app/lib/learning/scanEngine";
 import {
   getDisplaySnapshot,
+  getDisplaySnapshotStock,
+  getDisplaySnapshotStockSlice,
   runSnapshotRefresh,
   saveDisplaySnapshot,
 } from "@/app/lib/displaySnapshot";
@@ -43,11 +45,19 @@ export async function getLatestScanSnapshot() {
   return getDisplaySnapshot<StoredScanPayload>(SCAN_SNAPSHOT_KEY);
 }
 
+export async function getLatestScanSnapshotSlice(stockLimit: number) {
+  return getDisplaySnapshotStockSlice<StoredScanPayload>(SCAN_SNAPSHOT_KEY, stockLimit);
+}
+
 export async function getTodayMarketScanSnapshot() {
   return getDisplaySnapshot<StoredScanPayload>(TODAY_MARKET_SCAN_SNAPSHOT_KEY);
 }
 
-async function refreshSnapshot(key: string, limit: number) {
+async function refreshSnapshot(
+  key: string,
+  limit: number,
+  existingSnapshot?: Awaited<ReturnType<typeof getLatestScanSnapshot>>,
+) {
   return runSnapshotRefresh(
     key,
     async () => {
@@ -71,17 +81,22 @@ async function refreshSnapshot(key: string, limit: number) {
         updatedAt: new Date().toISOString(),
       };
       // itemCount represents requested scan coverage, not only successful rows.
-      const existing = await getDisplaySnapshot<StoredScanPayload>(key);
+      const existing = existingSnapshot !== undefined
+        ? existingSnapshot
+        : await getDisplaySnapshot<StoredScanPayload>(key);
       if (shouldReplaceSnapshot(existing?.itemCount ?? null, result.limit)) {
-        await saveDisplaySnapshot(key, payload, result.limit);
+        return saveDisplaySnapshot(key, payload, result.limit);
       }
-      return payload;
+      return existing;
     },
   );
 }
 
-export function refreshScanSnapshot(limit: number) {
-  return refreshSnapshot(SCAN_SNAPSHOT_KEY, limit);
+export function refreshScanSnapshot(
+  limit: number,
+  existingSnapshot?: Awaited<ReturnType<typeof getLatestScanSnapshot>>,
+) {
+  return refreshSnapshot(SCAN_SNAPSHOT_KEY, limit, existingSnapshot);
 }
 
 export function refreshTodayMarketScanSnapshot(limit = 20) {
@@ -93,16 +108,7 @@ export async function getStockSnapshot(code: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const individual = await getDisplaySnapshot<any>(`scan:stock:${code}`);
   if (individual) return individual;
-  const scan = await getLatestScanSnapshot();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const stock = scan?.payload.stocks.find((item: any) => String(item.code) === code);
-  if (!scan || !stock) return null;
-  return {
-    key: `scan:stock:${code}`,
-    payload: stock,
-    itemCount: 1,
-    updatedAt: scan.updatedAt,
-  };
+  return getDisplaySnapshotStock(SCAN_SNAPSHOT_KEY, code);
 }
 
 export async function refreshStockSnapshot(code: string) {
