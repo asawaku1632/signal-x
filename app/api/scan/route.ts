@@ -111,7 +111,8 @@ export async function GET(request: Request) {
 
   const sourceStocks = snapshot.payload.stocks.slice(0, limit);
   const stocks = selectStocks(sourceStocks, top, filter);
-  const scannedCount = "payloadStockCount" in snapshot
+  const scannedCount = "payloadStockCount" in snapshot &&
+    typeof snapshot.payloadStockCount === "number"
     ? Math.min(limit, snapshot.payloadStockCount)
     : sourceStocks.length;
   return NextResponse.json({
