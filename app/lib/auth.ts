@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { resolveSignalxUser } from "@/app/lib/signalxIdentity";
 import {
   authorizePlayReview,
   getPlayReviewConfig,
@@ -44,7 +45,21 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
+      if (account?.provider === "google") {
+        const googleProfile = profile as
+          | { email?: string; email_verified?: boolean }
+          | undefined;
+        token.signalxUserId = await resolveSignalxUser({
+          provider: "google",
+          // NextAuth derives providerAccountId from Google's verified OAuth
+          // profile id (`sub`); email is never used as the identity key.
+          providerSubject: account.providerAccountId,
+          email: googleProfile?.email ?? token.email,
+          emailVerified: googleProfile?.email_verified === true,
+        });
+      }
+
       if (account?.provider === PLAY_REVIEW_PROVIDER_ID) {
         const config = getPlayReviewConfig();
         if (!config) {
@@ -53,6 +68,7 @@ export const authOptions: NextAuthOptions = {
 
         token.authProvider = PLAY_REVIEW_PROVIDER_ID;
         token.reviewCredentialVersion = config.credentialVersion;
+        delete token.signalxUserId;
       }
 
       if (token.authProvider === PLAY_REVIEW_PROVIDER_ID) {
@@ -71,6 +87,9 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.email = token.email ?? session.user.email;
+        if (typeof token.signalxUserId === "string") {
+          session.user.id = token.signalxUserId;
+        }
       }
 
       return session;
