@@ -7,10 +7,12 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import { isTodayMarketReady } from "./dashboardResilience";
 
 
 type TodayMarketData = {
   success?: boolean;
+  status?: string;
   stocks?: Stock[];
 
   grade: string;
@@ -35,7 +37,7 @@ type TodayMarketData = {
 
     judge: string;
 
-  };
+  } | null;
 
   updatedAt: string;
 
@@ -133,6 +135,7 @@ export default function HomePage() {
   const [learningData, setLearningData] =
     useState<LearningDashboard | null>(null);
   const [loadingLearning, setLoadingLearning] = useState(true);
+  const [learningError, setLearningError] = useState(false);
 
 
 
@@ -155,7 +158,11 @@ export default function HomePage() {
 
         if (!active) return;
 
-        const list = Array.isArray(marketJson.stocks)
+        const marketReady = isTodayMarketReady(
+          marketResponse.status,
+          marketJson,
+        );
+        const list = marketReady && Array.isArray(marketJson.stocks)
           ? marketJson.stocks
           : [];
 
@@ -188,10 +195,12 @@ export default function HomePage() {
           await learningResponse.json();
 
         if (!active) return;
+        setLearningError(false);
         setLearningData(learningJson);
       } catch (error) {
         console.error("dashboard learning fetch error:", error);
         if (!active) return;
+        setLearningError(true);
         setLearningData(null);
       } finally {
         if (active) setLoadingLearning(false);
@@ -544,7 +553,7 @@ export default function HomePage() {
 
         >
 
-          {marketData ? (
+          {marketData?.topStock && marketData.status !== "loading" ? (
 
             <>
 
@@ -624,7 +633,7 @@ export default function HomePage() {
 
             <p className="text-sm font-bold text-slate-500">
 
-              今日の市場を読み込み中...
+              {loadingScan ? "今日の市場を読み込み中..." : "市場データ準備中"}
 
             </p>
 
@@ -643,6 +652,12 @@ export default function HomePage() {
             <p className="text-xs text-slate-500 font-bold">詳細へ ›</p>
           </div>
 
+          {learningError ? (
+            <p className="rounded-xl bg-white/80 px-3 py-3 text-sm font-bold text-slate-500">
+              AI学習データを取得できませんでした
+            </p>
+          ) : (
+            <>
           <div className="grid grid-cols-4 gap-2">
             <MiniStat
               label="累計"
@@ -721,6 +736,8 @@ export default function HomePage() {
               件
             </span>
           </div>
+            </>
+          )}
         </Link>
 
 
