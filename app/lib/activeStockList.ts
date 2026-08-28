@@ -1,5 +1,5 @@
-import { STOCKS, type Stock } from "@/app/lib/stockList";
-import { VERIFICATION_EXCLUDED_STOCKS } from "@/app/lib/verificationExcludedStocks";
+import { STOCKS, type Stock } from "./stockList.ts";
+import { VERIFICATION_EXCLUDED_STOCKS } from "./verificationExcludedStocks.ts";
 
 const excludedCodeSet = new Set(
   VERIFICATION_EXCLUDED_STOCKS.map((stock) => String(stock.code))
