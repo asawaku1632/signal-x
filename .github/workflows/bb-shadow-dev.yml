@@ -1,0 +1,52 @@
+name: SIGNALX BB Shadow DEV
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Phase 7.1 operation
+        required: true
+        type: choice
+        options:
+          - OBSERVATION
+          - RESULTS
+      mode:
+        description: PREVIEW is the safe default; SAVE remains an explicit manual choice
+        required: true
+        default: PREVIEW
+        type: choice
+        options:
+          - PREVIEW
+          - SAVE
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signalx-bb-shadow-dev-${{ inputs.operation }}
+  cancel-in-progress: false
+
+jobs:
+  run-shadow-operation:
+    environment:
+      name: signalx-dev-shadow
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run selected DEV shadow operation
+        env:
+          DATABASE_URL: ${{ secrets.SIGNALX_DEV_DATABASE_URL }}
+          TECHNICAL_BB_SHADOW_AUTOMATION_ENABLED: ${{ vars.TECHNICAL_BB_SHADOW_AUTOMATION_ENABLED }}
+        run: node scripts/run-bollinger-shadow-dev.mjs "${{ inputs.operation }}" "${{ inputs.mode }}"
