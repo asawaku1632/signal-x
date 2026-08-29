@@ -206,7 +206,7 @@ test("OBSERVATION and RESULTS use independent functions and lock names", async (
 
 test("RESULTS SAVE gate rejects entry/window/version mismatches before persistence", async () => {
   const event = { eventId: 7, code: "7203", timeframe: "1D", side: "LOWER", sigmaLevel: 2,
-    eventType: "CROSS", close: 100, observationDate: "2026-08-23", barEndAt: "2026-08-23T06:30:00Z" };
+    eventType: "CROSS", close: 100, observationDate: "2026-08-27", barEndAt: "2026-08-27T06:30:00Z" };
   await assert.rejects(runBollingerShadowResults({ ...common,
     selectEvents: async () => [event], fetchBatch: async () => batch([{ code: "7203", dataset: dataset() }]),
     runResults: async (options) => {

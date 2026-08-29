@@ -127,10 +127,13 @@ test("duplicate stock codes are fetched once and limit/timeframe are guarded", a
 });
 
 function resultDataset(futureCount = 5) {
-  const dates = ["2026-08-07", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14"];
-  return dataset(dates.slice(0, futureCount + 1).map((_, index) => 100 + index), {
-    start: dates[0], high: (close) => close + 2, low: (close) => close - 2,
-  });
+  const dates = ["2026-08-07", "2026-08-10", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-17"];
+  const candles = dates.slice(0, futureCount + 1).map((date, index) => ({ time: time(date),
+    open: 100 + index, high: 102 + index, low: 98 + index, close: 100 + index, volume: 1_000 + index }));
+  return { timeframe: "1D", source: "YAHOO_CHART", range: "2y", interval: "1d",
+    firstBarAt: new Date(candles[0].time * 1_000).toISOString(),
+    lastBarAt: new Date(candles.at(-1).time * 1_000).toISOString(), candleCount: candles.length,
+    status: "COMPLETE", complete: true, candles };
 }
 const event = (overrides = {}) => ({ eventId: 1, code: "7203", timeframe: "1D", side: "LOWER",
   sigmaLevel: 2, eventType: "CROSS", close: 100, observationDate: "2026-08-07",
@@ -139,7 +142,8 @@ const resultDatabase = { async query() { return { rows: [] }; }, async connect()
 
 test("future dataset requires the observation candle and returns actual later candles", () => {
   assert.equal(futureCandlesFromDataset(resultDataset(3), event(), now).length, 3);
-  assert.equal(futureCandlesFromDataset(resultDataset(3), event({ observationDate: "2020-01-01" }), now), null);
+  assert.throws(() => futureCandlesFromDataset(resultDataset(3),
+    event({ observationDate: "2020-01-01" }), now), /MARKET_CALENDAR_UNAVAILABLE/);
 });
 
 test("result PREVIEW evaluates 0/1/3/5 candles without writes", async () => {
@@ -178,7 +182,7 @@ test("canonical mismatch and per-event failures are visible and isolated", async
 
 test("result runner reports unavailable data, rejects weekly events, and validates limit", async () => {
   const result = await runBollingerResultBatch({ limit: 2, now, database: resultDatabase,
-    selectEvents: async () => [event({ observationDate: "2020-01-01" }), event({ eventId: 2, timeframe: "1W" })],
+    selectEvents: async () => [event({ observationDate: "2026-01-05" }), event({ eventId: 2, timeframe: "1W" })],
     fetchBatch: async () => batch([{ code: "7203", dataset: resultDataset(5) }]) });
   assert.equal(result.unavailableEvents, 1);
   assert.equal(result.failedEvents, 1);
