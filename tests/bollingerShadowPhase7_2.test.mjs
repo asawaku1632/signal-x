@@ -58,6 +58,10 @@ test("PREVIEW summary proves safe metadata, release, unchanged tables, and runti
   assert.equal(summary.technicalBbPersistenceAttempted, false);
   assert.equal(summary.technicalBbTablesUnchanged, true);
   assert.equal(summary.productionConsumerInvoked, false);
+  assert.equal(summary.targetTradeDate, "2026-08-28");
+  assert.match(summary.runNowJst, /\+09:00$/);
+  assert.match(summary.marketCalendarVersion, /^JPX_MARKET_HOLIDAYS_/);
+  assert.equal(typeof summary.targetTradeDateReason, "string");
   assert.ok(Number.isInteger(summary.runtimeMilliseconds) && summary.runtimeMilliseconds >= 0);
   assert.doesNotMatch(JSON.stringify(summary), /postgres(?:ql)?:\/\/|redacted@|pooler\.invalid/i);
 });

@@ -1,4 +1,6 @@
 import { pathToFileURL } from "node:url";
+import { resolveTargetTradeDate, TseMarketCalendarError } from
+  "../app/lib/technicalObservation/tseMarketCalendar.ts";
 
 export const PHASE_7_1_CONFIG = Object.freeze({
   devProjectRef: "jdtqwryiyxeuoraecorw",
@@ -47,11 +49,6 @@ function validateInput(operation, mode, environment) {
   return databaseUrl;
 }
 
-function jstDate(date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric",
-    month: "2-digit", day: "2-digit" }).format(date);
-}
-
 async function technicalBbState(database) {
   const state = {};
   for (const table of TECHNICAL_BB_TABLES) {
@@ -80,7 +77,7 @@ function candidateCount(operation, result) {
 }
 
 function safeAuditSummary({ operation, mode, result, runtimeMilliseconds, before, after,
-  lockPresentAfterRun, error }) {
+  lockPresentAfterRun, error, target }) {
   const locked = result?.status === "LOCKED";
   const fetchFailures = Number(result?.fetchFailures ?? 0);
   const http429 = Number(result?.http429 ?? 0);
@@ -91,6 +88,10 @@ function safeAuditSummary({ operation, mode, result, runtimeMilliseconds, before
   return {
     operation,
     mode,
+    runNowJst: target.runNowJst,
+    targetTradeDate: target.targetTradeDate,
+    targetTradeDateReason: target.targetTradeDateReason,
+    marketCalendarVersion: target.marketCalendarVersion,
     status: error || auditFailure ? "FAILED" : result.status,
     ...(error ? { reason: typeof error?.code === "string" ? error.code : "AUTOMATION_FAILED" }
       : auditFailure ? { reason: auditFailure } : result.reason ? { reason: result.reason } : {}),
@@ -110,6 +111,8 @@ function safeAuditSummary({ operation, mode, result, runtimeMilliseconds, before
     http429,
     timeout,
     freshnessMismatch: Number(result?.freshnessMismatch ?? 0),
+    freshnessDiagnostics: Array.isArray(result?.freshnessDiagnostics) ? result.freshnessDiagnostics : [],
+    freshnessDiagnosticsTruncated: result?.freshnessDiagnosticsTruncated === true,
     canonicalMismatch: Number(result?.canonicalMismatch ?? 0),
     lockStatus: locked ? "LOCKED" : error || result ? "ACQUIRED" : "UNKNOWN",
     lockReleased: locked ? null : !lockPresentAfterRun,
@@ -125,6 +128,7 @@ export async function runBollingerShadowDevAdapter(input, dependencies = {}) {
   const environment = input.environment ?? process.env;
   const databaseUrl = validateInput(input.operation, input.mode, environment);
   const now = input.now ?? new Date();
+  const target = (dependencies.resolveTargetTradeDate ?? resolveTargetTradeDate)(now);
   const technical = dependencies.technical ?? await import("../app/lib/technicalObservation/bollingerShadowAutomation.ts");
   const stocksModule = dependencies.stocksModule ?? await import("../app/lib/activeStockList.ts");
   let database = dependencies.database;
@@ -137,7 +141,7 @@ export async function runBollingerShadowDevAdapter(input, dependencies = {}) {
   const common = {
     mode: input.mode,
     limit: PHASE_7_1_CONFIG.limit,
-    targetTradeDate: jstDate(now),
+    targetTradeDate: target.targetTradeDate,
     now,
     concurrency: PHASE_7_1_CONFIG.concurrency,
     timeoutMs: PHASE_7_1_CONFIG.requestTimeoutMs,
@@ -166,7 +170,7 @@ export async function runBollingerShadowDevAdapter(input, dependencies = {}) {
     const after = input.mode === "PREVIEW" ? await technicalBbState(database) : null;
     const present = await lockPresent(database, input.operation);
     return safeAuditSummary({ operation: input.operation, mode: input.mode, result, error: operationError,
-      before, after, lockPresentAfterRun: present, runtimeMilliseconds: Date.now() - startedAt });
+      before, after, lockPresentAfterRun: present, runtimeMilliseconds: Date.now() - startedAt, target });
   } finally {
     if (ownsDatabase) await database.end();
   }
@@ -190,7 +194,7 @@ async function main() {
     if (result.status === "LOCKED") process.exitCode = 2;
     else if (result.status === "FAILED") process.exitCode = 1;
   } catch (error) {
-    const code = error instanceof BollingerShadowDevAdapterError ? error.code
+    const code = error instanceof BollingerShadowDevAdapterError || error instanceof TseMarketCalendarError ? error.code
       : typeof error?.code === "string" ? error.code : "ADAPTER_FAILED";
     process.stderr.write(safeOutput({ status: "FAILED", code }) + "\n");
     process.exitCode = 1;
