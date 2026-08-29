@@ -8,6 +8,7 @@ import { operatorPublicKeyFingerprint, validateTrustedOperatorPublicKey } from "
 import { createPrivilegedClientFactory } from "../scripts/runner-v2/privileged-client-factory.mjs";
 
 function keys(type="rsa",modulusLength=3072){const pair=type==="rsa"?generateKeyPairSync("rsa",{modulusLength}):generateKeyPairSync("ec",{namedCurve:"P-256"});return{...pair,pem:pair.publicKey.export({type:"spki",format:"pem"})};}
+const rejectedPem=pem=>assert.throws(()=>operatorPublicKeyFingerprint(pem),/TRUSTED_KEY|MALFORMED/);
 function signed(overrides={}){const key=keys(),now=2_000_000_000_000,manifest={command:"ACTIVATE",...PRODUCTION_IDENTITY,currentState:RunnerState.PREFLIGHT,nonce:"hardening-nonce-001",expiresAt:now+60_000,...overrides};const signer=createSign("SHA256");signer.update(canonicalActivationManifest(manifest));signer.end();return{manifest,signature:signer.sign(key.privateKey),pem:key.pem,now};}
 async function accepted(fixture){const authorize=createProductionOperatorAuthorizer({trustedPublicKey:fixture.pem,approvedFingerprint:operatorPublicKeyFingerprint(fixture.pem),now:()=>fixture.now});return authorize({command:"ACTIVATE",authorization:{manifest:fixture.manifest,signature:fixture.signature},currentState:RunnerState.PREFLIGHT});}
 
@@ -16,6 +17,13 @@ for(const [name,value] of [["missing",undefined],["wrong","DATABASE_URL"],["case
 test("tampered targetVariable invalidates signature",async()=>{const fixture=signed();fixture.manifest={...fixture.manifest,targetVariable:"DATABASE_URL"};assert.equal(await accepted(fixture),false);});
 
 test("valid RSA 3072 SPKI and deterministic fingerprint are accepted",()=>{const {pem}=keys();const one=operatorPublicKeyFingerprint(pem),two=operatorPublicKeyFingerprint(pem);assert.equal(one,two);assert.match(one,/^sha256:[0-9a-f]{64}$/);assert.equal(validateTrustedOperatorPublicKey({pem,approvedFingerprint:one}).fingerprint,one);});
+test("permitted surrounding whitespace preserves one valid PUBLIC KEY",()=>{const {pem}=keys();assert.equal(operatorPublicKeyFingerprint(` \r\n\t${pem}\n `),operatorPublicKeyFingerprint(pem));});
+test("duplicate same and different PUBLIC KEY objects are rejected",()=>{const one=keys().pem,two=keys().pem;rejectedPem(one+one);rejectedPem(one+two);rejectedPem(one+two+one);});
+test("PUBLIC KEY and private-key PEM combinations are rejected in either order",()=>{const pair=keys(),pkcs8=pair.privateKey.export({type:"pkcs8",format:"pem"}),pkcs1=pair.privateKey.export({type:"pkcs1",format:"pem"});rejectedPem(pair.pem+pkcs8);rejectedPem(pkcs8+pair.pem);rejectedPem(pair.pem+pkcs1);});
+test("PUBLIC KEY plus EC private key and certificate PEM labels are rejected",()=>{const rsa=keys().pem,ec=keys("ec").privateKey.export({type:"sec1",format:"pem"}),certificate="-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----\n";rejectedPem(rsa+ec);rejectedPem(rsa+certificate);});
+test("leading and trailing non-whitespace are rejected",()=>{const {pem}=keys();rejectedPem(`garbage${pem}`);rejectedPem(`${pem}garbage`);});
+test("malformed second PEM and nested delimiters are rejected",()=>{const {pem}=keys();rejectedPem(`${pem}-----BEGIN PUBLIC KEY-----\nbad`);rejectedPem(`-----BEGIN PUBLIC KEY-----\n${pem}-----END PUBLIC KEY-----`);});
+test("additional BEGIN or END delimiters are rejected",()=>{const {pem}=keys();rejectedPem(`${pem}-----BEGIN PUBLIC KEY-----`);rejectedPem(`${pem}-----END PUBLIC KEY-----`);});
 test("RSA below 3072 is rejected",()=>{const {pem}=keys("rsa",2048);assert.throws(()=>operatorPublicKeyFingerprint(pem),/TRUSTED_RSA_KEY_TOO_WEAK/);});
 test("EC public key is rejected",()=>{const {pem}=keys("ec");assert.throws(()=>operatorPublicKeyFingerprint(pem),/TRUSTED_KEY_MUST_BE_RSA/);});
 test("malformed and missing public keys are rejected",()=>{assert.throws(()=>operatorPublicKeyFingerprint("-----BEGIN PUBLIC KEY-----\nbad\n-----END PUBLIC KEY-----"),/MALFORMED/);assert.throws(()=>createProductionOperatorAuthorizer({}),/TRUSTED_PUBLIC_KEY_REQUIRED/);});
