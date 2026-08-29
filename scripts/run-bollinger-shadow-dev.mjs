@@ -113,6 +113,9 @@ function safeAuditSummary({ operation, mode, result, runtimeMilliseconds, before
     freshnessMismatch: Number(result?.freshnessMismatch ?? 0),
     freshnessDiagnostics: Array.isArray(result?.freshnessDiagnostics) ? result.freshnessDiagnostics : [],
     freshnessDiagnosticsTruncated: result?.freshnessDiagnosticsTruncated === true,
+    resultCalendarDiagnostics: Array.isArray(result?.resultCalendarDiagnostics)
+      ? result.resultCalendarDiagnostics : [],
+    resultCalendarDiagnosticsTruncated: result?.resultCalendarDiagnosticsTruncated === true,
     canonicalMismatch: Number(result?.canonicalMismatch ?? 0),
     lockStatus: locked ? "LOCKED" : error || result ? "ACQUIRED" : "UNKNOWN",
     lockReleased: locked ? null : !lockPresentAfterRun,

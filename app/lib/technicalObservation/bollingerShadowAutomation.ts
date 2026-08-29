@@ -7,7 +7,7 @@ import { completedCandlesAsOf, candleCompletedAt } from "./timeframeFoundation.t
 import { runBollingerObservationBatch, type BollingerRunnerStock } from "./bollingerObservationRunner.ts";
 import { normalizeDateOnly } from "./bollingerObservationPersistence.ts";
 import { evaluateBollingerObservationFuture } from "./bollingerObservationResultEvaluator.ts";
-import { futureCandlesFromDataset, runBollingerResultBatch, selectPendingBollingerEvents,
+import { futureCandlesFromDataset, inspectBollingerResultCalendar, runBollingerResultBatch, selectPendingBollingerEvents,
   type BollingerResultRunnerDatabase, type PendingBollingerEvent } from "./bollingerObservationResultRunner.ts";
 import type { BollingerResultPersistenceInput } from "./bollingerObservationResultPersistence.ts";
 import type { CandleDataset } from "./types.ts";
@@ -290,6 +290,10 @@ export async function runBollingerShadowResults(options: BollingerShadowResultsO
     for (const event of events) {
       const dataset = datasetByCode.get(event.code); const future = dataset ? futureCandlesFromDataset(dataset, event, now) : null;
       if (!future) { resultFreshnessCodes.add(event.code); continue; }
+      const calendarDiagnostics = inspectBollingerResultCalendar(event.observationDate, future, now);
+      if (calendarDiagnostics.horizons.some((item) => item.failureKind === "TARGET_CANDLE_MISSING")) {
+        resultFreshnessCodes.add(event.code);
+      }
       const evaluation = evaluateBollingerObservationFuture({ timeframe: "1D", close: event.close,
         observationDate: event.observationDate, barEndAt: event.barEndAt }, future);
       if (evaluation.completed.some((item) => item.windowCandleCount !== item.horizon)) resultFreshnessCodes.add(event.code);
@@ -328,6 +332,8 @@ export async function runBollingerShadowResults(options: BollingerShadowResultsO
       created: result.resultsCreated, existing: result.resultsExisting, skipped: result.unavailableEvents,
       failed: result.failedEvents, fetchFailures: gated.fetchFailures, http429: gated.http429,
       timeout: gated.timeout, freshnessMismatch: resultFreshnessMismatch, canonicalMismatch, ...check,
+      resultCalendarDiagnostics: result.resultCalendarDiagnostics,
+      resultCalendarDiagnosticsTruncated: result.resultCalendarDiagnosticsTruncated,
       status: canonicalMismatch ? "FAILED" as const : "COMPLETED" as const,
       ...(canonicalMismatch ? { reason: "CANONICAL_MISMATCH" } : {}), runner: result };
   } finally { await release("RESULTS", ownerId, database); }

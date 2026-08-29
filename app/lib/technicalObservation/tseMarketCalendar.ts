@@ -79,6 +79,45 @@ function shiftDate(date: string, days: number) {
   return new Date(timestamp + days * 86_400_000).toISOString().slice(0, 10);
 }
 
+export function resolveTseTradingDatesAfter(date: string, count: number, options: {
+  calendar?: TseMarketCalendar | null;
+  maxLookaheadDays?: number;
+} = {}) {
+  const calendar = options.calendar === undefined ? TSE_MARKET_CALENDAR : options.calendar;
+  if (!calendar) throw new TseMarketCalendarError("MARKET_CALENDAR_UNAVAILABLE");
+  if (!Number.isInteger(count) || count < 1) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+  const maxLookaheadDays = options.maxLookaheadDays ?? DEFAULT_MAX_LOOKBACK_DAYS;
+  if (!Number.isInteger(maxLookaheadDays) || maxLookaheadDays < count) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+  assertCovered(date, calendar);
+  if (!isTseTradingDate(date, calendar)) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+  const resolved: string[] = [];
+  for (let offset = 1; offset <= maxLookaheadDays && resolved.length < count; offset += 1) {
+    const candidate = shiftDate(date, offset);
+    if (isTseTradingDate(candidate, calendar)) resolved.push(candidate);
+  }
+  if (resolved.length !== count) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+  return resolved;
+}
+
+export function isTseTargetDateReady(targetDate: string, now = new Date(),
+  calendar: TseMarketCalendar = TSE_MARKET_CALENDAR) {
+  if (!Number.isFinite(now.getTime())) throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  if (!isTseTradingDate(targetDate, calendar)) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+  const readyAt = Date.parse(`${targetDate}T${String(SAFE_MARKET_DATA_HOUR).padStart(2, "0")}:${String(SAFE_MARKET_DATA_MINUTE).padStart(2, "0")}:00+09:00`);
+  if (!Number.isFinite(readyAt)) throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  return now.getTime() >= readyAt;
+}
+
 function weekday(date: string) {
   return new Date(`${date}T00:00:00Z`).getUTCDay();
 }
