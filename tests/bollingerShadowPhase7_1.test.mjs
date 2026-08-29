@@ -73,7 +73,19 @@ test("OBSERVATION uses stable first 20 and passes lock/threshold metadata to cor
   assert.deepEqual(received.stocks, stocksModule.ACTIVE_STOCKS.slice(0, 20));
   assert.equal(received.lockLeaseSeconds, 300);
   assert.deepEqual(received.broadFailureThreshold, { minimumAffectedSymbols: 2, affectedRatio: 0.10 });
+  assert.equal(received.targetTradeDate, "2026-08-28");
   assert.equal(result.created, 0);
+});
+
+test("calendar resolution fails before database, lock, Yahoo, or runner work", async () => {
+  let work = 0;
+  const unavailable = () => { throw Object.assign(new Error("MARKET_CALENDAR_UNAVAILABLE"),
+    { code: "MARKET_CALENDAR_UNAVAILABLE" }); };
+  await assert.rejects(runBollingerShadowDevAdapter({ operation: "OBSERVATION", mode: "PREVIEW",
+    environment }, { resolveTargetTradeDate: unavailable,
+    get technical() { work += 1; return {}; }, get database() { work += 1; return {}; } }),
+  /MARKET_CALENDAR_UNAVAILABLE/);
+  assert.equal(work, 0);
 });
 
 test("OBSERVATION and RESULTS call only their independent core functions", async () => {

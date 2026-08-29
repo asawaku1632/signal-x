@@ -64,6 +64,12 @@ export type BollingerShadowAuditSummary = {
   timeout: number; canonicalMismatch: number; freshnessMismatch: number; duplicate: number;
   orphan: number; executionSource: typeof BOLLINGER_SHADOW_EXECUTION_SOURCE;
   status: "COMPLETED" | "FAILED" | "LOCKED"; reason?: string;
+  freshnessDiagnostics?: FreshnessDiagnostic[]; freshnessDiagnosticsTruncated?: boolean;
+};
+
+export type FreshnessDiagnostic = {
+  symbol: string; expectedDate: string; latestDate: string | null;
+  freshnessMatched: boolean; failureKind: string | null;
 };
 
 function validateConfiguration(options: BollingerShadowCommonOptions) {
@@ -120,12 +126,20 @@ function tradeDate(timestamp: number) {
 }
 
 function observationFreshness(dataset: CandleDataset, target: string, now: Date) {
-  if (dataset.timeframe !== "1D" || dataset.status !== "COMPLETE") return false;
+  if (dataset.timeframe !== "1D") return { matched: false, latestDate: null, failureKind: "TIMEFRAME_MISMATCH" };
+  if (dataset.status !== "COMPLETE") return { matched: false, latestDate: null, failureKind: "DATASET_NOT_COMPLETE" };
   const timeline = completedCandlesAsOf(dataset.candles, "1D", now.getTime() / 1_000);
-  if (timeline.rejectedCount > 0 || timeline.duplicateCount > 0 || !timeline.candles.length) return false;
+  if (timeline.rejectedCount > 0) return { matched: false, latestDate: null, failureKind: "INVALID_CANDLE" };
+  if (timeline.duplicateCount > 0) return { matched: false, latestDate: null, failureKind: "DUPLICATE_CANDLE" };
+  if (!timeline.candles.length) return { matched: false, latestDate: null, failureKind: "NO_COMPLETED_CANDLE" };
   const latest = timeline.candles.at(-1)!;
   const completedAt = candleCompletedAt(latest, "1D");
-  return completedAt !== null && completedAt <= now.getTime() / 1_000 && tradeDate(latest.time) === target;
+  const latestDate = tradeDate(latest.time);
+  if (completedAt === null || completedAt > now.getTime() / 1_000) {
+    return { matched: false, latestDate, failureKind: "CANDLE_NOT_COMPLETED" };
+  }
+  const matched = latestDate === target;
+  return { matched, latestDate, failureKind: matched ? null : "TARGET_DATE_MISMATCH" };
 }
 
 function classifyFailure(reason: unknown) {
@@ -136,26 +150,41 @@ function classifyFailure(reason: unknown) {
   return "HTTP_FAILURE";
 }
 
-function gateBatch(batch: Batch, target: string, now: Date, requireTargetFreshness: boolean) {
+function gateBatch(batch: Batch, target: string, now: Date, requireTargetFreshness: boolean,
+  symbols: readonly string[] = []) {
   let fetchFailures = 0; let http429 = 0; let timeout = 0; let freshnessMismatch = 0;
-  const settled = batch.settled.map((item) => {
+  const diagnostics: FreshnessDiagnostic[] = []; let freshnessDiagnosticsTruncated = false;
+  const settled = batch.settled.map((item, index) => {
     if (item.status === "rejected") {
       fetchFailures += 1; const kind = classifyFailure(item.reason);
       if (kind === "HTTP_429") http429 += 1; if (kind === "TIMEOUT") timeout += 1;
+      if (requireTargetFreshness) {
+        if (diagnostics.length < 20) diagnostics.push({ symbol: symbols[index] ?? "UNKNOWN",
+          expectedDate: target, latestDate: null, freshnessMatched: false, failureKind: kind });
+        else freshnessDiagnosticsTruncated = true;
+      }
       return item;
     }
     const dataset = item.value.dataset;
     const timeline = completedCandlesAsOf(dataset.candles, "1D", now.getTime() / 1_000);
     const canonical = dataset.timeframe === "1D" && dataset.status === "COMPLETE"
       && timeline.rejectedCount === 0 && timeline.duplicateCount === 0;
-    const fresh = canonical && (!requireTargetFreshness || observationFreshness(dataset, target, now));
+    const freshness = observationFreshness(dataset, target, now);
+    const fresh = canonical && (!requireTargetFreshness || freshness.matched);
+    if (requireTargetFreshness) {
+      if (diagnostics.length < 20) diagnostics.push({ symbol: item.value.code, expectedDate: target,
+        latestDate: freshness.latestDate, freshnessMatched: fresh,
+        failureKind: fresh ? null : freshness.failureKind ?? "CANONICAL_DATASET_MISMATCH" });
+      else freshnessDiagnosticsTruncated = true;
+    }
     if (!fresh) {
       freshnessMismatch += 1;
       return { status: "rejected", reason: { kind: "FRESHNESS_MISMATCH" } } as const;
     }
     return item;
   });
-  return { batch: { ...batch, settled } as Batch, fetchFailures, http429, timeout, freshnessMismatch };
+  return { batch: { ...batch, settled } as Batch, fetchFailures, http429, timeout, freshnessMismatch,
+    freshnessDiagnostics: diagnostics, freshnessDiagnosticsTruncated };
 }
 
 function isBroadFailure(total: number, affected: number, threshold: BroadFailureThreshold) {
@@ -190,13 +219,16 @@ export async function runBollingerShadowObservation(options: BollingerShadowObse
     const fetcher = options.fetchBatch ?? fetchDailyCandleDatasets;
     const raw = await fetcher(stocks.map((stock) => stock.code), "LONG_300", DAILY_DATASET_REQUIREMENTS.RECENT_RANGE_20,
       { concurrency: options.concurrency, timeoutMs: options.timeoutMs, nowMs: (options.now ?? new Date()).getTime() });
-    const gated = gateBatch(raw, options.targetTradeDate, options.now ?? new Date(), true);
+    const gated = gateBatch(raw, options.targetTradeDate, options.now ?? new Date(), true,
+      stocks.map((stock) => stock.code));
     const affected = gated.fetchFailures + gated.freshnessMismatch;
     if (isBroadFailure(raw.unique, affected, options.broadFailureThreshold)) {
       const check = await integrity(database);
       return { ...summary, requested: raw.requested, failed: affected,
         fetchFailures: gated.fetchFailures, http429: gated.http429, timeout: gated.timeout,
-        freshnessMismatch: gated.freshnessMismatch, ...check, status: "FAILED" as const, reason: "BROAD_PROVIDER_FAILURE" };
+        freshnessMismatch: gated.freshnessMismatch, freshnessDiagnostics: gated.freshnessDiagnostics,
+        freshnessDiagnosticsTruncated: gated.freshnessDiagnosticsTruncated,
+        ...check, status: "FAILED" as const, reason: "BROAD_PROVIDER_FAILURE" };
     }
     let result;
     try {
@@ -219,7 +251,9 @@ export async function runBollingerShadowObservation(options: BollingerShadowObse
       created: result.snapshotsCreated + result.eventsCreated, existing: result.snapshotsExisting,
       skipped: result.noEventCount + result.invalidDatasets, failed: result.failedSymbols,
       fetchFailures: gated.fetchFailures, http429: gated.http429, timeout: gated.timeout,
-      freshnessMismatch: gated.freshnessMismatch, canonicalMismatch, ...check,
+      freshnessMismatch: gated.freshnessMismatch, canonicalMismatch,
+      freshnessDiagnostics: gated.freshnessDiagnostics,
+      freshnessDiagnosticsTruncated: gated.freshnessDiagnosticsTruncated, ...check,
       status: canonicalMismatch ? "FAILED" as const : "COMPLETED" as const,
       ...(canonicalMismatch ? { reason: "CANONICAL_MISMATCH" } : {}), runner: result };
   } finally { await release("OBSERVATION", ownerId, database); }

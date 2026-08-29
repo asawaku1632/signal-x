@@ -98,6 +98,37 @@ test("stale or target trade-date mismatch forbids observation persistence", asyn
   }
 });
 
+test("freshness diagnostics distinguish matching, stale, invalid, duplicate, and date mismatch datasets", async () => {
+  const invalid = dataset(); invalid.candles[10].close = -1;
+  const duplicate = dataset(); duplicate.candles[38].time = duplicate.candles[39].time;
+  const entries = [dataset(), dataset("2026-08-27"), dataset("2026-08-28", "STALE"), invalid, duplicate]
+    .map((value, index) => ({ code: String(1000 + index), dataset: value }));
+  const result = await runBollingerShadowObservation({ ...common, mode: "PREVIEW", limit: entries.length,
+    broadFailureThreshold: { minimumAffectedSymbols: 2, affectedRatio: 0.1 },
+    stocks: entries.map((item) => ({ code: item.code, name: item.code })),
+    fetchBatch: async () => batch(entries),
+    runObservation: async () => { throw new Error("broad gate must stop before runner"); } });
+  assert.equal(result.reason, "BROAD_PROVIDER_FAILURE");
+  assert.deepEqual(result.freshnessDiagnostics.map((item) => item.failureKind),
+    [null, "TARGET_DATE_MISMATCH", "DATASET_NOT_COMPLETE", "INVALID_CANDLE", "DUPLICATE_CANDLE"]);
+  assert.equal(result.freshnessDiagnostics[0].latestDate, "2026-08-28");
+  assert.equal(result.freshnessDiagnostics[0].freshnessMatched, true);
+  assert.equal(result.freshnessDiagnostics[1].latestDate, "2026-08-27");
+  assert.equal(result.freshnessDiagnosticsTruncated, false);
+});
+
+test("freshness diagnostics are capped at 20 and report truncation", async () => {
+  const entries = Array.from({ length: 21 }, (_, index) => ({ code: String(2000 + index),
+    dataset: dataset("2026-08-27") }));
+  const result = await runBollingerShadowObservation({ ...common, mode: "PREVIEW", limit: entries.length,
+    broadFailureThreshold: { minimumAffectedSymbols: 2, affectedRatio: 0.1 },
+    stocks: entries.map((item) => ({ code: item.code, name: item.code })),
+    fetchBatch: async () => batch(entries),
+    runObservation: async () => { throw new Error("broad gate must stop before runner"); } });
+  assert.equal(result.freshnessDiagnostics.length, 20);
+  assert.equal(result.freshnessDiagnosticsTruncated, true);
+});
+
 test("Yahoo failure is isolated and never reaches persistence", async () => {
   let writes = 0;
   const result = await runBollingerShadowObservation({ ...common,
@@ -108,6 +139,8 @@ test("Yahoo failure is isolated and never reaches persistence", async () => {
         candidateSnapshots: 0, candidateEvents: 0, snapshotsCreated: 0, snapshotsExisting: 0,
         eventsCreated: 0, failedSymbols: 1, errors: [], outcomes: [], maxConcurrency: 1 }; } });
   assert.equal(writes, 0); assert.equal(result.created, 0); assert.equal(result.fetchFailures, 1);
+  assert.deepEqual(result.freshnessDiagnostics, [{ symbol: "7203", expectedDate: "2026-08-28",
+    latestDate: null, freshnessMatched: false, failureKind: "HTTP_FAILURE" }]);
 });
 
 test("duplicate candle timestamps and broad provider failures stop SAVE", async () => {
