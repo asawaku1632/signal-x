@@ -1,0 +1,296 @@
+name: Runner-v2 Windows minimal qualification probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Standard windows-latest probe
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HELPER_SHA256: 412f3dab79d54c60519d181accb2414011d414ab2ca35c936e946ac3178bf06d
+      EXPECTED_TEST_SHA256: c784f7b467c89ddbcde584e6cedfeffb73349cff9dbc29020fc8469e83b0ce3d
+    steps:
+      - name: Run isolated qualification probe
+        id: probe
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $started = [DateTimeOffset]::UtcNow
+          $evidence = Join-Path $env:RUNNER_TEMP 'runner-v2-probe-evidence'
+          $fixture = Join-Path $env:RUNNER_TEMP ('runner-v2-acl-probe-' + [Guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $evidence,$fixture | Out-Null
+
+          function Write-Evidence([string]$Name, [object]$Value) {
+            $Value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $evidence $Name) -Encoding UTF8
+          }
+          function Sid([string]$Value) {
+            New-Object System.Security.Principal.SecurityIdentifier($Value)
+          }
+          function Rules([System.Security.AccessControl.FileSystemSecurity]$Security) {
+            @($Security.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | ForEach-Object {
+              [ordered]@{
+                sid = $_.IdentityReference.Value
+                type = $_.AccessControlType.ToString()
+                rights = $_.FileSystemRights.ToString()
+                accessMask = [int]$_.FileSystemRights
+                inherited = $_.IsInherited
+                inheritanceFlags = $_.InheritanceFlags.ToString()
+                propagationFlags = $_.PropagationFlags.ToString()
+              }
+            })
+          }
+
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+          $adminSid = Sid 'S-1-5-32-544'
+          $systemSid = Sid 'S-1-5-18'
+          $groupSids = @($identity.Groups | ForEach-Object Value)
+          $isAdmin = ($groupSids -contains $adminSid.Value)
+          $isElevated = $false
+          $integrity = 'UNKNOWN'
+          try {
+            if ($groupSids -contains 'S-1-16-16384') { $integrity = 'System'; $isElevated = $true }
+            elseif ($groupSids -contains 'S-1-16-12288') { $integrity = 'High'; $isElevated = $true }
+            elseif ($groupSids -contains 'S-1-16-8192') { $integrity = 'Medium' }
+            elseif ($groupSids -contains 'S-1-16-4096') { $integrity = 'Low' }
+          } catch { $integrity = 'UNKNOWN: ' + $_.Exception.Message }
+
+          $os = Get-CimInstance Win32_OperatingSystem
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $volume = Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='" + ([IO.Path]::GetPathRoot($fixture).TrimEnd('\')) + "'")
+          Write-Evidence 'runner-identity.json' ([ordered]@{
+            runnerOS = $env:RUNNER_OS; runnerArch = $env:RUNNER_ARCH
+            imageOS = $env:ImageOS; imageVersion = $env:ImageVersion
+            productName = $os.Caption; editionType = $os.OperatingSystemSKU
+            version = $os.Version; build = $os.BuildNumber
+            architecture = $os.OSArchitecture; hostname = $env:COMPUTERNAME
+            username = $identity.Name; currentUserSid = $identity.User.Value
+            administratorsSid = $adminSid.Value; systemSid = $systemSid.Value
+            tempPath = $env:RUNNER_TEMP; filesystem = $volume.FileSystem
+            standardRunnerLabel = 'windows-latest'; largerOrSelfHostedRunner = $false
+          })
+          Write-Evidence 'token-analysis.json' ([ordered]@{
+            administratorsMember = $isAdmin; elevatedToken = $isElevated
+            integrityLevel = $integrity; uacBypassAttempted = $false
+            credentialEscalationAttempted = $false
+          })
+
+          $ownerRead = $false; $ownerChanged = $false; $ownerRestored = $false; $ownerError = $null
+          $inheritanceWorked = $false; $protectedWorked = $false
+          $file = Join-Path $fixture 'read-only.dat'
+          $exeAclFile = Join-Path $fixture 'read-execute.dat'
+          New-Item -ItemType File -Path $file,$exeAclFile | Out-Null
+          $originalOwner = $null
+          try {
+            $di = New-Object IO.DirectoryInfo($fixture)
+            $security = $di.GetAccessControl()
+            $originalOwner = ([Security.Principal.SecurityIdentifier]$security.GetOwner([Security.Principal.SecurityIdentifier])).Value
+            $ownerRead = $true
+            $security.SetOwner($adminSid)
+            $di.SetAccessControl($security)
+            $ownerChanged = (([Security.Principal.SecurityIdentifier]$di.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier])).Value -eq $adminSid.Value)
+            $security = $di.GetAccessControl()
+            $security.SetOwner((Sid $originalOwner))
+            $di.SetAccessControl($security)
+            $ownerRestored = (([Security.Principal.SecurityIdentifier]$di.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier])).Value -eq $originalOwner)
+          } catch { $ownerError = $_.Exception.ToString() }
+
+          $allow = [Security.AccessControl.AccessControlType]::Allow
+          $none = [Security.AccessControl.InheritanceFlags]::None
+          $propNone = [Security.AccessControl.PropagationFlags]::None
+          $children = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+          $dirSecurity = New-Object Security.AccessControl.DirectorySecurity
+          $dirSecurity.SetAccessRuleProtection($true,$false)
+          $dirSecurity.SetOwner($identity.User)
+          $dirSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,[Security.AccessControl.FileSystemRights]::FullControl,$children,$propNone,$allow)))
+          $dirSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($systemSid,[Security.AccessControl.FileSystemRights]::FullControl,$children,$propNone,$allow)))
+          $dirSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($adminSid,[Security.AccessControl.FileSystemRights]::ReadAndExecute,$children,$propNone,$allow)))
+          (New-Object IO.DirectoryInfo($fixture)).SetAccessControl($dirSecurity)
+          $dirAfter = (New-Object IO.DirectoryInfo($fixture)).GetAccessControl()
+          $protectedWorked = $dirAfter.AreAccessRulesProtected
+
+          $fileSecurity = New-Object Security.AccessControl.FileSecurity
+          $fileSecurity.SetAccessRuleProtection($true,$false)
+          $fileSecurity.SetOwner($identity.User)
+          $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
+          $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($systemSid,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
+          $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($adminSid,[Security.AccessControl.FileSystemRights]::ReadData -bor [Security.AccessControl.FileSystemRights]::ReadPermissions,$none,$propNone,$allow)))
+          (New-Object IO.FileInfo($file)).SetAccessControl($fileSecurity)
+
+          $rxSecurity = New-Object Security.AccessControl.FileSecurity
+          $rxSecurity.SetAccessRuleProtection($true,$false)
+          $rxSecurity.SetOwner($identity.User)
+          $rxSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
+          $rxSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($systemSid,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
+          $rxSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($adminSid,[Security.AccessControl.FileSystemRights]::ReadAndExecute,$none,$propNone,$allow)))
+          (New-Object IO.FileInfo($exeAclFile)).SetAccessControl($rxSecurity)
+
+          $dirRules = Rules $dirAfter
+          $readRules = Rules ((New-Object IO.FileInfo($file)).GetAccessControl())
+          $rxRules = Rules ((New-Object IO.FileInfo($exeAclFile)).GetAccessControl())
+          $inheritanceWorked = ($protectedWorked -and -not [bool]($dirRules | Where-Object inherited))
+          $traverseMask = [int][Security.AccessControl.FileSystemRights]::Traverse
+          $executeMask = [int][Security.AccessControl.FileSystemRights]::ExecuteFile
+          $readDataMask = [int][Security.AccessControl.FileSystemRights]::ReadData
+          Write-Evidence 'acl-probe.json' ([ordered]@{
+            ntfs = ($volume.FileSystem -eq 'NTFS'); fileCreated = (Test-Path -LiteralPath $file -PathType Leaf)
+            directoryCreated = (Test-Path -LiteralPath $fixture -PathType Container)
+            inheritanceDisabled = $inheritanceWorked; protectedDacl = $protectedWorked
+            systemAceAdded = [bool]($dirRules | Where-Object sid -eq $systemSid.Value)
+            administratorsAceAdded = [bool]($dirRules | Where-Object sid -eq $adminSid.Value)
+            readOnlyAceAdded = [bool]($readRules | Where-Object { $_.sid -eq $adminSid.Value -and (($_.accessMask -band $readDataMask) -ne 0) -and (($_.accessMask -band $executeMask) -eq 0) })
+            readExecuteAceAdded = [bool]($rxRules | Where-Object { $_.sid -eq $adminSid.Value -and (($_.accessMask -band $executeMask) -ne 0) })
+            traverseSemantics = [ordered]@{ mask = $traverseMask; directoryAceHasTraverse = [bool]($dirRules | Where-Object { $_.sid -eq $adminSid.Value -and (($_.accessMask -band $traverseMask) -ne 0) }) }
+            executeFileDistinctFromReadData = ($executeMask -ne $readDataMask)
+            masks = [ordered]@{ traverse = $traverseMask; executeFile = $executeMask; readData = $readDataMask }
+            directoryRules = $dirRules; readOnlyFileRules = $readRules; readExecuteFileRules = $rxRules
+          })
+          Write-Evidence 'owner-probe.json' ([ordered]@{
+            originalOwnerSid = $originalOwner; ownerReadable = $ownerRead
+            ownerChangedToAdministrators = $ownerChanged; ownerRestored = $ownerRestored
+            failure = $ownerError
+          })
+          $systemRule = @($dirRules | Where-Object sid -eq $systemSid.Value)
+          $systemAccount = $systemSid.Translate([Security.Principal.NTAccount]).Value
+          Write-Evidence 'system-sid-probe.json' ([ordered]@{
+            sid = $systemSid.Value; resolves = [bool]$systemAccount; resolvedAccount = $systemAccount
+            aceAdded = ($systemRule.Count -gt 0); aclRights = @($systemRule | ForEach-Object rights)
+            processExecutionAttempted = $false; systemProcessCapability = 'UNKNOWN'
+          })
+
+          $compiler = Get-Command csc.exe -ErrorAction SilentlyContinue
+          if (-not $compiler) {
+            $compiler = Get-ChildItem "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe","$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if (-not $compiler) { throw 'No preinstalled C# compiler found' }
+          $compilerPath = if ($compiler -is [System.Management.Automation.ApplicationInfo]) { $compiler.Source } else { $compiler.FullName }
+          $helloSource = Join-Path $fixture 'probe-hello.cs'
+          $helloExe = Join-Path $fixture 'probe-hello.exe'
+          @'
+          using System;
+          class ProbeHello { static int Main() { Console.WriteLine("RUNNER_V2_UNSIGNED_PROBE_OK"); return 0; } }
+          '@ | Set-Content -LiteralPath $helloSource -Encoding UTF8
+          $compileOutput = & $compilerPath /nologo /optimize+ "/out:$helloExe" $helloSource 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $helloExe)) { throw "C# compilation failed: $compileOutput" }
+          $compilerVersion = (& $compilerPath /help 2>&1 | Select-Object -First 1 | Out-String).Trim()
+          $compilerHash = (Get-FileHash -LiteralPath $compilerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $helloHash = (Get-FileHash -LiteralPath $helloExe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $signature = Get-AuthenticodeSignature -FilePath $helloExe
+          $zone = Get-Item -LiteralPath $helloExe -Stream Zone.Identifier -ErrorAction SilentlyContinue
+          $launchOutput = $null; $launchError = $null; $exitCode = $null
+          try { $launchOutput = (& $helloExe 2>&1 | Out-String).Trim(); $exitCode = $LASTEXITCODE } catch { $launchError = $_.Exception.ToString() }
+          $unsignedAllowed = ($exitCode -eq 0 -and $launchOutput -eq 'RUNNER_V2_UNSIGNED_PROBE_OK')
+          Write-Evidence 'native-execution.json' ([ordered]@{
+            compilerPath = $compilerPath; compilerVersion = $compilerVersion; compilerSha256 = $compilerHash
+            exactCommand = ('"' + $compilerPath + '" /nologo /optimize+ /out:"<fixture>\probe-hello.exe" "<fixture>\probe-hello.cs"')
+            exeSha256 = $helloHash; exeSize = (Get-Item $helloExe).Length
+            signatureStatus = $signature.Status.ToString(); unsigned = ($signature.Status -eq 'NotSigned')
+            zoneIdentifierPresent = [bool]$zone; launchOutput = $launchOutput
+            launchError = $launchError; exitCode = $exitCode; launchSucceeded = $unsignedAllowed
+          })
+
+          $inspectorSource = Join-Path $fixture 'probe-only-acl-inspector.cs'
+          $inspectorExe = Join-Path $fixture 'probe-only-acl-inspector.exe'
+          @'
+          using System;
+          using System.IO;
+          using System.Security.AccessControl;
+          using System.Security.Principal;
+          class ProbeAclInspector {
+            static int Main(string[] a) {
+              if (a.Length != 1) return 2;
+              DirectorySecurity s = new DirectoryInfo(a[0]).GetAccessControl();
+              Console.WriteLine(((SecurityIdentifier)s.GetOwner(typeof(SecurityIdentifier))).Value);
+              Console.WriteLine(s.AreAccessRulesProtected ? "PROTECTED" : "UNPROTECTED");
+              foreach (FileSystemAccessRule r in s.GetAccessRules(true,true,typeof(SecurityIdentifier)))
+                Console.WriteLine(r.IdentityReference.Value + "|" + ((int)r.FileSystemRights).ToString());
+              return 0;
+            }
+          }
+          '@ | Set-Content -LiteralPath $inspectorSource -Encoding UTF8
+          $inspectorCompile = & $compilerPath /nologo /optimize+ "/out:$inspectorExe" $inspectorSource 2>&1 | Out-String
+          $inspectorCompileOk = ($LASTEXITCODE -eq 0 -and (Test-Path $inspectorExe))
+          $inspectorOutput = $null; $inspectorExit = $null; $inspectorError = $null; $inspectorHash = $null
+          if ($inspectorCompileOk) {
+            $inspectorHash = (Get-FileHash -LiteralPath $inspectorExe -Algorithm SHA256).Hash.ToLowerInvariant()
+            try { $inspectorOutput = (& $inspectorExe $fixture 2>&1 | Out-String).Trim(); $inspectorExit = $LASTEXITCODE } catch { $inspectorError = $_.Exception.ToString() }
+          }
+          $inspectorFeasible = ($inspectorCompileOk -and $inspectorExit -eq 0 -and $inspectorOutput -match 'PROTECTED')
+
+          $ciEvents = @()
+          foreach ($log in 'Microsoft-Windows-CodeIntegrity/Operational','Microsoft-Windows-AppLocker/EXE and DLL') {
+            try {
+              $ciEvents += @(Get-WinEvent -FilterHashtable @{LogName=$log; StartTime=$started.UtcDateTime} -ErrorAction Stop | Select-Object -First 20 TimeCreated,Id,LevelDisplayName,ProviderName)
+            } catch { }
+          }
+          $smartAppControl = $null
+          try { $smartAppControl = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' -Name VerifiedAndReputablePolicyState -ErrorAction Stop).VerifiedAndReputablePolicyState } catch { }
+          $executionPolicy = if ($unsignedAllowed) { 'UNSIGNED_EXECUTION_ALLOWED' } elseif ($launchError) { 'UNSIGNED_EXECUTION_BLOCKED' } else { 'UNKNOWN' }
+          Write-Evidence 'application-control.json' ([ordered]@{
+            runnerExecutionPolicy = $executionPolicy; smartAppControlState = $smartAppControl
+            codeIntegrityOrAppLockerEvents = $ciEvents; policyChanged = $false; defenderChanged = $false
+          })
+
+          $mandatory = [ordered]@{
+            ntfs = ($volume.FileSystem -eq 'NTFS'); aclManipulation = ($inheritanceWorked -and $protectedWorked -and $readRules.Count -gt 0 -and $rxRules.Count -gt 0)
+            protectedDacl = $protectedWorked; ownerSufficient = ($ownerRead -and $ownerChanged -and $ownerRestored)
+            systemAcl = ($systemRule.Count -gt 0); unsignedExecution = $unsignedAllowed; inspector = $inspectorFeasible
+          }
+          $decision = if (-not $unsignedAllowed -and $executionPolicy -eq 'UNSIGNED_EXECUTION_BLOCKED') { 'GITHUB_WINDOWS_RUNNER_UNSIGNED_BLOCKED' }
+            elseif (-not $mandatory.ntfs -or -not $mandatory.aclManipulation -or -not $mandatory.protectedDacl -or -not $mandatory.systemAcl) { 'GITHUB_WINDOWS_RUNNER_ACL_SEMANTICS_INSUFFICIENT' }
+            elseif (-not $mandatory.ownerSufficient) { 'GITHUB_WINDOWS_RUNNER_PRIVILEGE_INSUFFICIENT' }
+            elseif (-not $mandatory.inspector) { 'GITHUB_WINDOWS_RUNNER_PROBE_PARTIAL' }
+            else { 'GITHUB_WINDOWS_RUNNER_PROBE_PASS' }
+          $finished = [DateTimeOffset]::UtcNow
+          Write-Evidence 'probe-decision.json' ([ordered]@{
+            primaryDecision = $decision; mandatoryCapabilities = $mandatory
+            sourceReadiness = 'PROBE_ONLY_NOT_QUALIFIED'; artifactReadiness = 'PROBE_ONLY_NOT_QUALIFIED'
+            provisioningReadiness = 'NOT_AUTHORIZED'; operationalActivationReadiness = 'NOT_AUTHORIZED'
+            productionSecretsSupplied = $false; productionAccess = $false
+            workflowTrigger = 'workflow_dispatch'; workflowPermissions = 'contents: read'
+            paidOrLargerRunnerUsed = $false; startedUtc = $started; finishedUtc = $finished
+            runtimeSeconds = [math]::Round(($finished - $started).TotalSeconds,3)
+            incrementalBillingObserved = 'UNKNOWN'
+          })
+
+          $manifestEntries = @(Get-ChildItem -LiteralPath $evidence -File | Sort-Object Name | ForEach-Object {
+            [ordered]@{ name = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); size = $_.Length }
+          })
+          Write-Evidence 'probe-manifest.json' ([ordered]@{
+            schemaVersion = 1; baselineCommit = 'eebb1502f36cb7e3537250538397323c4f179081'
+            frozenHelperSha256 = $env:EXPECTED_HELPER_SHA256; frozenHelperMatchLocallyBeforeWorkflowCreation = $true
+            frozenTestSha256 = $env:EXPECTED_TEST_SHA256; frozenTestMatchLocallyBeforeWorkflowCreation = $true
+            historicalCandidateSha256 = '9e2b77b7b7c4a0f6b867b98bb171a33a00621a50b761867fbe6b3a5ca50b8b4e'
+            productionHelperExecuted = $false; historicalCandidateExecuted = $false
+            generatedBinaries = @(
+              [ordered]@{ purpose='unsigned launch probe'; sha256=$helloHash; deletedAfterEvidence=$true },
+              [ordered]@{ purpose='probe-only ACL inspector'; sha256=$inspectorHash; deletedAfterEvidence=$true }
+            )
+            evidenceFilesBeforeManifest = $manifestEntries
+          })
+          $manifestHash = (Get-FileHash -LiteralPath (Join-Path $evidence 'probe-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+          "decision=$decision" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "manifest_sha256=$manifestHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Remove-Item -LiteralPath $fixture -Recurse -Force
+
+      - name: Upload secret-free probe evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-v2-windows-minimal-probe-${{ github.run_id }}
+          path: ${{ runner.temp }}/runner-v2-probe-evidence/*.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report primary decision
+        if: ${{ always() }}
+        shell: powershell
+        run: |
+          Write-Host 'PRIMARY DECISION: ${{ steps.probe.outputs.decision }}'
+          Write-Host 'EVIDENCE MANIFEST SHA-256: ${{ steps.probe.outputs.manifest_sha256 }}'
