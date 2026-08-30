@@ -1,0 +1,151 @@
+name: Runner-v2 Windows file-symlink capability probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Standard Windows file-symlink capability
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe file symbolic-link capability
+        id: probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          $probeRoot = Join-Path $env:RUNNER_TEMP ('runner-v2-file-symlink-' + [Guid]::NewGuid().ToString('N'))
+          $evidenceRoot = Join-Path $env:RUNNER_TEMP 'runner-v2-file-symlink-evidence'
+          New-Item -ItemType Directory -Path $probeRoot,$evidenceRoot | Out-Null
+          $targetPath = Join-Path $probeRoot 'target.txt'
+          $linkPath = Join-Path $probeRoot 'operator-public.pem'
+          [IO.File]::WriteAllText($targetPath, 'ordinary probe target')
+
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+          $adminSid = 'S-1-5-32-544'
+          $administratorMember = @($identity.Groups | ForEach-Object Value) -contains $adminSid
+          $processElevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+          $os = Get-CimInstance Win32_OperatingSystem
+          $driveLetter = [IO.Path]::GetPathRoot($probeRoot).TrimEnd('\').TrimEnd(':')
+          $filesystem = (Get-Volume -DriveLetter $driveLetter).FileSystem
+          $developerMode = 'UNREADABLE'
+          try {
+            $developerModeValue = Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name AllowDevelopmentWithoutDevLicense -ErrorAction Stop
+            $developerMode = ([int]$developerModeValue -eq 1)
+          } catch { }
+          $symlinkPrivilege = 'UNOBSERVED'
+          try {
+            $privilegeLine = @(whoami /priv /fo csv /nh | ConvertFrom-Csv -Header Privilege,Description,State | Where-Object Privilege -eq 'SeCreateSymbolicLinkPrivilege')
+            if ($privilegeLine.Count -gt 0) { $symlinkPrivilege = $privilegeLine[0].State }
+          } catch { }
+
+          function Get-PathEvidence([string]$Path) {
+            $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+            [ordered]@{
+              path = $item.FullName
+              exists = $true
+              psIsContainer = [bool]$item.PSIsContainer
+              fileAttributes = $item.Attributes.ToString()
+              isReparsePoint = [bool]($item.Attributes -band [IO.FileAttributes]::ReparsePoint)
+              linkType = if ($item.PSObject.Properties.Name -contains 'LinkType') { $item.LinkType } else { $null }
+              target = if ($item.PSObject.Properties.Name -contains 'Target') { @($item.Target) } else { $null }
+            }
+          }
+
+          $target = Get-PathEvidence $targetPath
+          $commandSucceeded = $false
+          $failureCategory = $null
+          $exceptionType = $null
+          $hresult = $null
+          $link = $null
+          $resolvedTarget = $null
+          $targetResolutionMatch = $false
+          $exactCommand = "New-Item -ItemType SymbolicLink -Path '$linkPath' -Target '$targetPath'"
+
+          if (-not $target.exists -or $target.psIsContainer -or $target.isReparsePoint) {
+            $failureCategory = 'UNKNOWN_PROBE_FAILURE'
+          } else {
+            try {
+              New-Item -ItemType SymbolicLink -Path $linkPath -Target $targetPath | Out-Null
+              $commandSucceeded = $true
+              $link = Get-PathEvidence $linkPath
+              try { $resolvedTarget = ([IO.FileInfo]::new($linkPath).ResolveLinkTarget($true)).FullName } catch { }
+              $targetResolutionMatch = ($resolvedTarget -and ([IO.Path]::GetFullPath($resolvedTarget) -eq [IO.Path]::GetFullPath($targetPath)))
+              if (-not $link.isReparsePoint) { $failureCategory = 'SYMLINK_CREATED_NOT_REPARSE' }
+              elseif ($link.psIsContainer) { $failureCategory = 'SYMLINK_CREATED_AS_DIRECTORY_UNEXPECTED' }
+              elseif (-not $targetResolutionMatch) { $failureCategory = 'UNKNOWN_PROBE_FAILURE' }
+            } catch {
+              $exceptionType = $_.Exception.GetType().FullName
+              $hresult = ('0x{0:X8}' -f ($_.Exception.HResult -band 0xffffffffL))
+              if ($_.Exception -is [UnauthorizedAccessException] -or $_.Exception.HResult -eq -2147024891) { $failureCategory = 'SYMLINK_CREATION_PRIVILEGE_DENIED' }
+              elseif ($_.Exception -is [PlatformNotSupportedException] -or $_.Exception -is [NotSupportedException]) { $failureCategory = 'SYMLINK_CREATION_UNSUPPORTED' }
+              elseif ($_.Exception.Message -match 'policy|blocked|prohibit') { $failureCategory = 'SYMLINK_CREATION_POLICY_BLOCKED' }
+              else { $failureCategory = 'UNKNOWN_PROBE_FAILURE' }
+            }
+          }
+
+          $passed = ($commandSucceeded -and $link -and -not $target.isReparsePoint -and -not $link.psIsContainer -and $link.isReparsePoint -and $targetResolutionMatch)
+          $classification = if ($passed) { 'GITHUB_STANDARD_WINDOWS_FILE_SYMLINK_CAPABILITY_PASS' } else { 'GITHUB_STANDARD_WINDOWS_FILE_SYMLINK_CAPABILITY_FAIL' }
+          $result = [ordered]@{
+            schemaVersion = 1
+            classification = $classification
+            failureCategory = $failureCategory
+            runner = [ordered]@{
+              runnerOS = $env:RUNNER_OS
+              imageOS = $env:ImageOS
+              imageVersion = $env:ImageVersion
+              windowsCaption = $os.Caption
+              windowsVersion = $os.Version
+              windowsBuild = $os.BuildNumber
+              architecture = $os.OSArchitecture
+              runnerArchitecture = $env:RUNNER_ARCH
+              filesystem = $filesystem
+              powerShellVersion = $PSVersionTable.PSVersion.ToString()
+              username = $identity.Name
+              userSid = $identity.User.Value
+              administratorsMember = $administratorMember
+              processElevated = $processElevated
+              developerMode = $developerMode
+              symbolicLinkPrivilege = $symlinkPrivilege
+            }
+            operation = [ordered]@{
+              command = $exactCommand
+              commandSucceeded = $commandSucceeded
+              exceptionType = $exceptionType
+              hresult = $hresult
+              target = $target
+              link = $link
+              resolvedFinalTarget = $resolvedTarget
+              targetResolutionMatch = $targetResolutionMatch
+            }
+            controls = [ordered]@{
+              standardRunner = $true
+              privilegeModified = $false
+              policyModified = $false
+              fallbackUsed = $false
+              runnerV2SourceExecuted = $false
+              runnerV2HelperCompiled = $false
+              formalTestsExecuted = $false
+              productionAccess = $false
+              productionMutation = $false
+              secretsUsed = $false
+            }
+          }
+          $result | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceRoot 'probe-result.json') -Encoding utf8
+          "classification=$classification" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          if (-not $passed) { exit 1 }
+
+      - name: Upload non-secret probe evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-v2-file-symlink-capability-${{ github.run_id }}
+          path: ${{ runner.temp }}/runner-v2-file-symlink-evidence/probe-result.json
+          if-no-files-found: error
+          retention-days: 1
