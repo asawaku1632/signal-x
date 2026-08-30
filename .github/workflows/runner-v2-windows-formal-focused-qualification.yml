@@ -1,0 +1,138 @@
+name: Runner-v2 Windows formal focused qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      qualification_ref:
+        description: Exact isolated qualification-only Git ref
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  focused-qualification:
+    name: Standard windows-latest focused qualification
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_HELPER_SHA256: 412f3dab79d54c60519d181accb2414011d414ab2ca35c936e946ac3178bf06d
+      EXPECTED_TEST_SHA256: c784f7b467c89ddbcde584e6cedfeffb73349cff9dbc29020fc8469e83b0ce3d
+      EXPECTED_COMPILER_SHA256: 46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00
+
+    steps:
+      - name: Checkout explicit qualification ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.qualification_ref }}
+          persist-credentials: false
+
+      - name: Verify source and record platform identity
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $evidence = Join-Path $env:RUNNER_TEMP 'runner-v2-formal-focused-evidence'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          $helper = Join-Path $env:GITHUB_WORKSPACE 'scripts\runner-v2\trusted-windows-key-reader-helper.cs'
+          $test = Join-Path $env:GITHUB_WORKSPACE 'tests\runner-v2-trusted-key-reader-integration.test.mjs'
+          & git -c core.autocrlf=false checkout-index --force -- 'scripts/runner-v2/trusted-windows-key-reader-helper.cs' 'tests/runner-v2-trusted-key-reader-integration.test.mjs'
+          if ($LASTEXITCODE -ne 0) { throw 'TRANSFER_IDENTITY_HOLD: exact-byte materialization failed' }
+          $helperHash = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
+          $testHash = (Get-FileHash -LiteralPath $test -Algorithm SHA256).Hash.ToLowerInvariant()
+          $compilerPath = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path -LiteralPath $compilerPath -PathType Leaf)) { throw 'COMPILER_IDENTITY_FAILURE: expected compiler is absent' }
+          $compilerHash = (Get-FileHash -LiteralPath $compilerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $compilerVersion = (& $compilerPath /help 2>&1 | Select-Object -First 1 | Out-String).Trim()
+          $checkedOutCommit = (& git rev-parse HEAD | Out-String).Trim()
+          $os = Get-CimInstance Win32_OperatingSystem
+          $workspaceRoot = [IO.Path]::GetPathRoot($env:GITHUB_WORKSPACE).TrimEnd('\')
+          $volume = Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='" + $workspaceRoot + "'")
+          $metadata = [ordered]@{
+            githubSha = $env:GITHUB_SHA
+            githubRef = $env:GITHUB_REF
+            requestedQualificationRef = '${{ inputs.qualification_ref }}'
+            checkedOutCommit = $checkedOutCommit
+            imageOS = $env:ImageOS
+            imageVersion = $env:ImageVersion
+            windowsProduct = $os.Caption
+            windowsVersion = $os.Version
+            windowsBuild = $os.BuildNumber
+            architecture = $env:RUNNER_ARCH
+            filesystem = $volume.FileSystem
+            nodeVersion = (& node --version | Out-String).Trim()
+            powershellVersion = $PSVersionTable.PSVersion.ToString()
+            compilerPath = $compilerPath
+            compilerVersion = $compilerVersion
+            compilerSha256 = $compilerHash
+            helperSourceSha256 = $helperHash
+            testSourceSha256 = $testHash
+            standardRunner = $true
+            paidOrLargerRunnerUsed = $false
+            productionSecretsSupplied = $false
+            productionAccess = $false
+          }
+          $metadata | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'qualification-metadata.json') -Encoding UTF8
+          if ($helperHash -ne $env:EXPECTED_HELPER_SHA256) { throw "TRANSFER_IDENTITY_HOLD: helper SHA-256 $helperHash" }
+          if ($testHash -ne $env:EXPECTED_TEST_SHA256) { throw "TRANSFER_IDENTITY_HOLD: test SHA-256 $testHash" }
+          if ($compilerHash -ne $env:EXPECTED_COMPILER_SHA256) { throw "COMPILER_IDENTITY_FAILURE: compiler SHA-256 $compilerHash" }
+          Write-Host "Helper SHA-256: $helperHash"
+          Write-Host "Test SHA-256: $testHash"
+          Write-Host "Compiler SHA-256: $compilerHash"
+
+      - name: Run exact focused qualification
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          Set-StrictMode -Version Latest
+          $evidence = Join-Path $env:RUNNER_TEMP 'runner-v2-formal-focused-evidence'
+          $started = [DateTimeOffset]::UtcNow
+          & node --test tests/runner-v2-trusted-key-reader-integration.test.mjs 2>&1 | Tee-Object -FilePath (Join-Path $evidence 'focused-test-raw.log')
+          $testExit = $LASTEXITCODE
+          $finished = [DateTimeOffset]::UtcNow
+          $events = @()
+          foreach ($logName in 'Microsoft-Windows-CodeIntegrity/Operational','Microsoft-Windows-AppLocker/EXE and DLL') {
+            try {
+              $events += @(Get-WinEvent -FilterHashtable @{ LogName = $logName; StartTime = $started.UtcDateTime } -ErrorAction Stop | Select-Object TimeCreated,Id,LevelDisplayName,ProviderName,Message)
+            } catch { }
+          }
+          [ordered]@{
+            exactCommand = 'node --test tests/runner-v2-trusted-key-reader-integration.test.mjs'
+            exitCode = $testExit
+            startedUtc = $started
+            finishedUtc = $finished
+            codeIntegrityOrAppLockerEvents = $events
+            policyChanged = $false
+            productionAccess = $false
+          } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidence 'focused-test-result.json') -Encoding UTF8
+          exit $testExit
+
+      - name: Create evidence manifest
+        if: ${{ always() }}
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'runner-v2-formal-focused-evidence'
+          if (-not (Test-Path -LiteralPath $evidence -PathType Container)) { New-Item -ItemType Directory -Path $evidence | Out-Null }
+          $files = @(Get-ChildItem -LiteralPath $evidence -File | Sort-Object Name | ForEach-Object {
+            [ordered]@{ name = $_.Name; size = $_.Length; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+          })
+          [ordered]@{
+            schema = 'runner-v2-formal-focused-qualification-manifest-v1'
+            runId = $env:GITHUB_RUN_ID
+            runAttempt = $env:GITHUB_RUN_ATTEMPT
+            githubSha = $env:GITHUB_SHA
+            requestedQualificationRef = '${{ inputs.qualification_ref }}'
+            workflow = $env:GITHUB_WORKFLOW
+            files = $files
+          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'evidence-manifest.json') -Encoding UTF8
+
+      - name: Upload non-secret qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-v2-formal-focused-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/runner-v2-formal-focused-evidence/*
+          if-no-files-found: error
+          retention-days: 1
