@@ -17,10 +17,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Validate requested source ref
+        env:
+          QUALIFICATION_REF: ${{ inputs.qualification_ref }}
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          if ('${{ inputs.qualification_ref }}' -cne 'runner-v2-final-source-20260830') {
+          if ($env:QUALIFICATION_REF -cne 'runner-v2-final-source-20260830') {
             throw 'QUALIFICATION_REF_REJECTED'
           }
 
