@@ -104,7 +104,7 @@ jobs:
           $allow = [Security.AccessControl.AccessControlType]::Allow
           $none = [Security.AccessControl.InheritanceFlags]::None
           $propNone = [Security.AccessControl.PropagationFlags]::None
-          $children = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+          $children = [Security.AccessControl.InheritanceFlags]([int][Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [int][Security.AccessControl.InheritanceFlags]::ObjectInherit)
           $dirSecurity = New-Object Security.AccessControl.DirectorySecurity
           $dirSecurity.SetAccessRuleProtection($true,$false)
           $dirSecurity.SetOwner($identity.User)
@@ -120,7 +120,7 @@ jobs:
           $fileSecurity.SetOwner($identity.User)
           $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
           $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($systemSid,[Security.AccessControl.FileSystemRights]::FullControl,$none,$propNone,$allow)))
-          $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($adminSid,[Security.AccessControl.FileSystemRights]::ReadData -bor [Security.AccessControl.FileSystemRights]::ReadPermissions,$none,$propNone,$allow)))
+          $fileSecurity.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($adminSid,[Security.AccessControl.FileSystemRights]([int][Security.AccessControl.FileSystemRights]::ReadData -bor [int][Security.AccessControl.FileSystemRights]::ReadPermissions),$none,$propNone,$allow)))
           (New-Object IO.FileInfo($file)).SetAccessControl($fileSecurity)
 
           $rxSecurity = New-Object Security.AccessControl.FileSecurity
