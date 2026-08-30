@@ -1,0 +1,102 @@
+name: Runner-v2 Windows file-symlink capability probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - name: Probe file symbolic-link capability
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $evidence = Join-Path $env:RUNNER_TEMP 'runner-v2-file-symlink-probe-evidence'
+          $probe = Join-Path $env:RUNNER_TEMP ("runner-v2-file-symlink-probe-" + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          New-Item -ItemType Directory -Path $probe | Out-Null
+          $target = Join-Path $probe 'target.txt'
+          $link = Join-Path $probe 'operator-public.pem'
+          [IO.File]::WriteAllText($target, 'RUNNER_V2_FILE_SYMLINK_TARGET')
+
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+          $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+          $elevationType = 'UNKNOWN'
+          try {
+            $groups = whoami /groups /fo csv /nh 2>$null | ConvertFrom-Csv -Header Name,Type,Sid,Attributes
+            $mandatory = $groups | Where-Object { $_.Sid -like 'S-1-16-*' } | Select-Object -First 1
+            if ($mandatory) { $elevationType = $mandatory.Name }
+          } catch {}
+          $developerMode = 'UNKNOWN'
+          try {
+            $developerMode = (Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name AllowDevelopmentWithoutDevLicense -ErrorAction Stop) -eq 1
+          } catch {}
+          $symlinkPrivilege = 'UNKNOWN'
+          try {
+            $privilegeLine = whoami /priv /fo csv /nh 2>$null | ConvertFrom-Csv -Header Name,Description,State | Where-Object Name -eq 'SeCreateSymbolicLinkPrivilege' | Select-Object -First 1
+            if ($privilegeLine) { $symlinkPrivilege = $privilegeLine.State }
+          } catch {}
+
+          $targetItem = Get-Item -LiteralPath $target -Force
+          $targetReparse = ($targetItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+          $commandSucceeded = $false
+          $failureCategory = $null
+          $exceptionType = $null
+          $hresult = $null
+          try {
+            New-Item -ItemType SymbolicLink -Path $link -Target $target | Out-Null
+            $commandSucceeded = $true
+          } catch {
+            $exceptionType = $_.Exception.GetType().FullName
+            $hresult = ('0x{0:X8}' -f ($_.Exception.HResult -band 0xffffffffL))
+            $message = $_.Exception.Message
+            if ($message -match 'privilege|1314') { $failureCategory = 'SYMLINK_CREATION_PRIVILEGE_DENIED' }
+            elseif ($message -match 'policy|blocked|denied') { $failureCategory = 'SYMLINK_CREATION_POLICY_BLOCKED' }
+            elseif ($message -match 'not supported|unsupported') { $failureCategory = 'SYMLINK_CREATION_UNSUPPORTED' }
+            else { $failureCategory = 'UNKNOWN_PROBE_FAILURE' }
+          }
+
+          $linkExists = Test-Path -LiteralPath $link
+          $linkItem = if ($linkExists) { Get-Item -LiteralPath $link -Force } else { $null }
+          $linkReparse = $linkItem -and (($linkItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+          $linkIsDirectory = if ($linkItem) { [bool]$linkItem.PSIsContainer } else { $null }
+          $linkType = if ($linkItem -and $linkItem.PSObject.Properties.Name -contains 'LinkType') { [string]$linkItem.LinkType } else { $null }
+          $linkTarget = if ($linkItem -and $linkItem.PSObject.Properties.Name -contains 'Target') { [string]($linkItem.Target | Select-Object -First 1) } else { $null }
+          $resolvedTarget = if ($linkTarget) {
+            if ([IO.Path]::IsPathRooted($linkTarget)) { [IO.Path]::GetFullPath($linkTarget) }
+            else { [IO.Path]::GetFullPath((Join-Path $probe $linkTarget)) }
+          } else { $null }
+          $targetResolutionMatch = $resolvedTarget -and ([string]::Equals($resolvedTarget, [IO.Path]::GetFullPath($target), [StringComparison]::OrdinalIgnoreCase))
+          if ($commandSucceeded -and -not $linkReparse) { $failureCategory = 'SYMLINK_CREATED_NOT_REPARSE' }
+          if ($commandSucceeded -and $linkIsDirectory) { $failureCategory = 'SYMLINK_CREATED_AS_DIRECTORY_UNEXPECTED' }
+
+          $volume = Get-Volume -DriveLetter ([IO.Path]::GetPathRoot($probe).Substring(0,1))
+          $os = Get-CimInstance Win32_OperatingSystem
+          $pass = $commandSucceeded -and $targetItem.Exists -and -not $targetItem.PSIsContainer -and -not $targetReparse -and $linkExists -and -not $linkIsDirectory -and $linkReparse -and $targetResolutionMatch
+          $classification = if ($pass) { 'GITHUB_STANDARD_WINDOWS_FILE_SYMLINK_CAPABILITY_PASS' } elseif ($failureCategory) { $failureCategory } else { 'UNKNOWN_PROBE_FAILURE' }
+          $result = [ordered]@{
+            classification = $classification
+            pass = [bool]$pass
+            github = [ordered]@{ runId = $env:GITHUB_RUN_ID; sha = $env:GITHUB_SHA; ref = $env:GITHUB_REF; workflow = $env:GITHUB_WORKFLOW }
+            runner = [ordered]@{ imageOS = $env:ImageOS; imageVersion = $env:ImageVersion; osCaption = $os.Caption; osVersion = $os.Version; osBuild = $os.BuildNumber; architecture = $env:PROCESSOR_ARCHITECTURE; filesystem = $volume.FileSystem; username = $identity.Name; sid = $identity.User.Value; administratorsMember = $isAdmin; integrity = $elevationType; developerMode = $developerMode; symbolicLinkPrivilege = $symlinkPrivilege; powershellVersion = $PSVersionTable.PSVersion.ToString() }
+            operation = [ordered]@{ command = 'New-Item -ItemType SymbolicLink'; succeeded = $commandSucceeded; exceptionType = $exceptionType; hresult = $hresult; failureCategory = $failureCategory; privilegeModified = $false; policyModified = $false; fallbackUsed = $false }
+            target = [ordered]@{ path = $target; exists = $targetItem.Exists; isDirectory = [bool]$targetItem.PSIsContainer; attributes = $targetItem.Attributes.ToString(); isReparsePoint = $targetReparse }
+            link = [ordered]@{ path = $link; exists = $linkExists; isDirectory = $linkIsDirectory; attributes = if ($linkItem) { $linkItem.Attributes.ToString() } else { $null }; isReparsePoint = [bool]$linkReparse; linkType = $linkType; target = $linkTarget; resolvedTarget = $resolvedTarget; targetResolutionMatch = [bool]$targetResolutionMatch }
+            isolation = [ordered]@{ runnerV2SourceExecuted = $false; runnerV2HelperCompiled = $false; formalTestsExecuted = $false; productionAccess = $false; productionMutation = $false }
+          }
+          $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $evidence 'probe-result.json') -Encoding UTF8
+          $result | ConvertTo-Json -Depth 6
+          if (-not $pass) { exit 1 }
+
+      - name: Upload capability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-v2-file-symlink-capability-evidence
+          path: ${{ runner.temp }}/runner-v2-file-symlink-probe-evidence/probe-result.json
+          retention-days: 1
+          if-no-files-found: error
