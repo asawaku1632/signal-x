@@ -1,0 +1,158 @@
+name: Runner-v2 Frozen Artifact Qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      qualification_ref:
+        description: Exact approved final-source ref
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-frozen-artifact:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate requested source ref
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ inputs.qualification_ref }}' -cne 'runner-v2-final-source-20260830') {
+            throw 'QUALIFICATION_REF_REJECTED'
+          }
+
+      - name: Disable checkout line-ending conversion
+        shell: powershell
+        run: git config --global core.autocrlf false
+
+      - name: Check out qualification infrastructure
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: infrastructure
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check out exact final source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 2bb2beaa41f37d8064de0a7011bc3c2a6376bb80
+          path: source
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check out exact frozen artifact transport
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: affb6edb8c44f862dfc5728dbe2554b0bdc42ef7
+          path: transport
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Create bounded evidence directory
+        shell: powershell
+        run: New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence" -Force | Out-Null
+
+      - name: Gate source and transport identities before execution
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'source'
+          $transport = Join-Path $env:GITHUB_WORKSPACE 'transport'
+          $artifact = Join-Path $transport 'artifact\native-windows-key-reader.exe'
+          $harness = Join-Path $env:GITHUB_WORKSPACE 'infrastructure\tests\runner-v2-frozen-artifact-qualification.test.mjs'
+          $sourceCommit = (git -C $source rev-parse HEAD).Trim()
+          $sourceTree = (git -C $source rev-parse 'HEAD^{tree}').Trim()
+          $transportCommit = (git -C $transport rev-parse HEAD).Trim()
+          $transportTree = (git -C $transport rev-parse 'HEAD^{tree}').Trim()
+          if ($sourceCommit -cne '2bb2beaa41f37d8064de0a7011bc3c2a6376bb80') { throw 'SOURCE_COMMIT_MISMATCH' }
+          if ($sourceTree -cne 'fdf7180075b536db3f364e0e93cb5ee20a6cc250') { throw 'SOURCE_TREE_MISMATCH' }
+          if ($transportCommit -cne 'affb6edb8c44f862dfc5728dbe2554b0bdc42ef7') { throw 'TRANSPORT_COMMIT_MISMATCH' }
+          if ($transportTree -cne '766434c191fbadd96d231f4640082024017e411b') { throw 'TRANSPORT_TREE_MISMATCH' }
+          if ((Get-FileHash -LiteralPath $harness -Algorithm SHA256).Hash.ToLowerInvariant() -cne '0bf2ab126e11f9e73c265e0876228f17a47637dae87746b3b1193b34dfea5ff7') { throw 'HARNESS_SHA_MISMATCH' }
+          $helperPath = 'scripts/runner-v2/trusted-windows-key-reader-helper.cs'
+          $testPath = 'tests/runner-v2-trusted-key-reader-integration.test.mjs'
+          $nodePath = 'scripts/runner-v2/trusted-windows-key-reader.mjs'
+          if ((git -C $source rev-parse "HEAD:$helperPath").Trim() -cne '60ccde6d6874746c670706aad43ec1f48a484528') { throw 'HELPER_BLOB_MISMATCH' }
+          if ((git -C $source rev-parse "HEAD:$testPath").Trim() -cne '99ff71dfc1657d19b8793d8072dba064e4dd3c79') { throw 'TEST_BLOB_MISMATCH' }
+          if ((Get-FileHash -LiteralPath (Join-Path $source $helperPath) -Algorithm SHA256).Hash.ToLowerInvariant() -cne '098f095f3870c50f75442fc7a8e35eaaa3f118abc968c6e73cbce117a985d437') { throw 'HELPER_SHA_MISMATCH' }
+          if ((Get-FileHash -LiteralPath (Join-Path $source $testPath) -Algorithm SHA256).Hash.ToLowerInvariant() -cne '5477fd7c1aa5ebd43d063f50b32462f58e80ca84103e577364060b22f5e6eed2') { throw 'TEST_SHA_MISMATCH' }
+          if ((Get-FileHash -LiteralPath (Join-Path $source $nodePath) -Algorithm SHA256).Hash.ToLowerInvariant() -cne '7f0a6802431a46e175211a0aedc1628844d7d85a279aeac7f4f9898803faaaf7') { throw 'NODE_SHA_MISMATCH' }
+          if ((git -C $transport rev-parse 'HEAD:artifact/native-windows-key-reader.exe').Trim() -cne '577e81b3d976ad40514bbddb353cecb4d60cc3a7') { throw 'ARTIFACT_BLOB_MISMATCH' }
+          $item = Get-Item -LiteralPath $artifact
+          if ($item.Length -ne 12800) { throw 'ARTIFACT_SIZE_MISMATCH' }
+          if ((Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant() -cne '64890858a8dd8c017498f13f3809016a0ed26d1af46339af23791b348f75fcb3') { throw 'ARTIFACT_SHA_MISMATCH' }
+          $mvid = ([Reflection.Assembly]::ReflectionOnlyLoadFrom($artifact)).ManifestModule.ModuleVersionId.ToString().ToLowerInvariant()
+          if ($mvid -cne 'b5083232-5280-48f2-8379-2a4054d93c1f') { throw 'ARTIFACT_MVID_MISMATCH' }
+          $provenance = Get-Content -Raw -LiteralPath (Join-Path $transport 'artifact\provenance.json') | ConvertFrom-Json
+          if ($provenance.artifact.sha256 -cne '64890858a8dd8c017498f13f3809016a0ed26d1af46339af23791b348f75fcb3') { throw 'PROVENANCE_MISMATCH' }
+          "SIGNALX_PREBUILT_KEY_READER=$artifact" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'SIGNALX_PREBUILT_KEY_READER_SHA256=64890858a8dd8c017498f13f3809016a0ed26d1af46339af23791b348f75fcb3' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SIGNALX_FINAL_SOURCE_ROOT=$source" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $metadata = [ordered]@{
+            runId = '${{ github.run_id }}'; workflowSha = '${{ github.sha }}'; runnerOS = $env:RUNNER_OS
+            imageOS = $env:ImageOS; imageVersion = $env:ImageVersion
+            sourceCommit = $sourceCommit; sourceTree = $sourceTree
+            helperBlob = '60ccde6d6874746c670706aad43ec1f48a484528'
+            helperSha256 = '098f095f3870c50f75442fc7a8e35eaaa3f118abc968c6e73cbce117a985d437'
+            focusedTestBlob = '99ff71dfc1657d19b8793d8072dba064e4dd3c79'
+            focusedTestSha256 = '5477fd7c1aa5ebd43d063f50b32462f58e80ca84103e577364060b22f5e6eed2'
+            nodeWrapperSha256 = '7f0a6802431a46e175211a0aedc1628844d7d85a279aeac7f4f9898803faaaf7'
+            transportCommit = $transportCommit; transportTree = $transportTree
+            artifactBlob = '577e81b3d976ad40514bbddb353cecb4d60cc3a7'
+            artifactSize = $item.Length; artifactSha256 = '64890858a8dd8c017498f13f3809016a0ed26d1af46339af23791b348f75fcb3'
+            artifactMvid = $mvid; nodeVersion = (node --version)
+            powerShellVersion = $PSVersionTable.PSVersion.ToString()
+            windowsCaption = (Get-CimInstance Win32_OperatingSystem).Caption
+            windowsVersion = (Get-CimInstance Win32_OperatingSystem).Version
+            architecture = $env:PROCESSOR_ARCHITECTURE
+            filesystem = ([IO.DriveInfo]::new([IO.Path]::GetPathRoot($artifact))).DriveFormat
+            compilerInvocationCount = 0
+          }
+          $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence\qualification-metadata.json" -Encoding utf8
+
+      - name: Execute frozen artifact qualification
+        id: qualification
+        shell: powershell
+        run: |
+          $log = "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence\focused-test-raw.log"
+          $testPath = "$env:GITHUB_WORKSPACE\infrastructure\tests\runner-v2-frozen-artifact-qualification.test.mjs"
+          $output = & node --test $testPath 2>&1
+          $exitCode = $LASTEXITCODE
+          $output | Tee-Object -FilePath $log
+          $text = $output -join "`n"
+          $result = [ordered]@{
+            command = "node --test `"$testPath`""
+            exitCode = $exitCode
+            pass = if ($text -match '(?m)^# pass (\d+)$') { [int]$Matches[1] } else { $null }
+            fail = if ($text -match '(?m)^# fail (\d+)$') { [int]$Matches[1] } else { $null }
+            skip = if ($text -match '(?m)^# skipped (\d+)$') { [int]$Matches[1] } else { 0 }
+            directReparseDiagnosticPresent = $text.Contains('RUNNER_V2_DIRECT_KEY_REPARSE')
+            compilerInvocationCount = 0
+            artifactSha256 = '64890858a8dd8c017498f13f3809016a0ed26d1af46339af23791b348f75fcb3'
+          }
+          $result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence\focused-test-result.json" -Encoding utf8
+          if ($exitCode -ne 0 -or $result.pass -ne 35 -or $result.fail -ne 0 -or $result.skip -ne 2 -or -not $result.directReparseDiagnosticPresent) { throw 'FROZEN_ARTIFACT_QUALIFICATION_FAILED' }
+
+      - name: Freeze evidence manifest
+        if: always()
+        shell: powershell
+        run: |
+          $directory = "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence"
+          New-Item -ItemType Directory -Path $directory -Force | Out-Null
+          $files = Get-ChildItem -LiteralPath $directory -File | Where-Object Name -ne 'evidence-manifest.json' | Sort-Object Name | ForEach-Object {
+            [ordered]@{ name = $_.Name; size = $_.Length; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+          }
+          [ordered]@{ runId = '${{ github.run_id }}'; files = @($files); compilerInvocationCount = 0 } | ConvertTo-Json -Depth 7 | Set-Content -LiteralPath "$directory\evidence-manifest.json" -Encoding utf8
+
+      - name: Upload frozen artifact qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runner-v2-frozen-artifact-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/runner-v2-frozen-artifact-evidence
+          if-no-files-found: error
+          retention-days: 1
