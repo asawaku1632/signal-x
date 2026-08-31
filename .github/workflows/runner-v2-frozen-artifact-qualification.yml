@@ -33,7 +33,7 @@ jobs:
       - name: Check out qualification infrastructure
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.sha }}
+          ref: 9ea167467884b078d6d6fe9049177c87c1449626
           path: infrastructure
           persist-credentials: false
           fetch-depth: 1
@@ -58,18 +58,26 @@ jobs:
         shell: powershell
         run: New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\runner-v2-frozen-artifact-evidence" -Force | Out-Null
 
-      - name: Gate source and transport identities before execution
+      - name: Gate infrastructure, source, and transport identities before execution
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          $infrastructure = Join-Path $env:GITHUB_WORKSPACE 'infrastructure'
           $source = Join-Path $env:GITHUB_WORKSPACE 'source'
           $transport = Join-Path $env:GITHUB_WORKSPACE 'transport'
           $artifact = Join-Path $transport 'artifact\native-windows-key-reader.exe'
-          $harness = Join-Path $env:GITHUB_WORKSPACE 'infrastructure\tests\runner-v2-frozen-artifact-qualification.test.mjs'
+          $harnessPath = 'tests/runner-v2-frozen-artifact-qualification.test.mjs'
+          $harness = Join-Path $infrastructure $harnessPath
+          $infrastructureCommit = (git -C $infrastructure rev-parse HEAD).Trim()
+          $infrastructureTree = (git -C $infrastructure rev-parse 'HEAD^{tree}').Trim()
+          $harnessBlob = (git -C $infrastructure rev-parse "HEAD:$harnessPath").Trim()
           $sourceCommit = (git -C $source rev-parse HEAD).Trim()
           $sourceTree = (git -C $source rev-parse 'HEAD^{tree}').Trim()
           $transportCommit = (git -C $transport rev-parse HEAD).Trim()
           $transportTree = (git -C $transport rev-parse 'HEAD^{tree}').Trim()
+          if ($infrastructureCommit -cne '9ea167467884b078d6d6fe9049177c87c1449626') { throw 'INFRASTRUCTURE_COMMIT_MISMATCH' }
+          if ($infrastructureTree -cne 'd984dbbd3853213bfba507a34bdfa32d572529cb') { throw 'INFRASTRUCTURE_TREE_MISMATCH' }
+          if ($harnessBlob -cne '729de0f4e19f49e5209ba5430585868e67f232e0') { throw 'HARNESS_BLOB_MISMATCH' }
           if ($sourceCommit -cne '2bb2beaa41f37d8064de0a7011bc3c2a6376bb80') { throw 'SOURCE_COMMIT_MISMATCH' }
           if ($sourceTree -cne 'fdf7180075b536db3f364e0e93cb5ee20a6cc250') { throw 'SOURCE_TREE_MISMATCH' }
           if ($transportCommit -cne 'affb6edb8c44f862dfc5728dbe2554b0bdc42ef7') { throw 'TRANSPORT_COMMIT_MISMATCH' }
@@ -97,6 +105,8 @@ jobs:
           $metadata = [ordered]@{
             runId = '${{ github.run_id }}'; workflowSha = '${{ github.sha }}'; runnerOS = $env:RUNNER_OS
             imageOS = $env:ImageOS; imageVersion = $env:ImageVersion
+            infrastructureCommit = $infrastructureCommit; infrastructureTree = $infrastructureTree
+            harnessBlob = $harnessBlob
             sourceCommit = $sourceCommit; sourceTree = $sourceTree
             helperBlob = '60ccde6d6874746c670706aad43ec1f48a484528'
             helperSha256 = '098f095f3870c50f75442fc7a8e35eaaa3f118abc968c6e73cbce117a985d437'
