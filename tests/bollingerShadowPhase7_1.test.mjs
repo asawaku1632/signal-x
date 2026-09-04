@@ -31,7 +31,7 @@ test("workflow uses minimal permissions and read-only checkout token", () => {
 test("operation-specific concurrency and two timeout layers are configured", () => {
   assert.match(workflow, /group: signalx-bb-shadow-dev-\$\{\{ inputs\.operation \}\}/);
   assert.match(workflow, /cancel-in-progress: false/);
-  assert.match(workflow, /timeout-minutes: 4/);
+  assert.match(workflow, /timeout-minutes: 8/);
   assert.equal(PHASE_7_1_CONFIG.hardTimeoutSeconds, 225);
   assert.ok(PHASE_7_1_CONFIG.hardTimeoutSeconds < PHASE_7_1_CONFIG.leaseSeconds);
 });

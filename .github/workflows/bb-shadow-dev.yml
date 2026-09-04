@@ -31,7 +31,7 @@ jobs:
     environment:
       name: signalx-dev-shadow
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
