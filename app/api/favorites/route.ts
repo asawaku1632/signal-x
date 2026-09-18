@@ -7,6 +7,7 @@ import {
   getFavorites,
   removeFavorite,
 } from "@/app/lib/favorites";
+import { cancelFavoriteAiMonitor } from "@/app/lib/favoriteAiMonitor";
 
 export const dynamic = "force-dynamic";
 
@@ -126,10 +127,12 @@ export async function DELETE(request: Request) {
     }
 
     await removeFavorite(userEmail, code);
+    const cancelledMonitors = await cancelFavoriteAiMonitor(userEmail, code);
 
     return NextResponse.json({
       success: true,
       code,
+      cancelledMonitorCount: cancelledMonitors.length,
     });
   } catch (error) {
     console.error("DELETE /api/favorites error:", error);
