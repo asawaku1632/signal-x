@@ -4,6 +4,8 @@ import {
   completeFavoriteAiMonitor,
   getActiveFavoriteAiMonitors,
 } from "@/app/lib/favoriteAiMonitor";
+import { favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
+import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 
 type Stock = { code: string; price?: number };
 
@@ -36,14 +38,30 @@ export async function GET(req: Request) {
     }
 
     if (currentPrice >= monitor.takeProfit) {
-      const result = await completeFavoriteAiMonitor(monitor.id, "WIN");
-      if (result) completed.push({ ...result, currentPrice });
+      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+      const line = lineUserId
+        ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "WIN", baseUrl))
+        : null;
+      if (line?.ok) {
+        const result = await completeFavoriteAiMonitor(monitor.id, "WIN");
+        if (result) completed.push({ ...result, currentPrice, lineSent: true });
+      } else {
+        active.push({ ...monitor, currentPrice, state: "WIN_PENDING_NOTIFICATION", lineLinked: Boolean(lineUserId) });
+      }
       continue;
     }
 
     if (currentPrice <= monitor.stopLoss) {
-      const result = await completeFavoriteAiMonitor(monitor.id, "LOSE");
-      if (result) completed.push({ ...result, currentPrice });
+      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+      const line = lineUserId
+        ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "LOSE", baseUrl))
+        : null;
+      if (line?.ok) {
+        const result = await completeFavoriteAiMonitor(monitor.id, "LOSE");
+        if (result) completed.push({ ...result, currentPrice, lineSent: true });
+      } else {
+        active.push({ ...monitor, currentPrice, state: "LOSE_PENDING_NOTIFICATION", lineLinked: Boolean(lineUserId) });
+      }
       continue;
     }
 
@@ -57,6 +75,6 @@ export async function GET(req: Request) {
     activeCount: active.length,
     completed,
     active,
-    lineDeliveryEnabled: false,
+    lineDeliveryEnabled: true,
   });
 }
