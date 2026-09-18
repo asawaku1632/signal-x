@@ -127,7 +127,7 @@ export async function startFavoriteAiMonitor(input: {
       WHERE user_email = $2 AND code = $3 AND status = 'ACTIVE'
     )
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at
   `, [id, input.userEmail.trim().toLowerCase(), String(input.code), input.name,
        input.entryPrice, input.aiPower, input.takeProfit, input.stopLoss]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
@@ -171,7 +171,7 @@ export async function cancelFavoriteAiMonitor(userEmail: string, code: string) {
     SET status = 'CANCELLED', completed_at = NOW(), updated_at = NOW()
     WHERE user_email = $1 AND code = $2 AND status = 'ACTIVE'
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at
   `, [userEmail.trim().toLowerCase(), String(code)]);
   return result.rows.map(mapRow);
 }
@@ -185,7 +185,7 @@ export async function completeFavoriteAiMonitor(
     SET status = $2, completed_at = NOW(), updated_at = NOW()
     WHERE id = $1 AND status = 'ACTIVE'
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at
   `, [id, status]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
