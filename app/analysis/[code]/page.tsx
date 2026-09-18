@@ -583,7 +583,7 @@ export default function AnalysisPage() {
         <div className="mx-auto max-w-2xl pt-10">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-400" />
-            <p className="mt-4 text-lg font-black">AI分析データを取得しています</p>
+            <p className="mt-4 text-base font-black">AI分析データを取得しています</p>
             <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-300">
               AI POWER・利益とリスク・学習データを確認しています。
             </p>
@@ -696,8 +696,8 @@ export default function AnalysisPage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-2xl px-3 pt-3 min-[380px]:px-4">
-        <header className="sticky top-0 z-30 -mx-3 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95 min-[380px]:-mx-4 min-[380px]:px-4">
+      <div className="mx-auto w-full max-w-2xl px-3 pt-2 min-[380px]:px-4">
+        <header className="sticky top-0 z-30 -mx-3 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95 min-[380px]:-mx-4 min-[380px]:px-4">
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/scan-mobile"
@@ -728,7 +728,7 @@ export default function AnalysisPage() {
           </div>
         </header>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="shrink-0 text-sm font-bold text-slate-500 dark:text-slate-300">{signal.code}</span>
             <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100 min-[380px]:text-2xl">{signal.name}</h1>
@@ -741,7 +741,7 @@ export default function AnalysisPage() {
           </div>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-slate-900">
+        <section className="mt-2 rounded-xl border border-blue-200 bg-white p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black text-blue-600 dark:text-blue-400">総合評価</p>
@@ -749,10 +749,10 @@ export default function AnalysisPage() {
             </div>
             <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${getJudgeColor(power)}`}>{judgeIcon} {judge}</span>
           </div>
-          <div className="mt-3 flex items-end gap-3">
+          <div className="mt-2 flex items-end gap-2">
             <div>
               <p className="text-xs font-black tracking-wide text-slate-500 dark:text-slate-300">AI POWER</p>
-              <p className={`mt-1 text-6xl font-black leading-none ${getPowerColor(power)}`}>{power}</p>
+              <p className={`mt-1 text-5xl font-black leading-none ${getPowerColor(power)}`}>{power}</p>
             </div>
             <div className="mb-1 min-w-0 border-l border-slate-200 pl-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-300">
               <p className="font-bold">補助評価</p>
@@ -765,26 +765,26 @@ export default function AnalysisPage() {
 
         <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
 
-        <section className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 shadow-sm dark:border-orange-800 dark:bg-slate-900">
+        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm dark:border-orange-800 dark:bg-slate-900">
           <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">今の価格で取る行動</p>
-          <p className="mt-3 text-lg font-black leading-7 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
+          <p className="mt-3 text-base font-black leading-7 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-300">売買前に、下の利益・損失目安とチャートをご確認ください。</p>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">重要指標</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
             <Info label="必要資金" value={yen(requiredMoney)} />
             <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
             <Info label="出来高" value={`${volumeRatio}倍`} />
           </div>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-lg font-black">利益とリスク</h2>
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">利益とリスク</h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">利益だけでなく、損失の目安も同じように確認してください。</p>
-          <div className="mt-3 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">利益確定目安</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
@@ -802,9 +802,9 @@ export default function AnalysisPage() {
           </div>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-lg font-black">主な判断理由</h2>
-          <div className="mt-3 space-y-2">
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">主な判断理由</h2>
+          <div className="mt-2 space-y-1.5">
             {visibleReasons.map((item, index) => (
               <div key={`${item}-${index}`} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
                 <span className="mt-1 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-blue-100 text-[10px] font-black text-blue-700 dark:bg-slate-800 dark:text-blue-300">✓</span>
@@ -819,9 +819,9 @@ export default function AnalysisPage() {
           )}
         </section>
 
-        <section className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm dark:border-blue-800 dark:bg-slate-900">
-          <h2 className="text-lg font-black">AIコメント</h2>
-          <ul className="mt-3 space-y-2">
+        <section className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
+          <h2 className="text-base font-black">AIコメント</h2>
+          <ul className="mt-2 space-y-1.5">
             {aiCommentLines.map((line, index) => (
               <li key={`${line}-${index}`} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300"><span className="text-blue-600 dark:text-blue-400">・</span><span>{line}</span></li>
             ))}
@@ -836,9 +836,9 @@ export default function AnalysisPage() {
           </div>
         </Link>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="text-lg font-black">テクニカル情報</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">売買判断を補助する指標</p></div><span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getSupportResistanceStyle(supportResistanceStatus)}`}>{getSupportResistanceLabel(supportResistanceStatus)}</span></div>
-          <div className="mt-3 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="text-base font-black">テクニカル情報</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">売買判断を補助する指標</p></div><span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getSupportResistanceStyle(supportResistanceStatus)}`}>{getSupportResistanceLabel(supportResistanceStatus)}</span></div>
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
             <Mini label="RSI" value={`${rsi} / ${getRsiComment(rsi)}`} compact valueClass={getRsiColor(rsi)} />
             <Mini label="出来高" value={`${volumeRatio}倍`} compact />
             <Mini label="検出パターン" value={getPatternText(signal.patternSignal)} compact />
@@ -850,10 +850,10 @@ export default function AnalysisPage() {
           <PatternList detectedPatterns={signal.detectedPatterns} code={signal.code} />
         </section>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-black">過去成績</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">過去のAI判定結果</p></div><div className="text-right"><p className="text-xs text-slate-500 dark:text-slate-300">実績スコア</p><p className="text-xl font-black text-blue-600 dark:text-blue-400">{historyStats && historyStats.total > 0 ? (performance?.reliability.score ?? "-") : "蓄積中"}</p><p className="text-xs text-amber-500" aria-label={`実績信頼度5段階中${getEvidenceConfidenceStars(historyStats?.judged ?? 0)}`}>{formatStars(getEvidenceConfidenceStars(historyStats?.judged ?? 0))}</p></div></div>
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-black">過去成績</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">過去のAI判定結果</p></div><div className="text-right"><p className="text-xs text-slate-500 dark:text-slate-300">実績スコア</p><p className="text-xl font-black text-blue-600 dark:text-blue-400">{historyStats && historyStats.total > 0 ? (performance?.reliability.score ?? "-") : "蓄積中"}</p><p className="text-xs text-amber-500" aria-label={`実績信頼度5段階中${getEvidenceConfidenceStars(historyStats?.judged ?? 0)}`}>{formatStars(getEvidenceConfidenceStars(historyStats?.judged ?? 0))}</p></div></div>
           {learningError && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-slate-800 dark:text-amber-300">学習データの一部を取得できませんでした。個別解析の内容はそのまま確認できます。</p>}
-          <div className="mt-3 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
             <PerformanceMini label="直近30件" value={historyStats && historyStats.recent30.total > 0 ? `${historyStats.recent30.win}勝${historyStats.recent30.lose}敗` : "データ蓄積中"} />
             <PerformanceMini label="累計損益" value={historyStats?.cumulativeProfit === null || !historyStats ? "-" : `${historyStats.cumulativeProfit >= 0 ? "+" : ""}${yen(historyStats.cumulativeProfit)}`} valueClass={(historyStats?.cumulativeProfit ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} />
             <PerformanceMini label="直近30件勝率" value={historyStats?.recent30.winRate === null || !historyStats ? "データ蓄積中" : `${historyStats.recent30.winRate}%`} valueClass="text-blue-600 dark:text-blue-400" />
@@ -864,14 +864,14 @@ export default function AnalysisPage() {
           <Link href={`/analysis/${signal.code}/performance`} className="mt-3 flex min-h-12 items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 font-bold text-blue-700 transition active:scale-[0.99] dark:border-blue-800 dark:bg-slate-800 dark:text-blue-300"><span>詳しいAI実績を見る</span><span aria-hidden="true">→</span></Link>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-lg font-black">AI学習データ</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">AI学習データ</h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
           <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800"><p className="text-xs font-bold text-slate-500 dark:text-slate-300">AI勝率</p><p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p></div>
           <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
         </section>
 
-        <section className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-slate-900">
+        <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-slate-900">
           <h2 className="text-sm font-black text-amber-800 dark:text-amber-300">投資上の注意</h2>
           <p className="mt-2 text-xs font-medium leading-6 text-amber-900 dark:text-amber-200">SIGNALXは投資判断をサポートする情報提供サービスです。AI判定・スコア・利益確定／損失を抑える目安は将来の利益を保証するものではありません。最終判断はご自身の責任で行ってください。</p>
         </section>
@@ -891,7 +891,7 @@ function Info({
   valueClass?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-3 dark:bg-slate-800">
+    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800">
       <p className="text-[10px] font-bold leading-tight text-slate-500 dark:text-slate-300">{label}</p>
       <p className={`mt-1 break-words text-base font-black leading-tight text-slate-950 dark:text-slate-100 ${valueClass}`}>
         {value}
@@ -912,7 +912,7 @@ function Mini({
   valueClass?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-800">
+    <div className="min-w-0 rounded-lg bg-slate-50 p-2 text-center dark:bg-slate-800">
       <p className="break-words text-[10px] font-bold text-slate-500 dark:text-slate-300">{label}</p>
       <p
         className={`${compact ? "text-sm" : "text-lg"} mt-1 break-words font-black leading-tight text-slate-950 dark:text-slate-100 ${valueClass}`}
@@ -933,7 +933,7 @@ function PerformanceMini({
   valueClass?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-800">
+    <div className="min-w-0 rounded-lg bg-slate-50 p-2 text-center dark:bg-slate-800">
       <p className="break-words text-[10px] font-bold text-slate-500 dark:text-slate-300">{label}</p>
       <p className={`mt-2 break-words text-sm font-black text-slate-950 dark:text-slate-100 ${valueClass}`}>{value}</p>
     </div>
