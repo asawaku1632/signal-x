@@ -21,3 +21,12 @@ WHERE status = 'ACTIVE';
 
 CREATE INDEX IF NOT EXISTS favorite_ai_monitors_status_idx
 ON public.favorite_ai_monitors (status, triggered_at);
+
+-- LINE recipient binding is intentionally separate from favorites.
+-- A monitor may exist before a user has connected LINE.
+CREATE TABLE IF NOT EXISTS public.line_user_bindings (
+  user_email TEXT PRIMARY KEY,
+  line_user_id TEXT NOT NULL UNIQUE,
+  linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
