@@ -4,9 +4,10 @@ import {
   claimFavoriteResultNotification,
   completeFavoriteAiMonitor,
   getActiveFavoriteAiMonitors,
+  markFavoriteActivationNotified,
   releaseFavoriteResultNotification,
 } from "@/app/lib/favoriteAiMonitor";
-import { favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
+import { favoriteBuyMessage, favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 
 type Stock = { code: string; price?: number };
@@ -33,6 +34,22 @@ export async function GET(req: Request) {
   for (const monitor of monitors) {
     const stock = stocks.find((item) => String(item.code) === monitor.code);
     const currentPrice = Number(stock?.price ?? 0);
+
+    if (!monitor.activationNotifiedAt) {
+      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+      if (lineUserId) {
+        const line = await pushLineToUser(
+          lineUserId,
+          favoriteBuyMessage(monitor, baseUrl),
+        );
+        if (line.ok) {
+          await markFavoriteActivationNotified(monitor.id);
+        } else {
+          active.push({ ...monitor, currentPrice, state: "ACTIVATION_NOTIFICATION_RETRY" });
+          continue;
+        }
+      }
+    }
 
     if (currentPrice <= 0) {
       active.push({ ...monitor, currentPrice: 0, state: "PRICE_MISSING" });
