@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import PushNotificationButton from "@/app/components/push/PushNotificationButton";
+import LineLinkCard from "@/app/components/line/LineLinkCard";
 
 type SettingLink = {
   href: string;
@@ -197,6 +198,7 @@ export default function MyPage() {
         </section>
 
         <PushNotificationButton />
+        <LineLinkCard />
 
         <section className="mt-5 rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-end justify-between gap-3">
