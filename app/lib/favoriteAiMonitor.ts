@@ -3,6 +3,7 @@ import pool from "@/app/lib/postgres";
 export const FAVORITE_BUY_SCORE = 85;
 
 export type FavoriteAiMonitorStatus = "ACTIVE" | "WIN" | "LOSE" | "CANCELLED";
+export type FavoriteAiWatchState = "ARMED" | "DISARMED";
 
 export type FavoriteAiMonitor = {
   id: string;
@@ -59,6 +60,36 @@ export async function getAllFavorites() {
     code: String(row.code),
     name: row.name,
   }));
+}
+
+export async function getFavoriteAiWatchState(userEmail: string, code: string) {
+  const result = await pool.query<{ state: FavoriteAiWatchState }>(`
+    SELECT state
+    FROM public.favorite_ai_watch_states
+    WHERE user_email = $1 AND code = $2
+    LIMIT 1
+  `, [userEmail.trim().toLowerCase(), String(code)]);
+  return result.rows[0]?.state ?? "ARMED";
+}
+
+export async function setFavoriteAiWatchState(
+  userEmail: string,
+  code: string,
+  state: FavoriteAiWatchState,
+) {
+  await pool.query(`
+    INSERT INTO public.favorite_ai_watch_states (user_email, code, state, updated_at)
+    VALUES ($1, $2, $3, NOW())
+    ON CONFLICT (user_email, code)
+    DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+  `, [userEmail.trim().toLowerCase(), String(code), state]);
+}
+
+export async function removeFavoriteAiWatchState(userEmail: string, code: string) {
+  await pool.query(`
+    DELETE FROM public.favorite_ai_watch_states
+    WHERE user_email = $1 AND code = $2
+  `, [userEmail.trim().toLowerCase(), String(code)]);
 }
 
 export async function getActiveFavoriteAiMonitors() {
