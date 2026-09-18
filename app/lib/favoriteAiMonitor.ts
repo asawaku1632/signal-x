@@ -97,6 +97,17 @@ export async function startFavoriteAiMonitor(input: {
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
+export async function cancelFavoriteAiMonitor(userEmail: string, code: string) {
+  const result = await pool.query<MonitorRow>(`
+    UPDATE public.favorite_ai_monitors
+    SET status = 'CANCELLED', completed_at = NOW(), updated_at = NOW()
+    WHERE user_email = $1 AND code = $2 AND status = 'ACTIVE'
+    RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
+              take_profit, stop_loss, status, completed_at
+  `, [userEmail.trim().toLowerCase(), String(code)]);
+  return result.rows.map(mapRow);
+}
+
 export async function completeFavoriteAiMonitor(
   id: string,
   status: Extract<FavoriteAiMonitorStatus, "WIN" | "LOSE" | "CANCELLED">,
