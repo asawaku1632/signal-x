@@ -17,6 +17,7 @@ export type FavoriteAiMonitor = {
   stopLoss: number;
   status: FavoriteAiMonitorStatus;
   completedAt: string | null;
+  activationNotifiedAt: string | null;
 };
 
 type MonitorRow = {
@@ -31,6 +32,7 @@ type MonitorRow = {
   stop_loss: number | string;
   status: FavoriteAiMonitorStatus;
   completed_at: Date | string | null;
+  activation_notified_at: Date | string | null;
 };
 
 function mapRow(row: MonitorRow): FavoriteAiMonitor {
@@ -46,6 +48,9 @@ function mapRow(row: MonitorRow): FavoriteAiMonitor {
     stopLoss: Number(row.stop_loss),
     status: row.status,
     completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
+    activationNotifiedAt: row.activation_notified_at
+      ? new Date(row.activation_notified_at).toISOString()
+      : null,
   };
 }
 
@@ -95,7 +100,7 @@ export async function removeFavoriteAiWatchState(userEmail: string, code: string
 export async function getActiveFavoriteAiMonitors() {
   const result = await pool.query<MonitorRow>(`
     SELECT id, user_email, code, name, triggered_at, entry_price, ai_power,
-           take_profit, stop_loss, status, completed_at
+           take_profit, stop_loss, status, completed_at, activation_notified_at
     FROM public.favorite_ai_monitors
     WHERE status = 'ACTIVE'
     ORDER BY triggered_at ASC
@@ -122,7 +127,7 @@ export async function startFavoriteAiMonitor(input: {
       WHERE user_email = $2 AND code = $3 AND status = 'ACTIVE'
     )
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
   `, [id, input.userEmail.trim().toLowerCase(), String(input.code), input.name,
        input.entryPrice, input.aiPower, input.takeProfit, input.stopLoss]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
@@ -166,7 +171,7 @@ export async function cancelFavoriteAiMonitor(userEmail: string, code: string) {
     SET status = 'CANCELLED', completed_at = NOW(), updated_at = NOW()
     WHERE user_email = $1 AND code = $2 AND status = 'ACTIVE'
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
   `, [userEmail.trim().toLowerCase(), String(code)]);
   return result.rows.map(mapRow);
 }
@@ -180,7 +185,7 @@ export async function completeFavoriteAiMonitor(
     SET status = $2, completed_at = NOW(), updated_at = NOW()
     WHERE id = $1 AND status = 'ACTIVE'
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at
+              take_profit, stop_loss, status, completed_at, activation_notified_at, activation_notified_at
   `, [id, status]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
