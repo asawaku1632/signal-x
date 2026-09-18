@@ -128,6 +128,38 @@ export async function startFavoriteAiMonitor(input: {
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
+export async function markFavoriteActivationNotified(id: string) {
+  await pool.query(`
+    UPDATE public.favorite_ai_monitors
+    SET activation_notified_at = COALESCE(activation_notified_at, NOW()),
+        updated_at = NOW()
+    WHERE id = $1
+  `, [id]);
+}
+
+export async function claimFavoriteResultNotification(id: string) {
+  const result = await pool.query<{ id: string }>(`
+    UPDATE public.favorite_ai_monitors
+    SET result_notification_claimed_at = NOW(), updated_at = NOW()
+    WHERE id = $1
+      AND status = 'ACTIVE'
+      AND (
+        result_notification_claimed_at IS NULL
+        OR result_notification_claimed_at < NOW() - INTERVAL '5 minutes'
+      )
+    RETURNING id
+  `, [id]);
+  return Boolean(result.rows[0]);
+}
+
+export async function releaseFavoriteResultNotification(id: string) {
+  await pool.query(`
+    UPDATE public.favorite_ai_monitors
+    SET result_notification_claimed_at = NULL, updated_at = NOW()
+    WHERE id = $1 AND status = 'ACTIVE'
+  `, [id]);
+}
+
 export async function cancelFavoriteAiMonitor(userEmail: string, code: string) {
   const result = await pool.query<MonitorRow>(`
     UPDATE public.favorite_ai_monitors
