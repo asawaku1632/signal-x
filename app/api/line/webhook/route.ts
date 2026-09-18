@@ -40,7 +40,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "invalid signature" }, { status: 401 });
   }
 
-  const payload = JSON.parse(body) as { events?: LineEvent[] };
+  let payload: { events?: LineEvent[] };
+  try {
+    payload = JSON.parse(body) as { events?: LineEvent[] };
+  } catch {
+    return NextResponse.json({ success: false, error: "invalid json" }, { status: 400 });
+  }
+
   for (const event of payload.events ?? []) {
     if (
       event.type !== "message" ||
