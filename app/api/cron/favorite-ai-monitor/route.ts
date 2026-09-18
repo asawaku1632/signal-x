@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
+  claimFavoriteActivationNotification,
   getAllFavorites,
   getFavoriteAiWatchState,
   markFavoriteActivationNotified,
+  releaseFavoriteActivationNotification,
   setFavoriteAiWatchState,
   startFavoriteAiMonitor,
 } from "@/app/lib/favoriteAiMonitor";
@@ -83,13 +85,18 @@ export async function GET(req: Request) {
       let lineSent = false;
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       if (lineDeliveryEnabled && lineUserId) {
-        const line = await pushLineToUser(
-          lineUserId,
-          favoriteBuyMessage(monitor, baseUrl),
-        );
-        lineSent = line.ok;
-        if (line.ok) {
-          await markFavoriteActivationNotified(monitor.id);
+        const claimed = await claimFavoriteActivationNotification(monitor.id);
+        if (claimed) {
+          const line = await pushLineToUser(
+            lineUserId,
+            favoriteBuyMessage(monitor, baseUrl),
+          );
+          lineSent = line.ok;
+          if (line.ok) {
+            await markFavoriteActivationNotified(monitor.id);
+          } else {
+            await releaseFavoriteActivationNotification(monitor.id);
+          }
         }
       }
       started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId) });
