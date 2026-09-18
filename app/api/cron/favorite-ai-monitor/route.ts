@@ -21,6 +21,8 @@ type Stock = {
   stopLoss?: number;
 };
 
+const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
+
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -80,7 +82,7 @@ export async function GET(req: Request) {
       await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "DISARMED");
       let lineSent = false;
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-      if (lineUserId) {
+      if (lineDeliveryEnabled && lineUserId) {
         const line = await pushLineToUser(
           lineUserId,
           favoriteBuyMessage(monitor, baseUrl),
@@ -102,5 +104,6 @@ export async function GET(req: Request) {
     waitingCount: waiting.length,
     started,
     waiting,
+    lineDeliveryEnabled,
   });
 }
