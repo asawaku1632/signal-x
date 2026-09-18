@@ -1,6 +1,6 @@
 import pool from "@/app/lib/postgres";
 
-export async function getLineUserId(userEmail: string) {
+export async function getLineUserIdByEmail(userEmail: string) {
   const result = await pool.query<{ line_user_id: string }>(`
     SELECT line_user_id
     FROM public.line_user_bindings
