@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.favorite_ai_monitors (
     CHECK (status IN ('ACTIVE', 'WIN', 'LOSE', 'CANCELLED')),
   completed_at TIMESTAMPTZ,
   activation_notified_at TIMESTAMPTZ,
+  activation_notification_claimed_at TIMESTAMPTZ,
   result_notification_claimed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
