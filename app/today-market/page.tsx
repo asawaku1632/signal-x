@@ -100,17 +100,17 @@ export default function TodayMarketPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
-      <div className="mx-auto max-w-md px-4 pt-4">
+      <div className="mx-auto max-w-md px-3 pt-2">
         <header className="flex items-center justify-between mb-4">
           <Link
             href="/dashboard"
-            className="w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-2xl"
+            className="w-10 h-10 rounded-xl bg-white shadow flex items-center justify-center text-2xl"
           >
             ‹
           </Link>
 
           <div className="text-center">
-            <div className="text-3xl font-black tracking-tight">
+            <div className="text-2xl font-black tracking-tight">
               SIGNAL<span className="text-blue-600">X</span>
             </div>
             <div className="text-xs font-black tracking-[0.22em] text-slate-500">
@@ -118,14 +118,14 @@ export default function TodayMarketPage() {
             </div>
           </div>
 
-          <button className="relative w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-lg">
+          <button className="relative w-10 h-10 rounded-xl bg-white shadow flex items-center justify-center text-lg">
             🔔
             <span className="absolute right-3 top-3 w-2 h-2 bg-red-500 rounded-full" />
           </button>
         </header>
 
-        <section className="mb-3">
-          <h1 className="whitespace-nowrap text-3xl font-black leading-tight">
+        <section className="mb-2">
+          <h1 className="whitespace-nowrap text-2xl font-black leading-tight">
             🤖 今日の市場
           </h1>
           <div className="mt-1 flex min-w-0 items-start justify-between gap-2">
@@ -143,7 +143,7 @@ export default function TodayMarketPage() {
           )}
         </section>
 
-        <section className="relative overflow-hidden rounded-[22px] border border-green-400 bg-gradient-to-br from-white to-green-50 p-4 mb-4 shadow-sm">
+        <section className="relative overflow-hidden rounded-2xl border border-green-400 bg-gradient-to-br from-white to-green-50 p-3 mb-2 shadow-sm">
           <div className="absolute right-0 bottom-0 text-green-200 text-8xl opacity-35">
             📈
           </div>
@@ -152,11 +152,11 @@ export default function TodayMarketPage() {
             <div>
               <p className="text-sm font-black mb-1">AI市場評価</p>
 
-              <div className="text-[64px] leading-none font-black text-green-600">
+              <div className="text-[52px] leading-none font-black text-green-600">
                 {marketData.grade}
               </div>
 
-              <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-2 text-green-700 font-black text-sm">
+              <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-green-100 px-2.5 py-1.5 text-green-700 font-black text-xs">
                 <span>市場状況</span>
                 <span>●</span>
                 <span>{marketData.marketCondition}</span>
@@ -164,10 +164,10 @@ export default function TodayMarketPage() {
             </div>
 
             <div className="pl-2">
-              <div className="text-2xl font-black text-green-700 mb-2">
+              <div className="text-xl font-black text-green-700 mb-1">
                 📈 {marketData.action}
               </div>
-              <p className="text-sm leading-6 font-bold">
+              <p className="text-xs leading-5 font-bold">
                 今日は買い候補を探してよい相場です。
                 ただし高値追いは避けましょう
               </p>
@@ -175,7 +175,7 @@ export default function TodayMarketPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 mb-4">
+        <section className="grid grid-cols-2 gap-2 mb-2">
           <Link
             href="/scan-mobile?filter=market-hot&budget=all"
             className="block rounded-2xl transition active:scale-[0.98]"
@@ -218,7 +218,7 @@ export default function TodayMarketPage() {
           />
         </section>
 
-        <section className="rounded-[22px] border border-green-300 bg-gradient-to-br from-white to-green-50 p-4 mb-4 shadow-sm">
+        <section className="rounded-2xl border border-green-300 bg-gradient-to-br from-white to-green-50 p-3 mb-2 shadow-sm">
           <div className="flex justify-between items-start mb-3">
             <div>
               <p className="inline-block bg-green-100 text-green-700 text-sm font-black px-3 py-1 rounded-lg mb-2">
@@ -280,7 +280,7 @@ export default function TodayMarketPage() {
           </Link>
         </section>
 
-        <section className="rounded-[22px] bg-white border border-slate-100 shadow-sm p-4 mb-4">
+        <section className="rounded-2xl bg-white border border-slate-100 shadow-sm p-3 mb-2">
           <h2 className="text-xl font-black mb-3">🎯 今日の戦略</h2>
 
           <div className="grid grid-cols-2 gap-3 text-sm font-black">
@@ -307,7 +307,7 @@ export default function TodayMarketPage() {
             </div>
           </div>
         </section>
-<section className="rounded-[22px] bg-white border border-slate-100 shadow-sm p-4 mb-4">
+<section className="rounded-2xl bg-white border border-slate-100 shadow-sm p-3 mb-2">
   <div className="flex items-center justify-between mb-3">
     <h2 className="text-xl font-black">🏆 AIランキング TOP5</h2>
     <span className="text-xs font-bold text-slate-500">
@@ -349,7 +349,7 @@ export default function TodayMarketPage() {
     ))}
   </div>
 </section>
-        <section className="rounded-[22px] bg-blue-50 border border-blue-200 p-4 mb-4 shadow-sm">
+        <section className="rounded-2xl bg-blue-50 border border-blue-200 p-3 mb-2 shadow-sm">
           <h2 className="text-xl font-black mb-3">💬 AIコメント</h2>
           <p className="text-sm leading-7 font-bold">
             {marketData.comment}
@@ -375,12 +375,12 @@ function InfoCard({
   green?: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-white border border-slate-100 shadow-sm py-4 text-center">
+    <div className="rounded-xl bg-white border border-slate-100 shadow-sm py-3 text-center">
       <p className="text-sm font-black">
         {icon} {title}
       </p>
       <p
-        className={`text-3xl font-black mt-2 leading-none ${
+        className={`text-2xl font-black mt-1.5 leading-none ${
           green ? "text-green-600" : "text-slate-900"
         }`}
       >
