@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
+  claimFavoriteResultNotification,
   completeFavoriteAiMonitor,
   getActiveFavoriteAiMonitors,
+  releaseFavoriteResultNotification,
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
@@ -38,6 +40,11 @@ export async function GET(req: Request) {
     }
 
     if (currentPrice >= monitor.takeProfit) {
+      const claimed = await claimFavoriteResultNotification(monitor.id);
+      if (!claimed) {
+        active.push({ ...monitor, currentPrice, state: "WIN_NOTIFICATION_IN_PROGRESS" });
+        continue;
+      }
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       const line = lineUserId
         ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "WIN", baseUrl))
@@ -46,12 +53,18 @@ export async function GET(req: Request) {
         const result = await completeFavoriteAiMonitor(monitor.id, "WIN");
         if (result) completed.push({ ...result, currentPrice, lineSent: true });
       } else {
+        await releaseFavoriteResultNotification(monitor.id);
         active.push({ ...monitor, currentPrice, state: "WIN_PENDING_NOTIFICATION", lineLinked: Boolean(lineUserId) });
       }
       continue;
     }
 
     if (currentPrice <= monitor.stopLoss) {
+      const claimed = await claimFavoriteResultNotification(monitor.id);
+      if (!claimed) {
+        active.push({ ...monitor, currentPrice, state: "LOSE_NOTIFICATION_IN_PROGRESS" });
+        continue;
+      }
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       const line = lineUserId
         ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "LOSE", baseUrl))
@@ -60,6 +73,7 @@ export async function GET(req: Request) {
         const result = await completeFavoriteAiMonitor(monitor.id, "LOSE");
         if (result) completed.push({ ...result, currentPrice, lineSent: true });
       } else {
+        await releaseFavoriteResultNotification(monitor.id);
         active.push({ ...monitor, currentPrice, state: "LOSE_PENDING_NOTIFICATION", lineLinked: Boolean(lineUserId) });
       }
       continue;
