@@ -5,6 +5,8 @@ import {
   getAllFavorites,
   startFavoriteAiMonitor,
 } from "@/app/lib/favoriteAiMonitor";
+import { favoriteBuyMessage } from "@/app/lib/line/favoriteAlerts";
+import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 
 type Stock = {
   code: string;
@@ -56,7 +58,18 @@ export async function GET(req: Request) {
       takeProfit,
       stopLoss,
     });
-    if (monitor) started.push(monitor);
+    if (monitor) {
+      let lineSent = false;
+      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+      if (lineUserId) {
+        const line = await pushLineToUser(
+          lineUserId,
+          favoriteBuyMessage(monitor, baseUrl),
+        );
+        lineSent = line.ok;
+      }
+      started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId) });
+    }
   }
 
   return NextResponse.json({
