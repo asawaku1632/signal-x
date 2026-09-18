@@ -34,11 +34,11 @@
     },
     {
       "path": "/api/cron/favorite-ai-monitor",
-      "schedule": "*/10 0-6 * * 1-5"
+      "schedule": "0 0 * * 1-5"
     },
     {
       "path": "/api/cron/favorite-ai-check",
-      "schedule": "5-59/10 0-6 * * 1-5"
+      "schedule": "5 0 * * 1-5"
     }
   ]
 }
