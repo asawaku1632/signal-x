@@ -32,8 +32,6 @@ type MonitorRow = {
   completed_at: Date | string | null;
 };
 
-let tableReadyPromise: Promise<void> | null = null;
-
 function mapRow(row: MonitorRow): FavoriteAiMonitor {
   return {
     id: row.id,
@@ -50,35 +48,20 @@ function mapRow(row: MonitorRow): FavoriteAiMonitor {
   };
 }
 
-async function ensureTable() {
-  if (!tableReadyPromise) {
-    tableReadyPromise = pool.query(`
-      CREATE TABLE IF NOT EXISTS public.favorite_ai_monitors (
-        id TEXT PRIMARY KEY,
-        user_email TEXT NOT NULL,
-        code TEXT NOT NULL,
-        name TEXT NOT NULL,
-        triggered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        entry_price DOUBLE PRECISION NOT NULL,
-        ai_power INTEGER NOT NULL,
-        take_profit DOUBLE PRECISION NOT NULL,
-        stop_loss DOUBLE PRECISION NOT NULL,
-        status TEXT NOT NULL DEFAULT 'ACTIVE'
-          CHECK (status IN ('ACTIVE', 'WIN', 'LOSE', 'CANCELLED')),
-        completed_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `).then(() => undefined).catch((error) => {
-      tableReadyPromise = null;
-      throw error;
-    });
-  }
-  return tableReadyPromise;
+export async function getAllFavorites() {
+  const result = await pool.query<{ user_email: string; code: string; name: string }>(`
+    SELECT user_email, code, name
+    FROM public.user_favorites
+    ORDER BY user_email, added_at
+  `);
+  return result.rows.map((row) => ({
+    userEmail: row.user_email.trim().toLowerCase(),
+    code: String(row.code),
+    name: row.name,
+  }));
 }
 
 export async function getActiveFavoriteAiMonitors() {
-  await ensureTable();
   const result = await pool.query<MonitorRow>(`
     SELECT id, user_email, code, name, triggered_at, entry_price, ai_power,
            take_profit, stop_loss, status, completed_at
@@ -87,16 +70,6 @@ export async function getActiveFavoriteAiMonitors() {
     ORDER BY triggered_at ASC
   `);
   return result.rows.map(mapRow);
-}
-
-export async function hasActiveFavoriteAiMonitor(userEmail: string, code: string) {
-  await ensureTable();
-  const result = await pool.query(`
-    SELECT 1 FROM public.favorite_ai_monitors
-    WHERE user_email = $1 AND code = $2 AND status = 'ACTIVE'
-    LIMIT 1
-  `, [userEmail.trim().toLowerCase(), String(code)]);
-  return (result.rowCount ?? 0) > 0;
 }
 
 export async function startFavoriteAiMonitor(input: {
@@ -108,7 +81,6 @@ export async function startFavoriteAiMonitor(input: {
   takeProfit: number;
   stopLoss: number;
 }) {
-  await ensureTable();
   const id = `${Date.now()}-${input.code}-${Math.random().toString(36).slice(2, 8)}`;
   const result = await pool.query<MonitorRow>(`
     INSERT INTO public.favorite_ai_monitors
@@ -120,16 +92,8 @@ export async function startFavoriteAiMonitor(input: {
     )
     RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
               take_profit, stop_loss, status, completed_at
-  `, [
-    id,
-    input.userEmail.trim().toLowerCase(),
-    String(input.code),
-    input.name,
-    input.entryPrice,
-    input.aiPower,
-    input.takeProfit,
-    input.stopLoss,
-  ]);
+  `, [id, input.userEmail.trim().toLowerCase(), String(input.code), input.name,
+       input.entryPrice, input.aiPower, input.takeProfit, input.stopLoss]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
@@ -137,7 +101,6 @@ export async function completeFavoriteAiMonitor(
   id: string,
   status: Extract<FavoriteAiMonitorStatus, "WIN" | "LOSE" | "CANCELLED">,
 ) {
-  await ensureTable();
   const result = await pool.query<MonitorRow>(`
     UPDATE public.favorite_ai_monitors
     SET status = $2, completed_at = NOW(), updated_at = NOW()
