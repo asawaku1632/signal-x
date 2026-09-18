@@ -30,6 +30,6 @@ export async function POST() {
     success: true,
     token,
     expiresInSeconds: 600,
-    instructions: "このトークンをLINE公式アカウントへ送信して連携を完了します",
+    instructions: `LINE公式アカウントへ「SIGNALX LINK ${token}」と送信して連携を完了します`,
   });
 }
