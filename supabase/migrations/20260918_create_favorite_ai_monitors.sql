@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.favorite_ai_monitors (
   name TEXT NOT NULL,
   triggered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   entry_price DOUBLE PRECISION NOT NULL,
-  ai_power INTEGER NOT NULL,
+  ai_power DOUBLE PRECISION NOT NULL,
   take_profit DOUBLE PRECISION NOT NULL,
   stop_loss DOUBLE PRECISION NOT NULL,
   status TEXT NOT NULL DEFAULT 'ACTIVE'
