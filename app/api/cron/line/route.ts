@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
-import { saveNotificationLog } from "@/app/lib/notificationLog";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
@@ -371,30 +370,14 @@ export async function GET(req: Request) {
       details: { topCode: top.code, rankingCount: ranking.length },
     });
 
-    let savedLog = null;
-
-    try {
-      savedLog = await saveNotificationLog({
-        code: top.code,
-        name: top.name,
-        price,
-        aiPower: score,
-        judge: tradeDecision(score),
-        takeProfit,
-        stopLoss,
-      });
-    } catch (error) {
-      console.error("saveNotificationLog failed", error);
-    }
-
     return NextResponse.json({
       success: true,
       status: line.status,
       response: line.text,
       top,
-      savedLog,
       rankingCount: ranking.length,
       messagePreview: message,
+      profitLossMonitoring: "favorite-ai-only",
     });
   } catch (error: unknown) {
     const errorMessage =
