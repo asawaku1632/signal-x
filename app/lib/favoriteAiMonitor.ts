@@ -18,6 +18,8 @@ export type FavoriteAiMonitor = {
   status: FavoriteAiMonitorStatus;
   completedAt: string | null;
   activationNotifiedAt: string | null;
+  resultPrice: number | null;
+  resultNotifiedAt: string | null;
 };
 
 type MonitorRow = {
@@ -33,7 +35,15 @@ type MonitorRow = {
   status: FavoriteAiMonitorStatus;
   completed_at: Date | string | null;
   activation_notified_at: Date | string | null;
+  result_price: number | string | null;
+  result_notified_at: Date | string | null;
 };
+
+const monitorColumns = `
+  id, user_email, code, name, triggered_at, entry_price, ai_power,
+  take_profit, stop_loss, status, completed_at, activation_notified_at,
+  result_price, result_notified_at
+`;
 
 function mapRow(row: MonitorRow): FavoriteAiMonitor {
   return {
@@ -50,6 +60,10 @@ function mapRow(row: MonitorRow): FavoriteAiMonitor {
     completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
     activationNotifiedAt: row.activation_notified_at
       ? new Date(row.activation_notified_at).toISOString()
+      : null,
+    resultPrice: row.result_price == null ? null : Number(row.result_price),
+    resultNotifiedAt: row.result_notified_at
+      ? new Date(row.result_notified_at).toISOString()
       : null,
   };
 }
@@ -77,11 +91,7 @@ export async function getFavoriteAiWatchState(userEmail: string, code: string) {
   return result.rows[0]?.state ?? "ARMED";
 }
 
-export async function setFavoriteAiWatchState(
-  userEmail: string,
-  code: string,
-  state: FavoriteAiWatchState,
-) {
+export async function setFavoriteAiWatchState(userEmail: string, code: string, state: FavoriteAiWatchState) {
   await pool.query(`
     INSERT INTO public.favorite_ai_watch_states (user_email, code, state, updated_at)
     VALUES ($1, $2, $3, NOW())
@@ -99,8 +109,7 @@ export async function removeFavoriteAiWatchState(userEmail: string, code: string
 
 export async function getActiveFavoriteAiMonitors() {
   const result = await pool.query<MonitorRow>(`
-    SELECT id, user_email, code, name, triggered_at, entry_price, ai_power,
-           take_profit, stop_loss, status, completed_at, activation_notified_at
+    SELECT ${monitorColumns}
     FROM public.favorite_ai_monitors
     WHERE status = 'ACTIVE'
     ORDER BY triggered_at ASC
@@ -108,14 +117,21 @@ export async function getActiveFavoriteAiMonitors() {
   return result.rows.map(mapRow);
 }
 
+export async function getPendingFavoriteResultNotifications() {
+  const result = await pool.query<MonitorRow>(`
+    SELECT ${monitorColumns}
+    FROM public.favorite_ai_monitors
+    WHERE status IN ('WIN', 'LOSE')
+      AND result_price IS NOT NULL
+      AND result_notified_at IS NULL
+    ORDER BY completed_at ASC
+  `);
+  return result.rows.map(mapRow);
+}
+
 export async function startFavoriteAiMonitor(input: {
-  userEmail: string;
-  code: string;
-  name: string;
-  entryPrice: number;
-  aiPower: number;
-  takeProfit: number;
-  stopLoss: number;
+  userEmail: string; code: string; name: string; entryPrice: number;
+  aiPower: number; takeProfit: number; stopLoss: number;
 }) {
   const id = `${Date.now()}-${input.code}-${Math.random().toString(36).slice(2, 8)}`;
   const result = await pool.query<MonitorRow>(`
@@ -126,8 +142,7 @@ export async function startFavoriteAiMonitor(input: {
       SELECT 1 FROM public.favorite_ai_monitors
       WHERE user_email = $2 AND code = $3 AND status = 'ACTIVE'
     )
-    RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at
+    RETURNING ${monitorColumns}
   `, [id, input.userEmail.trim().toLowerCase(), String(input.code), input.name,
        input.entryPrice, input.aiPower, input.takeProfit, input.stopLoss]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
@@ -137,13 +152,9 @@ export async function claimFavoriteActivationNotification(id: string) {
   const result = await pool.query<{ id: string }>(`
     UPDATE public.favorite_ai_monitors
     SET activation_notification_claimed_at = NOW(), updated_at = NOW()
-    WHERE id = $1
-      AND status = 'ACTIVE'
-      AND activation_notified_at IS NULL
-      AND (
-        activation_notification_claimed_at IS NULL
-        OR activation_notification_claimed_at < NOW() - INTERVAL '5 minutes'
-      )
+    WHERE id = $1 AND status = 'ACTIVE' AND activation_notified_at IS NULL
+      AND (activation_notification_claimed_at IS NULL
+        OR activation_notification_claimed_at < NOW() - INTERVAL '5 minutes')
     RETURNING id
   `, [id]);
   return Boolean(result.rows[0]);
@@ -161,10 +172,24 @@ export async function markFavoriteActivationNotified(id: string) {
   await pool.query(`
     UPDATE public.favorite_ai_monitors
     SET activation_notified_at = COALESCE(activation_notified_at, NOW()),
-        activation_notification_claimed_at = NULL,
-        updated_at = NOW()
+        activation_notification_claimed_at = NULL, updated_at = NOW()
     WHERE id = $1
   `, [id]);
+}
+
+export async function recordFavoriteAiOutcome(
+  id: string,
+  status: Extract<FavoriteAiMonitorStatus, "WIN" | "LOSE">,
+  resultPrice: number,
+) {
+  const result = await pool.query<MonitorRow>(`
+    UPDATE public.favorite_ai_monitors
+    SET status = $2, result_price = $3, completed_at = NOW(),
+        result_notification_claimed_at = NULL, updated_at = NOW()
+    WHERE id = $1 AND status = 'ACTIVE'
+    RETURNING ${monitorColumns}
+  `, [id, status, resultPrice]);
+  return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
 export async function claimFavoriteResultNotification(id: string) {
@@ -172,11 +197,11 @@ export async function claimFavoriteResultNotification(id: string) {
     UPDATE public.favorite_ai_monitors
     SET result_notification_claimed_at = NOW(), updated_at = NOW()
     WHERE id = $1
-      AND status = 'ACTIVE'
-      AND (
-        result_notification_claimed_at IS NULL
-        OR result_notification_claimed_at < NOW() - INTERVAL '5 minutes'
-      )
+      AND status IN ('WIN', 'LOSE')
+      AND result_price IS NOT NULL
+      AND result_notified_at IS NULL
+      AND (result_notification_claimed_at IS NULL
+        OR result_notification_claimed_at < NOW() - INTERVAL '5 minutes')
     RETURNING id
   `, [id]);
   return Boolean(result.rows[0]);
@@ -186,7 +211,16 @@ export async function releaseFavoriteResultNotification(id: string) {
   await pool.query(`
     UPDATE public.favorite_ai_monitors
     SET result_notification_claimed_at = NULL, updated_at = NOW()
-    WHERE id = $1 AND status = 'ACTIVE'
+    WHERE id = $1 AND status IN ('WIN', 'LOSE') AND result_notified_at IS NULL
+  `, [id]);
+}
+
+export async function markFavoriteResultNotified(id: string) {
+  await pool.query(`
+    UPDATE public.favorite_ai_monitors
+    SET result_notified_at = COALESCE(result_notified_at, NOW()),
+        result_notification_claimed_at = NULL, updated_at = NOW()
+    WHERE id = $1 AND status IN ('WIN', 'LOSE')
   `, [id]);
 }
 
@@ -195,8 +229,7 @@ export async function cancelFavoriteAiMonitor(userEmail: string, code: string) {
     UPDATE public.favorite_ai_monitors
     SET status = 'CANCELLED', completed_at = NOW(), updated_at = NOW()
     WHERE user_email = $1 AND code = $2 AND status = 'ACTIVE'
-    RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at
+    RETURNING ${monitorColumns}
   `, [userEmail.trim().toLowerCase(), String(code)]);
   return result.rows.map(mapRow);
 }
@@ -209,8 +242,7 @@ export async function completeFavoriteAiMonitor(
     UPDATE public.favorite_ai_monitors
     SET status = $2, completed_at = NOW(), updated_at = NOW()
     WHERE id = $1 AND status = 'ACTIVE'
-    RETURNING id, user_email, code, name, triggered_at, entry_price, ai_power,
-              take_profit, stop_loss, status, completed_at, activation_notified_at
+    RETURNING ${monitorColumns}
   `, [id, status]);
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
