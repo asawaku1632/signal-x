@@ -43,3 +43,12 @@ CREATE TABLE IF NOT EXISTS public.line_link_tokens (
 
 CREATE INDEX IF NOT EXISTS line_link_tokens_expires_idx
 ON public.line_link_tokens (expires_at);
+
+CREATE TABLE IF NOT EXISTS public.favorite_ai_watch_states (
+  user_email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'ARMED'
+    CHECK (state IN ('ARMED', 'DISARMED')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_email, code)
+);
