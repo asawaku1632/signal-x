@@ -12,6 +12,8 @@ import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 
 type Stock = { code: string; price?: number };
 
+const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
+
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -37,7 +39,7 @@ export async function GET(req: Request) {
 
     if (!monitor.activationNotifiedAt) {
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-      if (lineUserId) {
+      if (lineDeliveryEnabled && lineUserId) {
         const line = await pushLineToUser(
           lineUserId,
           favoriteBuyMessage(monitor, baseUrl),
@@ -63,7 +65,7 @@ export async function GET(req: Request) {
         continue;
       }
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-      const line = lineUserId
+      const line = lineDeliveryEnabled && lineUserId
         ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "WIN", baseUrl))
         : null;
       if (line?.ok) {
@@ -83,7 +85,7 @@ export async function GET(req: Request) {
         continue;
       }
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-      const line = lineUserId
+      const line = lineDeliveryEnabled && lineUserId
         ? await pushLineToUser(lineUserId, favoriteResultMessage(monitor, currentPrice, "LOSE", baseUrl))
         : null;
       if (line?.ok) {
@@ -106,6 +108,6 @@ export async function GET(req: Request) {
     activeCount: active.length,
     completed,
     active,
-    lineDeliveryEnabled: true,
+    lineDeliveryEnabled,
   });
 }
