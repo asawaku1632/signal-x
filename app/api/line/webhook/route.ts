@@ -49,9 +49,11 @@ export async function POST(req: Request) {
       !event.replyToken
     ) continue;
 
-    const token = event.message.text?.trim() ?? "";
-    if (!token) continue;
+    const text = event.message.text?.trim() ?? "";
+    const match = /^SIGNALX\s+LINK\s+([A-Za-z0-9_-]+)$/i.exec(text);
+    if (!match) continue;
 
+    const token = match[1];
     const linked = await consumeLineLinkToken(token, event.source.userId);
     await reply(
       event.replyToken,
