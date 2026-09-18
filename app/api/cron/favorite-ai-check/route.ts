@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
+  claimFavoriteActivationNotification,
   claimFavoriteResultNotification,
   completeFavoriteAiMonitor,
   getActiveFavoriteAiMonitors,
   markFavoriteActivationNotified,
+  releaseFavoriteActivationNotification,
   releaseFavoriteResultNotification,
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteBuyMessage, favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
@@ -40,15 +42,19 @@ export async function GET(req: Request) {
     if (!monitor.activationNotifiedAt) {
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       if (lineDeliveryEnabled && lineUserId) {
-        const line = await pushLineToUser(
-          lineUserId,
-          favoriteBuyMessage(monitor, baseUrl),
-        );
-        if (line.ok) {
-          await markFavoriteActivationNotified(monitor.id);
-        } else {
-          active.push({ ...monitor, currentPrice, state: "ACTIVATION_NOTIFICATION_RETRY" });
-          continue;
+        const claimed = await claimFavoriteActivationNotification(monitor.id);
+        if (claimed) {
+          const line = await pushLineToUser(
+            lineUserId,
+            favoriteBuyMessage(monitor, baseUrl),
+          );
+          if (line.ok) {
+            await markFavoriteActivationNotified(monitor.id);
+          } else {
+            await releaseFavoriteActivationNotification(monitor.id);
+            active.push({ ...monitor, currentPrice, state: "ACTIVATION_NOTIFICATION_RETRY" });
+            continue;
+          }
         }
       }
     }
