@@ -133,10 +133,35 @@ export async function startFavoriteAiMonitor(input: {
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
+export async function claimFavoriteActivationNotification(id: string) {
+  const result = await pool.query<{ id: string }>(`
+    UPDATE public.favorite_ai_monitors
+    SET activation_notification_claimed_at = NOW(), updated_at = NOW()
+    WHERE id = $1
+      AND status = 'ACTIVE'
+      AND activation_notified_at IS NULL
+      AND (
+        activation_notification_claimed_at IS NULL
+        OR activation_notification_claimed_at < NOW() - INTERVAL '5 minutes'
+      )
+    RETURNING id
+  `, [id]);
+  return Boolean(result.rows[0]);
+}
+
+export async function releaseFavoriteActivationNotification(id: string) {
+  await pool.query(`
+    UPDATE public.favorite_ai_monitors
+    SET activation_notification_claimed_at = NULL, updated_at = NOW()
+    WHERE id = $1 AND status = 'ACTIVE' AND activation_notified_at IS NULL
+  `, [id]);
+}
+
 export async function markFavoriteActivationNotified(id: string) {
   await pool.query(`
     UPDATE public.favorite_ai_monitors
     SET activation_notified_at = COALESCE(activation_notified_at, NOW()),
+        activation_notification_claimed_at = NULL,
         updated_at = NOW()
     WHERE id = $1
   `, [id]);
