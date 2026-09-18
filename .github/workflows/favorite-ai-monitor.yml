@@ -2,9 +2,13 @@ name: Favorite AI Monitor
 
 on:
   schedule:
-    # GitHub Actions cron is UTC. These windows cover Tokyo market hours on weekdays.
-    - cron: "*/10 0-5 * * 1-5"
-    - cron: "0 6 * * 1-5"
+    # GitHub Actions cron is UTC. Run every 10 minutes through the full
+    # Tokyo Stock Exchange cash session (09:00-15:30 JST) on weekdays.
+    - cron: "*/10 0-1 * * 1-5"
+    - cron: "0-30/10 2 * * 1-5"
+    - cron: "30-50/10 3 * * 1-5"
+    - cron: "*/10 4-5 * * 1-5"
+    - cron: "0-30/10 6 * * 1-5"
   workflow_dispatch:
 
 concurrency:
