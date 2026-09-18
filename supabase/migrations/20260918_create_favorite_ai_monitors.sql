@@ -54,3 +54,10 @@ CREATE TABLE IF NOT EXISTS public.favorite_ai_watch_states (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_email, code)
 );
+
+-- These tables are server-only. RLS blocks direct client access while the
+-- server-side Postgres connection continues to enforce application auth.
+ALTER TABLE public.favorite_ai_monitors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.favorite_ai_watch_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.line_user_bindings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.line_link_tokens ENABLE ROW LEVEL SECURITY;
