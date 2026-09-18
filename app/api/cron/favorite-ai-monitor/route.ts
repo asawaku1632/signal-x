@@ -3,6 +3,8 @@ import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
   getAllFavorites,
+  getFavoriteAiWatchState,
+  setFavoriteAiWatchState,
   startFavoriteAiMonitor,
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteBuyMessage } from "@/app/lib/line/favoriteAlerts";
@@ -42,8 +44,23 @@ export async function GET(req: Request) {
     const score = Number(stock?.score ?? stock?.aiPower ?? 0);
     const price = Number(stock?.price ?? 0);
 
-    if (!stock || price <= 0 || score < FAVORITE_BUY_SCORE) {
-      waiting.push({ code: favorite.code, score, reason: !stock ? "not_found" : price <= 0 ? "price_missing" : "below_buy_score" });
+    if (!stock || price <= 0) {
+      waiting.push({ code: favorite.code, score, reason: !stock ? "not_found" : "price_missing" });
+      continue;
+    }
+
+    const watchState = await getFavoriteAiWatchState(favorite.userEmail, favorite.code);
+
+    if (score < FAVORITE_BUY_SCORE) {
+      if (watchState === "DISARMED") {
+        await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "ARMED");
+      }
+      waiting.push({ code: favorite.code, score, reason: "below_buy_score", watchState: "ARMED" });
+      continue;
+    }
+
+    if (watchState === "DISARMED") {
+      waiting.push({ code: favorite.code, score, reason: "waiting_for_rearm", watchState });
       continue;
     }
 
@@ -59,6 +76,7 @@ export async function GET(req: Request) {
       stopLoss,
     });
     if (monitor) {
+      await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "DISARMED");
       let lineSent = false;
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       if (lineUserId) {
