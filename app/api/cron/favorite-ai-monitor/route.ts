@@ -4,6 +4,7 @@ import {
   FAVORITE_BUY_SCORE,
   getAllFavorites,
   getFavoriteAiWatchState,
+  markFavoriteActivationNotified,
   setFavoriteAiWatchState,
   startFavoriteAiMonitor,
 } from "@/app/lib/favoriteAiMonitor";
@@ -85,6 +86,9 @@ export async function GET(req: Request) {
           favoriteBuyMessage(monitor, baseUrl),
         );
         lineSent = line.ok;
+        if (line.ok) {
+          await markFavoriteActivationNotified(monitor.id);
+        }
       }
       started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId) });
     }
