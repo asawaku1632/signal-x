@@ -25,8 +25,21 @@ ON public.favorite_ai_monitors (status, triggered_at);
 -- LINE recipient binding is intentionally separate from favorites.
 -- A monitor may exist before a user has connected LINE.
 CREATE TABLE IF NOT EXISTS public.line_user_bindings (
-  user_email TEXT PRIMARY KEY,
+  signalx_user_id UUID PRIMARY KEY,
+  user_email TEXT,
   line_user_id TEXT NOT NULL UNIQUE,
   linked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS public.line_link_tokens (
+  token_hash TEXT PRIMARY KEY,
+  signalx_user_id UUID NOT NULL,
+  user_email TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS line_link_tokens_expires_idx
+ON public.line_link_tokens (expires_at);
