@@ -620,9 +620,12 @@ export default function AnalysisPage() {
       <main className="min-h-screen bg-slate-50 p-4 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
         <div className="mx-auto max-w-2xl pt-10">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <h1 className="text-xl font-black">銘柄データが見つかりません</h1>
-            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-300">
-              銘柄コード {code}
+            <h1 className="text-xl font-black">対象の銘柄が見つかりません</h1>
+            <p className="mt-3 text-sm font-medium leading-6 text-slate-500 dark:text-slate-300">
+              上場廃止・未上場・SIGNALXの分析対象外などの可能性があります。銘柄コードをご確認ください。
+            </p>
+            <p className="mt-2 text-xs font-bold text-slate-400 dark:text-slate-400">
+              入力された銘柄コード：{code}
             </p>
             <Link
               href="/scan-mobile"
