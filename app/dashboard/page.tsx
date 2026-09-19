@@ -263,13 +263,13 @@ export default function HomePage() {
 
     <main className="min-h-screen bg-[#f7f9fc] text-slate-900 pb-24">
 
-      <div className="mx-auto max-w-md px-4 pt-4">
+      <div className="mx-auto max-w-md px-3 pt-2">
 
         <header className="flex items-center justify-between mb-3">
 
           <div>
 
-            <div className="text-4xl font-black tracking-tight">
+            <div className="text-3xl font-black tracking-tight">
 
               SIGNAL<span className="text-blue-600">X</span>
 
@@ -291,7 +291,7 @@ export default function HomePage() {
 
               href="/alerts"
 
-              className="relative w-11 h-11 rounded-2xl bg-white shadow flex items-center justify-center text-lg"
+              className="relative w-10 h-10 rounded-xl bg-white shadow flex items-center justify-center text-lg"
 
             >
 
@@ -333,7 +333,7 @@ export default function HomePage() {
 
     router.push(`/analysis/${keyword}`);
   }}
-  className="bg-white rounded-2xl shadow-sm border border-slate-200 px-4 py-3 mb-3 flex items-center gap-3"
+  className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-2 mb-2 flex items-center gap-3"
 >
   <span className="text-xl">🔍</span>
 
@@ -349,7 +349,7 @@ export default function HomePage() {
   </button>
 </form>
 
-<div className="mb-3 sm:mb-5">
+<div className="mb-2 sm:mb-3">
   <p className="mb-2 text-sm font-black text-slate-600 sm:mb-3">
     予算から銘柄を探す
   </p>
@@ -393,7 +393,7 @@ export default function HomePage() {
   </div>
 </div>
 
-        <section className="rounded-[24px] bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-3 mb-3 shadow-sm sm:p-4">
+        <section className="rounded-2xl bg-gradient-to-br from-white to-blue-50 border border-blue-200 p-2.5 mb-2 shadow-sm sm:p-3">
 
           <Link href="/ai-analysis" className="block">
 
@@ -425,7 +425,7 @@ export default function HomePage() {
 
 
 
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:mt-4">
+          <div className="mt-2 grid grid-cols-4 gap-1.5 sm:mt-3">
 
             <MiniStat
 
@@ -473,7 +473,7 @@ export default function HomePage() {
 
           {aiSummary.topStock && (
 
-            <div className="mt-3 rounded-2xl bg-white/80 border border-blue-100 p-3">
+            <div className="mt-2 rounded-xl bg-white/80 border border-blue-100 p-2.5">
 
               <div className="flex items-center justify-between">
 
@@ -549,7 +549,7 @@ export default function HomePage() {
 
           href="/today-market"
 
-          className="block rounded-2xl border border-green-300 bg-gradient-to-br from-white to-green-50 px-4 py-3 mb-3 shadow-sm"
+          className="block rounded-xl border border-green-300 bg-gradient-to-br from-white to-green-50 px-3 py-2 mb-2 shadow-sm"
 
         >
 
@@ -645,7 +645,7 @@ export default function HomePage() {
 
         <Link
           href="/learning"
-          className="block rounded-2xl bg-blue-50 border border-blue-100 px-3 py-3 mb-3 shadow-sm"
+          className="block rounded-xl bg-blue-50 border border-blue-100 px-3 py-2 mb-2 shadow-sm"
         >
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-black">🧠 AI学習状況</h2>
@@ -742,7 +742,7 @@ export default function HomePage() {
 
 
 
-        <section className="space-y-2 mb-3">
+        <section className="space-y-1.5 mb-2">
 
           <MenuCard
 
@@ -942,11 +942,11 @@ function MiniStat({
 
   return (
 
-    <div className="bg-white rounded-xl py-2 text-center shadow-sm">
+    <div className="bg-white rounded-lg py-1.5 text-center shadow-sm">
 
       <p className="text-[10px] font-black mb-1">{label}</p>
 
-      <p className={`text-xl font-black leading-none ${color}`}>{value}</p>
+      <p className={`text-lg font-black leading-none ${color}`}>{value}</p>
 
     </div>
 
@@ -988,13 +988,13 @@ function MenuCard({
 
       href={href}
 
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3 min-h-[72px]"
+      className="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2 flex items-center gap-2.5 min-h-[58px]"
 
     >
 
       <div
 
-        className={`w-11 h-11 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-xl shrink-0`}
+        className={`w-9 h-9 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-xl shrink-0`}
 
       >
 
@@ -1006,7 +1006,7 @@ function MenuCard({
 
       <div className="flex-1 min-w-0">
 
-        <h3 className="text-lg font-black leading-tight">{title}</h3>
+        <h3 className="text-base font-black leading-tight">{title}</h3>
 
         <p className="text-xs text-slate-500 font-bold leading-4 mt-1">
 
