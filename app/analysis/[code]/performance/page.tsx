@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { formatStars, getEvidenceConfidenceStars } from "@/app/lib/displayMetrics";
 
 type PerformanceItem = {
   date: string;
@@ -14,7 +13,7 @@ type PerformanceItem = {
   result: "WIN" | "LOSE" | "HOLD";
   entryPrice: number;
   exitPrice: number;
-  changePercent: number;
+  changePercent: number | null;
   profitYen: number;
   outcomeLabel: string;
 };
@@ -355,726 +354,133 @@ export default function PerformancePage() {
     rules,
   } = data;
 
-  const aiLevel = getAiLevel(
-    reliability.score,
-    summary30Days.judgedTotal,
-  );
-
-  const overallGrade = getOverallGrade(
-    reliability.score,
-    summary30Days.judgedTotal,
-    summary30Days.winRate,
-  );
-
   return (
-    <main className="min-h-screen bg-[#f7f9fc] pb-16 text-slate-900">
+    <main className="min-h-screen bg-[#f6f8fc] pb-12 text-slate-900">
       <div className="mx-auto max-w-md px-4 pt-4">
-        <header className="sticky top-0 z-30 -mx-4 border-b border-white/70 bg-[#f7f9fc]/85 px-4 pb-3 pt-3 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-slate-200/70 bg-[#f6f8fc]/90 px-4 pb-3 pt-3 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            <Link
-              href={`/analysis/${code}`}
-              className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-2xl font-black shadow-sm transition active:scale-95"
-              aria-label="個別解析へ戻る"
-            >
-              ‹
-            </Link>
-
+            <Link href={`/analysis/${code}`} className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-2xl font-black shadow-sm" aria-label="個別解析へ戻る">‹</Link>
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tight">
-                SIGNAL<span className="text-blue-600">X</span>
-              </div>
-              <div className="text-[10px] font-black tracking-[0.22em] text-slate-500">
-                AI PERFORMANCE
-              </div>
+              <div className="text-3xl font-black tracking-tight">SIGNAL<span className="text-blue-600">X</span></div>
+              <div className="text-[10px] font-black tracking-[0.22em] text-slate-500">AI PERFORMANCE</div>
             </div>
-
-            <Link
-              href="/performance"
-              className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition active:scale-95"
-              aria-label="AI PERFORMANCE CENTER"
-            >
-              🏆
-            </Link>
+            <Link href="/performance" className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm" aria-label="AI PERFORMANCE CENTER">🏆</Link>
           </div>
         </header>
 
-        <section className="mt-5 overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-6 text-white shadow-2xl shadow-blue-200">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-200">
-            AI PERFORMANCE CENTER
-          </p>
-
-          <div className="mt-3 flex items-start justify-between gap-4">
+        <section className="mt-4 overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-lg">
+          <p className="text-[10px] font-black tracking-[0.18em] text-blue-300">30 DAY PERFORMANCE</p>
+          <div className="mt-2 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-black leading-none">
-                {stock.code}
-              </h1>
-              <p className="mt-2 text-xl font-black leading-tight">
-                {stock.name || "銘柄名"}
-              </p>
+              <p className="text-sm font-bold text-slate-300">{stock.code} {stock.name || "銘柄名"}</p>
+              <div className="mt-3 flex items-end gap-2">
+                <p className="text-6xl font-black leading-none">{summary30Days.winRate}<span className="text-2xl">%</span></p>
+                <p className="pb-1 text-xs font-bold text-slate-300">30日勝率</p>
+              </div>
             </div>
-
-            <div className="rounded-3xl bg-white/10 px-4 py-3 text-center backdrop-blur">
-              <p className="text-[10px] font-black text-blue-100">
-                AI Lv.
-              </p>
-              <p className="mt-1 text-4xl font-black">
-                {aiLevel.level}
-              </p>
-              <p className="mt-1 text-[10px] font-bold text-blue-100">
-                {aiLevel.title}
-              </p>
+            <div className={`rounded-2xl px-3 py-2 text-right ${summary30Days.totalProfitYen >= 0 ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
+              <p className="text-[10px] font-bold text-slate-300">100株換算</p>
+              <p className={`mt-1 text-xl font-black ${summary30Days.totalProfitYen >= 0 ? "text-emerald-300" : "text-red-300"}`}>{yen(summary30Days.totalProfitYen)}</p>
             </div>
           </div>
-
-          <p className="mt-5 text-sm font-bold leading-7 text-blue-100">
-            AIが過去どれだけ当ててきたかを、実データで確認できます。
-          </p>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <HeroMini
-              label="30日勝率"
-              value={`${summary30Days.winRate}%`}
-            />
-            <HeroMini
-              label="判定済み"
-              value={`${summary30Days.judgedTotal}件`}
-            />
-            <HeroMini
-              label="累計損益"
-              value={yen(summary30Days.totalProfitYen)}
-            />
+          <div className="mt-5 grid grid-cols-3 divide-x divide-white/10 rounded-2xl bg-white/5 py-3">
+            <SummaryStat label="勝敗" value={`${summary30Days.wins}勝 ${summary30Days.losses}敗`} />
+            <SummaryStat label="HOLD" value={`${summary30Days.holds}件`} />
+            <SummaryStat label="判定済み" value={`${summary30Days.judgedTotal}件`} />
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs font-bold text-slate-300">
+            <span>平均利益 <b className="text-emerald-300">+{summary30Days.averageProfitRate}%</b></span>
+            <span>平均損失 <b className="text-red-300">-{summary30Days.averageLossRate}%</b></span>
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
+        <section className="mt-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-end justify-between">
             <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-                OVERALL RATING
-              </p>
-              <h2 className="mt-2 text-2xl font-black">
-                AI総合評価
-              </h2>
+              <p className="text-[10px] font-black tracking-[0.18em] text-blue-600">RECENT RESULTS</p>
+              <h2 className="mt-1 text-xl font-black">最近の判定</h2>
             </div>
-
-            <div className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-white">
-              <p className="text-[10px] font-black text-blue-300">
-                AI LEVEL
-              </p>
-              <p className="mt-1 text-3xl font-black">
-                Lv.{aiLevel.level}
-              </p>
-            </div>
+            <span className="text-[10px] font-bold text-slate-400">100株換算</span>
           </div>
-
-          <div className="mt-5 rounded-[2rem] bg-gradient-to-br from-blue-50 to-cyan-50 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-2xl font-black text-yellow-500">
-                  {renderStars(aiLevel.stars)}
-                </p>
-                <p className="mt-2 text-xl font-black text-slate-900">
-                  {overallGrade}
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {aiLevel.title}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <p className="text-xs font-black text-slate-500">
-                  過去実績スコア
-                </p>
-                <p className="mt-1 text-5xl font-black text-blue-600">
-                  {reliability.score}
-                </p>
-                <p className="mt-3 text-xs font-black text-slate-500">実績信頼度</p>
-                <p className="mt-1 whitespace-nowrap text-xl font-black tracking-[0.08em] text-amber-500" aria-label={`実績信頼度5段階中${getEvidenceConfidenceStars(summary30Days.judgedTotal)}`}>
-                  {formatStars(getEvidenceConfidenceStars(summary30Days.judgedTotal))}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <ResultMini
-                label="30日勝率"
-                value={`${summary30Days.winRate}%`}
-                valueClass="text-blue-600"
-              />
-              <ResultMini
-                label="判定済み"
-                value={`${summary30Days.judgedTotal}件`}
-              />
-            </div>
-
-            <p className="mt-4 text-sm font-bold leading-7 text-slate-700">
-              {scoreComment(
-                reliability.score,
-                summary30Days.judgedTotal,
-              )}
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            RECENT RESULTS
-          </p>
-          <h2 className="mt-2 text-2xl font-black">
-            直近3件のAI実績
-          </h2>
-          <p className="mt-2 text-xs font-bold text-slate-500">
-            100株換算
-          </p>
-
-          <div className="relative mt-5 space-y-4 pl-7">
-            {recent3Days.length > 0 ? (
-              <>
-                <div className="absolute bottom-5 left-[11px] top-5 w-0.5 rounded-full bg-slate-200" />
-                {recent3Days.map((item) => (
-                  <article
-                    key={`${item.date}-${item.code}`}
-                    className="relative rounded-3xl border border-slate-100 bg-slate-50 p-4"
-                  >
-                    <span
-                      className={`absolute -left-[30px] top-5 grid h-6 w-6 place-items-center rounded-full border-4 border-white text-[10px] shadow-sm ${
-                        item.result === "WIN"
-                          ? "bg-emerald-500"
-                          : item.result === "LOSE"
-                            ? "bg-red-500"
-                            : "bg-amber-400"
-                      }`}
-                      aria-hidden="true"
-                    />
-
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-slate-900">
-                        {formatDate(item.date)}
-                      </p>
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        AI POWER {item.aiPower}・{item.judge}
-                      </p>
+          <div className="mt-4 divide-y divide-slate-100">
+            {recent3Days.length > 0 ? recent3Days.map((item) => {
+              const change = typeof item.changePercent === "number" && Number.isFinite(item.changePercent) ? item.changePercent : null;
+              return (
+                <div key={`${item.date}-${item.code}`} className="py-4 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.result === "WIN" ? "bg-emerald-500" : item.result === "LOSE" ? "bg-red-500" : "bg-amber-400"}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-black">{formatDate(item.date)}</p>
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black ${resultStyle(item.result)}`}>{resultLabel(item.result)}</span>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] font-bold text-slate-500">AI POWER {item.aiPower}・{item.judge}</p>
                     </div>
-
-                    <span
-                      className={`rounded-2xl border px-3 py-2 text-xs font-black ${resultStyle(
-                        item.result,
-                      )}`}
-                    >
-                      {resultIcon(item.result)}{" "}
-                      {resultLabel(item.result)}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <ResultMini
-                      label="損益"
-                      value={yen(item.profitYen)}
-                      valueClass={
-                        item.profitYen >= 0
-                          ? "text-emerald-600"
-                          : "text-red-500"
-                      }
-                    />
-                    <ResultMini
-                      label="騰落率"
-                      value={`${item.changePercent >= 0 ? "+" : ""}${item.changePercent}%`}
-                      valueClass={
-                        item.changePercent >= 0
-                          ? "text-emerald-600"
-                          : "text-red-500"
-                      }
-                    />
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between rounded-2xl bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
-                    <span>{priceYen(item.entryPrice)}</span>
-                    <span>→</span>
-                    <span>{priceYen(item.exitPrice)}</span>
-                  </div>
-                  </article>
-                ))}
-              </>
-            ) : (
-              <div className="rounded-3xl bg-slate-50 p-5 text-center">
-                <p className="text-sm font-black text-slate-600">
-                  直近の判定データはありません
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 rounded-3xl bg-blue-50 p-4">
-            <p className="text-sm font-black text-blue-700">
-              AIコメント
-            </p>
-            <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
-              {aiComment}
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            30 DAY PERFORMANCE
-          </p>
-          <h2 className="mt-2 text-2xl font-black">
-            過去30日AI成績
-          </h2>
-
-          <div className="mt-5 rounded-[2rem] bg-gradient-to-br from-blue-700 to-cyan-500 p-5 text-white">
-            <p className="text-xs font-black text-blue-100">
-              勝率
-            </p>
-            <div className="mt-2 flex items-end justify-between">
-              <p className="text-6xl font-black">
-                {summary30Days.winRate}
-                <span className="text-2xl">%</span>
-              </p>
-              <p className="pb-2 text-sm font-black text-blue-100">
-                {summary30Days.wins}勝{" "}
-                {summary30Days.losses}敗
-              </p>
-            </div>
-
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-white"
-                style={{
-                  width: `${Math.min(
-                    Math.max(summary30Days.winRate, 0),
-                    100,
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <MetricCard
-              label="平均利益"
-              value={`+${summary30Days.averageProfitRate}%`}
-              tone="profit"
-            />
-            <MetricCard
-              label="平均損失"
-              value={`-${summary30Days.averageLossRate}%`}
-              tone="loss"
-            />
-            <MetricCard
-              label="合計損益"
-              value={yen(summary30Days.totalProfitYen)}
-              tone={
-                summary30Days.totalProfitYen >= 0
-                  ? "profit"
-                  : "loss"
-              }
-            />
-            <MetricCard
-              label="HOLD"
-              value={`${summary30Days.holds}件`}
-              tone="neutral"
-            />
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            MONTHLY PERFORMANCE
-          </p>
-          <h2 className="mt-2 text-2xl font-black">
-            今月のAI成績
-          </h2>
-
-          <div className="mt-5 overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-700 via-blue-700 to-cyan-500 p-5 text-white">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black text-blue-100">
-                  {currentMonth.label}
-                </p>
-                <p className="mt-2 text-5xl font-black">
-                  {currentMonth.winRate}
-                  <span className="text-xl">%</span>
-                </p>
-                <p className="mt-1 text-sm font-bold text-blue-100">
-                  {currentMonth.wins}勝 {currentMonth.losses}敗
-                  {currentMonth.holds > 0
-                    ? `・HOLD ${currentMonth.holds}件`
-                    : ""}
-                </p>
-              </div>
-
-              <div className="rounded-3xl bg-white/10 px-4 py-3 text-right backdrop-blur">
-                <p className="text-[10px] font-black text-blue-100">
-                  100株換算
-                </p>
-                <p className="mt-1 text-2xl font-black">
-                  {yen(currentMonth.totalProfitYen)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-black text-slate-900">
-                  直近3か月の勝率推移
-                </p>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  月別の判定済み実績
-                </p>
-              </div>
-              <span className="text-2xl">📈</span>
-            </div>
-
-            <div className="mt-5 flex h-44 items-end justify-between gap-3 rounded-[2rem] bg-slate-50 p-4">
-              {monthlyTrend.map((month) => {
-                const barHeight =
-                  month.judgedTotal > 0
-                    ? Math.max(month.winRate, 10)
-                    : 6;
-
-                return (
-                  <div
-                    key={month.month}
-                    className="flex min-w-0 flex-1 flex-col items-center"
-                  >
-                    <p className="mb-2 text-center text-[11px] font-black leading-4 text-slate-700">
-                      {month.judgedTotal > 0
-                        ? `${month.winRate}%`
-                        : month.holds > 0
-                          ? "判定なし"
-                          : "データなし"}
-                    </p>
-
-                    <div className="flex h-24 w-full items-end justify-center">
-                      <div
-                        className={`w-full max-w-12 rounded-t-2xl transition-all ${
-                          month.winRate >= 70
-                            ? "bg-emerald-500"
-                            : month.winRate >= 50
-                              ? "bg-blue-500"
-                              : month.judgedTotal > 0
-                                ? "bg-red-400"
-                                : "bg-slate-300"
-                        }`}
-                        style={{
-                          height: `${barHeight}%`,
-                        }}
-                      />
+                    <div className="text-right">
+                      <p className={`text-base font-black ${item.profitYen > 0 ? "text-emerald-600" : item.profitYen < 0 ? "text-red-500" : "text-slate-700"}`}>{yen(item.profitYen)}</p>
+                      <p className="mt-1 text-[10px] font-bold text-slate-400">{change === null ? "騰落率 --" : `${change >= 0 ? "+" : ""}${change}%`}</p>
                     </div>
-
-                    <p className="mt-3 text-xs font-black text-slate-600">
-                      {month.label}
-                    </p>
-                    <p className="mt-1 text-[10px] font-bold text-slate-400">
-                      {month.judgedTotal}件
-                    </p>
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {monthlyTrend.map((month) => (
-                <div
-                  key={`${month.month}-summary`}
-                  className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-black text-slate-800">
-                      {month.label}
-                    </p>
-                    <p className="mt-1 text-[10px] font-bold text-slate-500">
-                      {month.judgedTotal > 0
-                        ? `${month.wins}勝 ${month.losses}敗${
-                            month.holds > 0
-                              ? `・HOLD ${month.holds}`
-                              : ""
-                          }`
-                        : month.holds > 0
-                          ? `判定なし・HOLD ${month.holds}`
-                          : "データなし"}
-                    </p>
-                  </div>
-
-                  <p
-                    className={`text-sm font-black ${
-                      month.total === 0
-                        ? "text-slate-400"
-                        : month.totalProfitYen >= 0
-                          ? "text-emerald-600"
-                          : "text-red-500"
-                    }`}
-                  >
-                    {month.total === 0
-                      ? "-"
-                      : yen(month.totalProfitYen)}
-                  </p>
+                  <div className="mt-2 pl-5 text-[10px] font-bold text-slate-400">{priceYen(item.entryPrice)} → {priceYen(item.exitPrice)}</div>
                 </div>
-              ))}
-            </div>
+              );
+            }) : <p className="py-5 text-center text-sm font-bold text-slate-500">直近の判定データはありません</p>}
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-white bg-white p-5 shadow-sm">
-          <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-            AI RELIABILITY
-          </p>
-          <h2 className="mt-2 text-2xl font-black">
-            AI過去実績ダッシュボード
-          </h2>
-
-          <div className="mt-5 rounded-[2rem] bg-slate-950 p-5 text-white">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-black tracking-[0.14em] text-blue-300">
-                  PAST PERFORMANCE SCORE
-                </p>
-                <p className="mt-2 text-lg font-black">
-                  {rankLabel(reliability.rank)}
-                </p>
+        <section className="mt-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-black tracking-[0.18em] text-blue-600">MONTHLY TREND</p>
+          <h2 className="mt-1 text-xl font-black">月別実績</h2>
+          <div className="mt-4 space-y-1">
+            {monthlyTrend.map((month) => (
+              <div key={month.month} className="flex items-center gap-3 rounded-2xl px-3 py-3 odd:bg-slate-50">
+                <p className="w-10 text-sm font-black">{month.label}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black">{month.judgedTotal > 0 ? `${month.winRate}%` : "判定なし"}</p>
+                  <p className="text-[10px] font-bold text-slate-400">{month.wins}勝 {month.losses}敗・HOLD {month.holds}</p>
+                </div>
+                <p className={`text-sm font-black ${month.totalProfitYen > 0 ? "text-emerald-600" : month.totalProfitYen < 0 ? "text-red-500" : "text-slate-500"}`}>{month.total === 0 ? "-" : yen(month.totalProfitYen)}</p>
               </div>
-
-              <p className="text-6xl font-black">
-                {reliability.score}
-                <span className="text-xl text-slate-400">
-                  /100
-                </span>
-              </p>
-            </div>
-
-            <div className="mt-5">
-              <div className="relative h-4 overflow-hidden rounded-full bg-white/15">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    reliability.score >= 80
-                      ? "bg-emerald-400"
-                      : reliability.score >= 60
-                        ? "bg-yellow-400"
-                        : reliability.score >= 40
-                          ? "bg-orange-400"
-                          : "bg-red-400"
-                  }`}
-                  style={{
-                    width: `${Math.min(
-                      Math.max(reliability.score, 0),
-                      100,
-                    )}%`,
-                  }}
-                />
-              </div>
-
-              <div className="mt-2 flex justify-between text-[10px] font-black text-slate-400">
-                <span>0</span>
-                <span>C 60</span>
-                <span>A 80</span>
-                <span>S 90</span>
-                <span>100</span>
-              </div>
-            </div>
-
-            <p className="mt-4 text-xs font-bold leading-6 text-slate-300">
-              {scoreComment(
-                reliability.score,
-                summary30Days.judgedTotal,
-              )}
-            </p>
+            ))}
           </div>
+          <div className="mt-4 rounded-2xl bg-blue-50 px-4 py-3">
+            <p className="text-xs font-black text-blue-700">AIコメント</p>
+            <p className="mt-1 text-xs font-bold leading-6 text-slate-600">{aiComment}</p>
+          </div>
+        </section>
 
-          <div className="mt-4">
-            <p className="text-sm font-black text-slate-700">
-              AI実績バッジ
-            </p>
-
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <BadgeCard
-                icon="🏅"
-                label="勝率70%突破"
-                active={summary30Days.winRate >= 70}
-              />
-              <BadgeCard
-                icon="🔥"
-                label="5連勝達成"
-                active={reliability.maxWinStreak >= 5}
-              />
-              <BadgeCard
-                icon="💰"
-                label="累計損益プラス"
-                active={summary30Days.totalProfitYen > 0}
-              />
-              <BadgeCard
-                icon="⭐"
-                label="Performance A"
-                active={reliability.score >= 80}
-              />
+        <details className="mt-4 rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer list-none p-5 font-black text-slate-800">
+            <span className="flex items-center justify-between">AI実績の詳しい評価を見る <span className="text-blue-600">＋</span></span>
+          </summary>
+          <div className="border-t border-slate-100 px-5 pb-5 pt-4">
+            <div className="grid grid-cols-3 gap-2">
+              <DetailStat label="実績スコア" value={`${reliability.score}/100`} />
+              <DetailStat label="現在" value={`${reliability.currentWinStreak}連勝`} />
+              <DetailStat label="最高" value={`${reliability.maxWinStreak}連勝`} />
             </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <StreakCard
-              label="現在"
-              value={`${reliability.currentWinStreak}連勝`}
-            />
-            <StreakCard
-              label="最高連勝"
-              value={`${reliability.maxWinStreak}連勝`}
-            />
-            <StreakCard
-              label="最大連敗"
-              value={`${reliability.maxLoseStreak}連敗`}
-            />
-          </div>
-
-          <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-black text-slate-700">
-              判定ルール
-            </p>
-            <div className="mt-3 space-y-2 text-xs font-bold text-slate-500">
-              <p>🟢 WIN：{rules.win}</p>
+            <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-500">
+              <p className="font-black text-slate-700">判定ルール</p>
+              <p className="mt-2">🟢 WIN：{rules.win}</p>
               <p>🔴 LOSE：{rules.lose}</p>
               <p>🟡 HOLD：{rules.hold}</p>
               <p>💰 損益：{rules.profitYen}</p>
             </div>
           </div>
-        </section>
+        </details>
 
-        <section className="mt-5 rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
-          <p className="text-sm font-black text-amber-800">
-            ご利用前の注意
-          </p>
-          <p className="mt-2 text-xs font-bold leading-6 text-amber-900">
-            表示される実績は過去データに基づく参考情報です。将来の利益や同様の結果を保証するものではありません。最終的な投資判断はご自身の責任で行ってください。
-          </p>
-        </section>
+        <p className="px-3 py-6 text-center text-[10px] font-bold leading-5 text-slate-400">
+          表示実績は過去データに基づく参考情報で、将来の利益を保証するものではありません。最終的な投資判断はご自身で行ってください。
+        </p>
       </div>
     </main>
   );
 }
 
-function HeroMini({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-3xl bg-white/10 p-3 text-center backdrop-blur">
-      <p className="text-[10px] font-black text-blue-100">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-black">{value}</p>
-    </div>
-  );
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return <div className="px-2 text-center"><p className="text-[9px] font-bold text-slate-400">{label}</p><p className="mt-1 text-sm font-black">{value}</p></div>;
 }
 
-function ResultMini({
-  label,
-  value,
-  valueClass = "",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-3 text-center">
-      <p className="text-[10px] font-black text-slate-500">
-        {label}
-      </p>
-      <p className={`mt-1 text-lg font-black ${valueClass}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "profit" | "loss" | "neutral";
-}) {
-  const style =
-    tone === "profit"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : tone === "loss"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-slate-200 bg-slate-50 text-slate-700";
-
-  return (
-    <div className={`rounded-3xl border p-4 ${style}`}>
-      <p className="text-xs font-black">{label}</p>
-      <p className="mt-2 text-2xl font-black">{value}</p>
-    </div>
-  );
-}
-
-function BadgeCard({
-  icon,
-  label,
-  active,
-}: {
-  icon: string;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <div
-      className={`relative rounded-3xl border p-4 ${
-        active
-          ? "border-blue-200 bg-blue-50"
-          : "border-slate-200 bg-slate-50 opacity-75"
-      }`}
-    >
-      <span className="absolute right-3 top-3 text-sm">
-        {active ? "✅" : "🔒"}
-      </span>
-
-      <p className={`text-2xl ${active ? "" : "grayscale"}`}>
-        {icon}
-      </p>
-
-      <p
-        className={`mt-2 pr-5 text-xs font-black leading-5 ${
-          active ? "text-blue-700" : "text-slate-500"
-        }`}
-      >
-        {label}
-      </p>
-
-      <p
-        className={`mt-1 text-[10px] font-bold ${
-          active ? "text-blue-500" : "text-slate-400"
-        }`}
-      >
-        {active ? "獲得済み" : "未獲得"}
-      </p>
-    </div>
-  );
-}
-
-function StreakCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-3xl bg-slate-50 p-4 text-center">
-      <p className="text-[10px] font-black text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-xl font-black text-slate-900">
-        {value}
-      </p>
-    </div>
-  );
+function DetailStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-2xl bg-slate-50 p-3 text-center"><p className="text-[9px] font-bold text-slate-400">{label}</p><p className="mt-1 text-sm font-black">{value}</p></div>;
 }
