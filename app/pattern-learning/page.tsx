@@ -71,6 +71,15 @@ export default function PatternLearningPage() {
     setCurrentLoading(true);
     setCurrentStocks([]);
     setCurrentError("");
+
+    // Give immediate visual feedback before the network request completes.
+    window.setTimeout(() => {
+      document.getElementById("current-condition-stocks")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+
     try {
       const params = new URLSearchParams({ group, value: item.pattern, limit: "100" });
       const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
@@ -79,12 +88,6 @@ export default function PatternLearningPage() {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
       setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
-      window.setTimeout(() => {
-        document.getElementById("current-condition-stocks")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 0);
     } catch (error) {
       console.error("current condition stocks error:", error);
       setCurrentError("銘柄一覧を取得できませんでした。もう一度お試しください。");
@@ -391,7 +394,7 @@ function SummarySection({
 
                 {group && onShowCurrent && (
                   <button type="button" onClick={() => onShowCurrent(group, item, displayName)} className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-black text-blue-700 transition active:scale-[0.99]">
-                    現在この条件の銘柄を見る →
+                    {currentLoading && currentTitle === displayName ? "🔍 該当銘柄を検索中…" : "現在この条件の銘柄を見る →"}
                   </button>
                 )}
 
