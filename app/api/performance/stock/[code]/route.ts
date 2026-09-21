@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
-  getDailyStockResults,
+  getDailyStockResultsByCode,
   type DailyStockResult,
 } from "@/app/lib/dailyLearning";
 
@@ -234,10 +234,7 @@ export async function GET(
   try {
     const { code } = await params;
 
-    const allResults = await getDailyStockResults();
-
-    const stockResults = allResults
-      .filter((item) => item.code === code)
+    const stockResults = (await getDailyStockResultsByCode(code))
       .map(toPerformanceItem)
       .sort(
         (a, b) =>
