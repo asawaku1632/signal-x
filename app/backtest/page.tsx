@@ -15,7 +15,7 @@ type BacktestItem = {
 
 export default function BacktestPage() {
   const [data, setData] = useState<BacktestItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);\n  const [errorMessage, setErrorMessage] = useState("");
 
   const fetchStats = async () => {
     try {
@@ -67,7 +67,7 @@ export default function BacktestPage() {
         <p className="text-sm text-gray-500 mt-6">読み込み中...</p>
       )}
 
-      {!loading && data.length === 0 && (
+      {!loading && errorMessage && (\n        <div className="mt-6 rounded-2xl border border-red-900 bg-red-950/30 p-4">\n          <p className="text-sm font-black text-red-300">バックテストデータを取得できませんでした</p>\n          <p className="mt-2 text-xs text-red-200">{errorMessage}</p>\n        </div>\n      )}\n\n      {!loading && !errorMessage && data.length === 0 && (
         <p className="text-sm text-gray-500 mt-6">
           まだバックテスト用データがありません
         </p>
