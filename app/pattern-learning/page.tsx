@@ -187,6 +187,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="📊 RSI帯別"
           items={data.rsi}
+          group="rsi"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             RSI_UNDER_30: "RSI 30未満",
             RSI_30_44: "RSI 30〜44",
@@ -200,6 +202,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="📈 MACD別"
           items={data.macd}
+          group="macd"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             MACD_GC: "MACD上向き",
             MACD_DC: "MACD下向き",
@@ -210,6 +214,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="💰 VWAP別"
           items={data.vwap}
+          group="vwap"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             VWAP_ABOVE: "VWAP上",
             VWAP_BELOW: "VWAP下",
@@ -220,6 +226,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="🌱 EMA20別"
           items={data.ema20}
+          group="ema20"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             EMA20_ABOVE: "EMA20上",
             EMA20_BELOW: "EMA20下",
@@ -230,6 +238,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="📉 トレンド別"
           items={data.trend}
+          group="trend"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             TREND_UP: "上昇トレンド",
             TREND_DOWN: "下降トレンド",
