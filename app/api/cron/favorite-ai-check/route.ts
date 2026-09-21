@@ -86,17 +86,6 @@ export async function GET(req: Request) {
     const currentPrice = monitor.resultPrice;
     if (currentPrice == null) continue;
 
-    const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-    if (!lineDeliveryEnabled || !lineUserId) {
-      notifications.push({
-        id: monitor.id,
-        code: monitor.code,
-        state: "RESULT_SAVED_NOTIFICATION_PENDING",
-        lineLinked: Boolean(lineUserId),
-      });
-      continue;
-    }
-
     const claimed = await claimFavoriteResultNotification(monitor.id);
     if (!claimed) {
       notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFICATION_IN_PROGRESS" });
@@ -111,17 +100,30 @@ export async function GET(req: Request) {
       tag: `signalx-result-${monitor.id}`,
     });
 
-    const line = await pushLineToUser(
-      lineUserId,
-      favoriteResultMessage(monitor, currentPrice, result, baseUrl),
-    );
+    const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+    let line = { ok: false, status: 0, text: "LINE delivery disabled or not linked" };
+    if (lineDeliveryEnabled && lineUserId) {
+      line = await pushLineToUser(
+        lineUserId,
+        favoriteResultMessage(monitor, currentPrice, result, baseUrl),
+      );
+    }
 
-    if (line.ok) {
+    const pushDelivered = webPush.ok;
+    const lineDelivered = lineDeliveryEnabled && Boolean(lineUserId) && line.ok;
+
+    if (pushDelivered || lineDelivered) {
       await markFavoriteResultNotified(monitor.id);
-      notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFIED", webPush });
+      notifications.push({
+        id: monitor.id, code: monitor.code, state: "NOTIFIED",
+        webPush, lineSent: lineDelivered, lineLinked: Boolean(lineUserId),
+      });
     } else {
       await releaseFavoriteResultNotification(monitor.id);
-      notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFICATION_RETRY" });
+      notifications.push({
+        id: monitor.id, code: monitor.code, state: "NOTIFICATION_RETRY",
+        webPush, lineSent: false, lineLinked: Boolean(lineUserId),
+      });
     }
   }
 
