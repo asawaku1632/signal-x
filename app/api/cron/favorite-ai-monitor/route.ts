@@ -110,7 +110,7 @@ export async function GET(req: Request) {
       }
       const webPush = await pushWebToUser(monitor.userEmail, {
         title: "🔥 SIGNALX 買い条件成立",
-        body: `${monitor.code} ${monitor.name}｜AI POWER ${monitor.aiPower}｜基準価格 ${Math.round(monitor.entryPrice).toLocaleString()}円`,
+        body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
         url: `/analysis/${monitor.code}`,
         tag: `signalx-buy-${monitor.id}`,
       });
