@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
-  getDailyStockResults,
+  getDailyStockResultsByCode,
   type DailyStockResult,
 } from "@/app/lib/dailyLearning";
 
@@ -64,9 +64,7 @@ export async function GET(
   }
 
   try {
-    const results = (await getDailyStockResults()).filter(
-      (item) => item.code === code,
-    );
+    const results = await getDailyStockResultsByCode(code);
     const all = summarize(results);
     const recent30 = summarize(results.slice(0, 30));
 
