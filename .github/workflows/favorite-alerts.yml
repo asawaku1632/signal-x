@@ -1,0 +1,37 @@
+name: SIGNALX Favorite Alerts
+
+on:
+  schedule:
+    # GitHub Actions schedules are UTC. 00:00-06:00 UTC = 09:00-15:00 JST.
+    # The API routes themselves skip non-trading dates.
+    - cron: "*/5 0-6 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: signalx-favorite-alerts
+  cancel-in-progress: false
+
+jobs:
+  check-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check buy conditions
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 5 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://signal-x-ppjg.vercel.app/api/cron/favorite-ai-monitor"
+
+      - name: Check take-profit and stop-loss
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 5 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://signal-x-ppjg.vercel.app/api/cron/favorite-ai-check"
