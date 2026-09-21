@@ -64,18 +64,30 @@ export default function PatternLearningPage() {
   const [currentTitle, setCurrentTitle] = useState("");
   const [currentStocks, setCurrentStocks] = useState<CurrentStock[]>([]);
   const [currentLoading, setCurrentLoading] = useState(false);
+  const [currentError, setCurrentError] = useState("");
 
   const showCurrentStocks = async (group: ConditionGroup, item: SummaryItem, label: string) => {
     setCurrentTitle(label);
     setCurrentLoading(true);
     setCurrentStocks([]);
+    setCurrentError("");
     try {
       const params = new URLSearchParams({ group, value: item.pattern, limit: "100" });
       const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
       const json = await res.json();
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
       setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
+      window.setTimeout(() => {
+        document.getElementById("current-condition-stocks")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
     } catch (error) {
       console.error("current condition stocks error:", error);
+      setCurrentError("銘柄一覧を取得できませんでした。もう一度お試しください。");
     } finally {
       setCurrentLoading(false);
     }
@@ -248,13 +260,15 @@ export default function PatternLearningPage() {
         />
 
         {currentTitle && (
-          <section className="rounded-[24px] bg-white border border-blue-200 p-4 mb-4 shadow-sm">
+          <section id="current-condition-stocks" className="scroll-mt-4 rounded-[24px] bg-white border border-blue-200 p-4 mb-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-xs font-black text-blue-600">現在の該当銘柄</p><h2 className="text-lg font-black">{currentTitle}</h2></div>
               <button type="button" onClick={() => { setCurrentTitle(""); setCurrentStocks([]); }} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black">閉じる</button>
             </div>
             {currentLoading ? (
               <p className="mt-4 text-sm font-bold text-slate-500">現在のスキャン結果から検索中...</p>
+            ) : currentError ? (
+              <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-600">{currentError}</p>
             ) : currentStocks.length === 0 ? (
               <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">現在この条件に一致する銘柄はありません。</p>
             ) : (
