@@ -446,59 +446,60 @@ export default function AnalysisPage() {
       setLearningError(false);
 
       try {
-        const scanRes = await fetch("/api/scan?limit=1000", {
-          cache: "no-store",
-        });
+        const [stockRes, historyRes, performanceRes] = await Promise.all([
+          fetch(`/api/scan/stock/${code}`, { cache: "no-store" }),
+          fetch(`/api/learning/stats/${code}`, { cache: "no-store" }),
+          fetch(`/api/performance/stock/${code}`, { cache: "no-store" }),
+        ]);
 
-        const scanJson = await readJsonResponse<
-          Signal[] | { stocks?: Signal[]; totalStockList?: number }
-        >(scanRes);
+        const stockJson = await readJsonResponse<{
+          success?: boolean;
+          status?: string;
+          stock?: Signal;
+        }>(stockRes);
+        const historyJson = await readJsonResponse<HistoryStats>(historyRes);
+        const performanceJson =
+          await readJsonResponse<PerformanceSummary>(performanceRes);
 
-        if (!scanJson) {
+        const target = stockJson?.stock ?? null;
+        setSignal(target);
+        setHistoryStats(historyJson?.success ? historyJson : null);
+        setPerformance(performanceJson?.success ? performanceJson : null);
+
+        if (!target) {
           setScanError(true);
-          setSignal(null);
-          return;
         }
 
-        const stocks: Signal[] = Array.isArray(scanJson)
-          ? scanJson
-          : Array.isArray(scanJson?.stocks)
-            ? scanJson.stocks
-            : [];
-
-        const target = stocks.find((item) => item.code === code) || null;
-        setSignal(target);
-
-        const rank = stocks.findIndex((item) => item.code === code) + 1;
-        setAiRank(rank);
-        setTotalRank(
-          !Array.isArray(scanJson) && typeof scanJson?.totalStockList === "number"
-            ? scanJson.totalStockList
-            : stocks.length,
-        );
-
-        try {
-          const historyRes = await fetch(`/api/learning/stats/${code}`, {
-            cache: "no-store",
-          });
-          const historyJson = await readJsonResponse<HistoryStats>(historyRes);
-          setHistoryStats(historyJson?.success ? historyJson : null);
-
-          const performanceRes = await fetch(`/api/performance/stock/${code}`, {
-            cache: "no-store",
-          });
-          const performanceJson =
-            await readJsonResponse<PerformanceSummary>(performanceRes);
-          setPerformance(performanceJson?.success ? performanceJson : null);
-
-          if (!historyJson?.success || !performanceJson?.success) {
-            setLearningError(true);
-          }
-        } catch {
-          setHistoryStats(null);
-          setPerformance(null);
+        if (!historyJson?.success || !performanceJson?.success) {
           setLearningError(true);
         }
+
+        // Rank is intentionally loaded separately so the primary stock analysis
+        // no longer waits for the full 1,000-stock scan payload.
+        void fetch("/api/scan?limit=1000", { cache: "no-store" })
+          .then((res) =>
+            readJsonResponse<
+              Signal[] | { stocks?: Signal[]; totalStockList?: number }
+            >(res),
+          )
+          .then((scanJson) => {
+            if (!scanJson) return;
+            const stocks: Signal[] = Array.isArray(scanJson)
+              ? scanJson
+              : Array.isArray(scanJson?.stocks)
+                ? scanJson.stocks
+                : [];
+            setAiRank(stocks.findIndex((item) => item.code === code) + 1);
+            setTotalRank(
+              !Array.isArray(scanJson) &&
+                  typeof scanJson?.totalStockList === "number"
+                ? scanJson.totalStockList
+                : stocks.length,
+            );
+          })
+          .catch(() => {
+            // Ranking is secondary information; keep the primary analysis usable.
+          });
       } catch {
         setScanError(true);
         setSignal(null);
