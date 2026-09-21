@@ -446,59 +446,60 @@ export default function AnalysisPage() {
       setLearningError(false);
 
       try {
-        const scanRes = await fetch("/api/scan?limit=1000", {
-          cache: "no-store",
-        });
+        const [stockRes, historyRes, performanceRes] = await Promise.all([
+          fetch(`/api/scan/stock/${code}`, { cache: "no-store" }),
+          fetch(`/api/learning/stats/${code}`, { cache: "no-store" }),
+          fetch(`/api/performance/stock/${code}`, { cache: "no-store" }),
+        ]);
 
-        const scanJson = await readJsonResponse<
-          Signal[] | { stocks?: Signal[]; totalStockList?: number }
-        >(scanRes);
+        const stockJson = await readJsonResponse<{
+          success?: boolean;
+          status?: string;
+          stock?: Signal;
+        }>(stockRes);
+        const historyJson = await readJsonResponse<HistoryStats>(historyRes);
+        const performanceJson =
+          await readJsonResponse<PerformanceSummary>(performanceRes);
 
-        if (!scanJson) {
+        const target = stockJson?.stock ?? null;
+        setSignal(target);
+        setHistoryStats(historyJson?.success ? historyJson : null);
+        setPerformance(performanceJson?.success ? performanceJson : null);
+
+        if (!target) {
           setScanError(true);
-          setSignal(null);
-          return;
         }
 
-        const stocks: Signal[] = Array.isArray(scanJson)
-          ? scanJson
-          : Array.isArray(scanJson?.stocks)
-            ? scanJson.stocks
-            : [];
-
-        const target = stocks.find((item) => item.code === code) || null;
-        setSignal(target);
-
-        const rank = stocks.findIndex((item) => item.code === code) + 1;
-        setAiRank(rank);
-        setTotalRank(
-          !Array.isArray(scanJson) && typeof scanJson?.totalStockList === "number"
-            ? scanJson.totalStockList
-            : stocks.length,
-        );
-
-        try {
-          const historyRes = await fetch(`/api/learning/stats/${code}`, {
-            cache: "no-store",
-          });
-          const historyJson = await readJsonResponse<HistoryStats>(historyRes);
-          setHistoryStats(historyJson?.success ? historyJson : null);
-
-          const performanceRes = await fetch(`/api/performance/stock/${code}`, {
-            cache: "no-store",
-          });
-          const performanceJson =
-            await readJsonResponse<PerformanceSummary>(performanceRes);
-          setPerformance(performanceJson?.success ? performanceJson : null);
-
-          if (!historyJson?.success || !performanceJson?.success) {
-            setLearningError(true);
-          }
-        } catch {
-          setHistoryStats(null);
-          setPerformance(null);
+        if (!historyJson?.success || !performanceJson?.success) {
           setLearningError(true);
         }
+
+        // Rank is intentionally loaded separately so the primary stock analysis
+        // no longer waits for the full 1,000-stock scan payload.
+        void fetch("/api/scan?limit=1000", { cache: "no-store" })
+          .then((res) =>
+            readJsonResponse<
+              Signal[] | { stocks?: Signal[]; totalStockList?: number }
+            >(res),
+          )
+          .then((scanJson) => {
+            if (!scanJson) return;
+            const stocks: Signal[] = Array.isArray(scanJson)
+              ? scanJson
+              : Array.isArray(scanJson?.stocks)
+                ? scanJson.stocks
+                : [];
+            setAiRank(stocks.findIndex((item) => item.code === code) + 1);
+            setTotalRank(
+              !Array.isArray(scanJson) &&
+                  typeof scanJson?.totalStockList === "number"
+                ? scanJson.totalStockList
+                : stocks.length,
+            );
+          })
+          .catch(() => {
+            // Ranking is secondary information; keep the primary analysis usable.
+          });
       } catch {
         setScanError(true);
         setSignal(null);
@@ -659,6 +660,8 @@ export default function AnalysisPage() {
   const lose = historyStats?.lose ?? 0;
   const hold = historyStats?.hold ?? 0;
   const winRate = historyStats?.winRate ?? null;
+  const resolvedCount = win + lose;
+  const winRateIsReference = resolvedCount > 0 && resolvedCount < 10;
 
   const profitRate =
     signal.price > 0 ? ((takeProfit - signal.price) / signal.price) * 100 : 0;
@@ -870,7 +873,18 @@ export default function AnalysisPage() {
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">AI学習データ</h2>
           <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
-          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800"><p className="text-xs font-bold text-slate-500 dark:text-slate-300">AI勝率</p><p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p></div>
+          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">判定済み勝率</p>
+            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
+            {winRate !== null && (
+              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
+            勝率はWIN ÷（WIN＋LOSE）で計算し、HOLDは勝率の母数に含みません。
+          </p>
           <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
         </section>
 

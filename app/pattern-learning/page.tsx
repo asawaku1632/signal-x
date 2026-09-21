@@ -12,6 +12,16 @@ type SummaryItem = {
   winRate: number;
 };
 
+type ConditionGroup = "rsi" | "macd" | "vwap" | "ema20" | "trend";
+
+type CurrentStock = {
+  code: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  aiPower: number;
+};
+
 type PatternSummary = {
   success: boolean;
   rsi: SummaryItem[];
@@ -51,6 +61,71 @@ const patternLabelMap: Record<string, string> = {
 export default function PatternLearningPage() {
   const [data, setData] = useState<PatternSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentTitle, setCurrentTitle] = useState("");
+  const [currentStocks, setCurrentStocks] = useState<CurrentStock[]>([]);
+  const [currentLoading, setCurrentLoading] = useState(false);
+  const [currentError, setCurrentError] = useState("");
+  const [filters, setFilters] = useState<Record<ConditionGroup, string>>({
+    rsi: "", macd: "", vwap: "", ema20: "", trend: "",
+  });
+
+  const showCurrentStocks = async (group: ConditionGroup, item: SummaryItem, label: string) => {
+    setCurrentTitle(label);
+    setCurrentLoading(true);
+    setCurrentStocks([]);
+    setCurrentError("");
+
+    // Give immediate visual feedback before the network request completes.
+    window.setTimeout(() => {
+      document.getElementById("current-condition-stocks")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+
+    try {
+      const params = new URLSearchParams({ group, value: item.pattern, limit: "100" });
+      const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
+      setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
+    } catch (error) {
+      console.error("current condition stocks error:", error);
+      setCurrentError("銘柄一覧を取得できませんでした。もう一度お試しください。");
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
+
+  const runMultiFilter = async () => {
+    const selected = Object.entries(filters).filter(([, value]) => value);
+    if (selected.length < 2) {
+      setCurrentTitle("複数条件スクリーナー");
+      setCurrentStocks([]);
+      setCurrentError("2つ以上の条件を選択してください。");
+      return;
+    }
+    setCurrentTitle("複数条件スクリーナー");
+    setCurrentLoading(true);
+    setCurrentStocks([]);
+    setCurrentError("");
+    window.setTimeout(() => document.getElementById("current-condition-stocks")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      selected.forEach(([key, value]) => params.set(key, value));
+      const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json?.success) throw new Error(json?.error || `HTTP ${res.status}`);
+      setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
+    } catch (error) {
+      console.error("multi condition stocks error:", error);
+      setCurrentError("複数条件の銘柄一覧を取得できませんでした。");
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -155,9 +230,43 @@ export default function PatternLearningPage() {
           </div>
         </section>
 
+        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
+          <div className="mb-3">
+            <p className="text-xs font-black text-blue-600">🔎 今日の条件検索</p>
+            <h2 className="text-xl font-black">複数条件スクリーナー</h2>
+            <p className="mt-1 text-xs font-bold text-slate-500">2つ以上選ぶと、すべてに一致する現在の銘柄を探します。</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {([
+              ["rsi", "RSI", data.rsi],
+              ["macd", "MACD", data.macd],
+              ["vwap", "VWAP", data.vwap],
+              ["ema20", "EMA20", data.ema20],
+              ["trend", "トレンド", data.trend],
+            ] as const).map(([key, label, items]) => (
+              <label key={key} className="grid grid-cols-[80px_1fr] items-center gap-2 rounded-xl bg-slate-50 p-2">
+                <span className="text-xs font-black text-slate-600">{label}</span>
+                <select
+                  value={filters[key]}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, [key]: e.target.value }))}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold"
+                >
+                  <option value="">指定なし</option>
+                  {items.map((item) => <option key={item.pattern} value={item.pattern}>{patternLabelMap[item.pattern] ?? item.pattern}（過去{item.winRate}%）</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <button type="button" onClick={runMultiFilter} disabled={currentLoading} className="mt-3 w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow disabled:opacity-60">
+            {currentLoading && currentTitle === "複数条件スクリーナー" ? "🔍 条件一致銘柄を検索中…" : "この組み合わせで現在の銘柄を探す →"}
+          </button>
+        </section>
+
         <SummarySection
           title="📊 RSI帯別"
           items={data.rsi}
+          group="rsi"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             RSI_UNDER_30: "RSI 30未満",
             RSI_30_44: "RSI 30〜44",
@@ -171,6 +280,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="📈 MACD別"
           items={data.macd}
+          group="macd"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             MACD_GC: "MACD上向き",
             MACD_DC: "MACD下向き",
@@ -181,6 +292,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="💰 VWAP別"
           items={data.vwap}
+          group="vwap"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             VWAP_ABOVE: "VWAP上",
             VWAP_BELOW: "VWAP下",
@@ -191,6 +304,8 @@ export default function PatternLearningPage() {
         <SummarySection
           title="🌱 EMA20別"
           items={data.ema20}
+          group="ema20"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             EMA20_ABOVE: "EMA20上",
             EMA20_BELOW: "EMA20下",
@@ -201,12 +316,39 @@ export default function PatternLearningPage() {
         <SummarySection
           title="📉 トレンド別"
           items={data.trend}
+          group="trend"
+          onShowCurrent={showCurrentStocks}
           labelMap={{
             TREND_UP: "上昇トレンド",
             TREND_DOWN: "下降トレンド",
             TREND_NO_DATA: "トレンド不明",
           }}
         />
+
+        {currentTitle && (
+          <section id="current-condition-stocks" className="scroll-mt-4 rounded-[24px] bg-white border border-blue-200 p-4 mb-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-black text-blue-600">現在の該当銘柄</p><h2 className="text-lg font-black">{currentTitle}</h2></div>
+              <button type="button" onClick={() => { setCurrentTitle(""); setCurrentStocks([]); }} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black">閉じる</button>
+            </div>
+            {currentLoading ? (
+              <p className="mt-4 text-sm font-bold text-slate-500">現在のスキャン結果から検索中...</p>
+            ) : currentError ? (
+              <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-600">{currentError}</p>
+            ) : currentStocks.length === 0 ? (
+              <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">現在この条件に一致する銘柄はありません。</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {currentStocks.map((stock) => (
+                  <Link key={stock.code} href={`/analysis/${stock.code}`} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3 active:scale-[0.99]">
+                    <div className="min-w-0"><p className="text-xs font-black text-slate-500">{stock.code}</p><p className="truncate text-sm font-black">{stock.name}</p></div>
+                    <div className="shrink-0 text-right"><p className="text-sm font-black">AI {stock.aiPower}</p><p className={`text-xs font-bold ${stock.changePercent > 0 ? "text-green-600" : stock.changePercent < 0 ? "text-red-500" : "text-slate-500"}`}>{stock.changePercent > 0 ? "+" : ""}{stock.changePercent}%</p></div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <SummarySection
           title="🧬 複合パターン TOP20"
@@ -231,11 +373,15 @@ function SummarySection({
   items,
   labelMap = {},
   compact = false,
+  group,
+  onShowCurrent,
 }: {
   title: string;
   items: SummaryItem[];
   labelMap?: Record<string, string>;
   compact?: boolean;
+  group?: ConditionGroup;
+  onShowCurrent?: (group: ConditionGroup, item: SummaryItem, label: string) => void;
 }) {
   return (
     <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
@@ -308,6 +454,12 @@ function SummarySection({
                     style={{ width: `${Math.max(item.winRate, 4)}%` }}
                   />
                 </div>
+
+                {group && onShowCurrent && (
+                  <button type="button" onClick={() => onShowCurrent(group, item, displayName)} className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-black text-blue-700 transition active:scale-[0.99]">
+                    現在この条件の銘柄を見る →
+                  </button>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 mt-3">
                   <SmallStat label="WIN" value={item.win} color="text-green-600" />
