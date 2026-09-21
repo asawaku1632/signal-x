@@ -31,14 +31,6 @@
     {
       "path": "/api/cron/bb-evaluation",
       "schedule": "0 8 * * 1-5"
-    },
-    {
-      "path": "/api/cron/favorite-ai-monitor",
-      "schedule": "*/5 0-6 * * 1-5"
-    },
-    {
-      "path": "/api/cron/favorite-ai-check",
-      "schedule": "*/5 0-6 * * 1-5"
     }
   ]
 }
