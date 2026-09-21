@@ -237,14 +237,37 @@ export async function GET() {
       };
     });
 
+    // A raw 100% win rate from 1-2 resolved samples should not outrank
+    // a stock with materially more evidence. Rank by an evidence-adjusted
+    // win rate while keeping the displayed winRate unchanged.
+    const evidenceAdjustedRate = (stock: StockStats) => {
+      const judged = stock.win + stock.lose;
+      const priorSamples = 10;
+      const priorWinRate = 50;
+      return (
+        (stock.winRate * judged + priorWinRate * priorSamples) /
+        (judged + priorSamples)
+      );
+    };
+
     const bestStocks = [...stockStats]
       .filter((stock) => stock.win + stock.lose > 0)
-      .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+      .sort(
+        (a, b) =>
+          evidenceAdjustedRate(b) - evidenceAdjustedRate(a) ||
+          b.win + b.lose - (a.win + a.lose) ||
+          b.total - a.total,
+      )
       .slice(0, 5);
 
     const worstStocks = [...stockStats]
       .filter((stock) => stock.win + stock.lose > 0)
-      .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
+      .sort(
+        (a, b) =>
+          evidenceAdjustedRate(a) - evidenceAdjustedRate(b) ||
+          b.win + b.lose - (a.win + a.lose) ||
+          b.total - a.total,
+      )
       .slice(0, 5);
 
     const winRateTrend: TrendItem[] = trendResult.rows.map((row) => {
