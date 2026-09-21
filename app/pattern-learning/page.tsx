@@ -394,7 +394,7 @@ function SummarySection({
 
                 {group && onShowCurrent && (
                   <button type="button" onClick={() => onShowCurrent(group, item, displayName)} className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-black text-blue-700 transition active:scale-[0.99]">
-                    {currentLoading && currentTitle === displayName ? "🔍 該当銘柄を検索中…" : "現在この条件の銘柄を見る →"}
+                    現在この条件の銘柄を見る →
                   </button>
                 )}
 
