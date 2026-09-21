@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteBuyMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
+import { pushWebToUser } from "@/app/lib/push/userPush";
 import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = {
@@ -107,7 +108,13 @@ export async function GET(req: Request) {
           }
         }
       }
-      started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId) });
+      const webPush = await pushWebToUser(monitor.userEmail, {
+        title: "🔥 SIGNALX 買い条件成立",
+        body: `${monitor.code} ${monitor.name}｜AI POWER ${monitor.aiPower}｜基準価格 ${Math.round(monitor.entryPrice).toLocaleString()}円`,
+        url: `/analysis/${monitor.code}`,
+        tag: `signalx-buy-${monitor.id}`,
+      });
+      started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId), webPush });
     }
   }
 
