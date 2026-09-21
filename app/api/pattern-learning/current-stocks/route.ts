@@ -3,6 +3,9 @@ import { getLatestScanSnapshot } from "@/app/lib/scanSnapshot";
 
 export const dynamic = "force-dynamic";
 
+const CACHE_TTL_MS = 60_000;
+const responseCache = new Map<string, { expiresAt: number; body: unknown }>();
+
 type ConditionGroup = "rsi" | "macd" | "vwap" | "ema20" | "trend";
 
 const allowed: Record<ConditionGroup, Set<string>> = {
@@ -51,6 +54,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: "INVALID_CONDITION" }, { status: 400 });
   }
 
+  const cacheKey = `${group}:${value}:${limit}`;
+  const cached = responseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.body, {
+      headers: { "Cache-Control": "private, max-age=30" },
+    });
+  }
+
   const snapshot = await getLatestScanSnapshot();
   const stocks = Array.isArray(snapshot?.payload?.stocks) ? snapshot.payload.stocks : [];
   const matched = stocks
@@ -66,12 +77,18 @@ export async function GET(request: Request) {
       volumeRatio: stock.volumeRatio ?? null,
     }));
 
-  return NextResponse.json({
+  const body = {
     success: true,
     group,
     value,
     totalMatched: matched.length,
     snapshotUpdatedAt: snapshot?.updatedAt ?? null,
     stocks: matched,
+  };
+
+  responseCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, body });
+
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": "private, max-age=30" },
   });
 }
