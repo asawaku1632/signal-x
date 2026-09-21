@@ -13,6 +13,7 @@ import {
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteBuyMessage, favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
+import { pushWebToUser } from "@/app/lib/push/userPush";
 import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = { code: string; price?: number };
@@ -103,6 +104,13 @@ export async function GET(req: Request) {
     }
 
     const result = monitor.status === "WIN" ? "WIN" : "LOSE";
+    const webPush = await pushWebToUser(monitor.userEmail, {
+      title: result === "WIN" ? "🎯 SIGNALX 利確到達" : "🛡 SIGNALX 損切到達",
+      body: `${monitor.code} ${monitor.name}｜現在値 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
+      url: `/analysis/${monitor.code}`,
+      tag: `signalx-result-${monitor.id}`,
+    });
+
     const line = await pushLineToUser(
       lineUserId,
       favoriteResultMessage(monitor, currentPrice, result, baseUrl),
@@ -110,7 +118,7 @@ export async function GET(req: Request) {
 
     if (line.ok) {
       await markFavoriteResultNotified(monitor.id);
-      notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFIED" });
+      notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFIED", webPush });
     } else {
       await releaseFavoriteResultNotification(monitor.id);
       notifications.push({ id: monitor.id, code: monitor.code, state: "NOTIFICATION_RETRY" });
