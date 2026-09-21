@@ -74,11 +74,40 @@ export default function BacktestPage() {
           </div>
         </section>}
 
-        {best && <section className="mt-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black">{best.reason}の詳細データ</h2><p className="mt-1 text-xs font-bold text-slate-400">過去の{best.reason}シグナルの統計</p>
-          <div className="mt-4 grid grid-cols-4 gap-2"><Metric label="総数" value={best.total.toLocaleString()} /><Metric label="成功" value={best.win.toLocaleString()} tone="green"/><Metric label="失敗" value={best.lose.toLocaleString()} tone="red"/><Metric label="勝率" value={`${best.winRate}%`} tone="blue"/></div>
-          <div className="mt-2 grid grid-cols-3 gap-2"><Metric label="平均利益" value={signed(best.avgProfitRate)} tone={best.avgProfitRate>=0?"green":"red"}/><Metric label="最大利益" value={signed(best.maxProfitRate)} tone="green"/><Metric label="最大損失" value={signed(best.minProfitRate)} tone="red"/></div>
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-[10px] font-black text-amber-700">AI評価</p><p className="mt-1 text-lg font-black text-amber-700">{judge(best.winRate,best.avgProfitRate)}</p></div>
+        {data.length > 0 && <section className="mt-4 space-y-3">
+          <div className="px-1">
+            <p className="text-[10px] font-black tracking-[.18em] text-blue-600">STRATEGY DETAILS</p>
+            <h2 className="mt-1 text-xl font-black">各戦法の詳細内訳</h2>
+            <p className="mt-1 text-xs font-bold text-slate-400">5戦法すべての過去実績</p>
+          </div>
+          {data.map((item, index) => (
+            <article key={item.reason} className={`rounded-[2rem] border bg-white p-5 shadow-sm ${index === 0 ? "border-blue-200" : "border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400">戦法</p>
+                  <h3 className={`mt-1 text-2xl font-black ${index === 0 ? "text-blue-600" : "text-slate-900"}`}>{item.reason}</h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-400">勝率</p>
+                  <p className="mt-1 text-3xl font-black text-emerald-600">{item.winRate}%</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <Metric label="総数" value={item.total.toLocaleString()} />
+                <Metric label="成功" value={item.win.toLocaleString()} tone="green"/>
+                <Metric label="失敗" value={item.lose.toLocaleString()} tone="red"/>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <Metric label="平均利益" value={signed(item.avgProfitRate)} tone={item.avgProfitRate>=0?"green":"red"}/>
+                <Metric label="最大利益" value={signed(item.maxProfitRate)} tone="green"/>
+                <Metric label="最大損失" value={signed(item.minProfitRate)} tone="red"/>
+              </div>
+              <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-black text-amber-700">AI評価</p>
+                <p className="text-lg font-black text-amber-700">{judge(item.winRate,item.avgProfitRate)}</p>
+              </div>
+            </article>
+          ))}
         </section>}
 
         <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs font-bold leading-5 text-slate-500">ⓘ 過去のシグナル結果を基にした統計です。将来の成績を保証するものではありません。</div>
