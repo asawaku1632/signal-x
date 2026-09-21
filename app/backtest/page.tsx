@@ -70,16 +70,31 @@ export default function BacktestPage() {
           <h2 className="text-xl font-black">戦法別バックテスト結果</h2><p className="mt-1 text-xs font-bold text-slate-400">各戦法の過去実績を比較</p>
           <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
             <div className="grid grid-cols-[1.2fr_.8fr_.9fr_.8fr] bg-slate-50 px-3 py-2 text-[10px] font-black text-slate-400"><span>戦法</span><span className="text-right">勝率</span><span className="text-right">平均利益</span><span className="text-right">取引数</span></div>
-            {data.map((item,i)=><div key={item.reason} className={`border-t border-slate-100 ${i===0?"bg-blue-50":""}`}><div className="grid grid-cols-[1.2fr_.8fr_.9fr_.8fr] items-center px-3 py-3 text-xs"><span className={`font-black ${i===0?"text-blue-600":""}`}>{item.reason}</span><span className="text-right font-black text-emerald-600">{item.winRate}%</span><span className={`text-right font-black ${item.avgProfitRate>=0?"text-emerald-600":"text-red-500"}`}>{signed(item.avgProfitRate)}</span><span className="text-right font-black">{item.total.toLocaleString()}</span></div><div className="grid grid-cols-3 gap-2 px-3 pb-3"><Metric label="成功" value={item.win.toLocaleString()} tone="green"/><Metric label="失敗" value={item.lose.toLocaleString()} tone="red"/><Metric label="AI評価" value={judge(item.winRate,item.avgProfitRate)} tone="blue"/></div><div className="grid grid-cols-2 gap-2 px-3 pb-3"><Metric label="最大利益" value={signed(item.maxProfitRate)} tone="green"/><Metric label="最大損失" value={signed(item.minProfitRate)} tone="red"/></div></div>)}
+            {data.map((item,i)=><div key={item.reason} className={`grid grid-cols-[1.2fr_.8fr_.9fr_.8fr] items-center border-t border-slate-100 px-3 py-3 text-xs ${i===0?"bg-blue-50":""}`}><span className={`font-black ${i===0?"text-blue-600":""}`}>{item.reason}</span><span className="text-right font-black text-emerald-600">{item.winRate}%</span><span className={`text-right font-black ${item.avgProfitRate>=0?"text-emerald-600":"text-red-500"}`}>{signed(item.avgProfitRate)}</span><span className="text-right font-black">{item.total.toLocaleString()}</span></div>)}
           </div>
         </section>}
 
-        {best && <section className="mt-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black">{best.reason}の詳細データ</h2><p className="mt-1 text-xs font-bold text-slate-400">過去の{best.reason}シグナルの統計</p>
-          <div className="mt-4 grid grid-cols-4 gap-2"><Metric label="総数" value={best.total.toLocaleString()} /><Metric label="成功" value={best.win.toLocaleString()} tone="green"/><Metric label="失敗" value={best.lose.toLocaleString()} tone="red"/><Metric label="勝率" value={`${best.winRate}%`} tone="blue"/></div>
-          <div className="mt-2 grid grid-cols-3 gap-2"><Metric label="平均利益" value={signed(best.avgProfitRate)} tone={best.avgProfitRate>=0?"green":"red"}/><Metric label="最大利益" value={signed(best.maxProfitRate)} tone="green"/><Metric label="最大損失" value={signed(best.minProfitRate)} tone="red"/></div>
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-[10px] font-black text-amber-700">AI評価</p><p className="mt-1 text-lg font-black text-amber-700">{judge(best.winRate,best.avgProfitRate)}</p></div>
+        {data.length > 0 && <section className="mt-4 space-y-4">
+          {data.map((item)=><article key={`detail-${item.reason}`} className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-end justify-between gap-3">
+              <div><h2 className="text-xl font-black">{item.reason}の詳細データ</h2><p className="mt-1 text-xs font-bold text-slate-400">過去の{item.reason}シグナルの統計</p></div>
+              <div className="text-right"><p className="text-[10px] font-black text-slate-400">勝率</p><p className="text-xl font-black text-emerald-600">{item.winRate}%</p></div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <Metric label="総数" value={item.total.toLocaleString()} />
+              <Metric label="成功" value={item.win.toLocaleString()} tone="green"/>
+              <Metric label="失敗" value={item.lose.toLocaleString()} tone="red"/>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <Metric label="平均利益" value={signed(item.avgProfitRate)} tone={item.avgProfitRate>=0?"green":"red"}/>
+              <Metric label="最大利益" value={signed(item.maxProfitRate)} tone="green"/>
+              <Metric label="最大損失" value={signed(item.minProfitRate)} tone="red"/>
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3"><p className="text-xs font-black text-slate-500">AI評価</p><p className="text-lg font-black text-blue-600">{judge(item.winRate,item.avgProfitRate)}</p></div>
+          </article>)}
         </section>}
+
+        
 
         <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs font-bold leading-5 text-slate-500">ⓘ 過去のシグナル結果を基にした統計です。将来の成績を保証するものではありません。</div>
       </div>
