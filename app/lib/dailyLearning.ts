@@ -41,6 +41,22 @@ export async function getDailyStockResults(): Promise<DailyStockResult[]> {
   return rows.map(mapRow);
 }
 
+export async function getDailyStockResultsByCode(
+  code: string,
+): Promise<DailyStockResult[]> {
+  const { rows } = await pool.query(
+    `
+    SELECT *
+    FROM daily_stock_results
+    WHERE code = $1
+    ORDER BY created_at DESC
+    `,
+    [code],
+  );
+
+  return rows.map(mapRow);
+}
+
 export async function saveDailyStocks(
   date: string,
   stocks: {
