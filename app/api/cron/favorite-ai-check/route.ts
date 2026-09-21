@@ -13,6 +13,7 @@ import {
 } from "@/app/lib/favoriteAiMonitor";
 import { favoriteBuyMessage, favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
+import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = { code: string; price?: number };
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
@@ -20,6 +21,13 @@ const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
+
+  const todayJst = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  if (!isTseTradingDate(todayJst)) {
+    return NextResponse.json({ success: true, skipped: true, reason: "TSE_MARKET_CLOSED", date: todayJst });
+  }
 
   const baseUrl = new URL(req.url).origin;
   const [monitors, scanRes] = await Promise.all([
