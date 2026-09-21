@@ -67,6 +67,7 @@ const DEFAULT_PUSH_PAYLOAD = {
   tag: "signalx-notification",
 };
 const ALLOWED_NOTIFICATION_PATHS = new Set(["/", "/mypage"]);
+const ALLOWED_NOTIFICATION_PREFIXES = ["/analysis/"];
 const CANONICAL_ORIGIN = "https://signal-x-ppjg.vercel.app";
 
 function safeNotificationText(value, fallback, maxLength) {
@@ -78,7 +79,7 @@ function safeNotificationText(value, fallback, maxLength) {
 function safeNotificationUrl(value) {
   try {
     const url = new URL(typeof value === "string" ? value : "/", self.location.origin);
-    if (url.origin !== self.location.origin || !ALLOWED_NOTIFICATION_PATHS.has(url.pathname)) return "/";
+    if (url.origin !== self.location.origin || (!ALLOWED_NOTIFICATION_PATHS.has(url.pathname) && !ALLOWED_NOTIFICATION_PREFIXES.some((prefix) => url.pathname.startsWith(prefix)))) return "/";
     return `${url.pathname}${url.search}`;
   } catch {
     return "/";
