@@ -95,11 +95,6 @@ function resultLabel(result: PerformanceItem["result"]) {
   return "HOLD";
 }
 
-function resultIcon(result: PerformanceItem["result"]) {
-  if (result === "WIN") return "🟢";
-  if (result === "LOSE") return "🔴";
-  return "🟡";
-}
 
 function resultStyle(result: PerformanceItem["result"]) {
   if (result === "WIN") {
@@ -113,34 +108,7 @@ function resultStyle(result: PerformanceItem["result"]) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
-function rankLabel(rank: string) {
-  if (rank === "DATA_BUILDING") return "データ蓄積中";
-  return `${rank}ランク`;
-}
 
-function scoreComment(score: number, judgedTotal: number) {
-  if (judgedTotal < 5) {
-    return "判定数がまだ少ないため、過去実績スコアは参考値です。データ蓄積により精度が高まります。";
-  }
-
-  if (score >= 90) {
-    return "過去30日で非常に高い実績を維持しています。";
-  }
-
-  if (score >= 80) {
-    return "過去30日で安定した実績を維持しています。";
-  }
-
-  if (score >= 70) {
-    return "過去実績は良好です。相場状況と合わせて確認しましょう。";
-  }
-
-  if (score >= 60) {
-    return "標準的な実績です。今後の判定結果も確認しましょう。";
-  }
-
-  return "実績はまだ安定していません。AI判断だけに頼らず慎重に確認しましょう。";
-}
 
 function buildAiComment(data: PerformanceResponse) {
   const {
@@ -174,85 +142,8 @@ function buildAiComment(data: PerformanceResponse) {
   )}です。${balanceComment}`;
 }
 
-function getAiLevel(score: number, judgedTotal: number) {
-  if (judgedTotal < 3) {
-    return {
-      level: 1,
-      title: "学習開始",
-      stars: 1,
-    };
-  }
 
-  if (judgedTotal < 5) {
-    return {
-      level: 2,
-      title: "データ蓄積中",
-      stars: 2,
-    };
-  }
 
-  if (score >= 90) {
-    return {
-      level: 7,
-      title: "マスターAI",
-      stars: 5,
-    };
-  }
-
-  if (score >= 85) {
-    return {
-      level: 6,
-      title: "エキスパートAI",
-      stars: 5,
-    };
-  }
-
-  if (score >= 80) {
-    return {
-      level: 5,
-      title: "プロフェッショナル",
-      stars: 4,
-    };
-  }
-
-  if (score >= 70) {
-    return {
-      level: 4,
-      title: "高精度",
-      stars: 4,
-    };
-  }
-
-  if (score >= 60) {
-    return {
-      level: 3,
-      title: "安定判定",
-      stars: 3,
-    };
-  }
-
-  return {
-    level: 2,
-    title: "データ蓄積中",
-    stars: 2,
-  };
-}
-
-function getOverallGrade(
-  score: number,
-  judgedTotal: number,
-  winRate: number,
-) {
-  if (judgedTotal < 5) return "参考評価";
-  if (score >= 90 && winRate >= 75) return "非常に良好";
-  if (score >= 80 && winRate >= 65) return "良好";
-  if (score >= 65) return "標準";
-  return "要確認";
-}
-
-function renderStars(count: number) {
-  return `${"★".repeat(count)}${"☆".repeat(Math.max(5 - count, 0))}`;
-}
 
 export default function PerformancePage() {
   const params = useParams();
@@ -346,7 +237,6 @@ export default function PerformancePage() {
 
   const {
     summary30Days,
-    currentMonth,
     monthlyTrend,
     reliability,
     recent3Days,
