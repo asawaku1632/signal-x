@@ -4,6 +4,7 @@ import { requireCronAuth } from "@/app/lib/cronAuth";
 import { withSingleLineBrand } from "@/app/lib/line/brand";
 import { getPublicBaseUrl } from "@/app/lib/publicBaseUrl";
 import { formatAiRankingPosition } from "@/app/lib/rankingUniverse";
+import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = {
   code: string;
@@ -87,6 +88,22 @@ export async function GET(req: Request) {
   if (unauthorized) return unauthorized;
 
   try {
+    const todayJst = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    if (!isTseTradingDate(todayJst)) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "TSE_MARKET_CLOSED",
+        date: todayJst,
+      });
+    }
+
     const url = new URL(req.url);
     const baseUrl = url.origin;
     const publicUrl = getPublicBaseUrl();
