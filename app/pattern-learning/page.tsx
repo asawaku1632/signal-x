@@ -65,6 +65,9 @@ export default function PatternLearningPage() {
   const [currentStocks, setCurrentStocks] = useState<CurrentStock[]>([]);
   const [currentLoading, setCurrentLoading] = useState(false);
   const [currentError, setCurrentError] = useState("");
+  const [filters, setFilters] = useState<Record<ConditionGroup, string>>({
+    rsi: "", macd: "", vwap: "", ema20: "", trend: "",
+  });
 
   const showCurrentStocks = async (group: ConditionGroup, item: SummaryItem, label: string) => {
     setCurrentTitle(label);
@@ -91,6 +94,34 @@ export default function PatternLearningPage() {
     } catch (error) {
       console.error("current condition stocks error:", error);
       setCurrentError("銘柄一覧を取得できませんでした。もう一度お試しください。");
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
+
+  const runMultiFilter = async () => {
+    const selected = Object.entries(filters).filter(([, value]) => value);
+    if (selected.length < 2) {
+      setCurrentTitle("複数条件スクリーナー");
+      setCurrentStocks([]);
+      setCurrentError("2つ以上の条件を選択してください。");
+      return;
+    }
+    setCurrentTitle("複数条件スクリーナー");
+    setCurrentLoading(true);
+    setCurrentStocks([]);
+    setCurrentError("");
+    window.setTimeout(() => document.getElementById("current-condition-stocks")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      selected.forEach(([key, value]) => params.set(key, value));
+      const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json?.success) throw new Error(json?.error || `HTTP ${res.status}`);
+      setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
+    } catch (error) {
+      console.error("multi condition stocks error:", error);
+      setCurrentError("複数条件の銘柄一覧を取得できませんでした。");
     } finally {
       setCurrentLoading(false);
     }
@@ -197,6 +228,38 @@ export default function PatternLearningPage() {
 
             <TopMini label="更新" value={data.updatedAt} color="text-blue-600" />
           </div>
+        </section>
+
+        <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
+          <div className="mb-3">
+            <p className="text-xs font-black text-blue-600">🔎 今日の条件検索</p>
+            <h2 className="text-xl font-black">複数条件スクリーナー</h2>
+            <p className="mt-1 text-xs font-bold text-slate-500">2つ以上選ぶと、すべてに一致する現在の銘柄を探します。</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {([
+              ["rsi", "RSI", data.rsi],
+              ["macd", "MACD", data.macd],
+              ["vwap", "VWAP", data.vwap],
+              ["ema20", "EMA20", data.ema20],
+              ["trend", "トレンド", data.trend],
+            ] as const).map(([key, label, items]) => (
+              <label key={key} className="grid grid-cols-[80px_1fr] items-center gap-2 rounded-xl bg-slate-50 p-2">
+                <span className="text-xs font-black text-slate-600">{label}</span>
+                <select
+                  value={filters[key]}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, [key]: e.target.value }))}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold"
+                >
+                  <option value="">指定なし</option>
+                  {items.map((item) => <option key={item.pattern} value={item.pattern}>{patternLabelMap[item.pattern] ?? item.pattern}（過去{item.winRate}%）</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <button type="button" onClick={runMultiFilter} disabled={currentLoading} className="mt-3 w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow disabled:opacity-60">
+            {currentLoading && currentTitle === "複数条件スクリーナー" ? "🔍 条件一致銘柄を検索中…" : "この組み合わせで現在の銘柄を探す →"}
+          </button>
         </section>
 
         <SummarySection
