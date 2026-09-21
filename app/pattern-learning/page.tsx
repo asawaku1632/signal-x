@@ -12,6 +12,16 @@ type SummaryItem = {
   winRate: number;
 };
 
+type ConditionGroup = "rsi" | "macd" | "vwap" | "ema20" | "trend";
+
+type CurrentStock = {
+  code: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  aiPower: number;
+};
+
 type PatternSummary = {
   success: boolean;
   rsi: SummaryItem[];
@@ -51,6 +61,25 @@ const patternLabelMap: Record<string, string> = {
 export default function PatternLearningPage() {
   const [data, setData] = useState<PatternSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentTitle, setCurrentTitle] = useState("");
+  const [currentStocks, setCurrentStocks] = useState<CurrentStock[]>([]);
+  const [currentLoading, setCurrentLoading] = useState(false);
+
+  const showCurrentStocks = async (group: ConditionGroup, item: SummaryItem, label: string) => {
+    setCurrentTitle(label);
+    setCurrentLoading(true);
+    setCurrentStocks([]);
+    try {
+      const params = new URLSearchParams({ group, value: item.pattern, limit: "100" });
+      const res = await fetch(`/api/pattern-learning/current-stocks?${params.toString()}`, { cache: "no-store" });
+      const json = await res.json();
+      setCurrentStocks(Array.isArray(json?.stocks) ? json.stocks : []);
+    } catch (error) {
+      console.error("current condition stocks error:", error);
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -208,6 +237,29 @@ export default function PatternLearningPage() {
           }}
         />
 
+        {currentTitle && (
+          <section className="rounded-[24px] bg-white border border-blue-200 p-4 mb-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-black text-blue-600">現在の該当銘柄</p><h2 className="text-lg font-black">{currentTitle}</h2></div>
+              <button type="button" onClick={() => { setCurrentTitle(""); setCurrentStocks([]); }} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black">閉じる</button>
+            </div>
+            {currentLoading ? (
+              <p className="mt-4 text-sm font-bold text-slate-500">現在のスキャン結果から検索中...</p>
+            ) : currentStocks.length === 0 ? (
+              <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">現在この条件に一致する銘柄はありません。</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {currentStocks.map((stock) => (
+                  <Link key={stock.code} href={`/analysis/${stock.code}`} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3 active:scale-[0.99]">
+                    <div className="min-w-0"><p className="text-xs font-black text-slate-500">{stock.code}</p><p className="truncate text-sm font-black">{stock.name}</p></div>
+                    <div className="shrink-0 text-right"><p className="text-sm font-black">AI {stock.aiPower}</p><p className={`text-xs font-bold ${stock.changePercent > 0 ? "text-green-600" : stock.changePercent < 0 ? "text-red-500" : "text-slate-500"}`}>{stock.changePercent > 0 ? "+" : ""}{stock.changePercent}%</p></div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         <SummarySection
           title="🧬 複合パターン TOP20"
           items={data.patternKey}
@@ -231,11 +283,15 @@ function SummarySection({
   items,
   labelMap = {},
   compact = false,
+  group,
+  onShowCurrent,
 }: {
   title: string;
   items: SummaryItem[];
   labelMap?: Record<string, string>;
   compact?: boolean;
+  group?: ConditionGroup;
+  onShowCurrent?: (group: ConditionGroup, item: SummaryItem, label: string) => void;
 }) {
   return (
     <section className="rounded-[24px] bg-white border border-slate-200 p-4 mb-4 shadow-sm">
@@ -308,6 +364,12 @@ function SummarySection({
                     style={{ width: `${Math.max(item.winRate, 4)}%` }}
                   />
                 </div>
+
+                {group && onShowCurrent && (
+                  <button type="button" onClick={() => onShowCurrent(group, item, displayName)} className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-black text-blue-700 transition active:scale-[0.99]">
+                    現在この条件の銘柄を見る →
+                  </button>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 mt-3">
                   <SmallStat label="WIN" value={item.win} color="text-green-600" />
