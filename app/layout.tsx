@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PwaServiceWorkerRegistration from "./components/PwaServiceWorkerRegistration";
+import MobileViewportRecovery from "./components/MobileViewportRecovery";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <PwaServiceWorkerRegistration />
+          <MobileViewportRecovery />
           {children}
         </Providers>
       </body>
