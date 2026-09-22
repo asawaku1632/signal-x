@@ -1,4 +1,5 @@
 import pool from "@/app/lib/postgres";
+import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {
   classifyLearningSave,
   type MonitorLog,
@@ -34,16 +35,8 @@ export function getJstDateString(date = new Date()) {
   }).format(date);
 }
 
-function getJstWeekday(date = new Date()) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Tokyo",
-    weekday: "short",
-  }).format(date);
-}
-
 export function isJstBusinessDay(date = new Date()) {
-  const weekday = getJstWeekday(date);
-  return weekday !== "Sat" && weekday !== "Sun";
+  return isTseTradingDate(getJstDateString(date));
 }
 
 function getPreviousWeekday(date = new Date()) {
