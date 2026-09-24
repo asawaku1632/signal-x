@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { STOCKS } from "@/app/lib/stockList";
 import {
@@ -15,15 +14,19 @@ export async function GET(
   context: { params: Promise<{ code: string }> },
 ) {
   const { code } = await context.params;
-  const snapshot = await getStockSnapshot(code);
-  const ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+  let snapshot = await getStockSnapshot(code);
+  let ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
 
+  // Individual analysis pages must not render a stale recommendation first.
+  // Refresh synchronously when the snapshot is missing or older than the
+  // freshness window so a notification tap cannot open an outdated AI POWER.
   if (!snapshot || ageMs >= SCAN_FRESH_MS) {
-    after(async () => {
-      await refreshStockSnapshot(code).catch((error) =>
-        console.error("stock snapshot refresh failed:", error),
-      );
-    });
+    await refreshStockSnapshot(code).catch((error) =>
+      console.error("stock snapshot refresh failed:", error),
+    );
+
+    snapshot = await getStockSnapshot(code);
+    ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
   }
 
   if (snapshot) {
