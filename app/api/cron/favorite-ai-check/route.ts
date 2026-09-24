@@ -19,6 +19,31 @@ import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalend
 type Stock = { code: string; price?: number };
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
 
+function resultAlertUrl(monitor: {
+  id: string;
+  code: string;
+  name: string;
+  entryPrice: number;
+  takeProfit: number;
+  stopLoss: number;
+  resultPrice: number | null;
+  status: string;
+  triggeredAt: string;
+  completedAt: string | null;
+}) {
+  const params = new URLSearchParams({
+    result: monitor.status === "WIN" ? "WIN" : "LOSE",
+    name: monitor.name,
+    entry: String(monitor.entryPrice),
+    takeProfit: String(monitor.takeProfit),
+    stopLoss: String(monitor.stopLoss),
+    resultPrice: String(monitor.resultPrice ?? ""),
+    triggeredAt: monitor.triggeredAt,
+    completedAt: monitor.completedAt ?? "",
+  });
+  return `/alerts/result/${encodeURIComponent(monitor.code)}?${params.toString()}`;
+}
+
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -96,7 +121,7 @@ export async function GET(req: Request) {
     const webPush = await pushWebToUser(monitor.userEmail, {
       title: result === "WIN" ? "🎯 SIGNALX 利確到達" : "🛡 SIGNALX 損切到達",
       body: `${monitor.code} ${monitor.name}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 現在 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
-      url: `/analysis/${monitor.code}`,
+      url: resultAlertUrl(monitor),
       tag: `signalx-result-${monitor.id}`,
     });
 
