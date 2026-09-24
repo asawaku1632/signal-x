@@ -40,7 +40,7 @@ export function getWinRateDisplay(counts: WinRateCounts) {
         : state === "waiting"
           ? "判定待ち"
           : state === "no_direction"
-            ? "方向性判定なし"
+            ? "HOLDのみ（勝率対象外）"
             : "--";
 
   return {
@@ -51,7 +51,9 @@ export function getWinRateDisplay(counts: WinRateCounts) {
     detail:
       counts.unknown > 0
         ? `${counts.win}勝 ${counts.lose}敗 / 未判定${counts.unknown}件`
-        : `${counts.win}勝 ${counts.lose}敗`,
+        : counts.hold > 0 && counts.win + counts.lose === 0
+          ? `HOLD ${counts.hold}件 / WIN・LOSEなし`
+          : `${counts.win}勝 ${counts.lose}敗`,
   };
 }
 
