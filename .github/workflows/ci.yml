@@ -32,6 +32,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit details
+        continue-on-error: true
+        run: npm audit
+
       - name: Lint
         id: lint
         continue-on-error: true
