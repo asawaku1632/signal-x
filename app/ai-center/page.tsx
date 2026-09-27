@@ -134,13 +134,17 @@ export default function AiCenterPage() {
   };
 
   useEffect(() => {
-    fetchNotices();
-
+    const initial = setTimeout(() => {
+      void fetchNotices();
+    }, 0);
     const timer = setInterval(() => {
-      fetchNotices();
+      void fetchNotices();
     }, 5000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, []);
 
   return (
