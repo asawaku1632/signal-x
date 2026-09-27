@@ -259,13 +259,17 @@ export default function DailyPage() {
   };
 
   useEffect(() => {
-    fetchDaily();
-
+    const initial = setTimeout(() => {
+      void fetchDaily();
+    }, 0);
     const timer = setInterval(() => {
-      fetchDaily();
+      void fetchDaily();
     }, 5000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, []);
 
   if (!daily) {
