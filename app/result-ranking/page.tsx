@@ -15,7 +15,10 @@ export default function ResultRankingPage() {
     setRanking(json.ranking || []);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return <main className="min-h-screen bg-black text-white p-4">
     <h1 className="text-3xl font-bold text-yellow-400 mb-6">🏆 AI勝率ランキング</h1>
