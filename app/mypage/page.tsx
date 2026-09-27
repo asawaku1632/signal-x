@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import PushNotificationButton from "@/app/components/push/PushNotificationButton";
 import LineLinkCard from "@/app/components/line/LineLinkCard";
 
@@ -16,17 +16,16 @@ type SettingLink = {
 
 export default function MyPage() {
   const { data: session, status } = useSession();
-  const [favoriteCount, setFavoriteCount] = useState(0);
-
-  useEffect(() => {
+  const [favoriteCount] = useState(() => {
+    if (typeof window === "undefined") return 0;
     try {
-      const saved = localStorage.getItem("signalx-favorites");
-      const favorites: string[] = saved ? JSON.parse(saved) : [];
-      setFavoriteCount(Array.isArray(favorites) ? favorites.length : 0);
+      const saved = window.localStorage.getItem("signalx-favorites");
+      const favorites: unknown = saved ? JSON.parse(saved) : [];
+      return Array.isArray(favorites) ? favorites.length : 0;
     } catch {
-      setFavoriteCount(0);
+      return 0;
     }
-  }, []);
+  });
 
   const accountName = session?.user?.name ?? "ユーザー";
   const accountEmail = session?.user?.email ?? "メールアドレス未取得";
