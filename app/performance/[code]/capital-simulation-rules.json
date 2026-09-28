@@ -1,0 +1,10 @@
+{
+  "initialCapital": 100000,
+  "lotSize": 100,
+  "buyScoreThreshold": 85,
+  "exit": "nextBusinessDayPrice",
+  "feesIncluded": false,
+  "taxIncluded": false,
+  "slippageIncluded": false,
+  "takeProfitStopLossBacktest": false
+}
