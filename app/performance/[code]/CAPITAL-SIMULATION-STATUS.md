@@ -1,0 +1,1 @@
+Implemented: separate 100,000-yen capital simulation endpoint and UI card, plus clarification of the legacy cumulative P/L metric. Pending future data-model work: true take-profit/stop-loss path backtesting.

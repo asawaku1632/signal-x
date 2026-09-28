@@ -1,0 +1,1 @@
+Display contract: the 100,000-yen simulation is separate from the existing AI learning metric. Never label the existing 100-share next-day aggregate as actual account profit. Never label the new simulation as take-profit/stop-loss performance until historical path/trigger data exists.
