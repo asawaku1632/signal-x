@@ -1,0 +1,1 @@
+Open simulated positions can be sold at the current tracked price or cancelled. Selling moves the position to history with a realized result. Cancelling removes the test position and does not count it in history or results.
