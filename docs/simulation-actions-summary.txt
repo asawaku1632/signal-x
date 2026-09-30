@@ -1,0 +1,1 @@
+Paper trade detail view; simulated sale; cancellation; realized history.
