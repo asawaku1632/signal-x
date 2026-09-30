@@ -1,0 +1,1 @@
+Position details show amount, quantity, entry price, current or exit price, tracking period, and timestamps.
