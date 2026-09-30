@@ -1,0 +1,1 @@
+Simulation trade actions: detail view, paper sell, cancellation, and closed-history display.
