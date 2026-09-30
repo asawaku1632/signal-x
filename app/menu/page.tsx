@@ -14,6 +14,7 @@ const analysisItems: MenuItem[] = [
 ];
 
 const supportItems: MenuItem[] = [
+  { title: "疑似投資", description: "実際のお金を使わず100株単位で投資を体験", href: "/simulation", icon: "💹", accent: "bg-blue-50 text-blue-600" },
   { title: "ランキング", description: "AI上位銘柄を確認", href: "/ranking", icon: "🏆", accent: "bg-amber-50 text-amber-600" },
   { title: "ウォッチリスト", description: "登録銘柄を管理", href: "/favorites", icon: "◉", accent: "bg-teal-50 text-teal-600" },
   { title: "通知履歴", description: "過去の通知を確認", href: "/history", icon: "🔔", accent: "bg-emerald-50 text-emerald-600" },
