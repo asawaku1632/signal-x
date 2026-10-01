@@ -13,7 +13,7 @@ import {
 import { favoriteBuyMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 import { pushWebToUser } from "@/app/lib/push/userPush";
-import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = {
   code: string;
@@ -31,11 +31,15 @@ export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
-  const todayJst = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
-  if (!isTseTradingDate(todayJst)) {
-    return NextResponse.json({ success: true, skipped: true, reason: "TSE_MARKET_CLOSED", date: todayJst });
+  const session = getTseCashSessionStatus(new Date());
+  if (!session.open) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: session.reason,
+      date: session.date,
+      jstTime: session.jstTime,
+    });
   }
 
   const baseUrl = new URL(req.url).origin;
