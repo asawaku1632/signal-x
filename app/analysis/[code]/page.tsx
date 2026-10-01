@@ -769,6 +769,23 @@ export default function AnalysisPage() {
           <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-medium leading-5 text-slate-500 dark:border-slate-700 dark:text-slate-300">候補評価です。評価が高くても今すぐの購入を意味しません。</p>
         </section>
 
+        <section className="mt-3 rounded-2xl border-2 border-red-300 bg-red-50 p-3 shadow-sm dark:border-red-800 dark:bg-red-950/20">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-600" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-black text-red-700 dark:text-red-300">これは疑似購入です</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-red-600 dark:text-red-300">実際の株式注文・金銭の取引は発生しません。</p>
+            </div>
+          </div>
+          <Link
+            href={`/simulation?code=${encodeURIComponent(signal.code)}`}
+            className="mt-3 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-black text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]"
+            aria-label={`${signal.code} ${signal.name}を疑似購入する`}
+          >
+            この銘柄を疑似購入
+          </Link>
+        </section>
+
         <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
 
         <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm dark:border-orange-800 dark:bg-slate-900">
