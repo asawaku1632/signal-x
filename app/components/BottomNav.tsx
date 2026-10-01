@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
       "/result-stats",
       "/result-ranking",
       "/results",
+      "/simulation",
       "/chart",
     ],
   },
