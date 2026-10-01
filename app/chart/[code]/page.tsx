@@ -534,11 +534,11 @@ export default function ChartPage() {
 
           {showScrollCue && (
             <a
-              href="#ai-future-prediction"
+              href="#paper-trade-entry"
               onClick={(event) => {
                 event.preventDefault();
                 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                document.getElementById("ai-future-prediction")?.scrollIntoView({
+                document.getElementById("paper-trade-entry")?.scrollIntoView({
                   behavior: reduceMotion ? "auto" : "smooth",
                   block: "start",
                 });
@@ -551,6 +551,28 @@ export default function ChartPage() {
               <span className="hidden whitespace-nowrap sm:inline">この下にAI未来予測・AIアドバイスがあります</span>
             </a>
           )}
+
+          <section
+            id="paper-trade-entry"
+            className="scroll-mt-16 rounded-2xl border-2 border-red-300 bg-red-50 p-3 shadow-sm dark:border-red-800 dark:bg-red-950/20"
+          >
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-600" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-red-700 dark:text-red-300">これは疑似購入です</p>
+                <p className="mt-1 text-xs font-medium leading-5 text-red-600 dark:text-red-300">
+                  実際の株式注文・金銭の取引は発生しません。
+                </p>
+              </div>
+            </div>
+            <Link
+              href={`/simulation?code=${encodeURIComponent(resolvedStock.code)}`}
+              className="mt-3 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-black text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]"
+              aria-label={`${resolvedStock.code} ${resolvedStock.name}を疑似購入する`}
+            >
+              この銘柄を疑似購入
+            </Link>
+          </section>
 
           <div id="ai-future-prediction" className="scroll-mt-16">
             <AIPredictionCard
