@@ -137,6 +137,35 @@ export function isTseTradingDate(date: string, calendar: TseMarketCalendar = TSE
   return day !== 0 && day !== 6 && !calendar.closedDates.has(date);
 }
 
+export function getTseCashSessionStatus(
+  now = new Date(),
+  calendar: TseMarketCalendar = TSE_MARKET_CALENDAR,
+) {
+  if (!Number.isFinite(now.getTime())) {
+    throw new TseMarketCalendarError("TARGET_TRADE_DATE_UNRESOLVED");
+  }
+
+  const current = dateParts(now);
+  const minuteOfDay = current.hour * 60 + current.minute;
+  const tradingDate = isTseTradingDate(current.date, calendar);
+  const morningOpen = minuteOfDay >= 9 * 60 && minuteOfDay <= 11 * 60 + 30;
+  const afternoonOpen = minuteOfDay >= 12 * 60 + 30 && minuteOfDay <= 15 * 60 + 30;
+  const open = tradingDate && (morningOpen || afternoonOpen);
+
+  return {
+    open,
+    date: current.date,
+    hour: current.hour,
+    minute: current.minute,
+    jstTime: `${String(current.hour).padStart(2, "0")}:${String(current.minute).padStart(2, "0")}`,
+    reason: !tradingDate
+      ? "TSE_MARKET_CLOSED"
+      : open
+        ? "TSE_CASH_SESSION_OPEN"
+        : "OUTSIDE_TSE_CASH_SESSION",
+  } as const;
+}
+
 export function resolveTargetTradeDate(now = new Date(), options: {
   calendar?: TseMarketCalendar | null;
   maxLookbackDays?: number;
