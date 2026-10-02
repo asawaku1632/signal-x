@@ -2,8 +2,10 @@ name: SIGNALX Night Market Report
 
 on:
   schedule:
-    # GitHub Actions cron is UTC. 10:00 UTC = 19:00 JST.
-    - cron: "0 10 * * 1-5"
+    # GitHub Actions cron is UTC.
+    # Retry around 19:00 JST because scheduled workflows can start late.
+    # The API guarantees only one report is sent per trading day.
+    - cron: "0,5,10,15,20,25 10 * * 1-5"
   workflow_dispatch:
 
 concurrency:
