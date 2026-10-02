@@ -1,0 +1,27 @@
+name: SIGNALX Night Market Report
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. 10:00 UTC = 19:00 JST.
+    - cron: "0 10 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: signalx-night-market-report
+  cancel-in-progress: false
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send 19:00 night market report
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 10 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://signal-x-ppjg.vercel.app/api/cron/night-market-report"
