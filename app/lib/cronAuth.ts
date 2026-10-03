@@ -12,11 +12,14 @@ function secretsMatch(expected: string, supplied: string) {
 }
 
 export function requireCronAuth(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
+  const allowedSecrets = [
+    process.env.CRON_SECRET,
+    process.env.NOTIFICATION_RUNNER_SECRET,
+  ].filter((secret): secret is string => Boolean(secret));
 
-  if (!cronSecret) {
+  if (allowedSecrets.length === 0) {
     return NextResponse.json(
-      { success: false, error: "CRON_SECRET is not configured" },
+      { success: false, error: "Cron authentication is not configured" },
       { status: 500 },
     );
   }
@@ -26,7 +29,11 @@ export function requireCronAuth(request: Request) {
     ? authorization.slice("Bearer ".length)
     : "";
 
-  if (!suppliedSecret || !secretsMatch(cronSecret, suppliedSecret)) {
+  const authorized =
+    Boolean(suppliedSecret) &&
+    allowedSecrets.some((secret) => secretsMatch(secret, suppliedSecret));
+
+  if (!authorized) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 },
