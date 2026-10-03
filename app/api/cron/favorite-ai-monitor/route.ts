@@ -14,6 +14,7 @@ import { favoriteBuyMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 import { pushWebToUser } from "@/app/lib/push/userPush";
 import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { PRIME_SIGNAL_SCORE } from "@/app/lib/primeSignalState";
 
 type Stock = {
   code: string;
@@ -112,12 +113,14 @@ export async function GET(req: Request) {
           }
         }
       }
-      const webPush = await pushWebToUser(monitor.userEmail, {
-        title: "🔥 SIGNALX 買い条件成立",
-        body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
-        url: `/analysis/${monitor.code}`,
-        tag: `signalx-buy-${monitor.id}`,
-      });
+      const webPush = score >= PRIME_SIGNAL_SCORE
+        ? { ok: false, sent: 0, failed: 0, reason: "PRIME_SIGNAL_PRIORITY" as const }
+        : await pushWebToUser(monitor.userEmail, {
+            title: "🔵 SIGNALX 買い条件成立",
+            body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
+            url: `/analysis/${monitor.code}`,
+            tag: `signalx-buy-${monitor.id}`,
+          });
       started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId), webPush });
     }
   }
