@@ -479,8 +479,10 @@ export default function AnalysisPage() {
             }
           : null;
         setSignal(target);
-        if (target?.rank) setAiRank(target.rank);
-        if (target?.totalStockList) setTotalRank(target.totalStockList);
+        // Do not use rank from the single-stock refresh: that scan contains only
+        // one stock, so its rank is always 1. Ranking must come from the full
+        // scan snapshot below.
+        setAiRank(0);
         setHistoryStats(historyJson?.success ? historyJson : null);
         setPerformance(performanceJson?.success ? performanceJson : null);
 
@@ -507,7 +509,13 @@ export default function AnalysisPage() {
               : Array.isArray(scanJson?.stocks)
                 ? scanJson.stocks
                 : [];
-            const rankingPosition = stocks.findIndex((item) => item.code === code) + 1;
+            const rankingPosition =
+              stocks.findIndex(
+                (item) =>
+                  String(item.code) === code ||
+                  String(item.name) === code ||
+                  String(item.code) === String(target?.code),
+              ) + 1;
             if (rankingPosition > 0) setAiRank(rankingPosition);
             setTotalRank(
               !Array.isArray(scanJson) &&
