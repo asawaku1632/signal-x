@@ -123,7 +123,7 @@ export async function GET(req: Request) {
 
     const result = monitor.status === "WIN" ? "WIN" : "LOSE";
     const webPush = await pushWebToUser(monitor.userEmail, {
-      title: result === "WIN" ? "🎯 SIGNALX 利確到達" : "🛡 SIGNALX 損切到達",
+      title: result === "WIN" ? "🟢 SIGNALX 利確ライン到達" : "🔴 SIGNALX 損切りライン到達",
       body: `${monitor.code} ${monitor.name}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 現在 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
       url: resultAlertUrl(monitor),
       tag: `signalx-result-${monitor.id}`,

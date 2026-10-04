@@ -67,7 +67,7 @@ const DEFAULT_PUSH_PAYLOAD = {
   tag: "signalx-notification",
 };
 const ALLOWED_NOTIFICATION_PATHS = new Set(["/", "/mypage"]);
-const ALLOWED_NOTIFICATION_PREFIXES = ["/analysis/"];
+const ALLOWED_NOTIFICATION_PREFIXES = ["/analysis/", "/alerts/result/"];
 const CANONICAL_ORIGIN = "https://signal-x-ppjg.vercel.app";
 
 function safeNotificationText(value, fallback, maxLength) {
