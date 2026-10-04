@@ -15,10 +15,31 @@ export async function GET(
   context: { params: Promise<{ code: string }> },
 ) {
   const { code } = await context.params;
-  const snapshot = await getStockSnapshot(code);
-  const ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+  let snapshot = await getStockSnapshot(code);
+  let ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
 
-  if (!snapshot || ageMs >= SCAN_FRESH_MS) {
+  // A stock-detail page needs a complete analysis payload. When there is no
+  // usable snapshot yet, build it synchronously instead of returning only the
+  // basic stock name (which the UI would otherwise render as zero values).
+  const hasAnalysisData = Boolean(
+    snapshot?.payload &&
+      Number.isFinite(Number(snapshot.payload.price ?? snapshot.payload.currentPrice)) &&
+      Number.isFinite(Number(snapshot.payload.score ?? snapshot.payload.aiPower)),
+  );
+
+  if (!hasAnalysisData) {
+    const refreshed = await refreshStockSnapshot(code).catch((error) => {
+      console.error("stock snapshot initial refresh failed:", error);
+      return null;
+    });
+
+    if (refreshed) {
+      snapshot = await getStockSnapshot(code);
+      ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
+    }
+  }
+
+  if (snapshot && hasAnalysisData && ageMs >= SCAN_FRESH_MS) {
     after(async () => {
       await refreshStockSnapshot(code).catch((error) =>
         console.error("stock snapshot refresh failed:", error),
