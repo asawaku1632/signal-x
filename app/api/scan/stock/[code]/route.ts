@@ -14,7 +14,12 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ code: string }> },
 ) {
-  const { code } = await context.params;
+  const { code: requestedCode } = await context.params;
+  const decoded = decodeURIComponent(requestedCode);
+  const matchedStock = STOCKS.find(
+    (stock) => stock.code === decoded || stock.name === decoded,
+  );
+  const code = matchedStock?.code ?? decoded;
   let snapshot = await getStockSnapshot(code);
   let ageMs = snapshot ? Date.now() - Date.parse(snapshot.updatedAt) : Infinity;
 
@@ -56,7 +61,7 @@ export async function GET(
     });
   }
 
-  const basic = STOCKS.find((stock) => stock.code === code) ?? { code, name: code };
+  const basic = matchedStock ?? STOCKS.find((stock) => stock.code === code) ?? { code, name: decoded };
   return NextResponse.json(
     { success: true, status: "loading", updatedAt: null, stock: basic },
     { status: 202 },
