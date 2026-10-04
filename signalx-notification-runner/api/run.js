@@ -1,5 +1,11 @@
 const TARGET = "https://signal-x-ppjg.vercel.app";
 
+const JOBS = {
+  "prime-signal": "/api/cron/prime-signal",
+  "favorite-ai-monitor": "/api/cron/favorite-ai-monitor",
+  "favorite-ai-check": "/api/cron/favorite-ai-check",
+};
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   const runnerSecret = process.env.NOTIFICATION_RUNNER_SECRET;
@@ -15,30 +21,32 @@ export default async function handler(req, res) {
     });
   }
 
-  const jobs = [
-    "/api/cron/prime-signal",
-    "/api/cron/favorite-ai-monitor",
-    "/api/cron/favorite-ai-check",
-  ];
+  const job = typeof req.query.job === "string" ? req.query.job : "";
+  const path = JOBS[job];
 
-  const results = [];
-  for (const path of jobs) {
-    try {
-      const response = await fetch(TARGET + path, {
-        headers: { authorization: `Bearer ${runnerSecret}` },
-      });
-      const body = await response.text();
-      results.push({
-        path,
-        status: response.status,
-        ok: response.ok,
-        body: body.slice(0, 1000),
-      });
-    } catch (error) {
-      results.push({ path, status: 0, ok: false, error: String(error) });
-    }
+  if (!path) {
+    return res.status(400).json({ success: false, error: "Unknown notification job" });
   }
 
-  const ok = results.every((item) => item.ok);
-  return res.status(ok ? 200 : 502).json({ success: ok, results });
+  try {
+    const response = await fetch(TARGET + path, {
+      headers: { authorization: `Bearer ${runnerSecret}` },
+    });
+    const body = await response.text();
+    return res.status(response.ok ? 200 : 502).json({
+      success: response.ok,
+      job,
+      path,
+      status: response.status,
+      body: body.slice(0, 1000),
+    });
+  } catch (error) {
+    return res.status(502).json({
+      success: false,
+      job,
+      path,
+      status: 0,
+      error: String(error),
+    });
+  }
 }
