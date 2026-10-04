@@ -12,8 +12,12 @@ import type { BollingerSignal } from "@/app/lib/bollingerBands";
 type Signal = {
   code: string;
   name: string;
-  price: number;
+  price?: number;
+  currentPrice?: number;
   score?: number;
+  rank?: number;
+  totalStockList?: number;
+  confidence?: number;
   aiPower?: number;
   changePercent?: number;
   rsi?: number;
@@ -456,13 +460,27 @@ export default function AnalysisPage() {
           success?: boolean;
           status?: string;
           stock?: Signal;
+          rank?: number;
+          totalStockList?: number;
+          confidence?: number;
         }>(stockRes);
         const historyJson = await readJsonResponse<HistoryStats>(historyRes);
         const performanceJson =
           await readJsonResponse<PerformanceSummary>(performanceRes);
 
-        const target = stockJson?.stock ?? null;
+        const rawTarget = stockJson?.stock ?? null;
+        const target = rawTarget
+          ? {
+              ...rawTarget,
+              price: rawTarget.price ?? rawTarget.currentPrice,
+              rank: rawTarget.rank ?? stockJson?.rank,
+              totalStockList: rawTarget.totalStockList ?? stockJson?.totalStockList,
+              confidence: rawTarget.confidence ?? stockJson?.confidence,
+            }
+          : null;
         setSignal(target);
+        if (target?.rank) setAiRank(target.rank);
+        if (target?.totalStockList) setTotalRank(target.totalStockList);
         setHistoryStats(historyJson?.success ? historyJson : null);
         setPerformance(performanceJson?.success ? performanceJson : null);
 
@@ -489,7 +507,8 @@ export default function AnalysisPage() {
               : Array.isArray(scanJson?.stocks)
                 ? scanJson.stocks
                 : [];
-            setAiRank(stocks.findIndex((item) => item.code === code) + 1);
+            const rankingPosition = stocks.findIndex((item) => item.code === code) + 1;
+            if (rankingPosition > 0) setAiRank(rankingPosition);
             setTotalRank(
               !Array.isArray(scanJson) &&
                   typeof scanJson?.totalStockList === "number"
@@ -640,16 +659,17 @@ export default function AnalysisPage() {
     );
   }
 
+  const price = signal.price ?? signal.currentPrice ?? 0;
   const power = getPower(signal);
   const judge = getJudge(power);
   const judgeIcon = getJudgeIcon(power);
 
-  const takeProfit = signal.takeProfit ?? Math.round(signal.price * 1.03);
-  const stopLoss = signal.stopLoss ?? Math.round(signal.price * 0.98);
+  const takeProfit = signal.takeProfit ?? Math.round(price * 1.03);
+  const stopLoss = signal.stopLoss ?? Math.round(price * 0.98);
 
-  const requiredMoney = signal.price * 100;
-  const profitYen = (takeProfit - signal.price) * 100;
-  const lossYen = (signal.price - stopLoss) * 100;
+  const requiredMoney = price * 100;
+  const profitYen = (takeProfit - price) * 100;
+  const lossYen = (price - stopLoss) * 100;
 
   const rsi = signal.rsi ?? 50;
   const volumeRatio = signal.volumeRatio ?? 1;
@@ -664,10 +684,10 @@ export default function AnalysisPage() {
   const winRateIsReference = resolvedCount > 0 && resolvedCount < 10;
 
   const profitRate =
-    signal.price > 0 ? ((takeProfit - signal.price) / signal.price) * 100 : 0;
+    price > 0 ? ((takeProfit - price) / price) * 100 : 0;
 
   const lossRate =
-    signal.price > 0 ? ((signal.price - stopLoss) / signal.price) * 100 : 0;
+    price > 0 ? ((price - stopLoss) / price) * 100 : 0;
 
   const aiTrust = getAiTrust(power, total, winRate ?? 0);
   const riskReward = getRiskReward(profitYen, lossYen);
@@ -740,7 +760,7 @@ export default function AnalysisPage() {
             <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100 min-[380px]:text-2xl">{signal.name}</h1>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-medium text-slate-600 dark:text-slate-300">現在値 <strong className="text-slate-950 dark:text-slate-100">{yen(signal.price)}</strong></span>
+            <span className="font-medium text-slate-600 dark:text-slate-300">現在値 <strong className="text-slate-950 dark:text-slate-100">{yen(price)}</strong></span>
             <span className={`font-black ${changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"}`}>
               変化率 {changePercent > 0 ? "+" : ""}{changePercent}%
             </span>
