@@ -11,6 +11,20 @@ const pct=(v:number|null)=>v==null?"—":`${Number(v)>=0?"+":""}${Number(v).toFi
 const label=(v:string)=>v==="EXPLOSIVE_REBOUND"?"爆発反発型":v==="STABLE_REBOUND"?"安定反発型":v==="BASE"?"基本観測":v;
 const progress=(c:Candidate)=>c.result_5d!=null?"5日完了":c.result_3d!=null?"3日判定済み":c.result_1d!=null?"1日判定済み":"発生直後";
 const review=(v:number|null)=>v==null?null:v>=0.5?{text:"成功",cls:"bg-emerald-50 text-emerald-700"}:v<=-0.5?{text:"失敗",cls:"bg-red-50 text-red-700"}:{text:"横ばい",cls:"bg-amber-50 text-amber-700"};
+const validationChecks=(s:Stat)=>[
+ {label:"5日完了 50件",ok:Number(s.completed_5d_count)>=50,value:`${s.completed_5d_count}/50`},
+ {label:"TOPIX比較 50件",ok:Number(s.benchmarked_5d_count)>=50,value:`${s.benchmarked_5d_count}/50`},
+ {label:"30銘柄以上",ok:Number(s.distinct_codes)>=30,value:`${s.distinct_codes}/30`},
+ {label:"15取引日以上",ok:Number(s.distinct_dates)>=15,value:`${s.distinct_dates}/15`},
+ {label:"2か月以上",ok:Number(s.distinct_months)>=2,value:`${s.distinct_months}/2`},
+ {label:"2相場環境以上",ok:Number(s.distinct_market_patterns)>=2,value:`${s.distinct_market_patterns}/2`},
+ {label:"5日平均 +1.0%以上",ok:s.avg_return_5d!=null&&Number(s.avg_return_5d)>=1,value:pct(s.avg_return_5d)},
+ {label:"5日中央値 +0.5%以上",ok:s.median_return_5d!=null&&Number(s.median_return_5d)>=0.5,value:pct(s.median_return_5d)},
+ {label:"プラス率 60%以上",ok:s.positive_rate_5d!=null&&Number(s.positive_rate_5d)>=60,value:s.positive_rate_5d==null?"—":Number(s.positive_rate_5d).toFixed(1)+"%"},
+ {label:"超過平均 +0.5%以上",ok:s.avg_excess_return_5d!=null&&Number(s.avg_excess_return_5d)>=0.5,value:pct(s.avg_excess_return_5d)},
+ {label:"超過中央値 > 0%",ok:s.median_excess_return_5d!=null&&Number(s.median_excess_return_5d)>0,value:pct(s.median_excess_return_5d)},
+ {label:"市場勝率 55%以上",ok:s.excess_positive_rate_5d!=null&&Number(s.excess_positive_rate_5d)>=55,value:s.excess_positive_rate_5d==null?"—":Number(s.excess_positive_rate_5d).toFixed(1)+"%"},
+];
 
 export default function MomentumMemoryAdminPage(){
  const [data,setData]=useState<Payload|null>(null); const [error,setError]=useState("");
@@ -29,7 +43,7 @@ export default function MomentumMemoryAdminPage(){
     {data.stats.length===0?<div className="rounded-3xl border border-slate-200 bg-white p-5"><p className="font-black">FORWARD候補はまだ0件</p><p className="mt-1 text-sm text-slate-500">条件成立後、自動的にここへ集計されます。</p></div>:data.stats.map(s=><div key={s.profile_key+s.confirmation_key} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
      <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-black">{label(s.profile_key)} + MACD_GC</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black">{s.validation_status}</span></div>
      <div className="mt-4 grid grid-cols-3 gap-2 text-center"><Metric l="候補" v={s.sample_count}/><Metric l="5日完了" v={s.completed_5d_count}/><Metric l="銘柄数" v={s.distinct_codes}/><Metric l="取引日" v={s.distinct_dates}/><Metric l="5日平均" v={pct(s.avg_return_5d)}/><Metric l="プラス率" v={s.positive_rate_5d==null?"—":Number(s.positive_rate_5d).toFixed(1)+"%"}/><Metric l="超過平均" v={pct(s.avg_excess_return_5d)}/><Metric l="超過中央値" v={pct(s.median_excess_return_5d)}/><Metric l="市場勝率" v={s.excess_positive_rate_5d==null?"—":Number(s.excess_positive_rate_5d).toFixed(1)+"%"}/><Metric l="検証月数" v={s.distinct_months}/><Metric l="相場環境数" v={s.distinct_market_patterns}/></div>
-     <p className="mt-3 text-xs text-slate-500">{s.status_reason}</p>
+     <div className="mt-4 border-t border-slate-100 pt-4"><div className="flex items-center justify-between"><p className="text-xs font-black text-slate-700">VALIDATED 合格条件</p><p className="text-xs font-black text-blue-600">{validationChecks(s).filter(x=>x.ok).length}/{validationChecks(s).length} 達成</p></div><div className="mt-2 grid gap-2 sm:grid-cols-2">{validationChecks(s).map(x=><div key={x.label} className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs ${x.ok?"bg-emerald-50 text-emerald-800":"bg-slate-50 text-slate-600"}`}><span className="font-bold">{x.ok?"✓":"⏳"} {x.label}</span><span className="font-black">{x.value}</span></div>)}</div></div><p className="mt-3 text-xs text-slate-500">{s.status_reason}</p>
     </div>)}
    </section>
    <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-black">FORWARD候補一覧</h2><p className="mt-1 text-xs text-slate-500">5日評価: +0.5%以上=成功 / -0.5%以下=失敗 / その間=横ばい。検証表示用で売買判定には使用しません。</p></div>{data.candidates.some(c=>c.result_5d!=null)&&<div className="flex gap-2 text-xs font-black"><span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">成功 {data.candidates.filter(c=>c.result_5d!=null&&Number(c.result_5d)>=0.5).length}</span><span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">横ばい {data.candidates.filter(c=>c.result_5d!=null&&Number(c.result_5d)>-0.5&&Number(c.result_5d)<0.5).length}</span><span className="rounded-full bg-red-50 px-3 py-1 text-red-700">失敗 {data.candidates.filter(c=>c.result_5d!=null&&Number(c.result_5d)<=-0.5).length}</span></div>}</div>
