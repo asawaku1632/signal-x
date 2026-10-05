@@ -229,21 +229,60 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
     INSERT INTO momentum_memory_forward_stats (
       profile_key, confirmation_key, signal_version,
       sample_count, completed_5d_count, avg_return_5d,
-      median_return_5d, positive_rate_5d, updated_at
+      median_return_5d, positive_rate_5d,
+      distinct_codes, distinct_dates, validation_status, status_reason,
+      updated_at
     )
     SELECT
       profile_key,
       confirmation_key,
       signal_version,
-      COUNT(*)::int,
-      COUNT(result_5d)::int,
-      ROUND(AVG(result_5d), 4),
-      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric, 4),
+      COUNT(*)::int AS sample_count,
+      COUNT(result_5d)::int AS completed_5d_count,
+      ROUND(AVG(result_5d), 4) AS avg_return_5d,
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric, 4)
+        AS median_return_5d,
       ROUND(
         100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
         / NULLIF(COUNT(result_5d), 0),
         2
-      ),
+      ) AS positive_rate_5d,
+      COUNT(DISTINCT code)::int AS distinct_codes,
+      COUNT(DISTINCT trade_date)::int AS distinct_dates,
+      CASE
+        WHEN COUNT(result_5d) >= 50
+          AND COUNT(DISTINCT code) >= 30
+          AND COUNT(DISTINCT trade_date) >= 15
+          AND AVG(result_5d) >= 1.0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) >= 0.5
+          AND 100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
+            / NULLIF(COUNT(result_5d), 0) >= 60
+          THEN 'VALIDATED'
+        WHEN COUNT(result_5d) >= 20
+          AND COUNT(DISTINCT code) >= 15
+          AND COUNT(DISTINCT trade_date) >= 8
+          AND AVG(result_5d) > 0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) > 0
+          THEN 'PROMISING'
+        ELSE 'COLLECTING'
+      END AS validation_status,
+      CASE
+        WHEN COUNT(result_5d) >= 50
+          AND COUNT(DISTINCT code) >= 30
+          AND COUNT(DISTINCT trade_date) >= 15
+          AND AVG(result_5d) >= 1.0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) >= 0.5
+          AND 100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
+            / NULLIF(COUNT(result_5d), 0) >= 60
+          THEN 'Forward criteria passed'
+        WHEN COUNT(result_5d) >= 20
+          AND COUNT(DISTINCT code) >= 15
+          AND COUNT(DISTINCT trade_date) >= 8
+          AND AVG(result_5d) > 0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) > 0
+          THEN 'Early forward evidence; continue collecting'
+        ELSE 'Insufficient independent forward evidence'
+      END AS status_reason,
       NOW()
     FROM momentum_memory_observations
     WHERE validation_mode = 'FORWARD'
@@ -257,6 +296,10 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
       avg_return_5d = EXCLUDED.avg_return_5d,
       median_return_5d = EXCLUDED.median_return_5d,
       positive_rate_5d = EXCLUDED.positive_rate_5d,
+      distinct_codes = EXCLUDED.distinct_codes,
+      distinct_dates = EXCLUDED.distinct_dates,
+      validation_status = EXCLUDED.validation_status,
+      status_reason = EXCLUDED.status_reason,
       updated_at = NOW()
   `);
 }
