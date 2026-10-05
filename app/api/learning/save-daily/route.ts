@@ -14,6 +14,7 @@ import {
   updateMomentumMemoryOutcomes,
   refreshMomentumMemoryForwardStats,
 } from "@/app/lib/learning/momentumMemory";
+import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
 import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
@@ -409,6 +410,9 @@ export async function GET(req: Request) {
       await refreshMomentumMemoryForwardStats().catch((error) => {
         console.error("Momentum Memory forward stats refresh failed:", error);
       });
+      await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
+        console.error("Momentum Memory admin notification failed:", error);
+      });
       stage = "completed";
       await saveCronRunLog({
         route: "/api/learning/save-daily",
@@ -621,6 +625,9 @@ export async function GET(req: Request) {
     });
     await refreshMomentumMemoryForwardStats().catch((error) => {
       console.error("Momentum Memory forward stats refresh failed:", error);
+    });
+    await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
+      console.error("Momentum Memory admin notification failed:", error);
     });
 
     stage = "RELATED_LEARNING_COMPLETED";
