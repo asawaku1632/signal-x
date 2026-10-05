@@ -5,6 +5,10 @@ export type MomentumMemorySaveResult = {
   momentumMemoryFlagged: number;
 };
 
+export type MomentumMemoryOutcomeResult = {
+  momentumMemoryOutcomesUpdated: number;
+};
+
 export async function saveMomentumMemoryObservations(
   targetDate: string,
 ): Promise<MomentumMemorySaveResult> {
@@ -25,8 +29,7 @@ export async function saveMomentumMemoryObservations(
           FROM (
             SELECT p.ai_power
             FROM pattern_learning_logs p
-            WHERE p.code = c.code
-              AND p.trade_date < c.trade_date
+            WHERE p.code = c.code AND p.trade_date < c.trade_date
             ORDER BY p.trade_date DESC
             LIMIT 3
           ) x
@@ -36,8 +39,7 @@ export async function saveMomentumMemoryObservations(
           FROM (
             SELECT p.ai_power
             FROM pattern_learning_logs p
-            WHERE p.code = c.code
-              AND p.trade_date < c.trade_date
+            WHERE p.code = c.code AND p.trade_date < c.trade_date
             ORDER BY p.trade_date DESC
             LIMIT 3
           ) x
@@ -47,40 +49,19 @@ export async function saveMomentumMemoryObservations(
           FROM (
             SELECT p.ai_power
             FROM pattern_learning_logs p
-            WHERE p.code = c.code
-              AND p.trade_date < c.trade_date
+            WHERE p.code = c.code AND p.trade_date < c.trade_date
             ORDER BY p.trade_date DESC
             LIMIT 3
           ) x
           WHERE x.ai_power >= 90
-        ) AS prev3_high_count,
-        (
-          SELECT ARRAY_AGG(x.result ORDER BY x.trade_date DESC)
-          FROM (
-            SELECT p.trade_date, p.result
-            FROM pattern_learning_logs p
-            WHERE p.code = c.code
-              AND p.trade_date < c.trade_date
-              AND p.result IN ('WIN', 'LOSE', 'HOLD')
-            ORDER BY p.trade_date DESC
-            LIMIT 2
-          ) x
-        ) AS settled_results
+        ) AS prev3_high_count
       FROM current_rows c
     ),
     upserted AS (
       INSERT INTO momentum_memory_observations (
-        trade_date,
-        code,
-        current_ai_power,
-        prev3_avg_ai_power,
-        prev3_max_ai_power,
-        prev3_high_count,
-        last_settled_result_1,
-        last_settled_result_2,
-        ai_power_drop_from_peak,
-        observation_flag,
-        updated_at
+        trade_date, code, current_ai_power, prev3_avg_ai_power,
+        prev3_max_ai_power, prev3_high_count, ai_power_drop_from_peak,
+        observation_flag, updated_at
       )
       SELECT
         trade_date,
@@ -89,8 +70,6 @@ export async function saveMomentumMemoryObservations(
         prev3_avg_ai_power,
         prev3_max_ai_power,
         COALESCE(prev3_high_count, 0),
-        settled_results[1],
-        settled_results[2],
         CASE
           WHEN prev3_max_ai_power IS NULL OR current_ai_power IS NULL THEN NULL
           ELSE prev3_max_ai_power - current_ai_power
@@ -99,8 +78,6 @@ export async function saveMomentumMemoryObservations(
           prev3_avg_ai_power >= 85
           AND prev3_max_ai_power >= 90
           AND current_ai_power <= 50
-          AND settled_results[1] = 'WIN'
-          AND settled_results[2] = 'WIN'
         ),
         NOW()
       FROM enriched
@@ -109,8 +86,6 @@ export async function saveMomentumMemoryObservations(
         prev3_avg_ai_power = EXCLUDED.prev3_avg_ai_power,
         prev3_max_ai_power = EXCLUDED.prev3_max_ai_power,
         prev3_high_count = EXCLUDED.prev3_high_count,
-        last_settled_result_1 = EXCLUDED.last_settled_result_1,
-        last_settled_result_2 = EXCLUDED.last_settled_result_2,
         ai_power_drop_from_peak = EXCLUDED.ai_power_drop_from_peak,
         observation_flag = EXCLUDED.observation_flag,
         updated_at = NOW()
@@ -127,5 +102,86 @@ export async function saveMomentumMemoryObservations(
   return {
     momentumMemorySaved: Number(result.rows[0]?.saved_count ?? 0),
     momentumMemoryFlagged: Number(result.rows[0]?.flagged_count ?? 0),
+  };
+}
+
+export async function updateMomentumMemoryOutcomes(
+  targetDate: string,
+): Promise<MomentumMemoryOutcomeResult> {
+  const result = await pool.query(
+    `
+    WITH candidates AS (
+      SELECT
+        m.id,
+        base.price AS base_price,
+        (
+          SELECT d.price
+          FROM daily_stock_results d
+          WHERE d.code = m.code
+            AND d.date::date > m.trade_date
+            AND d.date::date <= $1::date
+          ORDER BY d.date::date ASC
+          OFFSET 0 LIMIT 1
+        ) AS price_1d,
+        (
+          SELECT d.price
+          FROM daily_stock_results d
+          WHERE d.code = m.code
+            AND d.date::date > m.trade_date
+            AND d.date::date <= $1::date
+          ORDER BY d.date::date ASC
+          OFFSET 2 LIMIT 1
+        ) AS price_3d,
+        (
+          SELECT d.price
+          FROM daily_stock_results d
+          WHERE d.code = m.code
+            AND d.date::date > m.trade_date
+            AND d.date::date <= $1::date
+          ORDER BY d.date::date ASC
+          OFFSET 4 LIMIT 1
+        ) AS price_5d
+      FROM momentum_memory_observations m
+      JOIN daily_stock_results base
+        ON base.code = m.code
+       AND base.date::date = m.trade_date
+      WHERE m.observation_flag = TRUE
+        AND m.trade_date < $1::date
+        AND (m.result_1d IS NULL OR m.result_3d IS NULL OR m.result_5d IS NULL)
+    ),
+    updated AS (
+      UPDATE momentum_memory_observations m
+      SET
+        result_1d = COALESCE(
+          m.result_1d,
+          CASE WHEN c.base_price > 0 AND c.price_1d IS NOT NULL
+            THEN ROUND((((c.price_1d - c.base_price) / c.base_price) * 100)::numeric, 4)
+          END
+        ),
+        result_3d = COALESCE(
+          m.result_3d,
+          CASE WHEN c.base_price > 0 AND c.price_3d IS NOT NULL
+            THEN ROUND((((c.price_3d - c.base_price) / c.base_price) * 100)::numeric, 4)
+          END
+        ),
+        result_5d = COALESCE(
+          m.result_5d,
+          CASE WHEN c.base_price > 0 AND c.price_5d IS NOT NULL
+            THEN ROUND((((c.price_5d - c.base_price) / c.base_price) * 100)::numeric, 4)
+          END
+        ),
+        updated_at = NOW()
+      FROM candidates c
+      WHERE m.id = c.id
+        AND (c.price_1d IS NOT NULL OR c.price_3d IS NOT NULL OR c.price_5d IS NOT NULL)
+      RETURNING m.id
+    )
+    SELECT COUNT(*)::int AS updated_count FROM updated
+    `,
+    [targetDate],
+  );
+
+  return {
+    momentumMemoryOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0),
   };
 }
