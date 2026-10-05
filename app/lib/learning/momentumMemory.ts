@@ -224,6 +224,44 @@ export async function updateMomentumMemoryOutcomes(
 }
 
 
+export async function updateMomentumMemoryBenchmarks(targetDate: string): Promise<{ momentumMemoryBenchmarksUpdated: number }> {
+  const result = await pool.query(`
+    WITH candidates AS (
+      SELECT m.id, m.trade_date, m.result_5d,
+        base.topix AS base_topix,
+        future.topix AS future_topix
+      FROM momentum_memory_observations m
+      LEFT JOIN LATERAL (
+        SELECT topix FROM market_learning_logs
+        WHERE trade_date = m.trade_date AND topix IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1
+      ) base ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT topix FROM market_learning_logs
+        WHERE trade_date > m.trade_date
+          AND trade_date <= $1::date
+          AND topix IS NOT NULL
+        ORDER BY trade_date ASC, created_at DESC
+        OFFSET 4 LIMIT 1
+      ) future ON TRUE
+      WHERE m.observation_flag = TRUE
+        AND m.result_5d IS NOT NULL
+        AND (m.benchmark_5d IS NULL OR m.excess_return_5d IS NULL)
+    )
+    UPDATE momentum_memory_observations m
+    SET benchmark_key = 'TOPIX',
+        benchmark_5d = ROUND((100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0))::numeric, 4),
+        excess_return_5d = ROUND((m.result_5d - (100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0)))::numeric, 4),
+        updated_at = NOW()
+    FROM candidates c
+    WHERE m.id = c.id
+      AND c.base_topix IS NOT NULL
+      AND c.future_topix IS NOT NULL
+    RETURNING m.id
+  `, [targetDate]);
+  return { momentumMemoryBenchmarksUpdated: result.rowCount ?? 0 };
+}
+
 export async function refreshMomentumMemoryForwardStats(): Promise<void> {
   await pool.query(`
     INSERT INTO momentum_memory_forward_stats (
