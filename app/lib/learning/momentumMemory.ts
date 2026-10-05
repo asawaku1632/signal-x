@@ -354,6 +354,7 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
     WHERE validation_mode='FORWARD'
       AND observation_flag=TRUE
       AND confirmation_key='MACD_GC'
+      AND profile_key IN ('STABLE_REBOUND','EXPLOSIVE_REBOUND')
     GROUP BY profile_key,confirmation_key,signal_version
     ON CONFLICT (profile_key,confirmation_key,signal_version)
     DO UPDATE SET
