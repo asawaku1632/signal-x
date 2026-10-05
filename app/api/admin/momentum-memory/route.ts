@@ -18,6 +18,8 @@ export async function GET() {
         distinct_months, distinct_market_patterns,
         validation_status, status_reason, updated_at
         FROM momentum_memory_forward_stats
+        WHERE confirmation_key='MACD_GC'
+          AND profile_key IN ('STABLE_REBOUND','EXPLOSIVE_REBOUND')
         ORDER BY profile_key, confirmation_key`),
       pool.query(`SELECT profile_key,signal_version,captured_count,
         completed_1d_count,avg_return_1d,completed_3d_count,avg_return_3d,
@@ -47,6 +49,7 @@ export async function GET() {
         WHERE m.validation_mode='FORWARD'
           AND m.observation_flag=true
           AND m.confirmation_key='MACD_GC'
+          AND m.profile_key IN ('STABLE_REBOUND','EXPLOSIVE_REBOUND')
         ORDER BY m.trade_date DESC,m.research_score DESC,m.code
         LIMIT 100`)
     ]);
