@@ -268,76 +268,89 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
       profile_key, confirmation_key, signal_version,
       sample_count, completed_5d_count, avg_return_5d,
       median_return_5d, positive_rate_5d,
-      distinct_codes, distinct_dates, validation_status, status_reason,
-      updated_at
+      distinct_codes, distinct_dates,
+      benchmarked_5d_count, avg_excess_return_5d,
+      median_excess_return_5d, excess_positive_rate_5d,
+      validation_status, status_reason, updated_at
     )
     SELECT
-      profile_key,
-      confirmation_key,
-      signal_version,
-      COUNT(*)::int AS sample_count,
-      COUNT(result_5d)::int AS completed_5d_count,
-      ROUND(AVG(result_5d), 4) AS avg_return_5d,
-      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric, 4)
-        AS median_return_5d,
-      ROUND(
-        100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
-        / NULLIF(COUNT(result_5d), 0),
-        2
-      ) AS positive_rate_5d,
-      COUNT(DISTINCT code)::int AS distinct_codes,
-      COUNT(DISTINCT trade_date)::int AS distinct_dates,
+      profile_key, confirmation_key, signal_version,
+      COUNT(*)::int,
+      COUNT(result_5d)::int,
+      ROUND(AVG(result_5d),4),
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric,4),
+      ROUND(100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0),2),
+      COUNT(DISTINCT code)::int,
+      COUNT(DISTINCT trade_date)::int,
+      COUNT(excess_return_5d)::int,
+      ROUND(AVG(excess_return_5d),4),
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY excess_return_5d)::numeric,4),
+      ROUND(100.0*COUNT(*) FILTER (WHERE excess_return_5d>0)/NULLIF(COUNT(excess_return_5d),0),2),
       CASE
-        WHEN COUNT(result_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
-          AND COUNT(DISTINCT trade_date) >= 15
-          AND AVG(result_5d) >= 1.0
-          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) >= 0.5
-          AND 100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
-            / NULLIF(COUNT(result_5d), 0) >= 60
+        WHEN COUNT(result_5d)>=50
+          AND COUNT(excess_return_5d)>=50
+          AND COUNT(DISTINCT code)>=30
+          AND COUNT(DISTINCT trade_date)>=15
+          AND AVG(result_5d)>=1.0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>=0.5
+          AND 100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0)>=60
+          AND AVG(excess_return_5d)>=0.5
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY excess_return_5d)>0
+          AND 100.0*COUNT(*) FILTER (WHERE excess_return_5d>0)/NULLIF(COUNT(excess_return_5d),0)>=55
           THEN 'VALIDATED'
-        WHEN COUNT(result_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
-          AND COUNT(DISTINCT trade_date) >= 8
-          AND AVG(result_5d) > 0
-          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) > 0
+        WHEN COUNT(result_5d)>=20
+          AND COUNT(excess_return_5d)>=20
+          AND COUNT(DISTINCT code)>=15
+          AND COUNT(DISTINCT trade_date)>=8
+          AND AVG(result_5d)>0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>0
+          AND AVG(excess_return_5d)>0
           THEN 'PROMISING'
         ELSE 'COLLECTING'
-      END AS validation_status,
+      END,
       CASE
-        WHEN COUNT(result_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
-          AND COUNT(DISTINCT trade_date) >= 15
-          AND AVG(result_5d) >= 1.0
-          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) >= 0.5
-          AND 100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
-            / NULLIF(COUNT(result_5d), 0) >= 60
-          THEN 'Forward criteria passed'
-        WHEN COUNT(result_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
-          AND COUNT(DISTINCT trade_date) >= 8
-          AND AVG(result_5d) > 0
-          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d) > 0
-          THEN 'Early forward evidence; continue collecting'
-        ELSE 'Insufficient independent forward evidence'
-      END AS status_reason,
+        WHEN COUNT(result_5d)>=50
+          AND COUNT(excess_return_5d)>=50
+          AND COUNT(DISTINCT code)>=30
+          AND COUNT(DISTINCT trade_date)>=15
+          AND AVG(result_5d)>=1.0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>=0.5
+          AND 100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0)>=60
+          AND AVG(excess_return_5d)>=0.5
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY excess_return_5d)>0
+          AND 100.0*COUNT(*) FILTER (WHERE excess_return_5d>0)/NULLIF(COUNT(excess_return_5d),0)>=55
+          THEN 'Forward and TOPIX excess-return criteria passed'
+        WHEN COUNT(result_5d)>=20
+          AND COUNT(excess_return_5d)>=20
+          AND COUNT(DISTINCT code)>=15
+          AND COUNT(DISTINCT trade_date)>=8
+          AND AVG(result_5d)>0
+          AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>0
+          AND AVG(excess_return_5d)>0
+          THEN 'Early forward evidence including positive TOPIX excess return'
+        ELSE 'Insufficient independent forward and excess-return evidence'
+      END,
       NOW()
     FROM momentum_memory_observations
-    WHERE validation_mode = 'FORWARD'
-      AND observation_flag = TRUE
-      AND confirmation_key = 'MACD_GC'
-    GROUP BY profile_key, confirmation_key, signal_version
-    ON CONFLICT (profile_key, confirmation_key, signal_version)
+    WHERE validation_mode='FORWARD'
+      AND observation_flag=TRUE
+      AND confirmation_key='MACD_GC'
+    GROUP BY profile_key,confirmation_key,signal_version
+    ON CONFLICT (profile_key,confirmation_key,signal_version)
     DO UPDATE SET
-      sample_count = EXCLUDED.sample_count,
-      completed_5d_count = EXCLUDED.completed_5d_count,
-      avg_return_5d = EXCLUDED.avg_return_5d,
-      median_return_5d = EXCLUDED.median_return_5d,
-      positive_rate_5d = EXCLUDED.positive_rate_5d,
-      distinct_codes = EXCLUDED.distinct_codes,
-      distinct_dates = EXCLUDED.distinct_dates,
-      validation_status = EXCLUDED.validation_status,
-      status_reason = EXCLUDED.status_reason,
-      updated_at = NOW()
+      sample_count=EXCLUDED.sample_count,
+      completed_5d_count=EXCLUDED.completed_5d_count,
+      avg_return_5d=EXCLUDED.avg_return_5d,
+      median_return_5d=EXCLUDED.median_return_5d,
+      positive_rate_5d=EXCLUDED.positive_rate_5d,
+      distinct_codes=EXCLUDED.distinct_codes,
+      distinct_dates=EXCLUDED.distinct_dates,
+      benchmarked_5d_count=EXCLUDED.benchmarked_5d_count,
+      avg_excess_return_5d=EXCLUDED.avg_excess_return_5d,
+      median_excess_return_5d=EXCLUDED.median_excess_return_5d,
+      excess_positive_rate_5d=EXCLUDED.excess_positive_rate_5d,
+      validation_status=EXCLUDED.validation_status,
+      status_reason=EXCLUDED.status_reason,
+      updated_at=NOW()
   `);
 }
