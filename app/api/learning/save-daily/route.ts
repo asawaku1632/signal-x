@@ -9,6 +9,7 @@ import { isJstBusinessDay } from "@/app/lib/learning/learningSaveStatus";
 import { getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
 import { validateDailyScanCoverage } from "@/app/lib/learning/dailyScanGuard";
 import { saveRelatedLearning } from "@/app/lib/relatedLearning";
+import { saveMomentumMemoryObservations } from "@/app/lib/learning/momentumMemory";
 import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
@@ -393,6 +394,10 @@ export async function GET(req: Request) {
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
         );
       }
+      const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
+        console.error("Momentum Memory observation failed:", error);
+        return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
+      });
       stage = "completed";
       await saveCronRunLog({
         route: "/api/learning/save-daily",
@@ -427,6 +432,7 @@ export async function GET(req: Request) {
         alreadySaved: true,
         failureReason: null,
         durationMs: Date.now() - startedAt,
+        ...momentumMemory,
       });
     }
 
@@ -593,6 +599,10 @@ export async function GET(req: Request) {
 
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
+    const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
+      console.error("Momentum Memory observation failed:", error);
+      return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
+    });
 
     stage = "RELATED_LEARNING_COMPLETED";
     logSaveDaily(runId, stage, {
@@ -687,6 +697,7 @@ export async function GET(req: Request) {
 
       ...result,
       ...relatedResult,
+      ...momentumMemory,
     });
   } catch (error: unknown) {
     const message = errorMessage(error);
