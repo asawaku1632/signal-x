@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Stat={profile_key:string;confirmation_key:string;signal_version:string;sample_count:number;completed_5d_count:number;avg_return_5d:number|null;median_return_5d:number|null;positive_rate_5d:number|null;distinct_codes:number;distinct_dates:number;validation_status:string;status_reason:string};
+type Stat={profile_key:string;confirmation_key:string;signal_version:string;sample_count:number;completed_5d_count:number;avg_return_5d:number|null;median_return_5d:number|null;positive_rate_5d:number|null;distinct_codes:number;distinct_dates:number;benchmarked_5d_count:number;avg_excess_return_5d:number|null;median_excess_return_5d:number|null;excess_positive_rate_5d:number|null;validation_status:string;status_reason:string};
 type Candidate={trade_date:string;code:string;name:string;profile_key:string;confirmation_key:string;current_ai_power:number;prev3_avg_ai_power:number;prev3_max_ai_power:number;ai_power_drop_from_peak:number;result_1d:number|null;result_3d:number|null;result_5d:number|null;benchmark_key:string;benchmark_5d:number|null;excess_return_5d:number|null;signal_version:string};
 type Payload={stats:Stat[];candidates:Candidate[]};
 
@@ -28,7 +28,7 @@ export default function MomentumMemoryAdminPage(){
    <section className="mt-5 grid gap-3 md:grid-cols-2">
     {data.stats.length===0?<div className="rounded-3xl border border-slate-200 bg-white p-5"><p className="font-black">FORWARD候補はまだ0件</p><p className="mt-1 text-sm text-slate-500">条件成立後、自動的にここへ集計されます。</p></div>:data.stats.map(s=><div key={s.profile_key+s.confirmation_key} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
      <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-black">{label(s.profile_key)} + MACD_GC</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black">{s.validation_status}</span></div>
-     <div className="mt-4 grid grid-cols-3 gap-2 text-center"><Metric l="候補" v={s.sample_count}/><Metric l="5日完了" v={s.completed_5d_count}/><Metric l="銘柄数" v={s.distinct_codes}/><Metric l="取引日" v={s.distinct_dates}/><Metric l="5日平均" v={pct(s.avg_return_5d)}/><Metric l="プラス率" v={s.positive_rate_5d==null?"—":Number(s.positive_rate_5d).toFixed(1)+"%"}/></div>
+     <div className="mt-4 grid grid-cols-3 gap-2 text-center"><Metric l="候補" v={s.sample_count}/><Metric l="5日完了" v={s.completed_5d_count}/><Metric l="銘柄数" v={s.distinct_codes}/><Metric l="取引日" v={s.distinct_dates}/><Metric l="5日平均" v={pct(s.avg_return_5d)}/><Metric l="プラス率" v={s.positive_rate_5d==null?"—":Number(s.positive_rate_5d).toFixed(1)+"%"}/><Metric l="超過平均" v={pct(s.avg_excess_return_5d)}/><Metric l="超過中央値" v={pct(s.median_excess_return_5d)}/><Metric l="市場勝率" v={s.excess_positive_rate_5d==null?"—":Number(s.excess_positive_rate_5d).toFixed(1)+"%"}/></div>
      <p className="mt-3 text-xs text-slate-500">{s.status_reason}</p>
     </div>)}
    </section>
