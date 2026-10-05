@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ success: false, error: "Administrator access required" }, { status: 403 });
   }
   try {
-    const [summary, candidates] = await Promise.all([
+    const [summary, notificationSummary, candidates] = await Promise.all([
       pool.query(`SELECT profile_key, confirmation_key, signal_version,
         sample_count, completed_5d_count, avg_return_5d, median_return_5d,
         positive_rate_5d, distinct_codes, distinct_dates,
@@ -19,6 +19,11 @@ export async function GET() {
         validation_status, status_reason, updated_at
         FROM momentum_memory_forward_stats
         ORDER BY profile_key, confirmation_key`),
+      pool.query(`SELECT profile_key,signal_version,captured_count,
+        completed_1d_count,avg_return_1d,completed_3d_count,avg_return_3d,
+        completed_5d_count,avg_return_5d,median_return_5d,positive_rate_5d
+        FROM momentum_memory_notification_summary
+        ORDER BY profile_key,signal_version`),
       pool.query(`SELECT m.trade_date,m.code,
         COALESCE(d.name,p.name,m.code) AS name,
         m.profile_key,m.confirmation_key,m.current_ai_power,
@@ -48,6 +53,7 @@ export async function GET() {
     return NextResponse.json({
       success:true,
       stats:summary.rows,
+      notificationStats:notificationSummary.rows,
       candidates:candidates.rows
     }, { headers: { "Cache-Control":"no-store" } });
   } catch (error) {
