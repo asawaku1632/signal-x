@@ -69,7 +69,8 @@ export async function saveMomentumMemoryObservations(
         trade_date, code, current_ai_power, prev3_avg_ai_power,
         prev3_max_ai_power, prev3_high_count, ai_power_drop_from_peak,
         observation_flag, profile_key, research_score,
-        confirmation_key, confirmation_score, updated_at
+        confirmation_key, confirmation_score,
+        validation_mode, signal_version, updated_at
       )
       SELECT
         trade_date,
@@ -103,6 +104,8 @@ export async function saveMomentumMemoryObservations(
         END,
         CASE WHEN current_macd_key = 'MACD_GC' THEN 'MACD_GC' ELSE 'NONE' END,
         CASE WHEN current_macd_key = 'MACD_GC' THEN 1 ELSE 0 END,
+        'FORWARD',
+        'MM_V1',
         NOW()
       FROM enriched
       ON CONFLICT (trade_date, code) DO UPDATE SET
@@ -116,6 +119,12 @@ export async function saveMomentumMemoryObservations(
         research_score = EXCLUDED.research_score,
         confirmation_key = EXCLUDED.confirmation_key,
         confirmation_score = EXCLUDED.confirmation_score,
+        validation_mode = CASE
+          WHEN momentum_memory_observations.validation_mode = 'BACKTEST'
+            THEN momentum_memory_observations.validation_mode
+          ELSE EXCLUDED.validation_mode
+        END,
+        signal_version = EXCLUDED.signal_version,
         updated_at = NOW()
       RETURNING observation_flag
     )
@@ -212,4 +221,42 @@ export async function updateMomentumMemoryOutcomes(
   return {
     momentumMemoryOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0),
   };
+}
+
+
+export async function refreshMomentumMemoryForwardStats(): Promise<void> {
+  await pool.query(`
+    INSERT INTO momentum_memory_forward_stats (
+      profile_key, confirmation_key, signal_version,
+      sample_count, completed_5d_count, avg_return_5d,
+      median_return_5d, positive_rate_5d, updated_at
+    )
+    SELECT
+      profile_key,
+      confirmation_key,
+      signal_version,
+      COUNT(*)::int,
+      COUNT(result_5d)::int,
+      ROUND(AVG(result_5d), 4),
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric, 4),
+      ROUND(
+        100.0 * COUNT(*) FILTER (WHERE result_5d > 0)
+        / NULLIF(COUNT(result_5d), 0),
+        2
+      ),
+      NOW()
+    FROM momentum_memory_observations
+    WHERE validation_mode = 'FORWARD'
+      AND observation_flag = TRUE
+      AND confirmation_key = 'MACD_GC'
+    GROUP BY profile_key, confirmation_key, signal_version
+    ON CONFLICT (profile_key, confirmation_key, signal_version)
+    DO UPDATE SET
+      sample_count = EXCLUDED.sample_count,
+      completed_5d_count = EXCLUDED.completed_5d_count,
+      avg_return_5d = EXCLUDED.avg_return_5d,
+      median_return_5d = EXCLUDED.median_return_5d,
+      positive_rate_5d = EXCLUDED.positive_rate_5d,
+      updated_at = NOW()
+  `);
 }
