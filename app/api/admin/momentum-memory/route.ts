@@ -21,7 +21,7 @@ export async function GET() {
         COALESCE(d.name,p.name,m.code) AS name,
         m.profile_key,m.confirmation_key,m.current_ai_power,
         m.prev3_avg_ai_power,m.prev3_max_ai_power,m.ai_power_drop_from_peak,
-        m.result_1d,m.result_3d,m.result_5d,m.signal_version,m.updated_at
+        m.result_1d,m.result_3d,m.result_5d,m.benchmark_key,m.benchmark_5d,m.excess_return_5d,m.signal_version,m.updated_at
         FROM momentum_memory_observations m
         LEFT JOIN LATERAL (
           SELECT name FROM daily_stock_results d
