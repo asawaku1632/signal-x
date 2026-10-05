@@ -45,8 +45,8 @@ export async function notifyMomentumMemoryCandidates(targetDate: string) {
   let notified = 0;
   for (const row of result.rows) {
     const type = row.profile_key === "EXPLOSIVE_REBOUND" ? "爆発反発型" : "安定反発型";
-    const title = `Momentum Memory: ${type}`;
-    const body = `${row.name ?? row.code} (${row.code}) / AI ${Number(row.current_ai_power).toFixed(1)} / 3日平均 ${Number(row.prev3_avg_ai_power).toFixed(1)} / 落差 ${Number(row.ai_power_drop_from_peak).toFixed(1)}`;
+    const title = `🚀 爆益前兆通知：${type}`;
+    const body = `${row.name ?? row.code} (${row.code})で爆益につながる可能性のある前兆を検出 / AI ${Number(row.current_ai_power).toFixed(1)} / 3日平均 ${Number(row.prev3_avg_ai_power).toFixed(1)} / 落差 ${Number(row.ai_power_drop_from_peak).toFixed(1)}`;
     let sent = false;
     for (const email of admins) {
       const delivery = await pushWebToUser(email, {
