@@ -15,6 +15,7 @@ export async function GET() {
         sample_count, completed_5d_count, avg_return_5d, median_return_5d,
         positive_rate_5d, distinct_codes, distinct_dates,
         benchmarked_5d_count, avg_excess_return_5d, median_excess_return_5d, excess_positive_rate_5d,
+        distinct_months, distinct_market_patterns,
         validation_status, status_reason, updated_at
         FROM momentum_memory_forward_stats
         ORDER BY profile_key, confirmation_key`),
