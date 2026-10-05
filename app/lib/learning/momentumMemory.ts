@@ -448,3 +448,81 @@ export async function updateMomentumMemoryNotificationOutcomes(
   );
   return { momentumMemoryNotificationOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0) };
 }
+
+
+export async function refreshMomentumMemoryNotificationValidation(): Promise<void> {
+  await pool.query(`
+    WITH notification_stats AS (
+      SELECT
+        m.profile_key,
+        m.confirmation_key,
+        m.signal_version,
+        COUNT(*) FILTER (WHERE n.notification_price IS NOT NULL)::int AS captured_count,
+        COUNT(n.return_5d)::int AS completed_5d_count,
+        COUNT(DISTINCT m.code) FILTER (WHERE n.return_5d IS NOT NULL)::int AS distinct_codes,
+        COUNT(DISTINCT m.trade_date) FILTER (WHERE n.return_5d IS NOT NULL)::int AS distinct_dates,
+        COUNT(DISTINCT date_trunc('month', m.trade_date)) FILTER (WHERE n.return_5d IS NOT NULL)::int AS distinct_months,
+        AVG(n.return_5d) AS avg_return_5d,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY n.return_5d) AS median_return_5d,
+        100.0 * COUNT(*) FILTER (WHERE n.return_5d > 0) / NULLIF(COUNT(n.return_5d), 0) AS positive_rate_5d
+      FROM momentum_memory_observations m
+      LEFT JOIN momentum_memory_notifications n
+        ON n.observation_id = m.id
+       AND n.channel = 'ADMIN_WEB_PUSH'
+      WHERE m.validation_mode = 'FORWARD'
+        AND m.observation_flag = TRUE
+        AND m.confirmation_key = 'MACD_GC'
+        AND m.profile_key IN ('STABLE_REBOUND','EXPLOSIVE_REBOUND')
+      GROUP BY m.profile_key,m.confirmation_key,m.signal_version
+    )
+    UPDATE momentum_memory_forward_stats f
+    SET
+      notification_validation_status = CASE
+        WHEN s.captured_count >= 50
+          AND s.completed_5d_count >= 50
+          AND s.distinct_codes >= 30
+          AND s.distinct_dates >= 15
+          AND s.distinct_months >= 2
+          AND s.avg_return_5d >= 1.0
+          AND s.median_return_5d >= 0.5
+          AND s.positive_rate_5d >= 60
+          THEN 'VALIDATED'
+        WHEN s.captured_count >= 20
+          AND s.completed_5d_count >= 20
+          AND s.distinct_codes >= 15
+          AND s.distinct_dates >= 8
+          AND s.distinct_months >= 2
+          AND s.avg_return_5d > 0
+          AND s.median_return_5d > 0
+          AND s.positive_rate_5d >= 55
+          THEN 'PROMISING'
+        ELSE 'COLLECTING'
+      END,
+      notification_status_reason = CASE
+        WHEN s.captured_count >= 50
+          AND s.completed_5d_count >= 50
+          AND s.distinct_codes >= 30
+          AND s.distinct_dates >= 15
+          AND s.distinct_months >= 2
+          AND s.avg_return_5d >= 1.0
+          AND s.median_return_5d >= 0.5
+          AND s.positive_rate_5d >= 60
+          THEN 'Actual notification-price forward criteria passed'
+        WHEN s.captured_count >= 20
+          AND s.completed_5d_count >= 20
+          AND s.distinct_codes >= 15
+          AND s.distinct_dates >= 8
+          AND s.distinct_months >= 2
+          AND s.avg_return_5d > 0
+          AND s.median_return_5d > 0
+          AND s.positive_rate_5d >= 55
+          THEN 'Early positive evidence from actual notification prices'
+        ELSE 'Insufficient completed actual-notification evidence'
+      END,
+      updated_at = NOW()
+    FROM notification_stats s
+    WHERE f.profile_key=s.profile_key
+      AND f.confirmation_key=s.confirmation_key
+      AND f.signal_version=s.signal_version
+  `);
+}
