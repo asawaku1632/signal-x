@@ -61,7 +61,7 @@ export async function saveMomentumMemoryObservations(
       INSERT INTO momentum_memory_observations (
         trade_date, code, current_ai_power, prev3_avg_ai_power,
         prev3_max_ai_power, prev3_high_count, ai_power_drop_from_peak,
-        observation_flag, updated_at
+        observation_flag, profile_key, research_score, updated_at
       )
       SELECT
         trade_date,
@@ -79,6 +79,20 @@ export async function saveMomentumMemoryObservations(
           AND prev3_max_ai_power >= 90
           AND current_ai_power <= 50
         ),
+        CASE
+          WHEN prev3_avg_ai_power >= 95 AND COALESCE(prev3_high_count, 0) = 2
+            THEN 'EXPLOSIVE_REBOUND'
+          WHEN current_ai_power >= 30 AND current_ai_power < 40
+            AND (prev3_max_ai_power - current_ai_power) >= 65
+            THEN 'STABLE_REBOUND'
+          ELSE 'BASE'
+        END,
+        CASE
+          WHEN prev3_avg_ai_power >= 95 AND COALESCE(prev3_high_count, 0) = 2 THEN 2
+          WHEN current_ai_power >= 30 AND current_ai_power < 40
+            AND (prev3_max_ai_power - current_ai_power) >= 65 THEN 1
+          ELSE 0
+        END,
         NOW()
       FROM enriched
       ON CONFLICT (trade_date, code) DO UPDATE SET
@@ -88,6 +102,8 @@ export async function saveMomentumMemoryObservations(
         prev3_high_count = EXCLUDED.prev3_high_count,
         ai_power_drop_from_peak = EXCLUDED.ai_power_drop_from_peak,
         observation_flag = EXCLUDED.observation_flag,
+        profile_key = EXCLUDED.profile_key,
+        research_score = EXCLUDED.research_score,
         updated_at = NOW()
       RETURNING observation_flag
     )
