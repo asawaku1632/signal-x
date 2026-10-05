@@ -619,6 +619,9 @@ export async function GET(req: Request) {
       console.error("Momentum Memory outcome update failed:", error);
       return { momentumMemoryOutcomesUpdated: 0 };
     });
+    await refreshMomentumMemoryForwardStats().catch((error) => {
+      console.error("Momentum Memory forward stats refresh failed:", error);
+    });
 
     stage = "RELATED_LEARNING_COMPLETED";
     logSaveDaily(runId, stage, {
