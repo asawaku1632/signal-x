@@ -12,6 +12,7 @@ import { saveRelatedLearning } from "@/app/lib/relatedLearning";
 import {
   saveMomentumMemoryObservations,
   updateMomentumMemoryOutcomes,
+  updateMomentumMemoryBenchmarks,
   refreshMomentumMemoryForwardStats,
 } from "@/app/lib/learning/momentumMemory";
 import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
@@ -407,6 +408,10 @@ export async function GET(req: Request) {
         console.error("Momentum Memory outcome update failed:", error);
         return { momentumMemoryOutcomesUpdated: 0 };
       });
+      await updateMomentumMemoryBenchmarks(targetDate).catch((error) => {
+        console.error("Momentum Memory benchmark update failed:", error);
+        return { momentumMemoryBenchmarksUpdated: 0 };
+      });
       await refreshMomentumMemoryForwardStats().catch((error) => {
         console.error("Momentum Memory forward stats refresh failed:", error);
       });
@@ -623,7 +628,11 @@ export async function GET(req: Request) {
       console.error("Momentum Memory outcome update failed:", error);
       return { momentumMemoryOutcomesUpdated: 0 };
     });
-    await refreshMomentumMemoryForwardStats().catch((error) => {
+    await updateMomentumMemoryBenchmarks(targetDate).catch((error) => {
+        console.error("Momentum Memory benchmark update failed:", error);
+        return { momentumMemoryBenchmarksUpdated: 0 };
+      });
+      await refreshMomentumMemoryForwardStats().catch((error) => {
       console.error("Momentum Memory forward stats refresh failed:", error);
     });
     await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
