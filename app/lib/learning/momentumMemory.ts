@@ -281,21 +281,21 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
       ROUND(AVG(result_5d),4),
       ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)::numeric,4),
       ROUND(100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0),2),
-      COUNT(DISTINCT code)::int,
-      COUNT(DISTINCT trade_date)::int,
+      COUNT(DISTINCT code) FILTER (WHERE excess_return_5d IS NOT NULL)::int,
+      COUNT(DISTINCT trade_date) FILTER (WHERE excess_return_5d IS NOT NULL)::int,
       COUNT(excess_return_5d)::int,
       ROUND(AVG(excess_return_5d),4),
       ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY excess_return_5d)::numeric,4),
       ROUND(100.0*COUNT(*) FILTER (WHERE excess_return_5d>0)/NULLIF(COUNT(excess_return_5d),0),2),
-      COUNT(DISTINCT date_trunc('month', trade_date))::int,
-      COUNT(DISTINCT market_pattern) FILTER (WHERE market_pattern IS NOT NULL)::int,
+      COUNT(DISTINCT date_trunc('month', trade_date)) FILTER (WHERE excess_return_5d IS NOT NULL)::int,
+      COUNT(DISTINCT market_pattern) FILTER (WHERE excess_return_5d IS NOT NULL AND market_pattern IS NOT NULL)::int,
       CASE
         WHEN COUNT(result_5d)>=50
           AND COUNT(excess_return_5d)>=50
-          AND COUNT(DISTINCT code)>=30
-          AND COUNT(DISTINCT trade_date)>=15
-          AND COUNT(DISTINCT date_trunc('month', trade_date))>=2
-          AND COUNT(DISTINCT market_pattern) FILTER (WHERE market_pattern IS NOT NULL)>=2
+          AND COUNT(DISTINCT code) FILTER (WHERE excess_return_5d IS NOT NULL)>=30
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE excess_return_5d IS NOT NULL)>=15
+          AND COUNT(DISTINCT date_trunc('month', trade_date)) FILTER (WHERE excess_return_5d IS NOT NULL)>=2
+          AND COUNT(DISTINCT market_pattern) FILTER (WHERE excess_return_5d IS NOT NULL AND market_pattern IS NOT NULL)>=2
           AND AVG(result_5d)>=1.0
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>=0.5
           AND 100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0)>=60
@@ -305,9 +305,9 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
           THEN 'VALIDATED'
         WHEN COUNT(result_5d)>=20
           AND COUNT(excess_return_5d)>=20
-          AND COUNT(DISTINCT code)>=15
-          AND COUNT(DISTINCT trade_date)>=8
-          AND COUNT(DISTINCT date_trunc('month', trade_date))>=2
+          AND COUNT(DISTINCT code) FILTER (WHERE excess_return_5d IS NOT NULL)>=15
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE excess_return_5d IS NOT NULL)>=8
+          AND COUNT(DISTINCT date_trunc('month', trade_date)) FILTER (WHERE excess_return_5d IS NOT NULL)>=2
           AND AVG(result_5d)>0
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>0
           AND AVG(excess_return_5d)>0
@@ -317,10 +317,10 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
       CASE
         WHEN COUNT(result_5d)>=50
           AND COUNT(excess_return_5d)>=50
-          AND COUNT(DISTINCT code)>=30
-          AND COUNT(DISTINCT trade_date)>=15
-          AND COUNT(DISTINCT date_trunc('month', trade_date))>=2
-          AND COUNT(DISTINCT market_pattern) FILTER (WHERE market_pattern IS NOT NULL)>=2
+          AND COUNT(DISTINCT code) FILTER (WHERE excess_return_5d IS NOT NULL)>=30
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE excess_return_5d IS NOT NULL)>=15
+          AND COUNT(DISTINCT date_trunc('month', trade_date)) FILTER (WHERE excess_return_5d IS NOT NULL)>=2
+          AND COUNT(DISTINCT market_pattern) FILTER (WHERE excess_return_5d IS NOT NULL AND market_pattern IS NOT NULL)>=2
           AND AVG(result_5d)>=1.0
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>=0.5
           AND 100.0*COUNT(*) FILTER (WHERE result_5d>0)/NULLIF(COUNT(result_5d),0)>=60
@@ -330,9 +330,9 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
           THEN 'Forward, TOPIX excess-return, and regime-diversity criteria passed'
         WHEN COUNT(result_5d)>=20
           AND COUNT(excess_return_5d)>=20
-          AND COUNT(DISTINCT code)>=15
-          AND COUNT(DISTINCT trade_date)>=8
-          AND COUNT(DISTINCT date_trunc('month', trade_date))>=2
+          AND COUNT(DISTINCT code) FILTER (WHERE excess_return_5d IS NOT NULL)>=15
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE excess_return_5d IS NOT NULL)>=8
+          AND COUNT(DISTINCT date_trunc('month', trade_date)) FILTER (WHERE excess_return_5d IS NOT NULL)>=2
           AND AVG(result_5d)>0
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY result_5d)>0
           AND AVG(excess_return_5d)>0
