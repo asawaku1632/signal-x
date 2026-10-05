@@ -375,3 +375,75 @@ export async function refreshMomentumMemoryForwardStats(): Promise<void> {
       updated_at=NOW()
   `);
 }
+
+
+export async function updateMomentumMemoryNotificationOutcomes(
+  targetDate: string,
+): Promise<{ momentumMemoryNotificationOutcomesUpdated: number }> {
+  const result = await pool.query(
+    `
+    WITH candidates AS (
+      SELECT
+        n.id,
+        n.notification_price,
+        one.price AS price_1d, one.outcome_date AS date_1d,
+        three.price AS price_3d, three.outcome_date AS date_3d,
+        five.price AS price_5d, five.outcome_date AS date_5d
+      FROM momentum_memory_notifications n
+      JOIN momentum_memory_observations m ON m.id = n.observation_id
+      LEFT JOIN LATERAL (
+        SELECT d.price, d.date::date AS outcome_date
+        FROM daily_stock_results d
+        WHERE d.code = m.code
+          AND d.date::date > m.trade_date
+          AND d.date::date <= $1::date
+        ORDER BY d.date::date ASC
+        OFFSET 0 LIMIT 1
+      ) one ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT d.price, d.date::date AS outcome_date
+        FROM daily_stock_results d
+        WHERE d.code = m.code
+          AND d.date::date > m.trade_date
+          AND d.date::date <= $1::date
+        ORDER BY d.date::date ASC
+        OFFSET 2 LIMIT 1
+      ) three ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT d.price, d.date::date AS outcome_date
+        FROM daily_stock_results d
+        WHERE d.code = m.code
+          AND d.date::date > m.trade_date
+          AND d.date::date <= $1::date
+        ORDER BY d.date::date ASC
+        OFFSET 4 LIMIT 1
+      ) five ON TRUE
+      WHERE n.channel = 'ADMIN_WEB_PUSH'
+        AND n.notification_price IS NOT NULL
+        AND n.notification_price > 0
+        AND (n.return_1d IS NULL OR n.return_3d IS NULL OR n.return_5d IS NULL)
+    ),
+    updated AS (
+      UPDATE momentum_memory_notifications n
+      SET
+        return_1d = COALESCE(n.return_1d, CASE WHEN c.price_1d IS NOT NULL
+          THEN ROUND((100.0 * (c.price_1d - c.notification_price) / c.notification_price)::numeric, 4) END),
+        outcome_1d_date = COALESCE(n.outcome_1d_date, c.date_1d),
+        return_3d = COALESCE(n.return_3d, CASE WHEN c.price_3d IS NOT NULL
+          THEN ROUND((100.0 * (c.price_3d - c.notification_price) / c.notification_price)::numeric, 4) END),
+        outcome_3d_date = COALESCE(n.outcome_3d_date, c.date_3d),
+        return_5d = COALESCE(n.return_5d, CASE WHEN c.price_5d IS NOT NULL
+          THEN ROUND((100.0 * (c.price_5d - c.notification_price) / c.notification_price)::numeric, 4) END),
+        outcome_5d_date = COALESCE(n.outcome_5d_date, c.date_5d),
+        outcomes_updated_at = NOW()
+      FROM candidates c
+      WHERE n.id = c.id
+        AND (c.price_1d IS NOT NULL OR c.price_3d IS NOT NULL OR c.price_5d IS NOT NULL)
+      RETURNING n.id
+    )
+    SELECT COUNT(*)::int AS updated_count FROM updated
+    `,
+    [targetDate],
+  );
+  return { momentumMemoryNotificationOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0) };
+}
