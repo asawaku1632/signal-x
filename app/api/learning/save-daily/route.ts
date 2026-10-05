@@ -15,6 +15,7 @@ import {
   updateMomentumMemoryBenchmarks,
   updateMomentumMemoryNotificationOutcomes,
   refreshMomentumMemoryForwardStats,
+  refreshMomentumMemoryNotificationValidation,
 } from "@/app/lib/learning/momentumMemory";
 import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
 import {
@@ -424,6 +425,9 @@ export async function GET(req: Request) {
       await refreshMomentumMemoryForwardStats().catch((error) => {
         console.error("Momentum Memory forward stats refresh failed:", error);
       });
+      await refreshMomentumMemoryNotificationValidation().catch((error) => {
+        console.error("Momentum Memory notification validation refresh failed:", error);
+      });
       await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
         console.error("Momentum Memory admin notification failed:", error);
       });
@@ -643,6 +647,9 @@ export async function GET(req: Request) {
       });
       await refreshMomentumMemoryForwardStats().catch((error) => {
       console.error("Momentum Memory forward stats refresh failed:", error);
+    });
+    await refreshMomentumMemoryNotificationValidation().catch((error) => {
+      console.error("Momentum Memory notification validation refresh failed:", error);
     });
     await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
       console.error("Momentum Memory admin notification failed:", error);
