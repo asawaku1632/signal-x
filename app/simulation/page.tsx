@@ -1,4 +1,5 @@
 "use client";
+// Deployment trigger after ScoreCard JSX repair.
 import {Suspense,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useSearchParams} from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
