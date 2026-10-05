@@ -23,8 +23,12 @@ export async function GET() {
         COALESCE(d.name,p.name,m.code) AS name,
         m.profile_key,m.confirmation_key,m.current_ai_power,
         m.prev3_avg_ai_power,m.prev3_max_ai_power,m.ai_power_drop_from_peak,
-        m.result_1d,m.result_3d,m.result_5d,m.benchmark_key,m.benchmark_5d,m.excess_return_5d,m.signal_version,m.updated_at
+        m.result_1d,m.result_3d,m.result_5d,m.benchmark_key,m.benchmark_5d,m.excess_return_5d,m.signal_version,m.updated_at,
+        n.sent_at AS notification_sent_at,n.notification_price,n.price_captured_at,n.price_source,
+        n.return_1d AS notification_return_1d,n.return_3d AS notification_return_3d,n.return_5d AS notification_return_5d
         FROM momentum_memory_observations m
+        LEFT JOIN momentum_memory_notifications n
+          ON n.observation_id=m.id AND n.channel='ADMIN_WEB_PUSH'
         LEFT JOIN LATERAL (
           SELECT name FROM daily_stock_results d
           WHERE d.code=m.code AND d.date::date=m.trade_date
