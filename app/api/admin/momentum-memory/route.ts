@@ -16,7 +16,7 @@ export async function GET() {
         positive_rate_5d, distinct_codes, distinct_dates,
         benchmarked_5d_count, avg_excess_return_5d, median_excess_return_5d, excess_positive_rate_5d,
         distinct_months, distinct_market_patterns,
-        validation_status, status_reason, updated_at
+        validation_status, status_reason, notification_validation_status, notification_status_reason, updated_at
         FROM momentum_memory_forward_stats
         WHERE confirmation_key='MACD_GC'
           AND profile_key IN ('STABLE_REBOUND','EXPLOSIVE_REBOUND')
