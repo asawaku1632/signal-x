@@ -12,6 +12,7 @@ import { saveRelatedLearning } from "@/app/lib/relatedLearning";
 import {
   saveMomentumMemoryObservations,
   updateMomentumMemoryOutcomes,
+  refreshMomentumMemoryForwardStats,
 } from "@/app/lib/learning/momentumMemory";
 import {
   releaseDailySaveLock,
@@ -404,6 +405,9 @@ export async function GET(req: Request) {
       const momentumMemoryOutcomes = await updateMomentumMemoryOutcomes(targetDate).catch((error) => {
         console.error("Momentum Memory outcome update failed:", error);
         return { momentumMemoryOutcomesUpdated: 0 };
+      });
+      await refreshMomentumMemoryForwardStats().catch((error) => {
+        console.error("Momentum Memory forward stats refresh failed:", error);
       });
       stage = "completed";
       await saveCronRunLog({
