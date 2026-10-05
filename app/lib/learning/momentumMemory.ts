@@ -25,6 +25,13 @@ export async function saveMomentumMemoryObservations(
         c.trade_date,
         c.ai_power AS current_ai_power,
         (
+          SELECT p.macd_key
+          FROM pattern_learning_logs p
+          WHERE p.code = c.code AND p.trade_date = c.trade_date
+          ORDER BY p.created_at DESC
+          LIMIT 1
+        ) AS current_macd_key,
+        (
           SELECT AVG(x.ai_power)
           FROM (
             SELECT p.ai_power
@@ -61,7 +68,8 @@ export async function saveMomentumMemoryObservations(
       INSERT INTO momentum_memory_observations (
         trade_date, code, current_ai_power, prev3_avg_ai_power,
         prev3_max_ai_power, prev3_high_count, ai_power_drop_from_peak,
-        observation_flag, profile_key, research_score, updated_at
+        observation_flag, profile_key, research_score,
+        confirmation_key, confirmation_score, updated_at
       )
       SELECT
         trade_date,
@@ -93,6 +101,8 @@ export async function saveMomentumMemoryObservations(
             AND (prev3_max_ai_power - current_ai_power) >= 65 THEN 1
           ELSE 0
         END,
+        CASE WHEN current_macd_key = 'MACD_GC' THEN 'MACD_GC' ELSE 'NONE' END,
+        CASE WHEN current_macd_key = 'MACD_GC' THEN 1 ELSE 0 END,
         NOW()
       FROM enriched
       ON CONFLICT (trade_date, code) DO UPDATE SET
@@ -104,6 +114,8 @@ export async function saveMomentumMemoryObservations(
         observation_flag = EXCLUDED.observation_flag,
         profile_key = EXCLUDED.profile_key,
         research_score = EXCLUDED.research_score,
+        confirmation_key = EXCLUDED.confirmation_key,
+        confirmation_score = EXCLUDED.confirmation_score,
         updated_at = NOW()
       RETURNING observation_flag
     )
