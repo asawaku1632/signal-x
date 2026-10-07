@@ -703,5 +703,15 @@ export async function analyzeStock(stock: Stock) {
     // AI分析画面が表示する上位3件に絞り、最大1,200銘柄のスキャンで
     // 未使用の検出理由がレスポンスサイズを過度に増やすことを防ぐ。
     detectedPatterns: chart.detectedPatterns?.slice(0, 3) ?? [],
+    // 日次のForward学習では、画面表示上限3件とは別に全検出パターンを
+    // 軽量スナップショットとして保存する。
+    patternObservations:
+      chart.detectedPatterns?.map((pattern) => ({
+        id: pattern.id,
+        name: pattern.name,
+        direction: pattern.direction,
+        confidence: pattern.confidence,
+        score: pattern.score,
+      })) ?? [],
   };
 }
