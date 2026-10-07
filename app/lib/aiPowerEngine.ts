@@ -15,6 +15,7 @@ export type CalculateFinalAiPowerInput = {
   similarExperienceBonus?: number;
   experienceRankingBonus?: number;
   bbBonus?: number;
+  patternForwardBonus?: number;
 };
 
 export function calculateRawAiPower(input: CalculateFinalAiPowerInput) {
@@ -31,7 +32,8 @@ export function calculateRawAiPower(input: CalculateFinalAiPowerInput) {
     (input.experienceBonus ?? 0) +
     (input.similarExperienceBonus ?? 0) +
     (input.experienceRankingBonus ?? 0) +
-    (input.bbBonus ?? 0)
+    (input.bbBonus ?? 0) +
+    (input.patternForwardBonus ?? 0)
   );
 }
 
