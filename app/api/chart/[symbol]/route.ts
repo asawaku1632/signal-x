@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { after } from "next/server";
 import { getDisplaySnapshot, saveDisplaySnapshot } from "@/app/lib/displaySnapshot";
 import { detectChartPatterns } from "../../../lib/chartPatternEngine";
+import { getMarketSeasonality } from "../../../lib/marketSeasonality";
 
 type Candle = {
   time: number;
@@ -255,7 +256,7 @@ function emptyPayload(symbol: string, state: "NO_DATA" | "ERROR", error?: unknow
     success: false, symbol, count: 0, currentPrice: null, ma20: null, ema20: null, ema75: null, vwap: null,
     macd: null, macdSignal: null, macdHistogram: null, trend: state, candleSignal: state, patternSignal: state,
     patternScore: 0, patternReasons: [], supportPrice: null, resistancePrice: null, supportDistancePercent: null,
-    resistanceDistancePercent: null, supportResistanceStatus: "NO_DATA", breakoutExpectation: 0, candles: [],
+    resistanceDistancePercent: null, supportResistanceStatus: "NO_DATA", breakoutExpectation: 0, detectedPatterns: [], seasonality: null, candles: [],
     ...(error ? { error: String(error) } : {}),
   };
 }
@@ -312,6 +313,22 @@ async function buildChartResponse(request: Request) {
       if (lowsClose && bouncedFromSecondLow && necklineBreak) { patternSignal = "W_BOTTOM_BREAK"; patternScore += 20; patternReasons.push("ネックライン付近まで回復"); }
     }
     const levelCandles = dailyReferenceChart?.candles && dailyReferenceChart.candles.length >= 20 ? dailyReferenceChart.candles : candles;
+    const detectedPatterns = detectChartPatterns(levelCandles);
+    const seasonality = getMarketSeasonality(candles[candles.length - 1]?.time ?? new Date());
+
+    for (const detected of detectedPatterns.slice(0, 3)) {
+      const message = `${detected.name}を検出`;
+      if (!patternReasons.includes(message)) patternReasons.push(message);
+    }
+
+    const seasonalityAction =
+      seasonality.action === "BUY" ? "買い寄り" :
+      seasonality.action === "SELL" ? "売り警戒" :
+      "様子見";
+    patternReasons.push(
+      `季節性: ${seasonality.monthLabel}・${seasonality.phase} / ${seasonalityAction}（参考）`
+    );
+
     const supportResistance = analyzeSupportResistance(levelCandles, currentPrice, trend);
     if (supportResistance.supportResistanceStatus === "BREAKOUT") { patternScore += 15; patternReasons.push("抵抗線ブレイクを検出"); }
     if (supportResistance.supportResistanceStatus === "NEAR_SUPPORT") { patternScore += 5; patternReasons.push("支持線付近で推移"); }
@@ -321,7 +338,7 @@ async function buildChartResponse(request: Request) {
       success: true, symbol, timeframe, timeframeLabel: timeframeConfig.label, dataSource: "yahoo_chart", count: candles.length,
       currentPrice, ma20: ma20 === null ? null : Number(ma20.toFixed(2)), ema20, ema75, vwap,
       macd: macdData.macd, macdSignal: macdData.macdSignal, macdHistogram: macdData.macdHistogram,
-      trend, candleSignal, patternSignal, patternScore, patternReasons, ...supportResistance, candles,
+      trend, candleSignal, patternSignal, patternScore, patternReasons, detectedPatterns: detectedPatterns.slice(0, 3), seasonality, ...supportResistance, candles,
     });
   } catch (error) {
     return NextResponse.json({ ...emptyPayload(symbol, "ERROR", error), timeframe, timeframeLabel: timeframeConfig.label }, { status: 500 });
