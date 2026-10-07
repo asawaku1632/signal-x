@@ -4,6 +4,7 @@ import {
   getPatternForwardStats,
   type PatternForwardStats,
 } from "@/app/lib/learning/patternForwardLearning";
+import { calculateValidatedPatternStatBonus } from "@/app/lib/learning/patternForwardBonus";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export default async function PatternPerformancePage() {
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
           <thead>
             <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-              {["ID", "パターン", "方向", "状態", "発生", "1日勝率", "3日勝率", "5日勝率", "5日平均", "5日中央値", "銘柄数", "日数"].map((heading) => (
+              {["ID", "パターン", "方向", "状態", "AI反映", "発生", "1日勝率", "3日勝率", "5日勝率", "5日平均", "5日中央値", "銘柄数", "日数"].map((heading) => (
                 <th key={heading} style={{ padding: "12px 10px", borderBottom: "1px solid #e5e7eb", fontSize: 12 }}>{heading}</th>
               ))}
             </tr>
@@ -85,6 +86,11 @@ export default async function PatternPerformancePage() {
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{pattern.name}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{pattern.direction}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{statusLabel(status)}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>
+                    {item && calculateValidatedPatternStatBonus(item) !== 0
+                      ? `${calculateValidatedPatternStatBonus(item) > 0 ? "+" : ""}${calculateValidatedPatternStatBonus(item)}`
+                      : "—"}
+                  </td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.sampleCount ?? 0}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate1d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate3d ?? null)}</td>
@@ -104,7 +110,8 @@ export default async function PatternPerformancePage() {
         判定基準: 5営業日後が50件以上・30銘柄以上・15日以上、方向一致率60%以上、
         方向補正後の平均騰落率+0.5%以上かつ中央値プラスで「検証済み」。
         20件以上の早期条件を満たした段階は「有望」と表示します。現段階では実績を収集するシャドー学習で、
-        AI POWERへの自動加点にはまだ使用しません。
+        「検証済み」になったBUY/SELLパターンだけ、次回以降のスキャンからAI POWERへ自動反映します。
+        影響は1パターン最大±6点に制限し、未検証・有望・NEUTRALはAI POWERを変更しません。
       </p>
     </main>
   );

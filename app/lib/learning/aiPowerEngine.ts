@@ -18,6 +18,7 @@ export type CalculateAiPowerParams = {
   similarExperienceBonus: number;
   experienceRankingBonus: number;
   bbBonus?: number;
+  patternForwardBonus?: number;
 };
 
 export function calculateAiPower(params: CalculateAiPowerParams) {

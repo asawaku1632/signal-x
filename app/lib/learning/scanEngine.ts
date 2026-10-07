@@ -24,6 +24,7 @@ import {
   preloadVolatilityStats,
 } from "@/app/lib/learning/volatilityLearning";
 import { allSettledWithConcurrency } from "@/app/lib/learning/promisePool";
+import { getValidatedPatternForwardStatsMap } from "@/app/lib/learning/patternForwardLearning";
 
 const SCAN_CONCURRENCY = 20;
 const MAX_SCAN_LIMIT = 1200;
@@ -167,6 +168,9 @@ async function runScanForTargets(
   const volatilityBands = validScored.map((stock) =>
     getVolatilityBand(Math.abs(stock.changePercent ?? 0)),
   );
+  const detectedPatternIds = validScored.flatMap((stock) =>
+    (stock.patternObservations ?? []).map((pattern: any) => String(pattern.id ?? "")),
+  );
 
   const experienceKeys = validScored.map((stock) => {
     const sectorKey = getSectorKey(stock.code);
@@ -188,6 +192,7 @@ async function runScanForTargets(
     experienceRankingMap,
     experienceAiPreload,
     volatilityStatsMap,
+    validatedPatternForwardStatsMap,
   ] = await Promise.all([
     getPatternStatsMap(patternKeys),
     getWeightRuleMap(patternKeys),
@@ -211,6 +216,10 @@ async function runScanForTargets(
       console.warn("Volatility preload failed; using per-stock queries.", error);
       return undefined;
     }),
+    getValidatedPatternForwardStatsMap(detectedPatternIds).catch((error) => {
+      console.warn("Validated pattern forward preload failed; using no forward bonus.", error);
+      return new Map();
+    }),
   ]);
 
   const analyzedStocks = await Promise.all(
@@ -230,6 +239,7 @@ async function runScanForTargets(
         experienceRankingMap,
         experienceAiPreload,
         volatilityStatsMap,
+        validatedPatternForwardStatsMap,
       })
     )
   );

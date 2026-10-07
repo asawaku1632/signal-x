@@ -418,3 +418,54 @@ export async function getPatternForwardStats(): Promise<PatternForwardStats[]> {
     updatedAt: String(row.updated_at),
   }));
 }
+
+
+export async function getValidatedPatternForwardStatsMap(
+  patternIds: string[],
+): Promise<Map<string, PatternForwardStats>> {
+  const map = new Map<string, PatternForwardStats>();
+  const uniqueIds = Array.from(new Set(patternIds.filter(Boolean)));
+
+  if (uniqueIds.length === 0) return map;
+
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM pattern_forward_stats
+    WHERE validation_status = 'VALIDATED'
+      AND direction IN ('BUY', 'SELL')
+      AND pattern_id = ANY($1::text[])
+    `,
+    [uniqueIds],
+  );
+
+  for (const row of result.rows) {
+    const stat: PatternForwardStats = {
+      patternId: String(row.pattern_id),
+      patternName: String(row.pattern_name),
+      direction: row.direction as PatternForwardDirection,
+      sampleCount: Number(row.sample_count ?? 0),
+      completed1dCount: Number(row.completed_1d_count ?? 0),
+      completed3dCount: Number(row.completed_3d_count ?? 0),
+      completed5dCount: Number(row.completed_5d_count ?? 0),
+      winRate1d: numberOrNull(row.win_rate_1d),
+      winRate3d: numberOrNull(row.win_rate_3d),
+      winRate5d: numberOrNull(row.win_rate_5d),
+      avgDirectionalReturn1d: numberOrNull(row.avg_directional_return_1d),
+      avgDirectionalReturn3d: numberOrNull(row.avg_directional_return_3d),
+      avgDirectionalReturn5d: numberOrNull(row.avg_directional_return_5d),
+      medianDirectionalReturn5d: numberOrNull(row.median_directional_return_5d),
+      avgRawReturn1d: numberOrNull(row.avg_raw_return_1d),
+      avgRawReturn3d: numberOrNull(row.avg_raw_return_3d),
+      avgRawReturn5d: numberOrNull(row.avg_raw_return_5d),
+      distinctCodes: Number(row.distinct_codes ?? 0),
+      distinctDates: Number(row.distinct_dates ?? 0),
+      validationStatus: row.validation_status,
+      statusReason: String(row.status_reason ?? ""),
+      updatedAt: String(row.updated_at),
+    };
+    map.set(stat.patternId, stat);
+  }
+
+  return map;
+}
