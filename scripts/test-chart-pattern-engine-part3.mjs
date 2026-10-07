@@ -222,9 +222,9 @@ assert.equal(prePart3Ids.filter((id) => !engineIdSet.has(id)).length, 0);
 assert.equal(prePart3Ids.filter((id) => !catalogIdSet.has(id)).length, 0);
 assert.equal([...part3Ids].filter((id) => !engineIdSet.has(id)).length, 0);
 assert.equal([...part3Ids].filter((id) => !catalogIdSet.has(id)).length, 0);
-assert.equal(engineIdSet.size, 47);
-assert.equal(catalogIdSet.size, 47);
-assert.equal(catalogIds.length, 47);
+assert.equal(engineIdSet.size, 55);
+assert.equal(catalogIdSet.size, 55);
+assert.equal(catalogIds.length, 55);
 assert.deepEqual([...engineIdSet].sort(), [...catalogIdSet].sort());
 
 console.log(JSON.stringify({
