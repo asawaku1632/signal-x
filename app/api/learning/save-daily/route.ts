@@ -18,6 +18,7 @@ import {
   refreshMomentumMemoryNotificationValidation,
 } from "@/app/lib/learning/momentumMemory";
 import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
+import { saveHighAiPullbackObservations, updateHighAiPullbackOutcomes } from "@/app/lib/learning/highAiPullback";
 import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
@@ -402,7 +403,15 @@ export async function GET(req: Request) {
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
         );
       }
-      const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
+      const highAiPullback = await saveHighAiPullbackObservations(targetDate).catch((error) => {
+      console.error("High AI Pullback observation failed:", error);
+      return { highAiPullbackSaved: 0, highAiPullbackFlagged: 0 };
+    });
+    const highAiPullbackOutcomes = await updateHighAiPullbackOutcomes(targetDate).catch((error) => {
+      console.error("High AI Pullback outcome update failed:", error);
+      return { highAiPullbackOutcomesUpdated: 0 };
+    });
+    const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
         console.error("Momentum Memory observation failed:", error);
         return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
       });
@@ -633,6 +642,14 @@ export async function GET(req: Request) {
 
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
+    const highAiPullback = await saveHighAiPullbackObservations(targetDate).catch((error) => {
+      console.error("High AI Pullback observation failed:", error);
+      return { highAiPullbackSaved: 0, highAiPullbackFlagged: 0 };
+    });
+    const highAiPullbackOutcomes = await updateHighAiPullbackOutcomes(targetDate).catch((error) => {
+      console.error("High AI Pullback outcome update failed:", error);
+      return { highAiPullbackOutcomesUpdated: 0 };
+    });
     const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
       console.error("Momentum Memory observation failed:", error);
       return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
