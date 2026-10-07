@@ -1,4 +1,4 @@
-﻿import { performance } from 'node:perf_hooks';
+import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 import { checkServerIdentity } from 'node:tls';
 import { validateDestination } from './evaluate-bollinger-shadow-dev-readonly.mjs';
@@ -24,7 +24,35 @@ function report() {
     EXPECTED_HOST_MATCH: false, EXPECTED_DATABASE_MATCH: false, EXPECTED_ROLE_MATCH: false,
     TRANSACTION_READ_ONLY: false, ISOLATION_REPEATABLE_READ: false,
     ROLLBACK_COMPLETE: false, CLIENT_CLOSED: false, FAILURE_CLASS: null,
-    REAL_DEV_CONNECTIVITY_VERIFIED: 'NO' };
+    REAL_DEV_CONNECTIVITY_VERIFIED: 'NO',
+    SANITIZED_TLS_ERROR_CODE: 'NOT_AVAILABLE', SANITIZED_TLS_ERROR_CLASS: 'NOT_AVAILABLE',
+    SANITIZED_AUTH_ERROR_CODE: 'NOT_AVAILABLE' };
+}
+const TLS_DIAGNOSTICS = new Map([
+  ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_CHAIN_TRUST'],
+  ['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'CERT_CHAIN_TRUST'],
+  ['SELF_SIGNED_CERT_IN_CHAIN', 'CERT_CHAIN_TRUST'],
+  ['DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_CHAIN_TRUST'],
+  ['CERT_HAS_EXPIRED', 'CERT_EXPIRED'],
+  ['ERR_TLS_CERT_ALTNAME_INVALID', 'HOSTNAME_MISMATCH'],
+  ['ECONNRESET', 'OTHER'],
+  ['EPROTO', 'PROTOCOL_OR_HANDSHAKE'],
+]);
+function captureTlsDiagnostic(out, error) {
+  let code;
+  try { code = error?.code; } catch { /* Never inspect messages or other error properties. */ }
+  if (error instanceof Failure && code !== 'TLS_VERIFICATION_FAILED') return;
+  // Known non-TLS connection failures do not constitute TLS evidence.
+  if (['ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH', 'ECONNREFUSED',
+    'EPIPE', '28P01', '28000', '57014'].includes(code)) return;
+  out.SANITIZED_TLS_ERROR_CODE = TLS_DIAGNOSTICS.has(code) ? code : 'OTHER';
+  out.SANITIZED_TLS_ERROR_CLASS = TLS_DIAGNOSTICS.get(code) ?? 'OTHER';
+}
+function captureAuthDiagnostic(out, error) {
+  let code;
+  try { code = error?.code; } catch { return; }
+  if (code === '28P01') out.SANITIZED_AUTH_ERROR_CODE = 'PASSWORD_AUTH_REJECTED';
+  else if (code === '28000') out.SANITIZED_AUTH_ERROR_CODE = 'INVALID_AUTHORIZATION_SPECIFICATION';
 }
 function classify(error) {
   if (error instanceof Failure) return error.code;
@@ -52,6 +80,7 @@ export async function probeConnection(databaseUrl, { createClient, observe = obs
   const out = report(), deadline = now() + BUDGET.application;
   let client, began = false, primary = null, socketError = null;
   let rollbackFailed = false, closeFailed = false;
+  let connectionPhase = false;
   const check = () => {
     if (now() >= deadline) fail('APPLICATION_DEADLINE_EXCEEDED');
     if (socketError) throw socketError;
@@ -96,10 +125,12 @@ export async function probeConnection(databaseUrl, { createClient, observe = obs
     client = createClient(options);
     client.on('error', (error) => { socketError = error || new Failure('UNEXPECTED_SANITIZED_FAILURE'); });
     check();
+    connectionPhase = true;
     await wait(() => client.connect(), Math.min(deadline, now() + BUDGET.connection), 'CONNECTION_TIMEOUT', true);
     out.CONNECTION_ESTABLISHED = true;
     if (observe(client) !== true) fail('TLS_VERIFICATION_FAILED');
     out.TLS_VERIFIED = true; out.EXPECTED_HOST_MATCH = true;
+    connectionPhase = false;
     const query = (text, before = () => {}) => {
       const end = Math.min(deadline, now() + BUDGET.statement);
       return wait(() => { before(); return client.query({ text, query_timeout: Math.max(1, Math.ceil(end - now())) }); }, end, 'QUERY_TIMEOUT', true);
@@ -117,7 +148,13 @@ export async function probeConnection(databaseUrl, { createClient, observe = obs
     if (!out.TRANSACTION_READ_ONLY) fail('READ_ONLY_GUARD_FAILED');
     if (!out.ISOLATION_REPEATABLE_READ) fail('ISOLATION_GUARD_FAILED');
     check();
-  } catch (error) { primary = now() >= deadline ? 'APPLICATION_DEADLINE_EXCEEDED' : classify(error); }
+  } catch (error) {
+    primary = now() >= deadline ? 'APPLICATION_DEADLINE_EXCEEDED' : classify(error);
+    if (connectionPhase) {
+      captureTlsDiagnostic(out, error);
+      captureAuthDiagnostic(out, error);
+    }
+  }
   finally {
     if (client) {
       const cleanupEnd = Math.min(now(), deadline) + BUDGET.cleanup;

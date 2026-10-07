@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
@@ -15,7 +15,8 @@ const SQL = ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;', `SELECT
   current_setting('transaction_isolation') AS isolation;`, 'ROLLBACK;'];
 const KEYS = ['PROBE_STATUS','CONNECTION_ESTABLISHED','TLS_VERIFIED','EXPECTED_HOST_MATCH',
   'EXPECTED_DATABASE_MATCH','EXPECTED_ROLE_MATCH','TRANSACTION_READ_ONLY','ISOLATION_REPEATABLE_READ',
-  'ROLLBACK_COMPLETE','CLIENT_CLOSED','FAILURE_CLASS','REAL_DEV_CONNECTIVITY_VERIFIED'];
+  'ROLLBACK_COMPLETE','CLIENT_CLOSED','FAILURE_CLASS','REAL_DEV_CONNECTIVITY_VERIFIED',
+  'SANITIZED_TLS_ERROR_CODE','SANITIZED_TLS_ERROR_CLASS','SANITIZED_AUTH_ERROR_CODE'];
 const metadata = () => ({ database_name: 'postgres', current_role: 'postgres', session_role: 'postgres', read_only: 'on', isolation: 'repeatable read' });
 function fixture({ rows = [metadata()], hook = () => {}, tls = true, url = URL_FIXTURE, observe, clock } = {}) {
   const state = { time: 0, factories: 0, destroyed: 0, calls: [], options: null, queries: [], listener: null };
@@ -45,6 +46,88 @@ function failed(out, code) {
 }
 function error(code) { return Object.assign(new Error(URL_FIXTURE), { code }); }
 const never = () => new Promise(() => {});
+
+function diagnostic(out, code = 'NOT_AVAILABLE', kind = 'NOT_AVAILABLE') {
+  assert.equal(out.SANITIZED_TLS_ERROR_CODE, code);
+  assert.equal(out.SANITIZED_TLS_ERROR_CLASS, kind);
+}
+for (const [code, kind, legacy] of [
+  ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_CHAIN_TRUST', 'TLS_VERIFICATION_FAILED'],
+  ['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'CERT_CHAIN_TRUST', 'TLS_VERIFICATION_FAILED'],
+  ['SELF_SIGNED_CERT_IN_CHAIN', 'CERT_CHAIN_TRUST', 'TLS_VERIFICATION_FAILED'],
+  ['DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_CHAIN_TRUST', 'TLS_VERIFICATION_FAILED'],
+  ['CERT_HAS_EXPIRED', 'CERT_EXPIRED', 'TLS_VERIFICATION_FAILED'],
+  ['ERR_TLS_CERT_ALTNAME_INVALID', 'HOSTNAME_MISMATCH', 'TLS_VERIFICATION_FAILED'],
+  ['ECONNRESET', 'OTHER', 'NETWORK_UNAVAILABLE'],
+  ['EPROTO', 'PROTOCOL_OR_HANDSHAKE', 'UNEXPECTED_SANITIZED_FAILURE'],
+]) test('TLS diagnostic allowlist: ' + code, async () => {
+  const injected = { code };
+  for (const key of ['message', 'stack', 'hostname', 'cert', 'cause']) {
+    Object.defineProperty(injected, key, { get() { assert.fail('forbidden error property'); } });
+  }
+  const f = fixture({ hook(op) { if (op === 'connect') throw injected; } });
+  const out = await f.run();
+  failed(out, legacy); diagnostic(out, code, kind);
+  assert.deepEqual(f.state.calls, ['connect', 'end']);
+});
+for (const code of [undefined, 'private-runtime-value', '__proto__', 'constructor',
+  'CERT_NOT_YET_VALID', { toString() { assert.fail('no coercion'); } }]) {
+  test('unknown TLS diagnostic is sanitized: ' + typeof code, async () => {
+    const f = fixture({ hook(op) { if (op === 'connect') throw error(code); } });
+    const out = await f.run();
+    diagnostic(out, 'OTHER', 'OTHER');
+    assert.ok(!JSON.stringify(out).includes('private-runtime-value'));
+    assert.ok(!JSON.stringify(out).includes('synthetic-only'));
+  });
+}
+test('TLS diagnostic survives close failure without changing cleanup precedence', async () => {
+  const f = fixture({ hook(op) {
+    if (op === 'connect') throw error('CERT_HAS_EXPIRED');
+    if (op === 'end') throw error('ERR_TLS_CERT_ALTNAME_INVALID');
+  } });
+  const out = await f.run();
+  failed(out, 'CLIENT_CLOSE_FAILED'); diagnostic(out, 'CERT_HAS_EXPIRED', 'CERT_EXPIRED');
+  assert.deepEqual(f.state.calls, ['connect', 'end']); assert.equal(f.state.destroyed, 1);
+});
+test('socket error during connection captures diagnostic', async () => {
+  const f = fixture({ hook(op, state) {
+    if (op === 'connect') state.listener(error('UNABLE_TO_VERIFY_LEAF_SIGNATURE'));
+  } });
+  const out = await f.run();
+  failed(out, 'TLS_VERIFICATION_FAILED');
+  diagnostic(out, 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_CHAIN_TRUST');
+});
+test('TLS observer rejection without a code is OTHER', async () => {
+  const out = await fixture({ tls: false }).run();
+  failed(out, 'TLS_VERIFICATION_FAILED'); diagnostic(out, 'OTHER', 'OTHER');
+});
+test('TLS observer thrown code is captured', async () => {
+  const out = await fixture({ observe() { throw error('EPROTO'); } }).run();
+  failed(out, 'UNEXPECTED_SANITIZED_FAILURE'); diagnostic(out, 'EPROTO', 'PROTOCOL_OR_HANDSHAKE');
+});
+for (const op of ['factory', 'begin', 'metadata', 'rollback', 'end']) {
+  test('no TLS diagnostic outside connection: ' + op, async () => {
+    diagnostic(await fixture({ hook(current) { if (current === op) throw error('CERT_HAS_EXPIRED'); } }).run());
+  });
+}
+for (const code of ['ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH',
+  'ECONNREFUSED', 'EPIPE', '28P01', '28000', '57014']) {
+  test('known non-TLS connect error has no TLS diagnostic: ' + code, async () => {
+    diagnostic(await fixture({ hook(op) { if (op === 'connect') throw error(code); } }).run());
+  });
+}
+test('success, invalid configuration and driver load failure have no TLS diagnostic', async () => {
+  diagnostic(await fixture().run());
+  diagnostic(await probeConnection('invalid'));
+  diagnostic(await manualProbe([], { readEnvironment: () => URL_FIXTURE,
+    loadClient() { throw error('CERT_HAS_EXPIRED'); } }));
+});
+test('deadline normalization retains existing failure and no synthetic TLS evidence', async () => {
+  const f = fixture({ hook(op, state) {
+    if (op === 'connect') { state.time = 5000; throw error('CERT_HAS_EXPIRED'); }
+  } });
+  const out = await f.run(); failed(out, 'CONNECTION_TIMEOUT'); diagnostic(out);
+});
 
 test('exact valid destination, one client/connect, literal three queries, rollback/close and exact schema', async () => {
   const f = fixture(), out = await f.run();
@@ -309,5 +392,60 @@ for (const ops of [['rollback'], ['end'], ['rollback', 'end']]) {
     failed(await f.run(), ops.includes('end') ? 'CLIENT_CLOSE_FAILED' : 'ROLLBACK_FAILED');
     assert.deepEqual(f.state.calls, ['connect', 'begin', 'metadata', 'rollback', 'end']);
     assert.equal(f.state.destroyed, 1);
+  });
+}
+
+for (const [code, label] of [
+  ['28P01', 'PASSWORD_AUTH_REJECTED'],
+  ['28000', 'INVALID_AUTHORIZATION_SPECIFICATION'],
+]) {
+  for (const delivery of ['rejection', 'socket']) test('auth diagnostic ' + code + ' via ' + delivery, async () => {
+    const injected = { code };
+    for (const key of ['message', 'stack', 'hostname', 'cause', 'detail', 'hint', 'password', 'connectionString']) {
+      Object.defineProperty(injected, key, { get() { assert.fail('forbidden error property'); } });
+    }
+    const f = fixture({ hook(op, state) {
+      if (op === 'connect') {
+        if (delivery === 'socket') state.listener(injected);
+        else throw injected;
+      }
+    } });
+    const out = await f.run();
+    failed(out, 'AUTHENTICATION_FAILED'); diagnostic(out);
+    assert.equal(out.SANITIZED_AUTH_ERROR_CODE, label);
+    assert.equal(out.CONNECTION_ESTABLISHED, false);
+    assert.equal(out.CLIENT_CLOSED, true);
+    assert.deepEqual(f.state.calls, ['connect', 'end']);
+    assert.ok(!JSON.stringify(out).includes(code));
+  });
+  test('auth diagnostic survives close failure ' + code, async () => {
+    const f = fixture({ hook(op) {
+      if (op === 'connect') throw { code };
+      if (op === 'end') throw error();
+    } });
+    const out = await f.run();
+    failed(out, 'CLIENT_CLOSE_FAILED'); diagnostic(out);
+    assert.equal(out.SANITIZED_AUTH_ERROR_CODE, label);
+    assert.equal(out.CLIENT_CLOSED, false);
+  });
+}
+
+test('auth diagnostic defaults on success and invalid configuration', async () => {
+  for (const out of [await fixture().run(), await probeConnection('invalid')]) {
+    assert.equal(out.SANITIZED_AUTH_ERROR_CODE, 'NOT_AVAILABLE');
+  }
+});
+for (const code of [undefined, 'PRIVATE_AUTH_SENTINEL', 28000, 'ECONNRESET',
+  { toString() { assert.fail('no coercion'); }, valueOf() { assert.fail('no coercion'); } }]) {
+  test('auth diagnostic rejects unrelated code ' + typeof code, async () => {
+    const out = await fixture({ hook(op) { if (op === 'connect') throw { code }; } }).run();
+    assert.equal(out.SANITIZED_AUTH_ERROR_CODE, 'NOT_AVAILABLE');
+    assert.ok(!JSON.stringify(out).includes('PRIVATE_AUTH_SENTINEL'));
+  });
+}
+for (const op of ['factory', 'begin', 'metadata', 'rollback', 'end']) {
+  test('auth diagnostic unavailable outside connection ' + op, async () => {
+    const out = await fixture({ hook(current) { if (current === op) throw { code: '28P01' }; } }).run();
+    assert.equal(out.SANITIZED_AUTH_ERROR_CODE, 'NOT_AVAILABLE');
   });
 }
