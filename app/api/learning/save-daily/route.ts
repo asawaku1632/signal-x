@@ -20,6 +20,7 @@ import {
 import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
 import { saveHighAiPullbackObservations, updateHighAiPullbackOutcomes } from "@/app/lib/learning/highAiPullback";
 import { saveAiReversalObservations, updateAiReversalOutcomes } from "@/app/lib/learning/aiReversal";
+import { saveTrendPullbackReversalObservations, updateTrendPullbackReversalOutcomes } from "@/app/lib/learning/trendPullbackReversal";
 import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
@@ -404,7 +405,15 @@ export async function GET(req: Request) {
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
         );
       }
-      const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
+      const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
+      console.error("TPR observation failed:", error);
+      return { tprSaved: 0, tprFlagged: 0 };
+    });
+    const tprOutcomes = await updateTrendPullbackReversalOutcomes(targetDate).catch((error) => {
+      console.error("TPR outcome update failed:", error);
+      return { tprOutcomesUpdated: 0 };
+    });
+    const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
       console.error("AI Reversal observation failed:", error);
       return { aiReversalSaved: 0, aiReversalFlagged: 0 };
     });
@@ -651,6 +660,14 @@ export async function GET(req: Request) {
 
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
+    const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
+      console.error("TPR observation failed:", error);
+      return { tprSaved: 0, tprFlagged: 0 };
+    });
+    const tprOutcomes = await updateTrendPullbackReversalOutcomes(targetDate).catch((error) => {
+      console.error("TPR outcome update failed:", error);
+      return { tprOutcomesUpdated: 0 };
+    });
     const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
       console.error("AI Reversal observation failed:", error);
       return { aiReversalSaved: 0, aiReversalFlagged: 0 };
