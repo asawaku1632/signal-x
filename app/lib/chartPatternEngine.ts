@@ -2840,7 +2840,7 @@ function detectEveningStar(
   });
 }
 
-function detectJapaneseCandlestickPatterns(
+export function detectJapaneseCandlestickPatterns(
   candles: PatternCandle[],
   volumeRatio: number,
   patterns: DetectedChartPattern[]
