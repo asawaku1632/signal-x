@@ -157,6 +157,15 @@ export default function LearningStatusPage() {
           </Link>
         </div>
 
+        <div className="mt-3">
+          <Link
+            href="/admin/high-ai-pullback"
+            className="block rounded-2xl border border-violet-200 bg-violet-50 p-4 font-black text-violet-700 shadow-sm transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200"
+          >
+            💎 高AI・押し目研究 HAP_V1 →
+          </Link>
+        </div>
+
         {loading && (
           <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             保存状況を確認しています...
