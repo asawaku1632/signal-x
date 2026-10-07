@@ -22,6 +22,12 @@ import { saveHighAiPullbackObservations, updateHighAiPullbackOutcomes } from "@/
 import { saveAiReversalObservations, updateAiReversalOutcomes } from "@/app/lib/learning/aiReversal";
 import { saveTrendPullbackReversalObservations, updateTrendPullbackReversalOutcomes } from "@/app/lib/learning/trendPullbackReversal";
 import {
+  savePatternForwardObservations,
+  updatePatternForwardOutcomes,
+  refreshPatternForwardStats,
+  type PatternForwardObservationInput,
+} from "@/app/lib/learning/patternForwardLearning";
+import {
   releaseDailySaveLock,
   tryAcquireDailySaveLock,
 } from "@/app/lib/learning/dailySaveLock";
@@ -42,6 +48,7 @@ type PatternLearning = {
   vwapKey?: string;
   macdKey?: string;
   patternKey?: string;
+  patternObservations?: PatternForwardObservationInput[];
 };
 
 type Stock = {
@@ -455,6 +462,13 @@ export async function GET(req: Request) {
       await refreshMomentumMemoryNotificationValidation().catch((error) => {
         console.error("Momentum Memory notification validation refresh failed:", error);
       });
+      const patternForwardOutcomes = await updatePatternForwardOutcomes(targetDate).catch((error) => {
+        console.error("Pattern forward outcome update failed:", error);
+        return { patternForwardOutcomesUpdated: 0 };
+      });
+      await refreshPatternForwardStats().catch((error) => {
+        console.error("Pattern forward stats refresh failed:", error);
+      });
       await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
         console.error("Momentum Memory admin notification failed:", error);
       });
@@ -494,6 +508,7 @@ export async function GET(req: Request) {
         durationMs: Date.now() - startedAt,
         ...momentumMemory,
         ...momentumMemoryOutcomes,
+        ...patternForwardOutcomes,
       });
     }
 
@@ -660,6 +675,17 @@ export async function GET(req: Request) {
 
     stage = "related-learning-save";
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
+    const patternForward = await savePatternForwardObservations(targetDate, stocks).catch((error) => {
+      console.error("Pattern forward observation save failed:", error);
+      return { patternForwardSaved: 0, patternForwardDetectedStocks: 0 };
+    });
+    const patternForwardOutcomes = await updatePatternForwardOutcomes(targetDate).catch((error) => {
+      console.error("Pattern forward outcome update failed:", error);
+      return { patternForwardOutcomesUpdated: 0 };
+    });
+    await refreshPatternForwardStats().catch((error) => {
+      console.error("Pattern forward stats refresh failed:", error);
+    });
     const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
       console.error("TPR observation failed:", error);
       return { tprSaved: 0, tprFlagged: 0 };
@@ -715,6 +741,9 @@ export async function GET(req: Request) {
       experienceAdded: relatedResult.experienceAdded,
       sectorAdded: relatedResult.sectorAdded,
       marketAdded: relatedResult.marketAdded,
+      patternForwardSaved: patternForward.patternForwardSaved,
+      patternForwardDetectedStocks: patternForward.patternForwardDetectedStocks,
+      patternForwardOutcomesUpdated: patternForwardOutcomes.patternForwardOutcomesUpdated,
     });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
@@ -731,6 +760,9 @@ export async function GET(req: Request) {
         experienceAdded: relatedResult.experienceAdded,
         sectorAdded: relatedResult.sectorAdded,
         marketAdded: relatedResult.marketAdded,
+        patternForwardSaved: patternForward.patternForwardSaved,
+        patternForwardDetectedStocks: patternForward.patternForwardDetectedStocks,
+        patternForwardOutcomesUpdated: patternForwardOutcomes.patternForwardOutcomesUpdated,
       },
     });
 
@@ -799,6 +831,8 @@ export async function GET(req: Request) {
 
       ...result,
       ...relatedResult,
+      ...patternForward,
+      ...patternForwardOutcomes,
       ...momentumMemory,
       ...momentumMemoryOutcomes,
     });
