@@ -2462,6 +2462,398 @@ function detectOpeningSurgeContinuation(
   });
 }
 
+
+function detectTripleTop(
+  candles: PatternCandle[],
+  highs: Pivot[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (highs.length < 3 || candles.length < 12) return;
+
+  const [first, second, third] = highs.slice(-3);
+  if (
+    second.index - first.index < 2 ||
+    third.index - second.index < 2 ||
+    candles.length - 1 - third.index < 1
+  ) return;
+
+  const peakAverage = average([first.price, second.price, third.price]);
+  const peakDeviation = Math.max(
+    percentDifference(first.price, peakAverage),
+    percentDifference(second.price, peakAverage),
+    percentDifference(third.price, peakAverage)
+  );
+  if (peakDeviation > 0.025) return;
+
+  const firstTrough = Math.min(
+    ...candles.slice(first.index, second.index + 1).map((candle) => candle.low)
+  );
+  const secondTrough = Math.min(
+    ...candles.slice(second.index, third.index + 1).map((candle) => candle.low)
+  );
+  const neckline = average([firstTrough, secondTrough]);
+  const pullbackDepth = (peakAverage - neckline) / Math.max(peakAverage, 0.0001);
+  const latest = candles[candles.length - 1];
+
+  if (pullbackDepth < 0.025 || latest.close >= neckline * 0.997) return;
+
+  let confidence = 80;
+  const reasons = [
+    "ほぼ同水準の高値を3回形成",
+    "高値間で2.5%以上の押しを確認",
+    "終値がネックラインを下抜け",
+  ];
+
+  if (volumeRatio >= 1.3) {
+    confidence += 6;
+    reasons.push("下抜け時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern048",
+    name: "トリプルトップ",
+    direction: "SELL",
+    confidence,
+    score: -30,
+    reasons,
+  });
+}
+
+function candleBodySize(candle: PatternCandle) {
+  return Math.abs(candle.close - candle.open);
+}
+
+function candleRangeSize(candle: PatternCandle) {
+  return Math.max(candle.high - candle.low, 0.0001);
+}
+
+function candleBodyRatio(candle: PatternCandle) {
+  return candleBodySize(candle) / candleRangeSize(candle);
+}
+
+function candleUpperWick(candle: PatternCandle) {
+  return Math.max(0, candle.high - Math.max(candle.open, candle.close));
+}
+
+function candleLowerWick(candle: PatternCandle) {
+  return Math.max(0, Math.min(candle.open, candle.close) - candle.low);
+}
+
+function isStrongBullishCandle(candle: PatternCandle) {
+  return candle.close > candle.open && candleBodyRatio(candle) >= 0.55;
+}
+
+function isStrongBearishCandle(candle: PatternCandle) {
+  return candle.close < candle.open && candleBodyRatio(candle) >= 0.55;
+}
+
+function detectRisingThreeMethods(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 5) return;
+
+  const [first, second, third, fourth, fifth] = candles.slice(-5);
+  const middle = [second, third, fourth];
+  const firstBody = candleBodySize(first);
+  const middleBodiesSmall = middle.every(
+    (candle) => candleBodySize(candle) <= Math.max(firstBody * 0.65, 0.0001)
+  );
+  const middleContained = middle.every(
+    (candle) =>
+      candle.high <= first.high * 1.005 &&
+      candle.low >= first.low * 0.995
+  );
+  const mostlyPullback = middle.filter((candle) => candle.close <= candle.open).length >= 2;
+  const breakout =
+    isStrongBullishCandle(fifth) &&
+    fifth.close > first.high * 1.002;
+
+  if (
+    !isStrongBullishCandle(first) ||
+    !middleBodiesSmall ||
+    !middleContained ||
+    !mostlyPullback ||
+    !breakout
+  ) return;
+
+  let confidence = 82;
+  const reasons = [
+    "大陽線の後に小さな調整足を3本形成",
+    "調整3本が最初の大陽線レンジ内に収まる",
+    "5本目の陽線が最初の高値を上抜け",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 6;
+    reasons.push("上抜け時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern049",
+    name: "上げ三法",
+    direction: "BUY",
+    confidence,
+    score: 25,
+    reasons,
+  });
+}
+
+function detectThreeWhiteSoldiers(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 3) return;
+
+  const soldiers = candles.slice(-3);
+  if (!soldiers.every(isStrongBullishCandle)) return;
+  if (!(soldiers[0].close < soldiers[1].close && soldiers[1].close < soldiers[2].close)) return;
+
+  for (let index = 1; index < soldiers.length; index++) {
+    const previous = soldiers[index - 1];
+    const current = soldiers[index];
+    const previousBodyLow = Math.min(previous.open, previous.close);
+    const previousBodyHigh = Math.max(previous.open, previous.close);
+    if (
+      current.open < previousBodyLow * 0.992 ||
+      current.open > previousBodyHigh * 1.008 ||
+      candleUpperWick(current) > candleBodySize(current) * 0.75
+    ) return;
+  }
+
+  let confidence = 80;
+  const reasons = [
+    "実体のしっかりした陽線が3本連続",
+    "終値を3本連続で切り上げ",
+    "各足の寄付きが前足実体付近",
+  ];
+  if (volumeRatio >= 1.2) {
+    confidence += 5;
+    reasons.push("3本目で出来高を維持・増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern050",
+    name: "赤三兵",
+    direction: "BUY",
+    confidence,
+    score: 24,
+    reasons,
+  });
+}
+
+function detectMorningStar(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 3) return;
+
+  const [first, star, third] = candles.slice(-3);
+  const firstMidpoint = (first.open + first.close) / 2;
+  const starSmall = candleBodyRatio(star) <= 0.35;
+  const starBelowFirstBody =
+    Math.max(star.open, star.close) <= Math.max(first.open, first.close) * 1.01;
+  const recovery =
+    isStrongBullishCandle(third) &&
+    third.close >= firstMidpoint &&
+    third.close > star.close;
+
+  if (!isStrongBearishCandle(first) || !starSmall || !starBelowFirstBody || !recovery) return;
+
+  let confidence = 81;
+  const reasons = [
+    "大陰線の後に小さな実体の星を形成",
+    "3本目が陽線で反転",
+    "3本目終値が1本目実体の半値以上を回復",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 5;
+    reasons.push("反転陽線で出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern051",
+    name: "三川明けの明星",
+    direction: "BUY",
+    confidence,
+    score: 26,
+    reasons,
+  });
+}
+
+function detectSpinningTop(
+  candles: PatternCandle[],
+  patterns: DetectedChartPattern[]
+) {
+  if (!candles.length) return;
+
+  const latest = candles[candles.length - 1];
+  const range = candleRangeSize(latest);
+  const body = candleBodySize(latest);
+  const upper = candleUpperWick(latest);
+  const lower = candleLowerWick(latest);
+
+  if (
+    body / range > 0.25 ||
+    upper / range < 0.2 ||
+    lower / range < 0.2 ||
+    upper < body * 0.8 ||
+    lower < body * 0.8
+  ) return;
+
+  pushPattern(patterns, {
+    id: "pattern052",
+    name: "コマ",
+    direction: "NEUTRAL",
+    confidence: 52,
+    score: 0,
+    reasons: [
+      "実体が値幅の25%以下",
+      "上下にヒゲがあり売買が拮抗",
+      "方向確定前のため次足確認を優先",
+    ],
+  });
+}
+
+function detectThreeBlackCrows(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 3) return;
+
+  const crows = candles.slice(-3);
+  if (!crows.every(isStrongBearishCandle)) return;
+  if (!(crows[0].close > crows[1].close && crows[1].close > crows[2].close)) return;
+
+  for (let index = 1; index < crows.length; index++) {
+    const previous = crows[index - 1];
+    const current = crows[index];
+    const previousBodyLow = Math.min(previous.open, previous.close);
+    const previousBodyHigh = Math.max(previous.open, previous.close);
+    if (
+      current.open < previousBodyLow * 0.992 ||
+      current.open > previousBodyHigh * 1.008 ||
+      candleLowerWick(current) > candleBodySize(current) * 0.75
+    ) return;
+  }
+
+  let confidence = 82;
+  const reasons = [
+    "実体のしっかりした陰線が3本連続",
+    "終値を3本連続で切り下げ",
+    "各足の寄付きが前足実体付近",
+  ];
+  if (volumeRatio >= 1.2) {
+    confidence += 5;
+    reasons.push("3本目で出来高を維持・増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern053",
+    name: "黒三兵",
+    direction: "SELL",
+    confidence,
+    score: -27,
+    reasons,
+  });
+}
+
+function detectDarkCloudCover(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 2) return;
+
+  const [first, second] = candles.slice(-2);
+  const firstMidpoint = (first.open + first.close) / 2;
+  const openedHigh = second.open >= first.close * 0.995;
+  const covered =
+    isStrongBearishCandle(second) &&
+    second.close < firstMidpoint &&
+    second.close > first.open * 0.99;
+
+  if (!isStrongBullishCandle(first) || !openedHigh || !covered) return;
+
+  let confidence = 78;
+  const reasons = [
+    "強い陽線の後に高値圏で陰線",
+    "陰線終値が前陽線実体の半値を下回る",
+    "上昇の勢いが売りに押し戻された",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 6;
+    reasons.push("反落時に出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern054",
+    name: "被せ線",
+    direction: "SELL",
+    confidence,
+    score: -23,
+    reasons,
+  });
+}
+
+function detectEveningStar(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  if (candles.length < 3) return;
+
+  const [first, star, third] = candles.slice(-3);
+  const firstMidpoint = (first.open + first.close) / 2;
+  const starSmall = candleBodyRatio(star) <= 0.35;
+  const starAboveFirstBody =
+    Math.min(star.open, star.close) >= Math.min(first.open, first.close) * 0.99;
+  const reversal =
+    isStrongBearishCandle(third) &&
+    third.close <= firstMidpoint &&
+    third.close < star.close;
+
+  if (!isStrongBullishCandle(first) || !starSmall || !starAboveFirstBody || !reversal) return;
+
+  let confidence = 82;
+  const reasons = [
+    "大陽線の後に小さな実体の星を形成",
+    "3本目が陰線で反転",
+    "3本目終値が1本目実体の半値以下まで下落",
+  ];
+  if (volumeRatio >= 1.3) {
+    confidence += 5;
+    reasons.push("反転陰線で出来高増加");
+  }
+
+  pushPattern(patterns, {
+    id: "pattern055",
+    name: "三川宵の明星",
+    direction: "SELL",
+    confidence,
+    score: -28,
+    reasons,
+  });
+}
+
+function detectJapaneseCandlestickPatterns(
+  candles: PatternCandle[],
+  volumeRatio: number,
+  patterns: DetectedChartPattern[]
+) {
+  detectRisingThreeMethods(candles, volumeRatio, patterns);
+  detectThreeWhiteSoldiers(candles, volumeRatio, patterns);
+  detectMorningStar(candles, volumeRatio, patterns);
+  detectSpinningTop(candles, patterns);
+  detectThreeBlackCrows(candles, volumeRatio, patterns);
+  detectDarkCloudCover(candles, volumeRatio, patterns);
+  detectEveningStar(candles, volumeRatio, patterns);
+}
+
 function optimizeDetectedPatterns(
   rawPatterns: DetectedChartPattern[]
 ): DetectedChartPattern[] {
@@ -2485,6 +2877,9 @@ function optimizeDetectedPatterns(
   const confirmedIds = new Set(uniqueById.keys());
 
   // 同一形状の形成中シグナルと終値ブレイク確定シグナルを二重加点しない。
+  if (confirmedIds.has("pattern048")) {
+    uniqueById.delete("pattern020");
+  }
   if (confirmedIds.has("pattern001")) {
     uniqueById.delete("pattern041");
     uniqueById.delete("pattern009");
@@ -2832,6 +3227,7 @@ export function detectChartPatterns(
 
   detectDoubleBottom(candles, lows, volumeRatio, patterns);
   detectDoubleTop(candles, highs, volumeRatio, patterns);
+  detectTripleTop(candles, highs, volumeRatio, patterns);
   detectHeadAndShoulders(candles, highs, volumeRatio, patterns);
   detectInverseHeadAndShoulders(candles, lows, volumeRatio, patterns);
   detectTrianglePatterns(candles, volumeRatio, patterns);
@@ -2868,6 +3264,7 @@ export function detectChartPatterns(
   detectSupportBreakdown(candles, volumeRatio, patterns);
   detectEmaCrosses(candles, patterns);
   detectLowerWick(candles, volumeRatio, patterns);
+  detectJapaneseCandlestickPatterns(candles, volumeRatio, patterns);
 
   return optimizeDetectedPatterns(patterns);
 }
