@@ -17,6 +17,8 @@ import {
   type ExperienceAiPreload,
 } from "./experienceAiEngine";
 import type { VolatilityStatsMap } from "./volatilityLearning";
+import type { PatternForwardStats } from "./patternForwardLearning";
+import { calculateValidatedPatternForwardBonus } from "./patternForwardBonus";
 
 type PipelineParams = {
   scored: any;
@@ -38,6 +40,7 @@ type PipelineParams = {
   experienceAiPreload?: ExperienceAiPreload;
   volatilityStatsMap?: VolatilityStatsMap;
   bollingerBonusEnabled?: boolean;
+  validatedPatternForwardStatsMap?: Map<string, PatternForwardStats>;
 };
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -62,6 +65,7 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceAiPreload,
     volatilityStatsMap,
     bollingerBonusEnabled,
+    validatedPatternForwardStatsMap = new Map(),
   } = params;
 
   const sectorKey = getSectorKey(scored.code);
@@ -177,6 +181,10 @@ export async function runAiPipeline(params: PipelineParams) {
     scored.bollinger,
     bollingerBonusEnabled,
   );
+  const patternForwardDetail = calculateValidatedPatternForwardBonus(
+    scored.patternObservations ?? [],
+    validatedPatternForwardStatsMap,
+  );
   const aiPowerParams = {
     baseScore: scored.score,
     marketBonus: learningResult.market.bonus,
@@ -190,6 +198,7 @@ export async function runAiPipeline(params: PipelineParams) {
     experienceBonus: finalExperienceBonus,
     similarExperienceBonus: experienceResult.similarExperience.bonus,
     experienceRankingBonus: experienceResult.experienceRanking.bonus,
+    patternForwardBonus: patternForwardDetail.bonus,
   };
   const beforeBollinger = calculateAiPowerResult(aiPowerParams);
   const { rawAiPower, displayAiPower } = calculateAiPowerResult({
@@ -216,6 +225,7 @@ export async function runAiPipeline(params: PipelineParams) {
     timeLearningReason,
     experienceAiReason,
     bollingerBonus.reason,
+    patternForwardDetail.reason,
   ].filter(Boolean);
 
   const scoreBreakdown = buildScoreBreakdown({
@@ -226,6 +236,8 @@ export async function runAiPipeline(params: PipelineParams) {
     sectorBonus: finalSectorBonus,
     experienceResult: mergedExperienceResult,
     bollingerBonus,
+    patternForwardBonus: patternForwardDetail.bonus,
+    patternForwardDetail,
   });
 
   return {
@@ -248,6 +260,9 @@ export async function runAiPipeline(params: PipelineParams) {
     bbBonus: bollingerBonus.bonus,
     bbBonusReason: bollingerBonus.reason,
     bbBonusEnabled: bollingerBonus.enabled,
+    patternForwardBonus: patternForwardDetail.bonus,
+    patternForwardApplied: patternForwardDetail.applied,
+    patternForwardDetail,
     experienceBonus: finalExperienceBonus,
     legacyExperienceBonus,
     experienceAiBonus,
