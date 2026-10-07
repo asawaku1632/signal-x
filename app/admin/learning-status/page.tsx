@@ -172,6 +172,12 @@ export default function LearningStatusPage() {
           </Link>
         </div>
 
+        <div className="mt-3">
+          <Link href="/admin/trend-pullback-reversal" className="block rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-black text-emerald-700 shadow-sm transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            💎 トレンド押し目反転研究 TPR_V1 →
+          </Link>
+        </div>
+
         {loading && (
           <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             保存状況を確認しています...
