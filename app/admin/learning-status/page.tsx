@@ -178,6 +178,12 @@ export default function LearningStatusPage() {
           </Link>
         </div>
 
+        <div className="mt-3">
+          <Link href="/admin/research-lab" className="block rounded-2xl border-2 border-violet-300 bg-violet-50 p-5 font-black text-violet-800 shadow-sm transition hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-100">
+            ⛏️ SIGNALX 鉱脈研究所 — 4研究を統合監視 →
+          </Link>
+        </div>
+
         {loading && (
           <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             保存状況を確認しています...
