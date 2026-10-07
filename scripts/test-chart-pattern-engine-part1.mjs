@@ -143,9 +143,9 @@ const catalogMap = new Map(catalogEntries.map((match) => [
   },
 ]));
 
-assert.equal(engineMap.size, 47, "Engine must contain exactly 47 pattern definitions");
-assert.equal(catalogEntries.length, 47, "Catalog must contain exactly 47 pattern definitions");
-assert.equal(catalogMap.size, 47, "Catalog pattern IDs must be unique");
+assert.equal(engineMap.size, 55, "Engine must contain exactly 55 pattern definitions");
+assert.equal(catalogEntries.length, 55, "Catalog must contain exactly 55 pattern definitions");
+assert.equal(catalogMap.size, 55, "Catalog pattern IDs must be unique");
 assert.deepEqual([...engineMap.keys()].sort(), [...catalogMap.keys()].sort());
 
 for (const [id, expectedName] of part1Definitions) {
