@@ -186,9 +186,9 @@ assert.equal(previousIds.filter((id) => !engineSource.includes(`id: "${id}"`)).l
 
 const engineIds = [...engineSource.matchAll(/id:\s*"(pattern\d{3})"/g)].map((match) => match[1]);
 const catalogIds = [...catalogSource.matchAll(/id:\s*"(pattern\d{3})",\s*name:/g)].map((match) => match[1]);
-assert.equal(new Set(engineIds).size, 47);
-assert.equal(new Set(catalogIds).size, 47);
-assert.equal(catalogIds.length, 47);
+assert.equal(new Set(engineIds).size, 55);
+assert.equal(new Set(catalogIds).size, 55);
+assert.equal(catalogIds.length, 55);
 
 console.log(JSON.stringify({
   positiveFixtures: [...positiveFixtures.keys()],
