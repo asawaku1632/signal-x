@@ -3,6 +3,7 @@ import {
   type PatternLearningResult,
 } from "./patternLearning";
 import type { DetectedChartPattern } from "./chartPatternEngine";
+import { getMarketSeasonality, type MarketSeasonality } from "./marketSeasonality";
 
 export type Candle = {
   time: number;
@@ -40,6 +41,7 @@ export type ScoreBreakdown = {
   volume: number;
   patternBonus: number;
   learning: number;
+  seasonality: number;
 };
 
 export type AiResult = {
@@ -68,6 +70,7 @@ export type AiResult = {
   stopLoss: number;
   patternLearning: PatternLearningResult;
   patternKey: string;
+  seasonality: MarketSeasonality;
 };
 
 export function clampScore(score: number) {
@@ -232,6 +235,8 @@ export function calculateAiScore(params: {
   const ema75 = calculateEma(closes, 75);
   const vwap = calculateVwap(candles);
   const macdData = calculateMacd(closes);
+  const latestCandleTime = candles[candles.length - 1]?.time;
+  const seasonality = getMarketSeasonality(latestCandleTime ?? new Date());
 
   const patternLearning = buildPatternLearning({
     rsi,
@@ -256,6 +261,7 @@ export function calculateAiScore(params: {
     volume: 0,
     patternBonus: 0,
     learning: 0,
+    seasonality: 0,
   };
 
   let score = 35;
@@ -405,6 +411,13 @@ export function calculateAiScore(params: {
     reasons.push(`RSI${rsi}でやや過熱`);
   }
 
+  breakdown.seasonality = seasonality.scoreImpact;
+  if (seasonality.action === "BUY") {
+    reasons.push(`${seasonality.monthLabel}・${seasonality.phase}: ${seasonality.note}（季節性は参考）`);
+  } else if (seasonality.action === "SELL") {
+    reasons.push(`${seasonality.monthLabel}・${seasonality.phase}: ${seasonality.note}（季節性は参考）`);
+  }
+
   if (volumeRatio >= 3) {
     breakdown.volume = 8;
     reasons.push(`出来高${volumeRatio}倍`);
@@ -435,7 +448,8 @@ export function calculateAiScore(params: {
     breakdown.rsi +
     breakdown.volume +
     breakdown.patternBonus +
-    breakdown.learning;
+    breakdown.learning +
+    breakdown.seasonality;
 
   score = clampScore(score);
 
@@ -465,5 +479,6 @@ export function calculateAiScore(params: {
     stopLoss: Math.round(price * 0.98),
     patternLearning,
     patternKey: patternLearning.patternKey,
+    seasonality,
   };
 }
