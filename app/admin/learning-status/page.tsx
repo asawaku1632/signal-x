@@ -166,6 +166,12 @@ export default function LearningStatusPage() {
           </Link>
         </div>
 
+        <div className="mt-3">
+          <Link href="/admin/ai-reversal" className="block rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4 font-black text-fuchsia-700 shadow-sm transition hover:bg-fuchsia-100 dark:border-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200">
+            ⛏️ AI反転・深押し研究 AIR_V1 →
+          </Link>
+        </div>
+
         {loading && (
           <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             保存状況を確認しています...
