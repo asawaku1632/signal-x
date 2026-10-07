@@ -150,3 +150,125 @@ export function getSwingDecision(input: SwingDecisionInput): SwingDecision {
     reviewDue,
   };
 }
+
+
+export type SwingEntryDecisionStatus =
+  | "CANDIDATE"
+  | "WAIT"
+  | "WATCH"
+  | "AVOID";
+
+export type SwingEntryDecisionInput = {
+  aiPower?: number | null;
+  rsi?: number | null;
+  volumeRatio?: number | null;
+  changePercent?: number | null;
+};
+
+export type SwingEntryDecision = {
+  status: SwingEntryDecisionStatus;
+  label: string;
+  icon: string;
+  tone: "emerald" | "blue" | "amber" | "rose";
+  summary: string;
+  reasons: string[];
+};
+
+export function getSwingEntryDecision(
+  input: SwingEntryDecisionInput,
+): SwingEntryDecision {
+  const aiPower = finiteOrNull(input.aiPower);
+  const rsi = finiteOrNull(input.rsi);
+  const volumeRatio = finiteOrNull(input.volumeRatio);
+  const changePercent = finiteOrNull(input.changePercent);
+
+  const overheated = rsi != null && rsi >= 75;
+  const sharpDrop = changePercent != null && changePercent <= -2;
+
+  const reasons: string[] = [];
+  if (aiPower != null) reasons.push(`AI POWER ${Math.round(aiPower)}`);
+
+  if (rsi != null) {
+    if (overheated) {
+      reasons.push(`RSI ${Math.round(rsi)}で過熱気味`);
+    } else if (rsi <= 35) {
+      reasons.push(`RSI ${Math.round(rsi)}で売られ気味`);
+    } else {
+      reasons.push(`RSI ${Math.round(rsi)}で過熱感は限定的`);
+    }
+  }
+
+  if (changePercent != null) {
+    if (sharpDrop) {
+      reasons.push(`当日変化率 ${changePercent.toFixed(2)}%で勢いに注意`);
+    } else if (changePercent > 0) {
+      reasons.push(`当日変化率 +${changePercent.toFixed(2)}%`);
+    } else {
+      reasons.push(`当日変化率 ${changePercent.toFixed(2)}%`);
+    }
+  }
+
+  if (volumeRatio != null) {
+    if (volumeRatio >= 1.1) {
+      reasons.push(`出来高 ${volumeRatio.toFixed(1)}倍で増加`);
+    } else if (volumeRatio < 0.8) {
+      reasons.push(`出来高 ${volumeRatio.toFixed(1)}倍でやや少なめ`);
+    }
+  }
+
+  if (aiPower == null) {
+    return {
+      status: "WATCH",
+      label: "様子見",
+      icon: "🟡",
+      tone: "amber",
+      summary: "判定材料がまだ十分ではないため、追加シグナルを待つ状態です。",
+      reasons: reasons.length ? reasons : ["AI分析データを確認中"],
+    };
+  }
+
+  if (aiPower >= 85 && !overheated && !sharpDrop) {
+    return {
+      status: "CANDIDATE",
+      label: "スイング候補",
+      icon: "🟢",
+      tone: "emerald",
+      summary: "数日〜2週間の候補として監視しやすい状態です。",
+      reasons,
+    };
+  }
+
+  if (aiPower >= 75) {
+    return {
+      status: "WAIT",
+      label: "押し目待ち",
+      icon: "🔵",
+      tone: "blue",
+      summary:
+        overheated || sharpDrop
+          ? "条件は悪くありませんが、今すぐ追わず値動きが落ち着くのを待ちたい状態です。"
+          : "上昇の兆しはあります。もう一段強いシグナルや押し目を待つ状態です。",
+      reasons,
+    };
+  }
+
+  if (aiPower >= 65) {
+    return {
+      status: "WATCH",
+      label: "様子見",
+      icon: "🟡",
+      tone: "amber",
+      summary: "方向感がまだ弱く、スイングで入る前に追加シグナルを確認したい状態です。",
+      reasons,
+    };
+  }
+
+  return {
+    status: "AVOID",
+    label: "見送り",
+    icon: "🔴",
+    tone: "rose",
+    summary: "短期の上昇条件が弱く、今は無理にスイング対象にしない寄りの状態です。",
+    reasons,
+  };
+}

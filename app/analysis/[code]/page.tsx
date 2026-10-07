@@ -8,6 +8,7 @@ import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/ap
 import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
+import { getSwingEntryDecision, type SwingEntryDecision } from "@/app/lib/swingDecision";
 
 type Signal = {
   code: string;
@@ -175,6 +176,50 @@ function getPowerMessage(power: number) {
   if (power >= 75) return "押し目を待ちながら値動きを確認しましょう。";
   if (power >= 65) return "方向感を確認してから判断しましょう。";
   return "現在は慎重に様子を見る局面です。";
+}
+
+function getSwingEntryToneClasses(tone: SwingEntryDecision["tone"]) {
+  if (tone === "rose") {
+    return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-200";
+  }
+  if (tone === "amber") {
+    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200";
+  }
+  if (tone === "emerald") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200";
+  }
+  return "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-200";
+}
+
+function SwingEntryCard({ decision }: { decision: SwingEntryDecision }) {
+  return (
+    <section
+      className={`mt-2 rounded-xl border p-3 shadow-sm ${getSwingEntryToneClasses(decision.tone)}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-black">📅 スイング判定</p>
+          <p className="mt-0.5 text-xs font-medium opacity-70">
+            数日〜2週間で狙う場合
+          </p>
+        </div>
+        <span className="rounded-full border border-current/20 bg-white/70 px-2.5 py-1 text-xs font-black dark:bg-slate-900/50">
+          {decision.icon} {decision.label}
+        </span>
+      </div>
+      <p className="mt-3 text-sm font-black leading-6">{decision.summary}</p>
+      <div className="mt-2 space-y-1">
+        {decision.reasons.slice(0, 3).map((reason, index) => (
+          <p key={`${reason}-${index}`} className="text-xs font-medium leading-5">
+            ・{reason}
+          </p>
+        ))}
+      </div>
+      <p className="mt-3 border-t border-current/10 pt-2 text-[11px] font-medium leading-5 opacity-75">
+        ここでは「今から新規で見るなら」の判定です。疑似購入後は購入価格も含めて再判定します。
+      </p>
+    </section>
+  );
 }
 
 function getRankLabel(rank: number) {
@@ -683,6 +728,13 @@ export default function AnalysisPage() {
   const volumeRatio = signal.volumeRatio ?? 1;
   const changePercent = signal.changePercent ?? 0;
 
+  const swingEntryDecision = getSwingEntryDecision({
+    aiPower: signal.score ?? signal.aiPower,
+    rsi: signal.rsi,
+    volumeRatio: signal.volumeRatio,
+    changePercent: signal.changePercent,
+  });
+
   const total = historyStats?.total ?? 0;
   const win = historyStats?.win ?? 0;
   const lose = historyStats?.lose ?? 0;
@@ -796,6 +848,8 @@ export default function AnalysisPage() {
           </div>
           <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-medium leading-5 text-slate-500 dark:border-slate-700 dark:text-slate-300">候補評価です。評価が高くても今すぐの購入を意味しません。</p>
         </section>
+
+        <SwingEntryCard decision={swingEntryDecision} />
 
         <Link href={`/chart/${signal.code}`} className="mt-3 block rounded-2xl border border-blue-600 bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
           <div className="flex items-center justify-between gap-3">
