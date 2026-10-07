@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import MenuSection, { type MenuItem } from "@/app/components/menu/MenuSection";
+import { getAdminSession } from "@/app/lib/admin";
 
 const analysisItems: MenuItem[] = [
   { title: "AI分析", description: "銘柄をAIで分析", href: "/scan-mobile", icon: "✦", accent: "bg-violet-50 text-violet-600" },
@@ -30,7 +31,19 @@ const accountItems: MenuItem[] = [
   { title: "バージョン情報", description: "SIGNALX Ver1.0", href: "#version-info", icon: "i", accent: "bg-blue-50 text-blue-600" },
 ];
 
-export default function MenuPage() {
+const adminItems: MenuItem[] = [
+  {
+    title: "パターン実績",
+    description: "55種類の検出・勝率・AI反映を確認",
+    href: "/admin/pattern-performance",
+    icon: "📚",
+    accent: "bg-amber-50 text-amber-600",
+  },
+];
+
+export default async function MenuPage() {
+  const { isAdmin } = await getAdminSession();
+
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-900">
       <div className="mx-auto max-w-4xl px-4 pb-6 pt-5 sm:px-6 sm:pt-8">
@@ -45,6 +58,9 @@ export default function MenuPage() {
           <MenuSection title="AI分析・学習" tone="violet" items={analysisItems} />
           <MenuSection title="投資サポート" tone="emerald" items={supportItems} />
           <MenuSection title="アカウント・その他" tone="blue" items={accountItems} />
+          {isAdmin ? (
+            <MenuSection title="管理者専用" tone="blue" items={adminItems} />
+          ) : null}
         </div>
         <aside id="version-info" className="mt-8 scroll-mt-6 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-center">
           <p className="text-xs font-black tracking-[0.14em] text-blue-700">SIGNALX Ver1.0</p>
