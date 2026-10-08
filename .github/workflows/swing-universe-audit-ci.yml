@@ -1,0 +1,28 @@
+name: Swing Universe Audit Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/swingUniverseAudit.ts"
+      - "app/api/cron/swing-universe-audit/**"
+      - "app/api/swing-universe-audit/**"
+      - "app/simulation/**"
+      - "supabase/migrations/20261008_create_swing_universe_observations.sql"
+      - "tests/swingUniverseAudit.test.mjs"
+      - "vercel.json"
+      - ".github/workflows/swing-universe-audit-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/swingUniverseAudit.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
