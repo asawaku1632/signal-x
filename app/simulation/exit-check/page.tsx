@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
 
 type Outcome = { days: number; date: string | null; price: number | null; changePercent: number | null };
-type Item = { id: string; code: string; name: string; signalDate: string; signalPrice: number; reasons: string[]; outcomes: Outcome[] };
+type Item = { id: string; code: string; name: string; signalDate: string; scanAt: string; signalPrice: number; reasons: string[]; outcomes: Outcome[] };
 type Summary = { days: number; evaluated: number; declined: number; declineRatePercent: number | null };
 type Report = { success: boolean; items: Item[]; summary: Summary[]; count: number; note: string };
 
@@ -56,7 +56,7 @@ export default function SwingExitCheckPage() {
             <div><p className="text-xs text-slate-400">{item.code} / {item.signalDate}</p><h2 className="mt-1 text-lg font-black">{item.name}</h2></div>
             <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">撤退候補</span>
           </div>
-          <p className="mt-2 text-xs text-slate-600">判定時の株価 <strong>{item.signalPrice.toLocaleString("ja-JP")}円</strong></p>
+          <p className="mt-2 text-xs text-slate-600">基準株価 <strong>{item.signalPrice.toLocaleString("ja-JP")}円</strong>（スキャン {new Date(item.scanAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}）</p>
           <div className="mt-3 grid grid-cols-2 gap-2">{item.outcomes.map((o) => <div key={o.days} className="rounded-xl bg-slate-50 p-3">
             <p className="text-[11px] font-bold text-slate-500">{o.days}取引日後</p>
             {o.changePercent === null
