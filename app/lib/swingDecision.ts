@@ -30,6 +30,7 @@ export type SwingDecision = {
 };
 
 const finiteOrNull = (value: unknown) => {
+  if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 };
