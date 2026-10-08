@@ -17,6 +17,14 @@
       "schedule": "50 6 * * 1-5"
     },
     {
+      "path": "/api/cron/check-daily-recovery",
+      "schedule": "30 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/check-daily-recovery-late",
+      "schedule": "30 8 * * 1-5"
+    },
+    {
       "path": "/api/cron/learning-save-monitor",
       "schedule": "25 7 * * 1-5"
     },

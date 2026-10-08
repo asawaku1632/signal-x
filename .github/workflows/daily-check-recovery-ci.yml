@@ -1,0 +1,27 @@
+name: Daily Check Recovery Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/dailyCheckRecoveryCron.ts"
+      - "app/api/cron/check-daily-recovery/**"
+      - "app/api/cron/check-daily-recovery-late/**"
+      - "app/lib/learning/checkDailyRunner.ts"
+      - "tests/dailyCheckRecoveryCron.test.mjs"
+      - "vercel.json"
+      - ".github/workflows/daily-check-recovery-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/dailyCheckRecoveryCron.test.mjs tests/phase1DailySnapshotIsolation.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
