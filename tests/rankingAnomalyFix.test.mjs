@@ -73,7 +73,7 @@ test("ranking universe is propagated without a fabricated fallback", () => {
   const lineRanking = readFileSync("app/api/cron/line-ranking/route.ts", "utf8");
   const lineTest = readFileSync("app/api/test/line/route.ts", "utf8");
 
-  assert.match(ranking, /scanDiagnostics\?\.analyzedSuccessCount/);
+  assert.match(ranking, /analyzed_success_count/);
   assert.match(ranking, /rankingUniverseCount/);
   assert.doesNotMatch(`${line}\n${lineRanking}\n${lineTest}`, /\b1006\b/);
   assert.match(line, /formatAiRankingPosition/);
