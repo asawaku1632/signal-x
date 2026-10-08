@@ -25,4 +25,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --test tests/swingExitAudit.test.mjs
+      - run: npx next typegen
       - run: npx tsc --noEmit
