@@ -1,0 +1,29 @@
+name: Swing Exit Audit Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/swingExitAudit.ts"
+      - "app/lib/swingDecision.ts"
+      - "app/api/swing-exit-audit/**"
+      - "app/api/cron/swing-exit-audit/**"
+      - "app/simulation/**"
+      - "supabase/migrations/20261008_create_swing_exit_audits.sql"
+      - "tests/swingExitAudit.test.mjs"
+      - "vercel.json"
+      - ".github/workflows/swing-exit-audit-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/swingExitAudit.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
