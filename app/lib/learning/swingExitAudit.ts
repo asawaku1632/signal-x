@@ -59,8 +59,9 @@ export async function captureSwingExitSignals(userEmail?: string) {
   if (!isJstBusinessDay(now)) return { captured: 0, checked: 0, skipped: "MARKET_CLOSED" };
 
   const snapshot = await getLatestScanSnapshot();
-  const timestamp = snapshot?.updatedAt ? new Date(snapshot.updatedAt).getTime() : NaN;
-  if (!Number.isFinite(timestamp) || timestamp > now.getTime() ||
+  const snapshotUpdatedAt = snapshot?.updatedAt;
+  const timestamp = snapshotUpdatedAt ? new Date(snapshotUpdatedAt).getTime() : NaN;
+  if (!snapshotUpdatedAt || !Number.isFinite(timestamp) || timestamp > now.getTime() ||
       now.getTime() - timestamp > MAX_SNAPSHOT_AGE_MS ||
       getJstDateString(new Date(timestamp)) !== getJstDateString(now)) {
     return { captured: 0, checked: 0, skipped: "SCAN_SNAPSHOT_NOT_FRESH" };
@@ -110,7 +111,7 @@ export async function captureSwingExitSignals(userEmail?: string) {
        VALUES ($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10::jsonb)
        ON CONFLICT (paper_trade_id) DO NOTHING`,
       [trade.id, trade.user_email, trade.code, trade.name, getJstDateString(now),
-       snapshot.updatedAt, price, entryPrice, power, JSON.stringify(decision.reasons)],
+       snapshotUpdatedAt, price, entryPrice, power, JSON.stringify(decision.reasons)],
     );
     captured += inserted.rowCount ?? 0;
   }
