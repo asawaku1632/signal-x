@@ -188,6 +188,7 @@ type AuditRow = {
   code: string;
   name: string;
   signal_date: Date | string;
+  snapshot_at: Date | string;
   signal_price: string;
   reasons: string[] | null;
   outcome_1d_date: Date | string | null;
@@ -202,7 +203,7 @@ type AuditRow = {
 
 export async function getSwingExitAuditReport(userEmail: string) {
   const result = await pool.query<AuditRow>(
-    `SELECT id, code, name, signal_date, signal_price, reasons,
+    `SELECT id, code, name, signal_date, snapshot_at, signal_price, reasons,
             outcome_1d_date, outcome_1d_price, outcome_3d_date, outcome_3d_price,
             outcome_5d_date, outcome_5d_price, outcome_10d_date, outcome_10d_price
      FROM public.swing_exit_audits AS audit
@@ -223,7 +224,7 @@ export async function getSwingExitAuditReport(userEmail: string) {
         changePercent: price ? ((price / reference) - 1) * 100 : null };
     });
     return { id: String(row.id), code: row.code, name: row.name,
-      signalDate: dateOnly(row.signal_date), signalPrice: reference,
+      signalDate: dateOnly(row.signal_date), scanAt: new Date(row.snapshot_at).toISOString(), signalPrice: reference,
       reasons: Array.isArray(row.reasons) ? row.reasons : [], outcomes };
   });
   const summary = HORIZONS.map((days, index) => {
