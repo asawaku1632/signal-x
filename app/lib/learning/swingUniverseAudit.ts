@@ -262,7 +262,7 @@ export async function getSwingUniverseReport(code?: string) {
       status: r.decision_status, label: r.decision_label,
       price: Number(r.entry_price), power: Number(r.ai_power),
       outcomes: UNIVERSE_SWING_HORIZONS.map((days) => ({
-        days, returnPercent: asNumber(r[`return_${days}d` as keyof ExampleRow]),
+        days, returnPercent: asNumber(r[`return_${days}d` as `return_${typeof days}d`]),
       })),
     })),
     ruleVersion: UNIVERSE_SWING_RULE_VERSION,
