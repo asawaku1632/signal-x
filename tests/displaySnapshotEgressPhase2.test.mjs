@@ -127,6 +127,18 @@ test("save-daily, LINE/ranking, and BB observation inputs remain unchanged", () 
   const bb = read("app/api/cron/bb-observation/route.ts");
   assert.match(saveDaily, /api\/scan\?limit=1000/);
   assert.match(line, /api\/ranking/);
-  assert.match(ranking, /api\/scan\?limit=1200/);
+  assert.match(ranking, /refreshScanSnapshot/);
+  assert.match(ranking, /jsonb_agg/);
+  assert.match(ranking, /ORDER BY score DESC/);
   assert.match(bb, /getLatestScanSnapshot/);
+});
+
+test("ranking reduces egress without changing ranking sort or freshness", () => {
+  const ranking = read("app/api/ranking/route.ts");
+  assert.match(ranking, /jsonb_array_elements/);
+  assert.match(ranking, /stock\.value AS stock/);
+  assert.match(ranking, /ORDER BY score DESC, stock\.ordinality/);
+  assert.match(ranking, /LIMIT 20/);
+  assert.match(ranking, /SCAN_FRESH_MS/);
+  assert.match(ranking, /FULL_SCAN_LIMIT = 1200/);
 });
