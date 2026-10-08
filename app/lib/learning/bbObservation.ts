@@ -133,9 +133,9 @@ export async function saveBbSignalEvents(
         const stateBase = stateValues.length;
         stateValues.push(
           stock.code, current.side, current.status, current.upperRegime,
-          current.active, tradeDate,
+          current.active, tradeDate, tradeDate,
         );
-        stateRows.push(`(${Array.from({ length: 6 }, (_, index) => `$${stateBase + index + 1}`).join(",")},NOW())`);
+        stateRows.push(`(${Array.from({ length: 7 }, (_, index) => `${stateBase + index + 1}`).join(",")},NOW())`);
         states.set(stock.code, current);
       }
 
