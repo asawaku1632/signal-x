@@ -2,6 +2,7 @@ import pool from "@/app/lib/postgres";
 import { getLatestScanSnapshot } from "@/app/lib/scanSnapshot";
 import { getJstDateString, isJstBusinessDay } from "@/app/lib/learning/learningSaveStatus";
 import { getSwingDecision } from "@/app/lib/swingDecision";
+import { resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 // Once an EXIT is verified, preserve the then-current price and reasons.
 // Subsequent checks use saved market-day prices, not live prices or user-submitted values.
@@ -117,6 +118,13 @@ export async function captureSwingExitSignals(userEmail?: string) {
 }
 
 export async function updateSwingExitOutcomes() {
+  // A canceled simulated trade must disappear from the learning history too.
+  await pool.query(`DELETE FROM public.swing_exit_audits AS audit
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.paper_trades AS trade
+      WHERE trade.id = audit.paper_trade_id
+        AND trade.user_email = audit.user_email
+    )`);
   const observations = await pool.query<OutcomeRow>(
     `SELECT id, code, signal_date, outcome_1d_price, outcome_3d_price,
        outcome_5d_price, outcome_10d_price
@@ -128,17 +136,17 @@ export async function updateSwingExitOutcomes() {
   let updated = 0;
   for (const event of observations.rows) {
     const signalDate = dateOnly(event.signal_date);
-    // Count distinct saved market dates globally: missing one stock's price
-    // must NOT silently turn the second session into the "next day".
-    const dates = await pool.query<{ session_date: Date | string }>(
-      `SELECT DISTINCT date::date AS session_date
-       FROM public.daily_stock_results
-       WHERE date::date > $1::date
-       ORDER BY session_date ASC LIMIT 10`,
-      [signalDate],
-    );
-    const sessions = dates.rows.map((r) => dateOnly(r.session_date));
-    const due = HORIZONS.filter((days) => sessions.length >= days);
+    // Use the exchange's trading calendar, not consecutive saved rows.
+    // Missing prices must remain unscored instead of shifting day N forward.
+    let sessions: string[];
+    try {
+      sessions = resolveTseTradingDatesAfter(signalDate, 10, { maxLookaheadDays: 45 });
+    } catch {
+      // The supported market holiday calendar needs extending before 2028.
+      continue;
+    }
+    const today = getJstDateString();
+    const due = HORIZONS.filter((days) => sessions[days - 1] <= today);
     if (!due.length) continue;
     const prices = await pool.query<{ session_date: Date | string; price: string }>(
       `SELECT DISTINCT ON (date::date)
@@ -196,8 +204,12 @@ export async function getSwingExitAuditReport(userEmail: string) {
     `SELECT id, code, name, signal_date, signal_price, reasons,
             outcome_1d_date, outcome_1d_price, outcome_3d_date, outcome_3d_price,
             outcome_5d_date, outcome_5d_price, outcome_10d_date, outcome_10d_price
-     FROM public.swing_exit_audits WHERE user_email = $1
-     ORDER BY signal_date DESC, id DESC LIMIT 100`,
+     FROM public.swing_exit_audits AS audit
+     WHERE audit.user_email = $1
+       AND EXISTS (SELECT 1 FROM public.paper_trades AS trade
+                   WHERE trade.id = audit.paper_trade_id
+                     AND trade.user_email = audit.user_email)
+     ORDER BY audit.signal_date DESC, audit.id DESC LIMIT 100`,
     [userEmail.trim().toLowerCase()],
   );
   const items = result.rows.map((row) => {
