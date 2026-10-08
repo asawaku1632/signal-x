@@ -146,6 +146,6 @@ test("BB state INSERT supplies seven bound values plus updated_at for eight colu
   assert.match(source, /current\.active, tradeDate, tradeDate,/);
   assert.match(source, /stateRows\.push/);
   assert.match(source, /length: 7/);
-  assert.match(source, /"\\$" \\+ String\\(stateBase \\+ index \\+ 1\\)/);
+  assert.match(source, /"\$" \+ String\(stateBase \+ index \+ 1\)/);
   assert.match(source, /entered_trade_date,\s*last_seen_trade_date, updated_at/);
 });
