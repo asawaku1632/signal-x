@@ -140,3 +140,11 @@ test("Migration security is explicit and fails on object collisions", () => {
   assert.doesNotMatch(sql, /CREATE (?:TABLE|INDEX) IF NOT EXISTS/);
   assert.doesNotMatch(sql, /CREATE POLICY/);
 });
+
+test("BB state INSERT supplies seven bound values plus updated_at for eight columns", () => {
+  const source = readFileSync("app/lib/learning/bbObservation.ts", "utf8");
+  assert.match(source, /current\.active, tradeDate, tradeDate,/);
+  assert.match(source, /stateRows\.push/);
+  assert.match(source, /length: 7/);
+  assert.match(source, /entered_trade_date,\s*last_seen_trade_date, updated_at/);
+});
