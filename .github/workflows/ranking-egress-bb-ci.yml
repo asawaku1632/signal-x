@@ -1,0 +1,30 @@
+name: Ranking Egress and BB Fix Checks
+
+on:
+  pull_request:
+    paths:
+      - "app/api/ranking/route.ts"
+      - "app/lib/learning/bbObservation.ts"
+      - "tests/bbObservation.test.mjs"
+      - "tests/bbCronStage2.test.mjs"
+      - "tests/displaySnapshotEgressPhase2.test.mjs"
+      - "tests/rankingAnomalyFix.test.mjs"
+      - ".github/workflows/ranking-egress-bb-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bbObservation.test.mjs tests/bbCronStage2.test.mjs tests/displaySnapshotEgressPhase2.test.mjs tests/rankingAnomalyFix.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
