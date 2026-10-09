@@ -1,4 +1,4 @@
-import { resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { resolveTseTradingDatesAfter } from "../technicalObservation/tseMarketCalendar.ts";
 
 export const DAILY_CHECK_MIN_SNAPSHOT_ROWS = 750;
 export const DAILY_CHECK_MIN_FUTURE_COVERAGE = 0.8;
