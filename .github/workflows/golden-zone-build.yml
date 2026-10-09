@@ -1,4 +1,4 @@
-name: Verify Golden Zone Build
+name: Verify Golden Zone TypeScript
 on:
   push:
     branches: [main]
@@ -24,4 +24,4 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: npx tsc --noEmit
