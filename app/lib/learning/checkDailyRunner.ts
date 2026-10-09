@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import pool from "@/app/lib/postgres";
+import { isSafeDailyCheckPair } from "@/app/lib/learning/dailyCheckMarketGuard";
 
 export type DailyCheckStopReason =
   | "completed"
@@ -108,8 +109,9 @@ async function findComparableDate(
     WITH date_stats AS (
       SELECT
         date,
-        BOOL_OR(result = 'UNKNOWN') AS has_unknown,
-        BOOL_OR(price IS NOT NULL AND price > 0) AS has_price
+        COUNT(*)::int AS saved_count,
+        COUNT(*) FILTER (WHERE price IS NOT NULL AND price > 0)::int AS priced_count,
+        BOOL_OR(result = 'UNKNOWN') AS has_unknown
       FROM daily_stock_results
       WHERE date IS NOT NULL
       GROUP BY date
@@ -121,7 +123,7 @@ async function findComparableDate(
       FROM date_stats AS target
       INNER JOIN date_stats AS future
         ON future.date > target.date
-        AND future.has_price
+        AND future.priced_count > 0
       WHERE target.has_unknown
         AND target.date < $1
         AND ($2::text IS NULL OR target.date = $2)
@@ -129,8 +131,12 @@ async function findComparableDate(
     )
     SELECT
       pair.target_date,
-      pair.price_date
+      pair.price_date,
+      target_stats.saved_count AS target_count,
+      future_stats.priced_count AS future_price_count
     FROM date_pairs AS pair
+    INNER JOIN date_stats AS target_stats ON target_stats.date = pair.target_date
+    INNER JOIN date_stats AS future_stats ON future_stats.date = pair.price_date
     INNER JOIN daily_stock_results AS target
       ON target.date = pair.target_date
       AND target.result = 'UNKNOWN'
@@ -141,19 +147,28 @@ async function findComparableDate(
       AND future.code = target.code
       AND future.price IS NOT NULL
       AND future.price > 0
-    GROUP BY pair.target_date, pair.price_date
+    GROUP BY pair.target_date, pair.price_date,
+      target_stats.saved_count, future_stats.priced_count
     ORDER BY pair.target_date ${priority === "newest" ? "DESC" : "ASC"}
-    LIMIT 1
     `,
     [todayJst, requestedDate ?? null],
   );
 
-  if (!rows[0]) return null;
-
-  return {
-    targetDate: String(rows[0].target_date).slice(0, 10),
-    priceDate: String(rows[0].price_date).slice(0, 10),
-  };
+  // Skipping a trading session is not a valid one-day evaluation.
+  // The selector also rejects short (e.g. 20-stock) market snapshots.
+  for (const row of rows) {
+    const targetDate = String(row.target_date).slice(0, 10);
+    const priceDate = String(row.price_date).slice(0, 10);
+    if (isSafeDailyCheckPair({
+      targetDate,
+      priceDate,
+      targetCount: Number(row.target_count),
+      futurePriceCount: Number(row.future_price_count),
+    })) {
+      return { targetDate, priceDate };
+    }
+  }
+  return null;
 }
 
 async function bulkUpdateDailyResults(
@@ -469,8 +484,11 @@ export async function runDailyCheck(options?: {
         report.remainingCount > 0 &&
         report.comparableRemainingCount === 0
       ) {
-        stopReason = "incomplete_price_coverage";
-        break;
+        // These codes stay UNKNOWN but do not block another valid date.
+        console.warn("[check-daily] awaiting missing exact-next-day prices", {
+          targetDate: report.targetDate,
+          remainingCount: report.remainingCount,
+        });
       }
 
       if (report.updatedCount === 0) {
