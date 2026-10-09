@@ -32,6 +32,7 @@ const accountItems: MenuItem[] = [
 ];
 
 const adminItems: MenuItem[] = [
+  { title: "爆上げ候補ウォッチ", description: "4研究の候補を一覧・未来追跡", href: "/admin/explosive-watch", icon: "🚀", accent: "bg-orange-50 text-orange-600" },
   {
     title: "パターン実績",
     description: "55種類の検出・勝率・AI反映を確認",
