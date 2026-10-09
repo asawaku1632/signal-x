@@ -20,6 +20,10 @@ export async function GET() {
  FROM signals GROUP BY trade_date,code
  )
  SELECT g.*,COALESCE(d.name,g.code) AS name,
+ (SELECT row_to_json(mm) FROM (SELECT current_ai_power,prev3_avg_ai_power,prev3_max_ai_power,prev3_high_count,ai_power_drop_from_peak,confirmation_key FROM momentum_memory_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) mm) AS mm_details,
+ (SELECT row_to_json(h) FROM (SELECT current_ai_power,previous_ai_power,current_macd_key,previous_macd_key,prior_3record_return FROM high_ai_pullback_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) h) AS hap_details,
+ (SELECT row_to_json(a) FROM (SELECT current_ai_power,previous_ai_power,ai_power_change,current_macd_key,prior_3record_return FROM ai_reversal_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) a) AS air_details,
+ (SELECT row_to_json(t) FROM (SELECT rsi_band,macd_key,vwap_key,ema20_key,prior_3record_return FROM trend_pullback_reversal_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) t) AS tpr_details,
  (SELECT p.ai_power FROM pattern_learning_logs p WHERE p.code=g.code AND p.trade_date=g.trade_date ORDER BY p.created_at DESC LIMIT 1) AS ai_power,
  (SELECT m.market_pattern FROM market_learning_logs m WHERE m.trade_date=g.trade_date ORDER BY m.created_at DESC LIMIT 1) AS market_pattern
  FROM grouped g LEFT JOIN LATERAL(
