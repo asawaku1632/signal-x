@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'app/admin/golden-zone/**'
+      - 'app/admin/explosive-watch/**'
       - 'app/api/cron/golden-zone/**'
       - 'app/admin/learning-status/**'
       - '.github/workflows/golden-zone-build.yml'
