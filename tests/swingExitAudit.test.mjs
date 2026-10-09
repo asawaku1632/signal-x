@@ -71,3 +71,16 @@ test("protected scheduled job and private table are isolated from simulated sell
   assert.ok(JSON.parse(config).crons.some((cron) =>
     cron.path === "/api/cron/swing-exit-audit" && cron.schedule === "5 7 * * 1-5"));
 });
+
+test("zero AI POWER is valid for real EXIT audit and +3% rebounds are reported", () => {
+  const audit = read("app/lib/learning/swingExitAudit.ts");
+  const page = read("app/simulation/exit-check/page.tsx");
+  const signal = getSwingDecision({ currentPrice: 5803, entryPrice: 6310, aiPower: 0 });
+  assert.equal(signal.status, "EXIT");
+  assert.match(audit, /power < 0 \|\| power > 100/);
+  assert.doesNotMatch(audit, /power <= 0/);
+  assert.match(audit, /outcome\.changePercent! >= 3/);
+  assert.match(audit, /reboundRatePercent/);
+  assert.match(page, /撤退判定後に\+3%以上の反発を確認/);
+  assert.match(page, /確認待ち/);
+});

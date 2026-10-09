@@ -39,6 +39,10 @@ type GroupRow = {
   up_3d: string;
   up_5d: string;
   up_10d: string;
+  rebounded_1d: string;
+  rebounded_3d: string;
+  rebounded_5d: string;
+  rebounded_10d: string;
   avg_1d: string | null;
   avg_3d: string | null;
   avg_5d: string | null;
@@ -222,6 +226,10 @@ export async function getSwingUniverseReport(code?: string) {
          COUNT(*) FILTER (WHERE return_3d > 0)::text AS up_3d,
          COUNT(*) FILTER (WHERE return_5d > 0)::text AS up_5d,
          COUNT(*) FILTER (WHERE return_10d > 0)::text AS up_10d,
+         COUNT(*) FILTER (WHERE return_1d >= 3)::text AS rebounded_1d,
+         COUNT(*) FILTER (WHERE return_3d >= 3)::text AS rebounded_3d,
+         COUNT(*) FILTER (WHERE return_5d >= 3)::text AS rebounded_5d,
+         COUNT(*) FILTER (WHERE return_10d >= 3)::text AS rebounded_10d,
          ROUND(AVG(return_1d), 2)::text AS avg_1d,
          ROUND(AVG(return_3d), 2)::text AS avg_3d,
          ROUND(AVG(return_5d), 2)::text AS avg_5d,
@@ -249,6 +257,7 @@ export async function getSwingUniverseReport(code?: string) {
     outcomes: UNIVERSE_SWING_HORIZONS.map((days) => ({
       days, checked: Number(g[`completed_${days}d` as keyof GroupRow]),
       up: Number(g[`up_${days}d` as keyof GroupRow]),
+      rebounded: Number(g[`rebounded_${days}d` as keyof GroupRow]),
       averageReturnPercent: asNumber(g[`avg_${days}d` as keyof GroupRow]),
     })),
   }));
@@ -266,6 +275,6 @@ export async function getSwingUniverseReport(code?: string) {
       })),
     })),
     ruleVersion: UNIVERSE_SWING_RULE_VERSION,
-    note: "購入なしでも全銘柄を検証。日次保存のAI POWERだけを使う簡易スイング判定で、RSI等を使う個別銘柄画面の判定と異なる場合があります。見送りは『下落予想』ではありません。ルールの自動変更はしません。",
+    note: "購入なしでも全銘柄を検証。+3%以上の反発は指定取引日の保存価格の変化率で判定し、期間途中の高値ではありません。日次保存のAI POWERだけを使う簡易スイング判定で、RSI等を使う個別銘柄画面の撤退候補とは異なります。見送りは『下落予想』ではありません。ルールの自動変更はしません。",
   };
 }

@@ -5,7 +5,7 @@ import BottomNav from "@/app/components/BottomNav";
 
 type Outcome = { days: number; date: string | null; price: number | null; changePercent: number | null };
 type Item = { id: string; code: string; name: string; signalDate: string; scanAt: string; signalPrice: number; reasons: string[]; outcomes: Outcome[] };
-type Summary = { days: number; evaluated: number; declined: number; declineRatePercent: number | null };
+type Summary = { days: number; evaluated: number; declined: number; rebounded: number; furtherDeclined: number; declineRatePercent: number | null; reboundRatePercent: number | null };
 type Report = { success: boolean; items: Item[]; summary: Summary[]; count: number; note: string };
 
 const changeLabel = (change: number) =>
@@ -29,7 +29,7 @@ export default function SwingExitCheckPage() {
   return <main className="min-h-screen bg-slate-50 pb-24 text-slate-900">
     <div className="mx-auto min-h-screen max-w-md bg-white px-4 py-5 shadow-sm">
       <a className="text-sm font-bold text-blue-600" href="/simulation">← 疑似投資に戻る</a>
-      <h1 className="mt-5 text-2xl font-black">🔍 撤退候補の答え合わせ</h1>
+      <h1 className="mt-5 text-2xl font-black">🔍 撤退後の反発・続落を検証</h1>
       <p className="mt-2 text-sm leading-6 text-slate-600">
         SIGNALXが「撤退候補」と判定した時点の価格を記録し、その後1・3・5・10取引日目の保存価格と比較します。
       </p>
@@ -39,12 +39,14 @@ export default function SwingExitCheckPage() {
         <section className="mt-6 rounded-2xl border bg-slate-50 p-4">
           <p className="text-xs font-bold text-slate-500">直近の記録（最大100件）</p>
           <p className="mt-1 text-2xl font-black">{report.count}件</p>
-          <p className="mt-2 text-xs leading-5 text-slate-500">下落率は各期間に価格が判明した記録だけで計算します。未確認のものを的中・不的中に含めません。</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">反発（+3%以上）と続落（−3%以下）を各時点の保存株価で検証。確認待ちは集計に含めません。</p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {report.summary.map((s) => <div key={s.days} className="rounded-xl bg-white p-3">
               <p className="text-xs font-bold text-slate-500">{s.days}取引日後</p>
               <p className="mt-1 text-xl font-black">{s.declineRatePercent === null ? "集計待ち" : `${s.declineRatePercent.toFixed(1)}%`}</p>
               <p className="mt-1 text-[11px] text-slate-500">下落 {s.declined} / 検証済み {s.evaluated}件</p>
+              <p className="mt-2 text-[11px] font-bold text-blue-700">+3%以上反発 {s.rebounded}件（{s.reboundRatePercent === null ? "待ち" : s.reboundRatePercent.toFixed(1) + "%"}）</p>
+              <p className="text-[11px] text-rose-700">−3%以上続落 {s.furtherDeclined}件</p>
             </div>)}
           </div>
         </section>
@@ -57,6 +59,8 @@ export default function SwingExitCheckPage() {
             <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">撤退候補</span>
           </div>
           <p className="mt-2 text-xs text-slate-600">基準株価 <strong>{item.signalPrice.toLocaleString("ja-JP")}円</strong>（スキャン {new Date(item.scanAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}）</p>
+          {item.outcomes.some((o) => o.changePercent !== null && o.changePercent >= 3) &&
+            <p className="mt-2 inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">↗ 撤退判定後に+3%以上の反発を確認</p>}
           <div className="mt-3 grid grid-cols-2 gap-2">{item.outcomes.map((o) => <div key={o.days} className="rounded-xl bg-slate-50 p-3">
             <p className="text-[11px] font-bold text-slate-500">{o.days}取引日後</p>
             {o.changePercent === null

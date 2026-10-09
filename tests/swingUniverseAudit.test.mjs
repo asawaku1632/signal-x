@@ -68,3 +68,15 @@ test("full-universe UI has a user-accessible path and no zero-sample win rate", 
   assert.match(page, /見送り.*下落の予測ではありません/);
   assert.match(page, /code=\$\{encodeURIComponent\(filter\)\}/);
 });
+
+test("forward-only full-universe audit compares +3% rebounds without equating AVOID and EXIT", () => {
+  const audit = read("app/lib/learning/swingUniverseAudit.ts");
+  const page = read("app/simulation/universe-check/page.tsx");
+  assert.match(audit, /return_1d >= 3/);
+  assert.match(audit, /return_10d >= 3/);
+  assert.match(audit, /rebounded: Number/);
+  assert.match(page, /見送り後の反発/);
+  assert.match(page, /撤退候補後の反発/);
+  assert.match(page, /outcome\.rebounded \/ outcome\.checked/);
+  assert.match(page, /集計待ち/);
+});
