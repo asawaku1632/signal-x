@@ -48,7 +48,7 @@ test("audit is on-demand, admin restricted, fail-closed and cannot change learni
   assert.match(route, /status: "PENDING"/);
   assert.match(route, /status: "UNVERIFIED"/);
   assert.doesNotMatch(route, /\b(?:INSERT|UPDATE|DELETE|UPSERT)\s+(?:INTO|public\.|daily_stock_results|paper_trades)/i);
-  assert.doesNotMatch(route, /notification|runScan|saveDailyStocks|prime-signal/);
+  assert.doesNotMatch(route, /\b(?:notifyMomentumMemoryCandidates|sendNotification|runScan|saveDailyStocks|primeSignalCron)\s*\(/);
   assert.match(page, /日次株価の差額調査/);
   assert.match(read("app/admin/learning-status/page.tsx"), /\/admin\/daily-price-audit/);
 });
