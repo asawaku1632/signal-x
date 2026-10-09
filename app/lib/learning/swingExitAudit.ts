@@ -88,7 +88,7 @@ export async function captureSwingExitSignals(userEmail?: string) {
     const power = optionalNumber(stock?.score ?? stock?.aiPower);
     // No fresh complete scan data => no inference from an old purchase-time score.
     if (!stock || !price || !entryPrice || power == null ||
-        power <= 0 || power > 100 || new Date(trade.started_at).getTime() > timestamp) continue;
+        power < 0 || power > 100 || new Date(trade.started_at).getTime() > timestamp) continue;
 
     const decision = getSwingDecision({
       currentPrice: price,
@@ -231,9 +231,14 @@ export async function getSwingExitAuditReport(userEmail: string) {
     const completed = items.map((item) => item.outcomes[index])
       .filter((outcome) => outcome.changePercent !== null);
     const declined = completed.filter((outcome) => outcome.changePercent! < 0).length;
-    return { days, evaluated: completed.length, declined,
-      declineRatePercent: completed.length ? declined / completed.length * 100 : null };
+    // Rebound is a +3% or greater change at the exact saved checkpoint,
+    // NOT the intraday high or proof that buying after the EXIT was safe.
+    const rebounded = completed.filter((outcome) => outcome.changePercent! >= 3).length;
+    const furtherDeclined = completed.filter((outcome) => outcome.changePercent! <= -3).length;
+    return { days, evaluated: completed.length, declined, rebounded, furtherDeclined,
+      declineRatePercent: completed.length ? declined / completed.length * 100 : null,
+      reboundRatePercent: completed.length ? rebounded / completed.length * 100 : null };
   });
   return { items, summary, count: items.length, horizons: [...HORIZONS],
-    note: "同一疑似ポジションの最初の撤退候補を記録し、翌取引日以降の保存株価と比較します。投資成果やAIの有効性を保証するものではありません。" };
+    note: "同一疑似ポジションの最初の撤退候補を記録し、翌取引日以降の保存株価と比較します。反発は基準株価比+3%以上になった指定取引日の終値相当の保存価格で判定し、途中の高値や実際に買えた価格を示しません。投資成果やAIの有効性を保証するものではありません." };
 }
