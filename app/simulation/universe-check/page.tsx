@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
 
-type Outcome = { days: number; checked: number; up: number; averageReturnPercent: number | null };
+type Outcome = { days: number; checked: number; up: number; rebounded: number; averageReturnPercent: number | null };
 type Group = { status: string; label: string; count: number; distinctDates: number; outcomes: Outcome[] };
 type Item = { code: string; name: string; date: string; status: string; label: string;
   price: number; power: number; outcomes: { days: number; returnPercent: number | null }[] };
@@ -52,7 +52,7 @@ export default function UniverseCheckPage() {
         疑似購入しなくてもOK！毎日のAI POWERからスイング候補・押し目待ち・様子見・見送りを記録し、1・3・5・10取引日後の株価で答え合わせ。
       </p>
       <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-        これは日次データの<b>AI POWERのみを使う簡易判定</b>です。RSIなどを使う個別銘柄ページと判定が異なる場合があります。成績によって自動的に買い・売り条件を変えることはありません。
+        これは日次データの<b>AI POWERのみを使う簡易判定</b>です。「見送り後の反発」は疑似購入の「撤退候補後の反発」とは別の指標です。RSIなどを使う個別銘柄ページと判定が異なる場合があります。成績によって自動的に買い・売り条件を変えることはありません。
       </div>
       {loading && <p className="mt-9 text-center text-sm text-slate-500">検証結果を読み込み中…</p>}
       {error && <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>}
@@ -77,6 +77,7 @@ export default function UniverseCheckPage() {
                     <p className="mt-1 text-lg font-black">{outcome.averageReturnPercent == null ? "集計待ち" : signed(outcome.averageReturnPercent)}</p>
                     <p className="mt-1 text-[11px] text-slate-500">平均株価変化率</p>
                     <p className="text-[11px] text-slate-500">上昇 {outcome.up} / 比較済 {outcome.checked}件</p>
+                    <p className="mt-1 text-[11px] font-bold text-blue-700">+3%以上反発 {outcome.rebounded}件（{outcome.checked ? (outcome.rebounded / outcome.checked * 100).toFixed(1) + "%" : "集計待ち"}）</p>
                   </div>)}
                 </div>
               </section>)}</div>}
