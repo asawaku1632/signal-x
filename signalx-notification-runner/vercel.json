@@ -15,19 +15,19 @@
     },
     {
       "path": "/api/run?job=golden-zone-0930",
-      "schedule": "30 0 * * 1-5"
+      "schedule": "34 0 * * 1-5"
     },
     {
       "path": "/api/run?job=golden-zone-1030",
-      "schedule": "30 1 * * 1-5"
+      "schedule": "34 1 * * 1-5"
     },
     {
       "path": "/api/run?job=golden-zone-1300",
-      "schedule": "0 4 * * 1-5"
+      "schedule": "4 4 * * 1-5"
     },
     {
       "path": "/api/run?job=golden-zone-1430",
-      "schedule": "30 5 * * 1-5"
+      "schedule": "34 5 * * 1-5"
     }
   ]
 }
