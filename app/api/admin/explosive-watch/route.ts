@@ -19,7 +19,7 @@ export async function GET() {
  MAX(result_1d) AS result_1d,MAX(result_3d) AS result_3d,MAX(result_5d) AS result_5d
  FROM signals GROUP BY trade_date,code
  )
- SELECT g.*,COALESCE(d.name,g.code) AS name,
+ SELECT g.*,COALESCE(d.name,g.code) AS name,\n (SELECT p.price FROM daily_stock_results p WHERE p.code=g.code AND p.price>0 ORDER BY p.date::date DESC,p.created_at DESC LIMIT 1) AS reference_price,
  (SELECT row_to_json(mm) FROM (SELECT current_ai_power,prev3_avg_ai_power,prev3_max_ai_power,prev3_high_count,ai_power_drop_from_peak,confirmation_key FROM momentum_memory_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) mm) AS mm_details,
  (SELECT row_to_json(h) FROM (SELECT current_ai_power,previous_ai_power,current_macd_key,previous_macd_key,prior_3record_return FROM high_ai_pullback_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) h) AS hap_details,
  (SELECT row_to_json(a) FROM (SELECT current_ai_power,previous_ai_power,ai_power_change,current_macd_key,prior_3record_return FROM ai_reversal_observations WHERE code=g.code AND trade_date=g.trade_date AND validation_mode='FORWARD' AND observation_flag=true LIMIT 1) a) AS air_details,
@@ -29,6 +29,13 @@ export async function GET() {
  FROM grouped g LEFT JOIN LATERAL(
  SELECT name FROM daily_stock_results d WHERE d.code=g.code AND d.date::date=g.trade_date ORDER BY d.created_at DESC LIMIT 1
  )d ON true ORDER BY g.trade_date DESC,g.overlap_count DESC,g.code LIMIT 200`);
- return NextResponse.json({success:true,items:result.rows},{headers:{"Cache-Control":"private, no-store"}});
+ const stats=await pool.query(`WITH observations AS (
+ SELECT 'MM_V1' research,result_5d FROM momentum_memory_observations WHERE validation_mode='FORWARD' AND observation_flag=true
+ UNION ALL SELECT 'HAP_V1',result_5d FROM high_ai_pullback_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='HAP_V1'
+ UNION ALL SELECT 'AIR_V1',result_5d FROM ai_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='AIR_V1'
+ UNION ALL SELECT 'TPR_V1',result_5d FROM trend_pullback_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='TPR_V1'
+ ) SELECT research,COUNT(result_5d)::int completed,ROUND(AVG(result_5d),4) avg5 FROM observations GROUP BY research`);
+ const performance=Object.fromEntries(stats.rows.map(r=>[r.research,{completed:r.completed,avg5:r.avg5}]));
+ return NextResponse.json({success:true,performance,items:result.rows},{headers:{"Cache-Control":"private, no-store"}});
  }catch(error){console.error("explosive watch error",error);return NextResponse.json({error:"Data unavailable"},{status:500});}
 }
