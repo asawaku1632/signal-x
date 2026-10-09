@@ -15,6 +15,7 @@ type DailyResult = "WIN" | "LOSE" | "HOLD";
 
 type UpdateItem = {
   id: string;
+  sourceRowId: string;
   code: string;
   nextPrice: number;
   changePercent: number;
@@ -211,6 +212,47 @@ async function bulkUpdateDailyResults(
   return result.rowCount ?? 0;
 }
 
+async function saveDailyResultProvenance(
+  client: import("pg").PoolClient,
+  updates: UpdateItem[],
+): Promise<number> {
+  if (updates.length === 0) return 0;
+
+  const values: string[] = [];
+  const placeholders = updates.map((item, index) => {
+    values.push(item.id, item.sourceRowId);
+    return `(${index * 2 + 1}::text, ${index * 2 + 2}::text)`;
+  });
+
+  // Same database transaction as the WIN/LOSE/HOLD update. The saved source
+  // row ID, price, date and snapshot timestamp are captured without relying
+  // on a second network quote or pretending to verify legacy outcomes.
+  const result = await client.query(
+    `
+    WITH source_ids (daily_result_id, source_row_id) AS (
+      VALUES ${placeholders.join(",")}
+    )
+    INSERT INTO public.daily_result_price_provenance (
+      daily_result_id, source_row_id, trade_date, code,
+      source_trade_date, source_table, source_price,
+      source_snapshot_created_at, judged_result
+    )
+    SELECT
+      target.id, source.id, target.date::date, target.code,
+      source.date::date, 'daily_stock_results', source.price,
+      source.created_at, target.result
+    FROM source_ids AS ids
+    INNER JOIN daily_stock_results AS target ON target.id = ids.daily_result_id
+    INNER JOIN daily_stock_results AS source ON source.id = ids.source_row_id
+    WHERE target.result IN ('WIN', 'LOSE', 'HOLD')
+      AND source.price IS NOT NULL AND source.price > 0
+    ON CONFLICT (daily_result_id) DO NOTHING
+    `,
+    values,
+  );
+  return result.rowCount ?? 0;
+}
+
 async function bulkUpdateExperienceLogs(
   client: import("pg").PoolClient,
   targetDate: string,
@@ -276,6 +318,7 @@ async function runBatch(
       `
       WITH next_prices AS (
         SELECT DISTINCT ON (code)
+          id,
           code,
           price
         FROM daily_stock_results
@@ -288,6 +331,7 @@ async function runBatch(
         target.id,
         target.code,
         target.price AS entry_price,
+        next_prices.id AS source_row_id,
         next_prices.price AS next_price
       FROM daily_stock_results AS target
       INNER JOIN next_prices
@@ -310,6 +354,7 @@ async function runBatch(
 
       return {
         id: String(row.id),
+        sourceRowId: String(row.source_row_id),
         code: String(row.code).trim(),
         nextPrice,
         changePercent,
@@ -318,6 +363,13 @@ async function runBatch(
     });
 
     const updatedCount = await bulkUpdateDailyResults(client, updates);
+    if (updatedCount !== updates.length) {
+      throw new Error("daily check changed concurrently; transaction rolled back");
+    }
+    const provenanceCount = await saveDailyResultProvenance(client, updates);
+    if (provenanceCount !== updatedCount) {
+      throw new Error("daily result provenance incomplete; transaction rolled back");
+    }
     const experienceUpdatedCount = await bulkUpdateExperienceLogs(
       client,
       target.targetDate,
