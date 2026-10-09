@@ -20,7 +20,7 @@ export default function ExplosiveWatch(){
  <div className="mt-3 flex flex-wrap gap-1.5">{[{id:"all",label:"すべて"},{id:"overlap",label:"🔥 複数一致"},...Object.entries(labels).map(([id,label])=>({id,label}))].map(x=><button key={x.id} onClick={()=>setMode(x.id)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${mode===x.id?"bg-blue-600 text-white":"border border-slate-300 bg-white text-slate-700"}`}>{x.label}</button>)}</div>
  {loading&&<p className="mt-5 text-sm">候補を読み込み中…</p>}{error&&<p className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
  {!loading&&!error&&shown.length===0&&<p className="mt-5 text-sm text-slate-500">該当する候補はまだありません。</p>}
- <section className="mt-3 divide-y divide-slate-200 border-t border-slate-200">{shown.map(x=><details key={x.trade_date+x.code} className="group py-1.5">
+ <section className="mt-3 divide-y divide-slate-200 border-t border-slate-200">{shown.map(x=><div key={x.trade_date+x.code} className="relative border-b border-slate-100 py-2"><Link href={`/chart/${encodeURIComponent(x.code)}`} className="absolute bottom-2 right-1 z-10 rounded-md bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">📈 CHART →</Link><details className="group pb-6">
  <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
  <div className="flex items-center gap-2">
  <span className="w-10 shrink-0 text-[10px] text-slate-500">{String(x.trade_date).slice(5,10).replace("-","/")}</span>
@@ -29,6 +29,6 @@ export default function ExplosiveWatch(){
  </div></summary>
  <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950"><p className="font-black">🔎 選出理由・判定時の数値</p>{x.researches.map(r=><div key={r} className="mt-2"><b>{labels[r]||r}：</b>{reasons[r]||"研究条件に一致したため追跡中。"}<p className="mt-1 rounded bg-white/80 p-2 font-semibold text-slate-800">{details(x,r)}</p></div>)}<p className="mt-2 text-[10px] text-amber-800">発見時の条件であり、将来の上昇確率ではありません。</p></div>
  <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span>1日 {fmt(x.result_1d)} ／ 3日 {fmt(x.result_3d)} ／ 5日 {fmt(x.result_5d)}</span><Link href={`/chart/${encodeURIComponent(x.code)}`} className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 font-bold text-white">CHART →</Link></div>
- </details>)}</section>
+ </details></div>)}</section>
  </div></main>;
 }
