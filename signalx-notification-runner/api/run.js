@@ -4,6 +4,10 @@ const JOBS = {
   "prime-signal": "/api/cron/prime-signal",
   "favorite-ai-monitor": "/api/cron/favorite-ai-monitor",
   "favorite-ai-check": "/api/cron/favorite-ai-check",
+  "golden-zone-0930": "/api/cron/golden-zone?slot=0930",
+  "golden-zone-1030": "/api/cron/golden-zone?slot=1030",
+  "golden-zone-1300": "/api/cron/golden-zone?slot=1300",
+  "golden-zone-1430": "/api/cron/golden-zone?slot=1430",
 };
 
 export default async function handler(req, res) {
