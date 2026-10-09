@@ -149,6 +149,12 @@ export default function LearningStatusPage() {
         </header>
 
         <div className="mt-5">
+          <Link href="/admin/golden-zone" className="block rounded-2xl border border-amber-300 bg-amber-50 p-4 font-black text-amber-900 shadow-sm transition hover:bg-amber-100 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+            🏆 ゴールデンゾーン分析（曜日 × 時間帯） →
+          </Link>
+        </div>
+
+        <div className="mt-3">
           <Link
             href="/admin/momentum-memory"
             className="block rounded-2xl border border-blue-200 bg-blue-50 p-4 font-black text-blue-700 shadow-sm transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200"
