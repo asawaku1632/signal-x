@@ -118,9 +118,14 @@ export default function LearningStatusPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-5xl">
         <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <Link href="/" className="text-sm font-bold text-blue-600">
-            ← SIGNALX Home
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link href="/" className="text-sm font-bold text-blue-600">
+              ← SIGNALX Home
+            </Link>
+            <Link href="/admin/daily-price-audit" className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">
+              🔎 日次株価の差額調査
+            </Link>
+          </div>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-black tracking-[0.16em] text-blue-600">
