@@ -64,7 +64,10 @@ export default function ManualPriceReferencePage() {
   const display = results.length ? results.filter((r) => r.success && r.observation).map((r) => r.observation!) : observations;
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-xl space-y-4">
-      <Link href="/admin/daily-price-audit" className="text-sm font-bold text-blue-600">← 日次株価の差額調査</Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/admin/daily-price-audit" className="text-sm font-bold text-blue-600">← 日次株価の差額調査</Link>
+        <Link href="/admin/price-reference-trend" className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">📊 差額の傾向を見る</Link>
+      </div>
       <header className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-xs font-black tracking-wider text-blue-600">ADMIN RESEARCH / SHADOW ONLY</p>
         <h1 className="mt-2 text-xl font-black">🧪 判定時の価格・後日の参考終値</h1>
