@@ -80,4 +80,14 @@ test("candidate endpoint is admin-only, read-only, no external calls or cron", (
   assert.match(page, /\/api\/admin\/daily-price-sample/);
   assert.match(page, /Yahoo日足と照合して別保存する/);
   assert.match(page, /最大5件/);
+  assert.match(repository, /getAvailablePriceReferenceDates/);
+  assert.match(repository, /HAVING COUNT\(\*\) BETWEEN \$3 AND \$4/);
+  assert.match(repository, /COUNT\(DISTINCT r\.code\)/);
+  assert.match(repository, /r\.trade_date = d\.date::date/);
+  assert.match(api, /params\.get\("mode"\) === "dates"/);
+  assert.match(api, /getAvailablePriceReferenceDates\(\)/);
+  assert.match(page, /availableDates\.map/);
+  assert.match(page, /suggestCandidates\(day\.date\)/);
+  assert.match(page, /requestedDate \? "\?date="/);
+  assert.match(page, /保存済みの取引日から選ぶ/);
 });
