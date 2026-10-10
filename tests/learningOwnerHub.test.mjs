@@ -41,3 +41,20 @@ test("learning hub includes core research, conflicts, and quality links", () => 
   }
   assert.match(page, /revalidate = 0/);
 });
+
+test("owner-only bottom navigation hides for other users and has a protected destination", () => {
+  const api = read("app/api/private-learning-access/route.ts");
+  const bottom = read("app/components/BottomNav.tsx");
+  const page = read("app/admin/learning-hub/page.tsx");
+  assert.match(api, /getLearningOwnerSession\(\)/);
+  assert.match(api, /\{ isOwner \}/);
+  assert.match(api, /"private, no-store"/);
+  assert.doesNotMatch(api, /ADMIN_EMAIL|ownerEmail|configuredOwner/);
+  assert.match(bottom, /fetch\("\/api\/private-learning-access"/);
+  assert.match(bottom, /status === "authenticated"/);
+  assert.match(bottom, /verifiedOwnerEmail === email/);
+  assert.match(bottom, /\? \[\.\.\.publicNavItems/);
+  assert.match(bottom, /href: "\/admin\/learning-hub"/);
+  assert.match(bottom, /grid-cols-7/);
+  assert.match(page, /if \(!isOwner\) notFound\(\)/);
+});
