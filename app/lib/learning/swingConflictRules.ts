@@ -1,4 +1,4 @@
-import { resolveTseTradingDatesAfter } from "../technicalObservation/tseMarketCalendar.ts";
+import { isTseTradingDate, resolveTseTradingDatesAfter } from "../technicalObservation/tseMarketCalendar.ts";
 
 export const CONFLICT_HORIZONS = [3, 5, 10] as const;
 export const CONFLICT_LOOKBACK_SESSIONS = 5;
@@ -11,8 +11,9 @@ export function isRecentPrecursorAtExit(
   exitDate: string,
 ): boolean {
   if (!precursorDate || precursorDate > exitDate) return false;
-  if (precursorDate === exitDate) return true;
   try {
+    if (!isTseTradingDate(precursorDate) || !isTseTradingDate(exitDate)) return false;
+    if (precursorDate === exitDate) return true;
     const sessions = resolveTseTradingDatesAfter(
       precursorDate, CONFLICT_LOOKBACK_SESSIONS, { maxLookaheadDays: 45 },
     );
