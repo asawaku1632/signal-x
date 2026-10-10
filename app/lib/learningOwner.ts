@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/auth";
+import { isSingleAccountLearningOwner } from "@/app/lib/learningOwnerAccess";
 
 /**
  * The private research hub is restricted to ONE configured account.
@@ -11,9 +12,7 @@ export function isLearningOwnerEmail(
   email: string | null | undefined,
   configuredOwner = process.env.SIGNALX_LEARNING_OWNER_EMAIL || process.env.ADMIN_EMAIL,
 ): boolean {
-  const owner = configuredOwner?.trim().toLowerCase() ?? "";
-  if (!/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(owner)) return false;
-  return Boolean(email && email.trim().toLowerCase() === owner);
+  return isSingleAccountLearningOwner(email, configuredOwner);
 }
 
 export async function getLearningOwnerSession() {
