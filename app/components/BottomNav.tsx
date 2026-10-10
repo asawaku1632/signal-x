@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 
 type NavItem = {
@@ -10,7 +12,7 @@ type NavItem = {
   matchPaths?: string[];
 };
 
-const navItems: NavItem[] = [
+const publicNavItems: NavItem[] = [
   {
     href: "/dashboard",
     icon: "🏠",
@@ -63,8 +65,43 @@ const navItems: NavItem[] = [
   },
 ];
 
+
+const privateLearningNav: NavItem = {
+  href: "/admin/learning-hub",
+  icon: "🧪",
+  label: "学習管理",
+  matchPaths: ["/admin", "/simulation/conflict-check"],
+};
+
 export default function BottomNav() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const [owner, setOwner] = useState(false);
+
+  useEffect(() => {
+    // Deny by default during login, logout and account changes.
+    setOwner(false);
+    if (status !== "authenticated" || !session?.user?.email) return;
+    const controller = new AbortController();
+    void fetch("/api/private-learning-access", {
+      cache: "no-store",
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) return false;
+      const data: { isOwner?: boolean } = await response.json();
+      return data.isOwner === true;
+    }).then((allowed) => {
+      if (!controller.signal.aborted) setOwner(allowed);
+    }).catch(() => {
+      if (!controller.signal.aborted) setOwner(false);
+    });
+    return () => controller.abort();
+  }, [status, session?.user?.email]);
+
+  const navItems = owner
+    ? [...publicNavItems.slice(0, 5), privateLearningNav, ...publicNavItems.slice(5)]
+    : publicNavItems;
+
 
   const isActive = (item: NavItem) => {
     const paths = item.matchPaths ?? [item.href];
@@ -76,7 +113,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900">
-      <div className="mx-auto grid h-16 max-w-lg grid-cols-6 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+      <div className={`mx-auto grid h-16 max-w-lg ${owner ? "grid-cols-7" : "grid-cols-6"} px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2`}>
         {navItems.map((item) => {
           const active = isActive(item);
 
