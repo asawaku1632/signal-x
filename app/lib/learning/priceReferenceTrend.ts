@@ -20,7 +20,7 @@ export type TrendItem = {
 type Observation = {
   date: string; code: string; name: string; baseline: number;
   reference: number; differenceYen: number; differencePercent: number;
-  absPercent: number; saveHourJst: number | null; sector: string;
+  absPercent: number; matched: boolean; saveHourJst: number | null; sector: string;
   observationDate: string;
 };
 
@@ -46,8 +46,8 @@ function round(n: number, places = 3) { return Number(n.toFixed(places)); }
 function summarizeGroup(label: string, rows: Observation[]): TrendItem {
   return {
     label, records: rows.length,
-    matched: rows.filter((x) => x.absPercent <= 0.0001).length,
-    differing: rows.filter((x) => x.absPercent > 0.0001).length,
+    matched: rows.filter((x) => x.matched).length,
+    differing: rows.filter((x) => !x.matched).length,
     large: rows.filter((x) => x.absPercent >= 0.5).length,
     meanAbsPercent: round(rows.reduce((sum, x) => sum + x.absPercent, 0) / rows.length),
     maxAbsPercent: round(Math.max(...rows.map((x) => x.absPercent))),
@@ -75,7 +75,7 @@ export function buildPriceReferenceTrend(rawRows: PriceReferenceTrendRow[], trun
     return [{
       date: row.trade_date, code: row.code, name: row.name,
       baseline, reference, differenceYen: delta, differencePercent: pct,
-      absPercent: Math.abs(pct), saveHourJst: hour(row.baseline_saved_hour_jst),
+      absPercent: Math.abs(pct), matched: Math.abs(delta) <= 0.01, saveHourJst: hour(row.baseline_saved_hour_jst),
       sector: key === "OTHER" ? "その他・未分類" : sectorLabelMap[key],
       observationDate: row.observation_date_jst,
     }];
@@ -92,8 +92,8 @@ export function buildPriceReferenceTrend(rawRows: PriceReferenceTrendRow[], trun
       records: rows.length,
       tradeDays: tradeDates.size,
       distinctSecurities: new Set(rows.map((x) => x.code)).size,
-      matched: rows.filter((x) => x.absPercent <= 0.0001).length,
-      differing: rows.filter((x) => x.absPercent > 0.0001).length,
+      matched: rows.filter((x) => x.matched).length,
+      differing: rows.filter((x) => !x.matched).length,
       overHalfPercent: rows.filter((x) => x.absPercent >= 0.5).length,
       meanAbsPercent: rows.length ? round(rows.reduce((a, x) => a + x.absPercent, 0) / rows.length) : null,
       enoughDatesForTrend: tradeDates.size >= 5,
