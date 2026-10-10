@@ -1,4 +1,4 @@
-import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { isTseTradingDate } from "./technicalObservation/tseMarketCalendar.ts";
 
 export type DailyClose = { date: string; close: number; barTime: number };
 export type FrozenSector = { key: string; name: string; score: number; codes?: string[] };
