@@ -35,6 +35,20 @@ export async function GET() {
  UNION ALL SELECT 'AIR_V1',result_5d FROM ai_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='AIR_V1'
  UNION ALL SELECT 'TPR_V1',result_5d FROM trend_pullback_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='TPR_V1'
  ) SELECT research,COUNT(result_5d)::int completed,ROUND(AVG(result_5d),4) avg5 FROM observations GROUP BY research`);
+ const comparisonResult=await pool.query(`WITH signals AS (
+ SELECT trade_date,code,'MM_V1' src,result_1d,result_3d,result_5d FROM momentum_memory_observations WHERE validation_mode='FORWARD' AND observation_flag=true
+ UNION ALL SELECT trade_date,code,'HAP_V1',result_1d,result_3d,result_5d FROM high_ai_pullback_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='HAP_V1'
+ UNION ALL SELECT trade_date,code,'AIR_V1',result_1d,result_3d,result_5d FROM ai_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='AIR_V1'
+ UNION ALL SELECT trade_date,code,'TPR_V1',result_1d,result_3d,result_5d FROM trend_pullback_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='TPR_V1'
+ ), grouped AS (
+ SELECT trade_date,code,COUNT(DISTINCT src) AS n,MAX(result_1d) r1,MAX(result_3d) r3,MAX(result_5d) r5 FROM signals GROUP BY trade_date,code
+ ) SELECT CASE WHEN n>=2 THEN 'multi' ELSE 'single' END AS group_key,
+ COUNT(*)::int AS events,COUNT(r1)::int AS completed1,ROUND(AVG(r1)::numeric,3) AS avg1,
+ ROUND((100.0*COUNT(*) FILTER(WHERE r1>0)/NULLIF(COUNT(r1),0))::numeric,1) AS positive1,
+ COUNT(r3)::int AS completed3,ROUND(AVG(r3)::numeric,3) AS avg3,
+ COUNT(r5)::int AS completed5,ROUND(AVG(r5)::numeric,3) AS avg5
+ FROM grouped GROUP BY 1`);
+ const comparison=Object.fromEntries(comparisonResult.rows.map(r=>[r.group_key,r]));
  const performance=Object.fromEntries(stats.rows.map(r=>[r.research,{completed:r.completed,avg5:r.avg5}]));
  return NextResponse.json({success:true,performance,items:result.rows},{headers:{"Cache-Control":"private, no-store"}});
  }catch(error){console.error("explosive watch error",error);return NextResponse.json({error:"Data unavailable"},{status:500});}
