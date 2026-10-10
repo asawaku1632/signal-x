@@ -69,7 +69,10 @@ test("candidate endpoint is admin-only, read-only, no external calls or cron", (
   assert.match(api, /Cache-Control.*private, no-store/);
   assert.match(repository, /MAX_SAMPLE_UNIVERSE \+ 1/);
   assert.match(repository, /INSUFFICIENT_DAILY_COVERAGE/);
-  assert.match(repository, /date < \$1::date/);
+  assert.match(repository, /date < \$1/);
+  assert.match(repository, /WHERE date = \$1 ORDER BY code LIMIT \$2/);
+  // Production daily_stock_results.date is TEXT, not SQL DATE; do not cast bound date.
+  assert.doesNotMatch(repository, /daily_stock_results[^"\n]*date [=<] \$1::date/);
   assert.match(repository, /SELECT code, name, price FROM public\.daily_stock_results/);
   assert.match(repository, /SELECT DISTINCT code FROM public\.daily_learning_price_reference_audits/);
   assert.doesNotMatch(api + repository + sampler, /\bfetch\(|\bINSERT\b|\bUPDATE\b|\bDELETE\b|yahoo\.com|runScan\(|sendNotification\(/i);

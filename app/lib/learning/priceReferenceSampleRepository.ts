@@ -10,6 +10,8 @@ import {
 const MIN_DAILY_COVERAGE = 800;
 const MAX_LOOKBACK_DAYS = 90;
 
+// daily_stock_results.date is stored as ISO YYYY-MM-DD TEXT, not SQL DATE.
+// Lexical comparison is valid only after we validate/use the canonical ISO date format.
 type DateRow = { date: string | null };
 type ObservedCode = { code: string };
 
@@ -18,7 +20,7 @@ export async function getSuggestedPriceReferenceBatch(requestedDate: string | nu
   let tradeDate = requestedDate;
   if (tradeDate == null || tradeDate === "") {
     const result = await pool.query<DateRow>(
-      "SELECT MAX(date)::text AS date FROM public.daily_stock_results WHERE date < $1::date",
+      "SELECT MAX(date) AS date FROM public.daily_stock_results WHERE date < $1",
       [today],
     );
     tradeDate = result.rows[0]?.date ?? null;
@@ -33,7 +35,7 @@ export async function getSuggestedPriceReferenceBatch(requestedDate: string | nu
 
   const [baseline, observed] = await Promise.all([
     pool.query<SampleInput>(
-      "SELECT code, name, price FROM public.daily_stock_results WHERE date = $1::date ORDER BY code LIMIT $2",
+      "SELECT code, name, price FROM public.daily_stock_results WHERE date = $1 ORDER BY code LIMIT $2",
       [tradeDate, MAX_SAMPLE_UNIVERSE + 1],
     ),
     pool.query<ObservedCode>(
