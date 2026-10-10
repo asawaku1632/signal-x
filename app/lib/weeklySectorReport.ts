@@ -34,6 +34,8 @@ type RankedSector = {
   holds: number;
   tradeDays: number;
   codeCount: number;
+  // Frozen constituents in the issued prediction. Do not reconstruct historical groups later.
+  codes: string[];
   avgChange: number;
   previousAvg: number | null;
   score: number;
@@ -136,6 +138,7 @@ function rank(rows: ResultRow[], sourceStart: string) {
       return {
         key: s.key, name: s.name, total, wins: s.win, losses: s.lose, holds: s.hold,
         tradeDays: s.dates.size, codeCount: s.codes.size,
+        codes: [...s.codes].sort(),
         avgChange, previousAvg, score, examples,
       };
     })
