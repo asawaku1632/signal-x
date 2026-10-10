@@ -49,6 +49,22 @@ export async function GET() {
  COUNT(r5)::int AS completed5,ROUND(AVG(r5)::numeric,3) AS avg5
  FROM grouped GROUP BY 1`);
  const comparison=Object.fromEntries(comparisonResult.rows.map(r=>[r.group_key,r]));
+ const auditResult=await pool.query(`WITH candidates AS (
+ SELECT trade_date,code FROM momentum_memory_observations WHERE validation_mode='FORWARD' AND observation_flag=true
+ UNION SELECT trade_date,code FROM high_ai_pullback_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='HAP_V1'
+ UNION SELECT trade_date,code FROM ai_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='AIR_V1'
+ UNION SELECT trade_date,code FROM trend_pullback_reversal_observations WHERE validation_mode='FORWARD' AND observation_flag=true AND signal_version='TPR_V1'
+ ), audit AS (
+ SELECT c.trade_date,c.code,s.reference_price,
+ EXISTS(SELECT 1 FROM daily_stock_results d WHERE d.code=c.code AND d.date::date=c.trade_date AND d.price>0) AS price_available
+ FROM candidates c LEFT JOIN explosive_candidate_price_snapshots s ON s.trade_date=c.trade_date AND s.code=c.code
+ )
+ SELECT COUNT(*)::int AS total,COUNT(reference_price)::int AS saved,
+ COUNT(*) FILTER(WHERE reference_price IS NULL AND price_available)::int AS missing_with_source,
+ COUNT(*) FILTER(WHERE reference_price IS NULL AND NOT price_available)::int AS missing_source,
+ MAX(trade_date) AS latest_candidate_date
+ FROM audit`);
+ const priceAudit=auditResult.rows[0];
  const performance=Object.fromEntries(stats.rows.map(r=>[r.research,{completed:r.completed,avg5:r.avg5}]));
  return NextResponse.json({success:true,performance,items:result.rows},{headers:{"Cache-Control":"private, no-store"}});
  }catch(error){console.error("explosive watch error",error);return NextResponse.json({error:"Data unavailable"},{status:500});}
