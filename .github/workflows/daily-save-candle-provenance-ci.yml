@@ -1,0 +1,25 @@
+name: Daily Save Candle Provenance Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/dailySavePriceSourceAudit.ts"
+      - "app/lib/learning/stockAnalyzer.ts"
+      - "app/api/learning/save-daily/route.ts"
+      - "tests/dailySavePriceSourceAudit.test.mjs"
+      - ".github/workflows/daily-save-candle-provenance-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/dailySavePriceSourceAudit.test.mjs tests/dailyPriceAudit.test.mjs tests/phase1DailySnapshotIsolation.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
