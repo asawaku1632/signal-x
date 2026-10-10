@@ -73,8 +73,7 @@ export function isRecentPrecursorAtExit(
     const sessions = resolveTseTradingDatesAfter(
       precursorDate, CONFLICT_LOOKBACK_SESSIONS, { maxLookaheadDays: 45 },
     );
-    return sessions.includes(exitDate) ||
-      (exitDate > precursorDate && exitDate < sessions[sessions.length - 1]);
+    return sessions.includes(exitDate);
   } catch {
     return false; // Unsupported exchange calendar => never guess.
   }
