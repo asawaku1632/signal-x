@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
-import { getSuggestedPriceReferenceBatch } from "@/app/lib/learning/priceReferenceSampleRepository";
+import { getAvailablePriceReferenceDates, getSuggestedPriceReferenceBatch } from "@/app/lib/learning/priceReferenceSampleRepository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,9 +13,13 @@ export async function GET(request: Request) {
     { success: false, error: "管理者権限が必要です" },
     { status: 403, headers },
   );
-  const date = new URL(request.url).searchParams.get("date");
+  const params = new URL(request.url).searchParams;
   try {
-    const suggestions = await getSuggestedPriceReferenceBatch(date);
+    if (params.get("mode") === "dates") {
+      const dates = await getAvailablePriceReferenceDates();
+      return NextResponse.json({ success: true, dates }, { headers });
+    }
+    const suggestions = await getSuggestedPriceReferenceBatch(params.get("date"));
     return NextResponse.json({ success: true, ...suggestions }, { headers });
   } catch (error) {
     const name = error instanceof Error ? error.message : "";
