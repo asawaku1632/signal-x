@@ -76,12 +76,13 @@ const privateLearningNav: NavItem = {
 export default function BottomNav() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const [owner, setOwner] = useState(false);
+  const [verifiedOwnerEmail, setVerifiedOwnerEmail] = useState<string | null>(null);
+  const email = session?.user?.email?.trim().toLowerCase() ?? null;
+  const owner = status === "authenticated" && email !== null && verifiedOwnerEmail === email;
 
   useEffect(() => {
-    // Deny by default during login, logout and account changes.
-    setOwner(false);
-    if (status !== "authenticated" || !session?.user?.email) return;
+    // Owner visibility is tied to the authenticated email and fails closed.
+    if (status !== "authenticated" || !email) return;
     const controller = new AbortController();
     void fetch("/api/private-learning-access", {
       cache: "no-store",
@@ -91,12 +92,12 @@ export default function BottomNav() {
       const data: { isOwner?: boolean } = await response.json();
       return data.isOwner === true;
     }).then((allowed) => {
-      if (!controller.signal.aborted) setOwner(allowed);
+      if (!controller.signal.aborted) setVerifiedOwnerEmail(allowed ? email : null);
     }).catch(() => {
-      if (!controller.signal.aborted) setOwner(false);
+      if (!controller.signal.aborted) setVerifiedOwnerEmail(null);
     });
     return () => controller.abort();
-  }, [status, session?.user?.email]);
+  }, [status, email]);
 
   const navItems = owner
     ? [...publicNavItems.slice(0, 5), privateLearningNav, ...publicNavItems.slice(5)]
