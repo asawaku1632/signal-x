@@ -85,6 +85,17 @@ async function fetchYahooReference(code: string, date: string) {
 }
 
 async function persistReference(row: SavedRow, observedDay: string) {
+  // A retry during the same JST day is free of Yahoo requests and cannot overwrite evidence.
+  const prior = await pool.query<AuditRow>(
+    `SELECT code, name, trade_date, baseline_price, baseline_saved_at,
+            reference_price, reference_source, reference_bar_at,
+            observation_date_jst, observed_at, difference_yen, comparison_status
+       FROM public.daily_learning_price_reference_audits
+      WHERE trade_date = $1::date AND code = $2 AND reference_source = $3
+        AND observation_date_jst = $4::date LIMIT 1`,
+    [row.date, row.code, REFERENCE_SOURCE, observedDay],
+  );
+  if (prior.rows[0]) return { ...auditRowForClient(prior.rows[0]), alreadySaved: true };
   const bar = await fetchYahooReference(row.code, row.date);
   const saved = Number(row.price);
   const comparison = compareDailyLearningPrice(saved, bar);
