@@ -2,7 +2,7 @@ import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import pool from "@/app/lib/postgres";
 import {
-  aggregate, percent, rank, recognizedCodes, weeksForNow,
+  percent, rank, recognizedCodes, weeksForNow,
   type RankedSector, type ResultRow,
 } from "@/app/lib/weeklySectorReport";
 
@@ -18,17 +18,26 @@ type ForecastSnapshot = {
   items: RankedSector[];
   eligible_sector_count: number;
 };
-type Observed = { average: number; count: number; days: number } | null;
-
-function compareOutcomes(rows: ResultRow[], sectorKey: string): Observed {
-  const found = aggregate(rows).get(sectorKey);
-  if (!found || found.priced < 10 || found.dates.size < 2) return null;
-  return {
-    average: found.sumChange / found.priced,
-    count: found.priced,
-    days: found.dates.size,
-  };
-}
+type OutcomeItem = {
+  sectorKey: string;
+  sectorName: string;
+  rank: number;
+  forecastScore: number;
+  status: "COMPLETE" | "INCOMPLETE";
+  averageReturnPercent: number | null;
+  hit: boolean | null;
+  expected: number;
+  matched: number;
+  missingCodes: string[];
+};
+type OutcomeAudit = {
+  target_week_start: string;
+  baseline_date: string;
+  end_date: string;
+  status: "COMPLETE" | "INCOMPLETE";
+  items: OutcomeItem[];
+  evaluated_at: string;
+};
 
 export default async function WeeklySectorReportPage() {
   const weeks = weeksForNow();
@@ -79,25 +88,24 @@ export default async function WeeklySectorReportPage() {
   }
 
   const archived = snapshots.filter((snapshot) => snapshot.target_week_start !== weeks.targetStart).slice(0, 8);
-  let realized: ResultRow[] = [];
+  const grades = new Map<string, OutcomeAudit>();
   if (!error && archived.length) {
     try {
-      const start = [...archived].sort((a, b) => a.target_week_start.localeCompare(b.target_week_start))[0].target_week_start;
-      const end = [...archived].sort((a, b) => b.target_week_end.localeCompare(a.target_week_end))[0].target_week_end;
-      const { rows } = await pool.query<ResultRow>(`
-        SELECT date, code, name, result, change_percent
-        FROM daily_stock_results
-        WHERE date >= $1 AND date <= $2
-          AND code = ANY($3::text[])
-          AND result IN ('WIN','LOSE','HOLD')
-          AND change_percent IS NOT NULL
-        ORDER BY date, code
-      `, [start, end, recognizedCodes]);
-      realized = rows;
+      const { rows } = await pool.query<OutcomeAudit>(`
+        SELECT target_week_start::text, baseline_date::text, end_date::text,
+               status, items, evaluated_at::text
+        FROM weekly_sector_outcome_audits
+        WHERE target_week_start = ANY($1::date[])
+      `, [archived.map((snapshot) => snapshot.target_week_start)]);
+      rows.forEach((audit) => grades.set(audit.target_week_start, audit));
     } catch (cause) {
-      console.error("weekly sector evaluation read failed:", cause);
+      console.error("weekly sector verified results unavailable:", cause);
     }
   }
+  const fullyGraded = archived.flatMap((forecast) =>
+    grades.get(forecast.target_week_start)?.items.filter((item) => item.status === "COMPLETE") ?? [],
+  );
+  const winning = fullyGraded.filter((item) => item.hit === true).length;
   const medals = ["🥇", "🥈", "🥉"];
   return (
     <main className="min-h-screen bg-[#f7f9fc] pb-28 text-slate-900">
@@ -187,42 +195,66 @@ export default async function WeeklySectorReportPage() {
         <section className="mt-5">
           <h2 className="text-lg font-black">📝 過去予測の答え合わせ</h2>
           <p className="mt-1 text-[11px] leading-5 text-slate-600">
-            発行時のTOP3は固定。発行後の対象週に確定した銘柄別・翌営業日価格変化の平均と比較します。
+            発行時に構成銘柄とTOP3を固定。予測前の最終取引日と翌週末のYahoo日足終値を比較し、各銘柄の週間騰落率を均等平均して採点します。
           </p>
+          {fullyGraded.length > 0 && (
+            <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+              <p className="text-xs font-black text-blue-700">✅ 完了した予測のプラス判定率</p>
+              <p className="mt-1 text-xl font-black text-slate-900">{winning}/{fullyGraded.length}件
+                <span className="ml-2 text-sm">({Math.round(100 * winning / fullyGraded.length)}%)</span>
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">代表銘柄の均等平均がプラスなら的中。市場の33業種指数の上昇率ではありません。</p>
+            </div>
+          )}
           {archived.length === 0 ? (
             <p className="mt-2 rounded-xl border bg-white p-3 text-xs text-slate-600">
-              まだ過去の発行履歴はありません。週次の保存が始まると自動で蓄積します。
+              まだ過去の発行履歴はありません。翌週の取引終了後、保存済み終値で自動採点します。
             </p>
           ) : (
             <div className="mt-2 space-y-2">
               {archived.map((snapshot) => {
-                const observedRows = realized.filter((row) => row.date >= snapshot.target_week_start && row.date <= snapshot.target_week_end);
-                const finishedWeek = snapshot.target_week_end < today;
-                const evaluations = snapshot.items.map((sector) => ({
-                  sector, observed: compareOutcomes(observedRows, sector.key),
+                const audit = grades.get(snapshot.target_week_start);
+                const evaluation = snapshot.items.map((sector) => ({
+                  sector, verified: audit?.items.find((item) => item.sectorKey === sector.key),
                 }));
-                const measured = evaluations.filter((x) => x.observed !== null);
-                const positives = measured.filter((x) => (x.observed?.average ?? 0) > 0).length;
+                const measured = evaluation.filter((x) => x.verified?.status === "COMPLETE");
+                const positives = measured.filter((x) => x.verified?.hit === true).length;
                 return (
                   <article key={snapshot.target_week_start} className="rounded-xl border bg-white p-3 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-black">{snapshot.target_week_start} 週の予測</h3>
                       <span className="text-[10px] font-black text-slate-500">
-                        {finishedWeek ? `評価可能 ${measured.length}/${snapshot.items.length}件・プラス ${positives}件` : "対象週の途中／未開始"}
+                        {audit ? `検証済み ${measured.length}/${snapshot.items.length}件・プラス ${positives}件` : "終値検証待ち"}
                       </span>
                     </div>
-                    <p className="mt-1 text-[10px] text-slate-500">発行時に使用したデータ：{snapshot.as_of_date ?? "不明"}まで</p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      予測に使用：{snapshot.as_of_date ?? "不明"}まで
+                      {audit && <> ／ 終値比較：{audit.baseline_date} → {audit.end_date}</>}
+                    </p>
                     <div className="mt-2 space-y-1.5">
-                      {evaluations.map(({ sector, observed }, i) => (
-                        <div key={sector.key} className="flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
-                          <span className="text-xs font-black">{medals[i]} {sector.name} <span className="text-[10px] font-normal text-slate-500">予測スコア{sector.score}</span></span>
-                          <span className={`text-xs font-black ${observed ? observed.average > 0 ? "text-emerald-600" : "text-blue-600" : "text-slate-500"}`}>
-                            {observed ? `${percent(observed.average)}（${observed.count}件）` : "判定待ち"}
-                          </span>
-                        </div>
-                      ))}
+                      {evaluation.map(({ sector, verified }, i) => {
+                        const available = verified?.status === "COMPLETE" && verified.averageReturnPercent !== null;
+                        return (
+                          <div key={sector.key} className="flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+                            <div className="min-w-0">
+                              <p className="text-xs font-black">{medals[i]} {sector.name}</p>
+                              <p className="text-[10px] text-slate-500">発行スコア {sector.score} ／ 構成 {verified?.expected ?? sector.codeCount}銘柄</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-xs font-black ${available ? verified!.hit ? "text-emerald-600" : "text-blue-600" : "text-slate-500"}`}>
+                                {available ? `${verified!.hit ? "✅ プラス" : "✖ プラスならず"} ${percent(verified!.averageReturnPercent!)}` : "⏳ 検証待ち"}
+                              </p>
+                              {verified && !available && (
+                                <p className="text-[10px] text-slate-500">価格照合 {verified.matched}/{verified.expected}件</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <p className="mt-2 text-[10px] text-slate-500">結果は判定済み銘柄のみの参考集計。業種指数の週間騰落率ではありません。</p>
+                    <p className="mt-2 text-[10px] text-slate-500">
+                      Yahoo日足終値を別記録で比較。資料不足のセクターは採点せず、翌週の業種指数を代表する数字とは限りません。
+                    </p>
                   </article>
                 );
               })}
@@ -233,13 +265,13 @@ export default async function WeeklySectorReportPage() {
           <h2 className="text-xs font-black text-amber-900">⚠️ 検証版の制約</h2>
           <p className="mt-1 text-[11px] leading-5 text-amber-950">
             代表銘柄のみの分類で、全上場銘柄・実際の資金流入・来週の上昇確率を表していません。
-            保存価格の監査も継続中です。週の途中や未判定銘柄がある場合、実績は後日変わります。
+            保存価格の監査も継続中です。株式分割などがある週は日足データを別途確認する必要があります。銘柄の終値が揃わない場合は採点保留とします。
             相対スコアだけを根拠に売買しないでください。
           </p>
         </section>
         <p className="mt-2 text-[10px] leading-4 text-slate-500">
           分類対象は代表銘柄{recognizedCodes.length}コード、今週集計条件を満たす{eligible}セクター。
-          予測は週単位で一度だけ保存し、元データ・売買判定・通知を変更しません。
+          予測は週単位で一度だけ保存し、後日Yahooの終値で独立検証。元データ・売買判定・通知を変更しません。
         </p>
       </div>
       <BottomNav />
