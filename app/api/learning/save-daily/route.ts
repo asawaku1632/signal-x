@@ -1,3 +1,4 @@
+import { saveExplosiveCandidateDiscoveryPrices } from "@/app/lib/learning/explosiveDiscoveryPrices";
 import { NextResponse } from "next/server";
 
 import pool from "@/app/lib/postgres";
@@ -469,7 +470,11 @@ export async function GET(req: Request) {
       await refreshPatternForwardStats().catch((error) => {
         console.error("Pattern forward stats refresh failed:", error);
       });
-      await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
+      await saveExplosiveCandidateDiscoveryPrices(targetDate).catch((error) => {
+      console.error("Explosive candidate discovery price snapshot failed:", error);
+      return { discoveryPricesSaved: 0 };
+    });
+    await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
         console.error("Momentum Memory admin notification failed:", error);
       });
       stage = "completed";
@@ -727,6 +732,10 @@ export async function GET(req: Request) {
     });
     await refreshMomentumMemoryNotificationValidation().catch((error) => {
       console.error("Momentum Memory notification validation refresh failed:", error);
+    });
+    await saveExplosiveCandidateDiscoveryPrices(targetDate).catch((error) => {
+      console.error("Explosive candidate discovery price snapshot failed:", error);
+      return { discoveryPricesSaved: 0 };
     });
     await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
       console.error("Momentum Memory admin notification failed:", error);
