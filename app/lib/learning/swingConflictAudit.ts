@@ -1,12 +1,10 @@
 import pool from "@/app/lib/postgres";
-import { resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { CONFLICT_HORIZONS, CONFLICT_LOOKBACK_SESSIONS, isRecentPrecursorAtExit } from "@/app/lib/learning/swingConflictRules";
 
 // Read-only intersection of two independently recorded signals.
 // EXIT comes from the first server-verified simulated-position EXIT audit.
 // MM_V1 comes from a FORWARD observation that existed by the EXIT scan time.
 // Neither model's scoring, notifications, order decisions nor cron jobs change.
-export const CONFLICT_HORIZONS = [3, 5, 10] as const;
-export const CONFLICT_LOOKBACK_SESSIONS = 5;
 const MAX_RECENT_EXITS = 250;
 
 type AuditRow = {
@@ -60,24 +58,6 @@ const validPositive = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
-
-export function isRecentPrecursorAtExit(
-  precursorDate: string | null,
-  exitDate: string,
-): boolean {
-  if (!precursorDate || precursorDate > exitDate) return false;
-  if (precursorDate === exitDate) return true;
-  try {
-    // Five real exchange trading sessions, not five calendar days or
-    // the number of daily price records that happen to have been saved.
-    const sessions = resolveTseTradingDatesAfter(
-      precursorDate, CONFLICT_LOOKBACK_SESSIONS, { maxLookaheadDays: 45 },
-    );
-    return sessions.includes(exitDate);
-  } catch {
-    return false; // Unsupported exchange calendar => never guess.
-  }
-}
 
 function summarize(items: ConflictCase[]) {
   return CONFLICT_HORIZONS.map((days, index) => {
