@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import pool from "@/app/lib/postgres";
 import { saveDailyStocks } from "@/app/lib/dailyLearning";
+import { buildDailySavePriceSourceAudit } from "@/app/lib/learning/dailySavePriceSourceAudit";
 import { getAdminSession } from "@/app/lib/admin";
 import { saveCronRunLog } from "@/app/lib/cronRunLog";
 import { sendLine } from "@/app/lib/line/sendLine";
@@ -58,6 +59,8 @@ type Stock = {
   score?: number;
   aiPower?: number;
   price?: number;
+  dataSource?: string;
+  latestBarTimestamp?: number | null;
   changePercent?: number;
   result?: string;
   patternLearning?: PatternLearning;
@@ -563,12 +566,16 @@ export async function GET(req: Request) {
       );
     }
 
-    let scanJson: { stocks?: Stock[]; scanDiagnostics?: AnalysisDiagnostics };
+    let scanJson: {
+      stocks?: Stock[];
+      scanDiagnostics?: AnalysisDiagnostics;
+      cached?: boolean;
+      status?: string;
+      cacheAge?: number;
+      updatedAt?: string | null;
+    };
     try {
-      scanJson = JSON.parse(responseText) as {
-        stocks?: Stock[];
-        scanDiagnostics?: AnalysisDiagnostics;
-      };
+      scanJson = JSON.parse(responseText) as typeof scanJson;
     } catch (parseError) {
       scanDiagnostics.responseKind = "invalid-json";
       throw new Error(`scan api returned invalid JSON: ${errorMessage(parseError)}`);
@@ -578,6 +585,13 @@ export async function GET(req: Request) {
       ? scanJson.stocks
       : [];
     fetchedCount = stocks.length;
+    // Passive evidence only: never used for pricing, trading, notification or scan gating.
+    const priceSourceAudit = buildDailySavePriceSourceAudit({
+      targetDate,
+      receivedAt: new Date().toISOString(),
+      scanMeta: scanJson,
+      stocks,
+    });
     analysisDiagnostics = scanJson.scanDiagnostics ?? {
       targetStockCount: fetchedCount,
       analyzedSuccessCount: fetchedCount,
@@ -612,6 +626,7 @@ export async function GET(req: Request) {
         targetDate,
         stage,
         fetchedCount,
+        priceSourceAudit,
         ...analysisDiagnostics,
         scheduledFor,
         receivedAt,
@@ -650,6 +665,7 @@ export async function GET(req: Request) {
         savedCount,
         skippedCount: result.skipped,
         conflictCount,
+        priceSourceAudit,
         ...analysisDiagnostics,
         scheduledFor,
         receivedAt,
@@ -816,6 +832,7 @@ export async function GET(req: Request) {
         savedCount,
         skippedCount: result.skipped,
         conflictCount,
+        priceSourceAudit,
         ...analysisDiagnostics,
         scheduledFor,
         receivedAt,
