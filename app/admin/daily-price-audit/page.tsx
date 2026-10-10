@@ -45,7 +45,10 @@ export default function DailyPriceAuditPage() {
 
   return <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-md space-y-4">
-      <Link href="/admin/learning-status" className="text-sm font-bold text-blue-600">← AI学習保存状況</Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/admin/learning-status" className="text-sm font-bold text-blue-600">← AI学習保存状況</Link>
+        <Link href="/admin/daily-price-reference" className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">🧪 参考終値を別保存する</Link>
+      </div>
       <header className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-xs font-black tracking-wider text-blue-600">ADMIN / READ ONLY</p>
         <h1 className="mt-2 text-2xl font-black">🔎 日次株価の差額調査</h1>
