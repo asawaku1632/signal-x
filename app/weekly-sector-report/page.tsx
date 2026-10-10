@@ -1,176 +1,102 @@
 import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import pool from "@/app/lib/postgres";
-import { STOCKS } from "@/app/lib/stockList";
-import { getSectorKey, sectorLabelMap } from "@/app/lib/sectorMap";
+import {
+  aggregate, percent, rank, recognizedCodes, weeksForNow,
+  type RankedSector, type ResultRow,
+} from "@/app/lib/weeklySectorReport";
 
 export const dynamic = "force-dynamic";
 
-// Read-only experiment. Never alters model decisions, saved prices, or alerts.
-// We deliberately use evaluated daily_stock_results rather than sector_learning_logs:
-// current sector logs have no populated WIN / LOSE / HOLD counts.
-type ResultRow = {
-  date: string;
-  code: string;
-  name: string;
-  result: "WIN" | "LOSE" | "HOLD";
-  change_percent: number | null;
+type ForecastSnapshot = {
+  target_week_start: string;
+  target_week_end: string;
+  source_week_start: string;
+  source_week_end: string;
+  as_of_date: string | null;
+  created_at: string;
+  items: RankedSector[];
+  eligible_sector_count: number;
 };
-type StockSample = { code: string; name: string; total: number; sum: number; priced: number };
-type Summary = {
-  key: string;
-  name: string;
-  win: number;
-  lose: number;
-  hold: number;
-  sumChange: number;
-  priced: number;
-  dates: Set<string>;
-  codes: Set<string>;
-  stocks: Map<string, StockSample>;
-};
-type RankedSector = {
-  key: string;
-  name: string;
-  total: number;
-  wins: number;
-  losses: number;
-  holds: number;
-  tradeDays: number;
-  codeCount: number;
-  avgChange: number;
-  previousAvg: number | null;
-  score: number;
-  examples: { code: string; name: string; average: number }[];
-};
+type Observed = { average: number; count: number; days: number } | null;
 
-const extraSectors: Record<string, { key: string; name: string }> = {
-  "9101": { key: "SHIPPING", name: "海運" },
-  "9104": { key: "SHIPPING", name: "海運" },
-  "9107": { key: "SHIPPING", name: "海運" },
-  "7011": { key: "DEFENSE", name: "防衛・重工" },
-  "7012": { key: "DEFENSE", name: "防衛・重工" },
-  "7013": { key: "DEFENSE", name: "防衛・重工" },
-};
-
-function sectorFor(code: string) {
-  if (extraSectors[code]) return extraSectors[code];
-  const key = getSectorKey(code);
-  return key === "OTHER" ? null : { key, name: sectorLabelMap[key] };
-}
-const recognizedCodes = [...new Set(STOCKS.map((s) => s.code).filter((code) => sectorFor(code) !== null))];
-
-function addDays(date: Date, days: number) {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-function iso(date: Date) { return date.toISOString().slice(0, 10); }
-function weeksForNow() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const today = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
-  const weekday = today.getUTCDay();
-  const monday = addDays(today, -((weekday + 6) % 7));
-  // Change report week on Saturday; keep the same issue displayed during weekdays.
-  const source = weekday === 0 || weekday === 6 ? monday : addDays(monday, -7);
-  const next = addDays(source, 7);
+function compareOutcomes(rows: ResultRow[], sectorKey: string): Observed {
+  const found = aggregate(rows).get(sectorKey);
+  if (!found || found.priced < 10 || found.dates.size < 2) return null;
   return {
-    previousStart: iso(addDays(source, -7)),
-    sourceStart: iso(source),
-    sourceEnd: iso(addDays(next, -1)),
-    targetStart: iso(next),
-    targetEnd: iso(addDays(next, 6)),
+    average: found.sumChange / found.priced,
+    count: found.priced,
+    days: found.dates.size,
   };
 }
 
-function createSummary(key: string, name: string): Summary {
-  return { key, name, win: 0, lose: 0, hold: 0, sumChange: 0, priced: 0, dates: new Set(), codes: new Set(), stocks: new Map() };
-}
-function aggregate(rows: ResultRow[]) {
-  const sectors = new Map<string, Summary>();
-  for (const row of rows) {
-    const category = sectorFor(row.code);
-    if (!category) continue;
-    const item = sectors.get(category.key) ?? createSummary(category.key, category.name);
-    item.dates.add(row.date);
-    item.codes.add(row.code);
-    if (row.result === "WIN") item.win++;
-    else if (row.result === "LOSE") item.lose++;
-    else item.hold++;
-    const sample = item.stocks.get(row.code) ?? {
-      code: row.code, name: row.name, total: 0, sum: 0, priced: 0,
-    };
-    sample.total++;
-    if (row.change_percent !== null && Number.isFinite(Number(row.change_percent))) {
-      const change = Number(row.change_percent);
-      item.sumChange += change;
-      item.priced++;
-      sample.sum += change;
-      sample.priced++;
-    }
-    item.stocks.set(row.code, sample);
-    sectors.set(category.key, item);
-  }
-  return sectors;
-}
-const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n));
-
-function rank(rows: ResultRow[], sourceStart: string) {
-  const previous = aggregate(rows.filter((r) => r.date < sourceStart));
-  const latest = aggregate(rows.filter((r) => r.date >= sourceStart));
-  const ranked = Array.from(latest.values())
-    .filter((s) => s.priced >= 10 && s.dates.size >= 2 && s.codes.size >= 2)
-    .map((s): RankedSector => {
-      const earlier = previous.get(s.key);
-      const previousAvg = earlier && earlier.priced >= 10 ? earlier.sumChange / earlier.priced : null;
-      const avgChange = s.sumChange / s.priced;
-      const total = s.win + s.lose + s.hold;
-      const netWin = total > 0 ? (s.win - s.lose) / total : 0;
-      const momentum = previousAvg === null ? 0 : clamp((avgChange - previousAvg) * 4, -8, 8);
-      // Relative watchlist index, not a future return or probability.
-      const score = Math.round(clamp(50 + (avgChange * 8 + netWin * 20 + momentum) * Math.min(1, Math.sqrt(s.priced / 30)), 0, 100));
-      const examples = Array.from(s.stocks.values())
-        .filter((stock) => stock.priced >= 2)
-        .sort((a, b) => b.sum / b.priced - a.sum / a.priced)
-        .slice(0, 2)
-        .map((stock) => ({ code: stock.code, name: stock.name, average: stock.sum / stock.priced }));
-      return {
-        key: s.key, name: s.name, total, wins: s.win, losses: s.lose, holds: s.hold,
-        tradeDays: s.dates.size, codeCount: s.codes.size,
-        avgChange, previousAvg, score, examples,
-      };
-    })
-    .sort((a, b) => b.score - a.score || b.total - a.total || a.key.localeCompare(b.key));
-  return { ranked: ranked.slice(0, 3), eligible: ranked.length };
-}
-
-function percent(value: number) { return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`; }
-
 export default async function WeeklySectorReportPage() {
-  const week = weeksForNow();
-  let sectors: RankedSector[] = [];
+  const weeks = weeksForNow();
+  let snapshots: ForecastSnapshot[] = [];
+  let current: ForecastSnapshot | undefined;
+  let candidates: RankedSector[] = [];
+  let isPreview = false;
+  let newestData: string | null = null;
   let eligible = 0;
-  let latestDataDate: string | null = null;
   let error = false;
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+
   try {
-    // 'date' is an ISO yyyy-mm-dd TEXT column. Only finished outcomes are included.
-    const { rows } = await pool.query<ResultRow>(`
-      SELECT date, code, name, result, change_percent
-      FROM daily_stock_results
-      WHERE date >= $1 AND date < $2
-        AND code = ANY($3::text[])
-        AND result IN ('WIN','LOSE','HOLD')
-      ORDER BY date
-    `, [week.previousStart, week.targetStart, recognizedCodes]);
-    const sourceRows = rows.filter((row) => row.date >= week.sourceStart);
-    latestDataDate = sourceRows.length ? sourceRows[sourceRows.length - 1].date : null;
-    ({ ranked: sectors, eligible } = rank(rows, week.sourceStart));
+    const history = await pool.query<ForecastSnapshot>(`
+      SELECT target_week_start::text, target_week_end::text,
+        source_week_start::text, source_week_end::text,
+        as_of_date::text, created_at::text, items, eligible_sector_count
+      FROM weekly_sector_forecasts
+      ORDER BY target_week_start DESC LIMIT 12
+    `);
+    snapshots = history.rows;
+    current = snapshots.find((snapshot) => snapshot.target_week_start === weeks.targetStart);
+    if (current) {
+      candidates = current.items;
+      newestData = current.as_of_date;
+      eligible = Number(current.eligible_sector_count);
+    } else {
+      // Preview is intentionally not persisted and is never presented as a past forecast.
+      const { rows } = await pool.query<ResultRow>(`
+        SELECT date, code, name, result, change_percent
+        FROM daily_stock_results
+        WHERE date >= $1 AND date < $2
+          AND code = ANY($3::text[])
+          AND result IN ('WIN','LOSE','HOLD')
+          AND change_percent IS NOT NULL
+        ORDER BY date, code
+      `, [weeks.previousStart, weeks.targetStart, recognizedCodes]);
+      const sourceRows = rows.filter((row) => row.date >= weeks.sourceStart);
+      newestData = sourceRows.length ? sourceRows[sourceRows.length - 1].date : null;
+      ({ ranked: candidates, eligible } = rank(rows, weeks.sourceStart));
+      isPreview = true;
+    }
   } catch (cause) {
-    console.error("weekly sector sample failed:", cause);
+    console.error("weekly sector view failed:", cause);
     error = true;
+  }
+
+  const archived = snapshots.filter((snapshot) => snapshot.target_week_start !== weeks.targetStart).slice(0, 8);
+  let realized: ResultRow[] = [];
+  if (!error && archived.length) {
+    try {
+      const start = [...archived].sort((a, b) => a.target_week_start.localeCompare(b.target_week_start))[0].target_week_start;
+      const end = [...archived].sort((a, b) => b.target_week_end.localeCompare(a.target_week_end))[0].target_week_end;
+      const { rows } = await pool.query<ResultRow>(`
+        SELECT date, code, name, result, change_percent
+        FROM daily_stock_results
+        WHERE date >= $1 AND date <= $2
+          AND code = ANY($3::text[])
+          AND result IN ('WIN','LOSE','HOLD')
+          AND change_percent IS NOT NULL
+        ORDER BY date, code
+      `, [start, end, recognizedCodes]);
+      realized = rows;
+    } catch (cause) {
+      console.error("weekly sector evaluation read failed:", cause);
+    }
   }
   const medals = ["🥇", "🥈", "🥉"];
   return (
@@ -183,31 +109,36 @@ export default async function WeeklySectorReportPage() {
             <h1 className="text-xl font-black">🔮 来週の注目セクター TOP3</h1>
           </div>
         </header>
-
         <section className="mt-3 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-800 p-4 text-white">
-          <p className="text-[10px] font-black text-blue-200">毎週土曜に対象週を自動切替・試験版</p>
-          <p className="mt-2 text-xl font-black">{week.targetStart} 〜 {week.targetEnd}</p>
-          <p className="mt-1 text-xs font-bold text-blue-100">参照週：{week.sourceStart} 〜 {week.sourceEnd}</p>
-          <p className="mt-1 text-xs font-bold text-blue-100">判定済みの最新データ：{latestDataDate ?? "なし"}</p>
+          <p className="text-[10px] font-black text-blue-200">
+            {current ? "📌 発行済み・予測順位を固定保存" : "🧪 未発行・参考プレビュー"}
+          </p>
+          <p className="mt-2 text-xl font-black">{weeks.targetStart} 〜 {weeks.targetEnd}</p>
+          <p className="mt-1 text-xs font-bold text-blue-100">参照期間：{weeks.sourceStart} 〜 {weeks.sourceEnd}</p>
+          <p className="mt-1 text-xs font-bold text-blue-100">参照できた最終判定日：{newestData ?? "なし"}</p>
           <p className="mt-2 text-[11px] leading-5 text-blue-100">
-            代表銘柄の翌営業日実績から、次の週に確認したいセクターを自動抽出します。
+            毎週土曜9時に発行・保存し、日曜20時に保存漏れを再確認します。
+            将来の値動きではなく、それ以前に確定した代表銘柄の成績から候補を選びます。
           </p>
         </section>
 
         {error ? (
-          <section className="mt-3 rounded-xl border border-rose-200 bg-white p-4 text-sm font-bold text-rose-700">
-            データを取得できませんでした。時間をおいて再表示してください。
+          <section className="mt-3 rounded-xl border bg-white p-4 text-sm font-bold text-rose-700">
+            レポートを取得できませんでした。データベースの導入状況を確認してください。
           </section>
-        ) : sectors.length === 0 ? (
+        ) : candidates.length === 0 ? (
           <section className="mt-3 rounded-xl border bg-white p-4">
             <h2 className="font-black">今週の候補はまだありません</h2>
             <p className="mt-2 text-xs leading-5 text-slate-600">
-              判定済みの銘柄データが不足しています。2営業日以上・10件以上の結果が揃うと表示されます。
+              判定済みデータの不足により順位を作成できません。2取引日以上・10件以上の価格結果が必要です。
             </p>
           </section>
         ) : (
-          <section className="mt-3 space-y-2" aria-label="週次セクター注目候補">
-            {sectors.map((sector, index) => (
+          <section className="mt-3 space-y-2" aria-label="来週の注目セクター候補">
+            {isPreview && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">
+              この順位は保存前の参考表示です。正式な予測履歴・的中率には含めません。
+            </p>}
+            {candidates.map((sector, index) => (
               <article key={sector.key} className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -215,18 +146,18 @@ export default async function WeeklySectorReportPage() {
                     <h2 className="mt-0.5 text-lg font-black">{medals[index]} {sector.name}</h2>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold text-slate-500">参考スコア</p>
+                    <p className="text-[10px] font-bold text-slate-500">相対スコア</p>
                     <p className="text-2xl font-black text-blue-700">{sector.score}<span className="text-xs"> / 100</span></p>
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
                   <div className="rounded-lg bg-slate-50 p-2">
-                    <p className="text-[10px] text-slate-500">翌営業日平均変化</p>
+                    <p className="text-[10px] text-slate-500">前週の平均変化</p>
                     <p className="mt-1 text-sm font-black">{percent(sector.avgChange)}</p>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-2">
-                    <p className="text-[10px] text-slate-500">前週との比較</p>
-                    <p className="mt-1 text-sm font-black">{sector.previousAvg === null ? "比較なし" : percent(sector.avgChange - sector.previousAvg)}</p>
+                    <p className="text-[10px] text-slate-500">その前の週との差</p>
+                    <p className="mt-1 text-sm font-black">{sector.previousAvg === null ? "比較なし" : `${(sector.avgChange - sector.previousAvg).toFixed(2)}pt`}</p>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-2">
                     <p className="text-[10px] text-slate-500">判定済み</p>
@@ -234,11 +165,11 @@ export default async function WeeklySectorReportPage() {
                   </div>
                 </div>
                 <p className="mt-2 text-[11px] leading-5 text-slate-600">
-                  対象{sector.codeCount}銘柄／{sector.tradeDays}取引日、WIN {sector.wins}・LOSE {sector.losses}・HOLD {sector.holds}。
+                  対象{sector.codeCount}銘柄・{sector.tradeDays}取引日、WIN {sector.wins}／LOSE {sector.losses}／HOLD {sector.holds}
                 </p>
                 {sector.examples.length > 0 && (
                   <div className="mt-2 border-t border-slate-100 pt-2">
-                    <p className="mb-1 text-[10px] font-bold text-slate-500">対象の参考銘柄（保存済み実績順・買い推奨ではありません）</p>
+                    <p className="mb-1 text-[10px] font-bold text-slate-500">参考銘柄（過去実績順、買い推奨ではありません）</p>
                     <div className="flex flex-wrap gap-1.5">
                       {sector.examples.map((stock) => (
                         <Link href={`/analysis/${stock.code}`} key={stock.code} className="rounded-lg bg-blue-50 px-2 py-1.5 text-[11px] font-black text-blue-700">
@@ -253,18 +184,62 @@ export default async function WeeklySectorReportPage() {
           </section>
         )}
 
+        <section className="mt-5">
+          <h2 className="text-lg font-black">📝 過去予測の答え合わせ</h2>
+          <p className="mt-1 text-[11px] leading-5 text-slate-600">
+            発行時のTOP3は固定。発行後の対象週に確定した銘柄別・翌営業日価格変化の平均と比較します。
+          </p>
+          {archived.length === 0 ? (
+            <p className="mt-2 rounded-xl border bg-white p-3 text-xs text-slate-600">
+              まだ過去の発行履歴はありません。週次の保存が始まると自動で蓄積します。
+            </p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {archived.map((snapshot) => {
+                const observedRows = realized.filter((row) => row.date >= snapshot.target_week_start && row.date <= snapshot.target_week_end);
+                const finishedWeek = snapshot.target_week_end < today;
+                const evaluations = snapshot.items.map((sector) => ({
+                  sector, observed: compareOutcomes(observedRows, sector.key),
+                }));
+                const measured = evaluations.filter((x) => x.observed !== null);
+                const positives = measured.filter((x) => (x.observed?.average ?? 0) > 0).length;
+                return (
+                  <article key={snapshot.target_week_start} className="rounded-xl border bg-white p-3 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-black">{snapshot.target_week_start} 週の予測</h3>
+                      <span className="text-[10px] font-black text-slate-500">
+                        {finishedWeek ? `評価可能 ${measured.length}/${snapshot.items.length}件・プラス ${positives}件` : "対象週の途中／未開始"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">発行時に使用したデータ：{snapshot.as_of_date ?? "不明"}まで</p>
+                    <div className="mt-2 space-y-1.5">
+                      {evaluations.map(({ sector, observed }, i) => (
+                        <div key={sector.key} className="flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+                          <span className="text-xs font-black">{medals[i]} {sector.name} <span className="text-[10px] font-normal text-slate-500">予測スコア{sector.score}</span></span>
+                          <span className={`text-xs font-black ${observed ? observed.average > 0 ? "text-emerald-600" : "text-blue-600" : "text-slate-500"}`}>
+                            {observed ? `${percent(observed.average)}（${observed.count}件）` : "判定待ち"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[10px] text-slate-500">結果は判定済み銘柄のみの参考集計。業種指数の週間騰落率ではありません。</p>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
         <section className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <h2 className="text-xs font-black text-amber-900">⚠️ 試験版の注意点</h2>
+          <h2 className="text-xs font-black text-amber-900">⚠️ 検証版の制約</h2>
           <p className="mt-1 text-[11px] leading-5 text-amber-950">
-            代表銘柄の保存済み翌営業日結果を使った相対指標です。全上場銘柄を網羅する業種指数ではなく、
-            実際の資金流入量・来週の上昇確率も表しません。保存価格の監査も継続中です。
-            市場ニュース・出来高・株価を確認し、単独では売買判断に使わないでください。
+            代表銘柄のみの分類で、全上場銘柄・実際の資金流入・来週の上昇確率を表していません。
+            保存価格の監査も継続中です。週の途中や未判定銘柄がある場合、実績は後日変わります。
+            相対スコアだけを根拠に売買しないでください。
           </p>
         </section>
         <p className="mt-2 text-[10px] leading-4 text-slate-500">
-          現在の集計対象は分類できた代表銘柄のみ（{recognizedCodes.length}コード、条件を満たす{eligible}セクター）。
-          予測時点の履歴を固定保存し、翌週に答え合わせする機能は今後の追加対象です。
-          この画面は閲覧時に再集計するだけで、売買判定・通知・元データは変更しません。
+          分類対象は代表銘柄{recognizedCodes.length}コード、今週集計条件を満たす{eligible}セクター。
+          予測は週単位で一度だけ保存し、元データ・売買判定・通知を変更しません。
         </p>
       </div>
       <BottomNav />
