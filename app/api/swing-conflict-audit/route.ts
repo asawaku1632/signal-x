@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/app/lib/auth";
+import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { getSwingConflictAuditReport } from "@/app/lib/learning/swingConflictAudit";
 
 export const dynamic = "force-dynamic";
@@ -8,10 +7,12 @@ export const runtime = "nodejs";
 
 // Read-only. Not a cron, notification, or an execution decision.
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.trim().toLowerCase();
+  const { email, isOwner } = await getLearningOwnerSession();
   if (!email) {
     return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 });
+  }
+  if (!isOwner) {
+    return NextResponse.json({ success: false, error: "閲覧権限がありません" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
   }
   try {
     const report = await getSwingConflictAuditReport(email);
