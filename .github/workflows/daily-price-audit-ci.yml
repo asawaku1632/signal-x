@@ -1,0 +1,26 @@
+name: Daily Learning Price Audit Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/dailyPriceAudit.ts"
+      - "app/api/admin/daily-price-audit/**"
+      - "app/admin/daily-price-audit/**"
+      - "app/admin/learning-status/page.tsx"
+      - "tests/dailyPriceAudit.test.mjs"
+      - ".github/workflows/daily-price-audit-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/dailyPriceAudit.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
