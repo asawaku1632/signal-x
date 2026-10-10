@@ -11,6 +11,7 @@ type Observation = {
   differenceYen: number; status: "MATCH" | "MISMATCH";
 };
 type Result = { code: string; success: boolean; reason?: string; observation?: Observation & { alreadySaved: boolean } };
+type SampleChoice = { code: string; name: string; baselinePrice: number; priceBand: string; sector: string };
 const yen = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 4 }) + "円";
 const signed = (n: number) => (n > 0 ? "+" : "") + yen(n);
 
@@ -22,6 +23,40 @@ export default function ManualPriceReferencePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [candidateChoices, setCandidateChoices] = useState<SampleChoice[]>([]);
+  const [sampleSourceCount, setSampleSourceCount] = useState<number | null>(null);
+
+  async function suggestCandidates() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setCandidateChoices([]);
+    setSampleSourceCount(null);
+    setResults([]);
+    setObservations([]);
+    try {
+      // No date parameter means the latest fully saved trading day before today.
+      const response = await fetch("/api/admin/daily-price-sample", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "候補が選べませんでした");
+      const choices = (payload.choices ?? []) as SampleChoice[];
+      if (choices.length === 0) {
+        setNotice("未照合の候補はありません。別の取引日で試してください。");
+        return;
+      }
+      setDate(payload.tradeDate);
+      setCodesText(choices.map((item) => item.code).join(","));
+      setCandidateChoices(choices);
+      setSampleSourceCount(payload.sourceCount);
+      setNotice("保存済み銘柄から候補を選び、日付とコードを自動入力しました。まだYahooへのアクセスや参考価格保存は行っていません。");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "候補を取得できませんでした");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function codes() {
     return codesText.replace(/，/g, ",").split(",").map((s) => s.trim()).filter(Boolean);
   }
@@ -82,6 +117,16 @@ export default function ManualPriceReferencePage() {
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="mt-1 w-full rounded-xl border px-3 py-3 text-slate-900"/>
           </label>
+          <div>
+            <button type="button" disabled={busy} onClick={() => void suggestCandidates()}
+              className="w-full rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-3 text-sm font-bold text-indigo-800 disabled:opacity-50">
+              {busy ? "準備中…" : "🎯 最新営業日の比較候補5銘柄を自動入力（外部取得なし）"}
+            </button>
+            <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              既存の学習保存データから価格帯を分散して選び、同じ取引日で照合済みの銘柄は除外します。
+              自動入力だけでは外部サービスに接続しません。
+            </p>
+          </div>
           <label className="block text-sm font-bold">銘柄コード（最大5件）
             <input value={codesText} onChange={(e) => setCodesText(e.target.value)}
               placeholder="9984,4062,7182" className="mt-1 w-full rounded-xl border px-3 py-3 text-slate-900"/>
@@ -95,6 +140,14 @@ export default function ManualPriceReferencePage() {
           className="mt-2 w-full rounded-xl bg-blue-600 px-3 py-3 font-bold text-white disabled:opacity-50">
           {busy ? "照合中…" : "Yahoo日足と照合して別保存する"}
         </button>
+        {candidateChoices.length > 0 && <section className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-indigo-950">
+          <h2 className="text-sm font-black">自動選定された候補（保存済みの{sampleSourceCount ?? "—"}銘柄から）</h2>
+          <div className="mt-2 space-y-1">
+            {candidateChoices.map((item) => <p key={item.code} className="text-xs">
+              <span className="font-bold">{item.code} {item.name}</span>・{item.priceBand}・{item.sector}
+            </p>)}
+          </div>
+        </section>}
         {notice && <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
         {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
       </section>
