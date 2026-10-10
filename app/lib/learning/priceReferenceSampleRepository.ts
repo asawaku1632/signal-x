@@ -55,3 +55,34 @@ export async function getSuggestedPriceReferenceBatch(requestedDate: string | nu
     note: "保存済み株価のみで価格帯を分散した候補。後日の騰落や価格差を参照しません。選定は参考案であり、Yahoo日足の取得は一切行っていません。過去の保存記録は変更しません。",
   };
 }
+
+/**
+ * Lightweight, read-only picker of recent stored trading dates.
+ * Shows already-audited securities to help distribute manual checks across days.
+ * No external requests and no new scheduled job.
+ */
+type StoredDayRow = { date: string; source_count: number; observed_count: number };
+export async function getAvailablePriceReferenceDates(now = new Date()) {
+  const today = jstToday(now);
+  const since = new Date(today + "T00:00:00Z");
+  since.setUTCDate(since.getUTCDate() - MAX_LOOKBACK_DAYS);
+  const result = await pool.query<StoredDayRow>(
+    `WITH completed_days AS (
+       SELECT date, COUNT(*)::int AS source_count
+         FROM public.daily_stock_results
+        WHERE date < $1 AND date >= $2
+        GROUP BY date
+        HAVING COUNT(*) BETWEEN $3 AND $4
+        ORDER BY date DESC
+        LIMIT 8
+     )
+     SELECT d.date, d.source_count, COUNT(DISTINCT r.code)::int AS observed_count
+       FROM completed_days d
+       LEFT JOIN public.daily_learning_price_reference_audits r
+         ON r.trade_date = d.date::date
+      GROUP BY d.date, d.source_count
+      ORDER BY d.date DESC`,
+    [today, since.toISOString().slice(0, 10), MIN_DAILY_COVERAGE, MAX_SAMPLE_UNIVERSE],
+  );
+  return result.rows.filter((x) => isValidPriceAuditDate(x.date) && isTseTradingDate(x.date));
+}
