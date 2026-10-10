@@ -51,6 +51,14 @@
     {
       "path": "/api/cron/weekly-sector-report",
       "schedule": "0 11 * * 0"
+    },
+    {
+      "path": "/api/cron/weekly-sector-outcomes",
+      "schedule": "0 1 * * 6"
+    },
+    {
+      "path": "/api/cron/weekly-sector-outcomes",
+      "schedule": "30 11 * * 0"
     }
   ]
 }
