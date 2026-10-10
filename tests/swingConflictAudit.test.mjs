@@ -43,12 +43,17 @@ test("horizons are 3, 5, 10 with missing prices never scored", () => {
 test("authentication, private cache, and navigation are in place", () => {
   const api = read("app/api/swing-conflict-audit/route.ts");
   const page = read("app/simulation/conflict-check/page.tsx");
-  const navigation = read("app/simulation/page.tsx");
-  assert.match(api, /getServerSession\(authOptions\)/);
+  const navigation = read("app/menu/page.tsx");
+  const layout = read("app/simulation/conflict-check/layout.tsx");
+  assert.match(api, /getLearningOwnerSession\(\)/);
+  assert.match(api, /if \(!isOwner\)/);
+  assert.match(layout, /getLearningOwnerSession\(\)/);
+  assert.match(layout, /if \(!isOwner\) notFound\(\)/);
   assert.match(api, /"private, no-store"/);
   assert.match(api, /getSwingConflictAuditReport\(email\)/);
   assert.doesNotMatch(api, /export async function POST/);
   assert.match(page, /比較データ収集中/);
   assert.match(page, /30件未満/);
-  assert.match(navigation, /\/simulation\/conflict-check/);
+  assert.match(navigation, /\/admin\/learning-hub/);
+  assert.doesNotMatch(read("app/simulation/page.tsx"), /href="\/simulation\/conflict-check"/);
 });
