@@ -1,0 +1,26 @@
+name: Price Reference Sample Picker Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/priceReferenceSampler.ts"
+      - "app/lib/learning/priceReferenceSampleRepository.ts"
+      - "app/api/admin/daily-price-sample/**"
+      - "app/admin/daily-price-reference/page.tsx"
+      - "tests/priceReferenceSampler.test.mjs"
+      - ".github/workflows/price-reference-sampler-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/priceReferenceSampler.test.mjs tests/learningPriceReferenceShadow.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
