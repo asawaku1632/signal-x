@@ -692,6 +692,9 @@ export async function analyzeStock(stock: Stock) {
   return {
     ...scored,
     dataSource: chart.dataSource ?? "intraday",
+    // Research provenance only: do not adjust prices, scores or chart selection.
+    // Timestamp is the latest Yahoo candle used for the currentPrice calculation.
+    latestBarTimestamp: chart.latestBarTimestamp ?? null,
     supportPrice: chart.supportPrice ?? null,
     resistancePrice: chart.resistancePrice ?? null,
     supportDistancePercent: chart.supportDistancePercent ?? null,
