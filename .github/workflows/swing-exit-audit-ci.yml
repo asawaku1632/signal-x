@@ -3,12 +3,23 @@ on:
   pull_request:
     paths:
       - "app/lib/learning/swingExitAudit.ts"
+      - "app/lib/learning/swingConflictAudit.ts"
+      - "app/lib/learning/swingConflictRules.ts"
+      - "app/lib/learningOwner.ts"
+      - "app/lib/learningOwnerAccess.ts"
+      - "app/admin/learning-hub/**"
+      - "app/components/BottomNav.tsx"
+      - "app/api/private-learning-access/**"
+      - "app/menu/page.tsx"
+      - "app/api/swing-conflict-audit/**"
       - "app/lib/swingDecision.ts"
       - "app/api/swing-exit-audit/**"
       - "app/api/cron/swing-exit-audit/**"
       - "app/simulation/**"
       - "supabase/migrations/20261008_create_swing_exit_audits.sql"
       - "tests/swingExitAudit.test.mjs"
+      - "tests/swingConflictAudit.test.mjs"
+      - "tests/learningOwnerHub.test.mjs"
       - "vercel.json"
       - ".github/workflows/swing-exit-audit-ci.yml"
 permissions:
@@ -24,6 +35,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
