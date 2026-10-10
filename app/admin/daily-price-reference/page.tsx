@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Observation = {
   code: string; name: string; date: string;
@@ -12,6 +12,10 @@ type Observation = {
 };
 type Result = { code: string; success: boolean; reason?: string; observation?: Observation & { alreadySaved: boolean } };
 type SampleChoice = { code: string; name: string; baselinePrice: number; priceBand: string; sector: string };
+type AvailableDate = { date: string; source_count: number; observed_count: number };
+const readableDate = (value: string) =>
+  new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "UTC" })
+    .format(new Date(value + "T12:00:00Z"));
 const yen = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 4 }) + "円";
 const signed = (n: number) => (n > 0 ? "+" : "") + yen(n);
 
@@ -25,8 +29,29 @@ export default function ManualPriceReferencePage() {
   const [notice, setNotice] = useState("");
   const [candidateChoices, setCandidateChoices] = useState<SampleChoice[]>([]);
   const [sampleSourceCount, setSampleSourceCount] = useState<number | null>(null);
+  const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
+  const [dateLoadError, setDateLoadError] = useState("");
 
-  async function suggestCandidates() {
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch("/api/admin/daily-price-sample?mode=dates", {
+          cache: "no-store", signal: controller.signal,
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "保存日の一覧を取得できませんでした");
+        if (!controller.signal.aborted) setAvailableDates(payload.dates ?? []);
+      } catch (cause) {
+        if (!controller.signal.aborted) setDateLoadError(
+          cause instanceof Error ? cause.message : "保存日の一覧を取得できませんでした",
+        );
+      }
+    })();
+    return () => controller.abort();
+  }, []);
+
+  async function suggestCandidates(requestedDate?: string) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -36,8 +61,11 @@ export default function ManualPriceReferencePage() {
     setResults([]);
     setObservations([]);
     try {
-      // No date parameter means the latest fully saved trading day before today.
-      const response = await fetch("/api/admin/daily-price-sample", { cache: "no-store" });
+      // An explicit selected date is used when comparing earlier trading days.
+      // With no date parameter, the server picks the latest fully saved day.
+      const endpoint = "/api/admin/daily-price-sample" +
+        (requestedDate ? "?date=" + encodeURIComponent(requestedDate) : "");
+      const response = await fetch(endpoint, { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "候補が選べませんでした");
       const choices = (payload.choices ?? []) as SampleChoice[];
@@ -117,6 +145,24 @@ export default function ManualPriceReferencePage() {
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="mt-1 w-full rounded-xl border px-3 py-3 text-slate-900"/>
           </label>
+          <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="text-sm font-black">📅 保存済みの取引日から選ぶ</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              別の日付を押すだけで、その日用の候補5銘柄を自動入力。Yahooへの取得・保存は開始しません。
+            </p>
+            {dateLoadError && <p className="mt-2 text-xs text-rose-700">{dateLoadError}</p>}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {availableDates.map((day) => <button key={day.date} type="button"
+                disabled={busy} onClick={() => void suggestCandidates(day.date)}
+                className="rounded-lg border border-blue-200 bg-white px-2 py-3 text-left text-sm text-slate-900 disabled:opacity-50">
+                <span className="block font-bold">{readableDate(day.date)}</span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  保存 {day.source_count}件 ／ 照合済み {day.observed_count}件
+                </span>
+              </button>)}
+            </div>
+            {!dateLoadError && availableDates.length === 0 && <p className="mt-2 text-xs text-slate-500">保存済みの取引日を読み込み中…</p>}
+          </div>
           <div>
             <button type="button" disabled={busy} onClick={() => void suggestCandidates()}
               className="w-full rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-3 text-sm font-bold text-indigo-800 disabled:opacity-50">
@@ -124,7 +170,7 @@ export default function ManualPriceReferencePage() {
             </button>
             <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
               既存の学習保存データから価格帯を分散して選び、同じ取引日で照合済みの銘柄は除外します。
-              自動入力だけでは外部サービスに接続しません。
+              自動入力だけでは外部サービスに接続しません。複数日を調べるときは上の日付ボタンを利用してください。
             </p>
           </div>
           <label className="block text-sm font-bold">銘柄コード（最大5件）
