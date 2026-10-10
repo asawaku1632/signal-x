@@ -8,6 +8,8 @@ on:
       - "app/lib/learningOwner.ts"
       - "app/lib/learningOwnerAccess.ts"
       - "app/admin/learning-hub/**"
+      - "app/components/BottomNav.tsx"
+      - "app/api/private-learning-access/**"
       - "app/menu/page.tsx"
       - "app/api/swing-conflict-audit/**"
       - "app/lib/swingDecision.ts"
