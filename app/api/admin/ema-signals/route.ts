@@ -52,9 +52,11 @@ export async function GET(request: Request) {
       const close = Number(quote.close?.[i]);
       const volume = Number(quote.volume?.[i]);
       if (
+        quote.open?.[i] == null || quote.high?.[i] == null ||
+        quote.low?.[i] == null || quote.close?.[i] == null ||
         !Number.isFinite(time) || !Number.isFinite(open) ||
         !Number.isFinite(high) || !Number.isFinite(low) ||
-        !Number.isFinite(close) || close <= 0
+        !Number.isFinite(close) || Math.min(open, high, low, close) <= 0
       ) return [];
       return [{ time, open, high, low, close, volume: Number.isFinite(volume) ? volume : 0 }];
     }).sort((a, b) => a.time - b.time).slice(-180);
