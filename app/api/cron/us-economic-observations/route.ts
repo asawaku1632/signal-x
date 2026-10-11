@@ -71,10 +71,10 @@ export async function GET(request: Request) {
 
   // Independent quote failures are stored as null, never guessed as zero.
   const results = await Promise.allSettled(SYMBOLS.map((item) => fetchDailyClose(item)));
-  const quotes = Object.fromEntries(SYMBOLS.map((item, index) => [
-    item.key,
-    results[index].status === "fulfilled" ? results[index].value : null,
-  ])) as QuoteMap;
+  const quotes = Object.fromEntries(SYMBOLS.map((item, index) => {
+    const result = results[index];
+    return [item.key, result.status === "fulfilled" ? result.value : null];
+  })) as QuoteMap;
   const retrieved = Object.values(quotes).filter(Boolean).length;
   if (retrieved === 0) {
     return NextResponse.json({ success: false, error: "No fresh market references available" },
