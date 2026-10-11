@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { calculateEmaSeries } from "@/app/lib/technicalIndicatorMath";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number };
@@ -60,11 +61,16 @@ function EmaChart({
   const min = rawMin - padding, max = rawMax + padding;
   const x = (i: number) => left + i * (W - left - right) / Math.max(visible.length - 1, 1);
   const y = (price: number) => H - bottom - (price - min) * (H - top - bottom) / (max - min);
-  const line = (data: Array<number | null>) => visible
-    .map((_, i) => {
+  const line = (data: Array<number | null>) => {
+    let started = false;
+    return visible.map((_, i) => {
       const price = data[first + i];
-      return price === null ? "" : (i === 0 ? "M" : "L") + x(i).toFixed(1) + " " + y(price).toFixed(1);
+      if (price === null) return "";
+      const command = started ? "L" : "M";
+      started = true;
+      return command + x(i).toFixed(1) + " " + y(price).toFixed(1);
     }).filter(Boolean).join(" ");
+  };
   const closeLine = visible.map((c, i) =>
     (i === 0 ? "M" : "L") + x(i).toFixed(1) + " " + y(c.close).toFixed(1)
   ).join(" ");
