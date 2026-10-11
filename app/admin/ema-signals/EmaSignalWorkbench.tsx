@@ -147,7 +147,10 @@ export default function EmaSignalWorkbench() {
   return (
     <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-6xl">
-        <Link href="/admin/learning-status" className="text-sm font-bold text-blue-600">← 学習監視へ戻る</Link>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Link href="/admin/learning-status" className="text-sm font-bold text-blue-600">← 学習監視へ戻る</Link>
+          <Link href="/admin/ema-comparison" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-black text-violet-700">🧪 複数銘柄・条件比較へ →</Link>
+        </div>
         <header className="mt-3 rounded-2xl border border-blue-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <p className="text-xs font-black tracking-widest text-blue-600">ADMIN / READ ONLY</p>
           <h1 className="mt-2 text-2xl font-black">📈 EMA売買サイン研究</h1>

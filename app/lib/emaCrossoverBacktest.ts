@@ -56,7 +56,7 @@ export function analyzeEmaCrossovers(candles: EmaCandle[]) {
   return { ema9, ema21, signals };
 }
 
-export function backtestEmaCrossovers(candles: EmaCandle[], shares = 100) {
+export function backtestEmaCrossovers(candles: EmaCandle[], shares = 100, acceptBuySignal?: (signalIndex: number) => boolean) {
   if (!Number.isSafeInteger(shares) || shares <= 0) throw new Error("INVALID_SHARE_COUNT");
   const { signals } = analyzeEmaCrossovers(candles);
   const byIndex = new Map(signals.map((signal) => [signal.index, signal]));
@@ -93,7 +93,7 @@ export function backtestEmaCrossovers(candles: EmaCandle[], shares = 100) {
     pending = null;
 
     const closeSignal = byIndex.get(i);
-    if (closeSignal?.kind === "BUY" && !active) pending = closeSignal;
+    if (closeSignal?.kind === "BUY" && !active && (!acceptBuySignal || acceptBuySignal(i))) pending = closeSignal;
     if (closeSignal?.kind === "SELL" && active) pending = closeSignal;
   }
 
