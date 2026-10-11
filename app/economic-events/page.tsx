@@ -1,7 +1,7 @@
 import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import pool from "@/app/lib/postgres";
-import { usEconomicEvents } from "@/app/lib/usEconomicEvents";
+import { usEconomicEvents, type UsEconomicEvent } from "@/app/lib/usEconomicEvents";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,31 @@ const SYMBOLS = [
 function priceText(quote: Quote | undefined): string {
   if (!quote || !Number.isFinite(quote.close) || quote.close <= 0) return "取得なし";
   return quote.close.toLocaleString("ja-JP", { maximumFractionDigits: 2 });
+}
+
+function EconomicEventCard({ event, now }: { event: UsEconomicEvent; now: number }) {
+  const hours = (Date.parse(event.scheduledAt) - now) / 3_600_000;
+  const near = hours <= 72;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black">{event.title}</p>
+          <p className="mt-1 text-xs font-bold text-slate-700">
+            {japanTime.format(new Date(event.scheduledAt))}（日本時間）
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {near ? "⚠️ 72時間以内・値動きに注意" : "予定・観察のみ"}
+          </p>
+        </div>
+        <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
+          className="shrink-0 text-xs font-black text-blue-600 underline">
+          BLS公式 ↗
+        </a>
+      </div>
+    </div>
+  );
 }
 
 export default async function UsEconomicEventsPage() {
@@ -72,29 +97,30 @@ export default async function UsEconomicEventsPage() {
         <section className="mt-5">
           <h2 className="text-lg font-black">📅 今後の発表予定</h2>
           <div className="mt-2 space-y-2">
-            {upcoming.length ? upcoming.map((event) => {
-              const hours = (Date.parse(event.scheduledAt) - now) / 3_600_000;
-              const near = hours <= 72;
-              return (
-                <div key={event.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black">{event.title}</p>
-                      <p className="mt-1 text-xs font-bold text-slate-700">
-                        {japanTime.format(new Date(event.scheduledAt))}（日本時間）
-                      </p>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        {near ? "⚠️ 72時間以内・値動きに注意" : "予定・観察のみ"}
-                      </p>
+            {upcoming.length > 0 ? (
+              <>
+                {upcoming.slice(0, 3).map((event) => (
+                  <EconomicEventCard key={event.id} event={event} now={now} />
+                ))}
+                {upcoming.length > 3 && (
+                  <details className="group">
+                    <summary className="cursor-pointer list-none rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-center text-sm font-black text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                      <span className="group-open:hidden">もっと見る（残り{upcoming.length - 3}件） ▼</span>
+                      <span className="hidden group-open:inline">閉じる ▲</span>
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {upcoming.slice(3).map((event) => (
+                        <EconomicEventCard key={event.id} event={event} now={now} />
+                      ))}
                     </div>
-                    <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer"
-                      className="shrink-0 text-xs font-black text-blue-600 underline">
-                      BLS公式 ↗
-                    </a>
-                  </div>
-                </div>
-              );
-            }) : <p className="rounded-xl bg-white p-3 text-sm">掲載済み日程は終了しました。BLS公式日程をご確認ください。</p>}
+                  </details>
+                )}
+              </>
+            ) : (
+              <p className="rounded-xl bg-white p-3 text-sm">
+                掲載済み日程は終了しました。BLS公式日程をご確認ください。
+              </p>
+            )}
           </div>
         </section>
 
