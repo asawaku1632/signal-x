@@ -117,7 +117,7 @@ export default async function UsEconomicEventsPage() {
         <section className="mt-5">
           <h2 className="text-lg font-black">📊 市場の記録（参考値）</h2>
           <p className="mt-1 text-xs leading-5 text-slate-600">
-            発表日の前3日〜後5日、毎日1回の保存を予定。
+            発表日の前3日〜後5日の平日、原則1日1回の保存を予定。
             各市場の最終取引日が異なるため、株価の基準日も併記します。
           </p>
           {!historyAvailable ? (
