@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   try {
     const symbol = code + ".T";
     const target = "https://query1.finance.yahoo.com/v8/finance/chart/"
-      + encodeURIComponent(symbol) + "?range=" + range + "&interval=1d";
+      + encodeURIComponent(symbol) + "?range=" + range + "&interval=1d&events=splits";
     const upstream = await fetch(target, {
       headers: { "User-Agent": "Mozilla/5.0" },
       cache: "no-store",
@@ -42,6 +42,10 @@ export async function GET(request: Request) {
     const chart = payload?.chart?.result?.[0];
     const timestamps: unknown[] = chart?.timestamp ?? [];
     const quote = chart?.indicators?.quote?.[0];
+    const rawSplits = chart?.events?.splits ?? {};
+    const splitEvents: number[] = Object.values(rawSplits as Record<string, { date?: unknown }>)
+      .map((event) => Number(event?.date))
+      .filter((date) => Number.isFinite(date) && date > 0);
     if (!Array.isArray(timestamps) || !quote) {
       return response({ error: "日足データがありません" }, 404);
     }
@@ -86,6 +90,7 @@ export async function GET(request: Request) {
       timeframe: "1D",
       range,
       candles,
+      splitEvents,
       provisionalBarExcluded: excludedProvisionalBar,
       fetchedAt: now.toISOString(),
     });

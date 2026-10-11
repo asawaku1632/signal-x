@@ -100,7 +100,10 @@ export default function EmaComparisonClient() {
   const failed = items.filter((item) => item.error);
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-6xl">
-      <Link href="/admin/ema-signals" className="text-sm font-bold text-blue-600">← EMA売買サイン研究へ戻る</Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/admin/ema-signals" className="text-sm font-bold text-blue-600">← EMA売買サイン研究へ戻る</Link>
+        <Link href="/admin/ema-regimes" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-black text-violet-700">📈 20〜40銘柄・相場環境研究 →</Link>
+      </div>
       <header className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <p className="text-xs font-black tracking-widest text-violet-600">ADMIN RESEARCH / SHADOW ONLY</p>
         <h1 className="mt-2 text-2xl font-black">🧪 EMA売買条件・複数銘柄比較</h1>
