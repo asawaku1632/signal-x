@@ -196,6 +196,12 @@ export default function LearningStatusPage() {
         </div>
 
         <div className="mt-3">
+          <Link href="/admin/ema-signals" className="block rounded-2xl border border-blue-300 bg-blue-50 p-4 font-black text-blue-800 shadow-sm transition hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200">
+            📈 EMA9×EMA21 売買サイン研究（管理者専用・観察） →
+          </Link>
+        </div>
+
+        <div className="mt-3">
           <Link href="/admin/research-lab" className="block rounded-2xl border-2 border-violet-300 bg-violet-50 p-5 font-black text-violet-800 shadow-sm transition hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-100">
             ⛏️ SIGNALX 鉱脈研究所 — 4研究を統合監視 →
           </Link>
