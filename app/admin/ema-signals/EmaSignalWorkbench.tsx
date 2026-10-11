@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { calculateEmaSeries } from "@/app/lib/technicalIndicatorMath";
+import { analyzeEmaCrossovers as analyze, backtestEmaCrossovers } from "@/app/lib/emaCrossoverBacktest";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number };
 type Payload = {
   success: true;
   code: string;
   timeframe: "1D";
+  range: "6mo" | "2y";
   candles: Candle[];
   provisionalBarExcluded: boolean;
   fetchedAt: string;
@@ -21,24 +22,6 @@ const dateJp = (time: number) =>
     timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date(time * 1000));
 const yen = (value: number) => value.toLocaleString("ja-JP", { maximumFractionDigits: 2 });
-
-function analyze(candles: Candle[]) {
-  const closes = candles.map((c) => c.close);
-  const ema9 = calculateEmaSeries(closes, 9);
-  const ema21 = calculateEmaSeries(closes, 21);
-  const signals: Signal[] = [];
-  for (let i = 1; i < candles.length; i += 1) {
-    const previous9 = ema9[i - 1], previous21 = ema21[i - 1];
-    const current9 = ema9[i], current21 = ema21[i];
-    if (previous9 === null || previous21 === null || current9 === null || current21 === null) continue;
-    if (previous9 <= previous21 && current9 > current21) {
-      signals.push({ index: i, time: candles[i].time, kind: "BUY", close: candles[i].close });
-    } else if (previous9 >= previous21 && current9 < current21) {
-      signals.push({ index: i, time: candles[i].time, kind: "SELL", close: candles[i].close });
-    }
-  }
-  return { ema9, ema21, signals };
-}
 
 function EmaChart({
   candles, ema9, ema21, signals,
@@ -112,6 +95,7 @@ function EmaChart({
 
 export default function EmaSignalWorkbench() {
   const [input, setInput] = useState("7203");
+  const [range, setRange] = useState<"6mo" | "2y">("2y");
   const [code, setCode] = useState("7203");
   const [revision, setRevision] = useState(0);
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -125,7 +109,7 @@ export default function EmaSignalWorkbench() {
       setError("");
       setPayload(null);
       try {
-        const res = await fetch("/api/admin/ema-signals?code=" + encodeURIComponent(code), {
+        const res = await fetch("/api/admin/ema-signals?code=" + encodeURIComponent(code) + "&range=" + range, {
           cache: "no-store", signal: controller.signal,
         });
         const data = await res.json();
@@ -139,9 +123,10 @@ export default function EmaSignalWorkbench() {
     };
     void load();
     return () => controller.abort();
-  }, [code, revision]);
+  }, [code, revision, range]);
 
   const analysis = useMemo(() => payload ? analyze(payload.candles) : null, [payload]);
+  const backtest = useMemo(() => payload ? backtestEmaCrossovers(payload.candles) : null, [payload]);
 
   function search(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -176,6 +161,12 @@ export default function EmaSignalWorkbench() {
               <input value={input} onChange={(e) => setInput(e.target.value)} maxLength={4} autoComplete="off"
                 className="w-36 rounded-xl border border-slate-300 bg-white px-3 py-3 text-lg text-slate-900 dark:border-slate-600" aria-label="国内株式の銘柄コード" />
             </label>
+            <label className="flex flex-col gap-1 text-sm font-bold">検証期間
+              <select value={range} onChange={(event) => setRange(event.target.value as "6mo" | "2y")} className="min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 dark:border-slate-600">
+                <option value="6mo">約6か月</option>
+                <option value="2y">約2年間</option>
+              </select>
+            </label>
             <button type="submit" disabled={busy} className="min-h-12 rounded-xl bg-blue-600 px-5 font-black text-white disabled:opacity-60">
               {busy ? "取得中…" : "サインを見る"}
             </button>
@@ -188,7 +179,7 @@ export default function EmaSignalWorkbench() {
         {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 font-bold text-red-700">{error}</p>}
         {busy && <p className="mt-4 rounded-xl bg-white p-5 text-slate-500 dark:bg-slate-900">日足を取得しています…</p>}
 
-        {payload && analysis && last && (
+        {payload && analysis && last && backtest && (
           <>
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               <Metric title="最新終値" value={yen(last.close) + "円"} />
@@ -197,6 +188,63 @@ export default function EmaSignalWorkbench() {
               <Metric title="現在のEMA位置" value={last9 != null && last21 != null ? (last9 > last21 ? "EMA9が上" : last9 < last21 ? "EMA9が下" : "同値") : "—"} />
             </div>
 
+            <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-xl font-black">🧪 EMA売買サイン 自動検証</h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">確定取引のみ集計／100株固定／翌営業日始値で仮想約定</p>
+                </div>
+                <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-100">対象：{payload.range === "2y" ? "約2年" : "約6か月"}</span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <Metric title="確定取引の勝率" value={backtest.stats.winRatePercent === null ? "—" : backtest.stats.winRatePercent.toFixed(1) + "%"} />
+                <Metric title="確定取引" value={backtest.stats.closedTrades + "回"} />
+                <Metric title="確定損益合計" value={signedYen(backtest.stats.totalPnlYen)} />
+                <Metric title="1回あたり平均損益" value={backtest.stats.averagePnlYen == null ? "—" : signedYen(backtest.stats.averagePnlYen)} />
+                <Metric title="勝ち / 負け / 引分" value={backtest.stats.wins + " / " + backtest.stats.losses + " / " + backtest.stats.flat} />
+                <Metric title="平均損益率" value={backtest.stats.averageReturnPercent === null ? "—" : signedPercent(backtest.stats.averageReturnPercent)} />
+                <Metric title="最高 / 最悪（100株）" value={backtest.stats.bestTradeYen == null || backtest.stats.worstTradeYen == null ? "—" : signedYen(backtest.stats.bestTradeYen) + " / " + signedYen(backtest.stats.worstTradeYen)} />
+                <Metric title="確定損益の最大ドローダウン" value={yen(backtest.stats.maxRealizedDrawdownYen) + "円"} />
+              </div>
+              {backtest.stats.closedTrades < 10 && (
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  ⚠ 完了した取引が10回未満です。勝率・平均利益はサンプル不足で参考値です。
+                </p>
+              )}
+              {backtest.openPosition && (
+                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-800 dark:bg-slate-800">
+                  <p className="font-black">📌 未決済の仮想保有（確定損益に含めない）</p>
+                  <p className="mt-1">買付：{dateJp(backtest.openPosition.entryTime)} 始値 {yen(backtest.openPosition.entryPrice)}円 ／ 最新終値 {yen(backtest.openPosition.latestClose)}円</p>
+                  <p className="mt-1 font-bold">含み損益：{signedYen(backtest.openPosition.unrealizedPnlYen)}（{signedPercent(backtest.openPosition.unrealizedReturnPercent)}）</p>
+                  {backtest.openPosition.exitPending && <p className="mt-1 font-bold text-red-600">🔴 売り交差が出ています。翌営業日の始値がまだないため未決済です。</p>}
+                </div>
+              )}
+              {backtest.pendingBuy && <p className="mt-3 text-sm font-bold text-blue-700">🟢 買い交差直後：翌営業日の始値待ち（未約定）</p>}
+              <h3 className="mt-5 text-base font-black">過去の売買シミュレーション履歴</h3>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full min-w-[600px] text-left text-sm">
+                  <thead className="border-b text-slate-500"><tr><th className="py-2">買付日（翌始値）</th><th>売却日（翌始値）</th><th className="text-right">買値</th><th className="text-right">売値</th><th className="text-right">損益率</th><th className="text-right">100株損益</th></tr></thead>
+                  <tbody>{[...backtest.trades].reverse().slice(0, 20).map((trade) => (
+                    <tr key={trade.entryTime} className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-3">{dateJp(trade.entryTime)}</td>
+                      <td>{dateJp(trade.exitTime)}</td>
+                      <td className="text-right">{yen(trade.entryPrice)}円</td>
+                      <td className="text-right">{yen(trade.exitPrice)}円</td>
+                      <td className={"text-right font-bold " + (trade.returnPercent >= 0 ? "text-emerald-600" : "text-red-600")}>{signedPercent(trade.returnPercent)}</td>
+                      <td className={"text-right font-bold " + (trade.pnlYen >= 0 ? "text-emerald-600" : "text-red-600")}>{signedYen(trade.pnlYen)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+                {!backtest.trades.length && <p className="py-3 text-sm text-slate-500">この期間には決済済みの売買取引がありません。</p>}
+              </div>
+              <p className="mt-3 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                買いサインの翌営業日の始値で100株購入→売りサインの翌営業日の始値で売却と仮定。
+                売りから始まる交差は空売りしません。勝率＝利益プラスの確定取引数÷確定取引総数。
+                手数料・税金・スリッページ・配当・株式分割調整は未反映。最大ドローダウンは確定損益累積から計算し、保有中の下落は含みません。
+                銘柄の生存バイアス、期間の短さ、約定可能性にも注意してください。過去の実績は将来の利益を保証しません。
+              </p>
+            </section>
+
             <section className="mt-4">
               <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                 <div>
@@ -204,7 +252,7 @@ export default function EmaSignalWorkbench() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">最新足：{dateJp(last.time)} ／ 左右にスクロール可能</p>
                 </div>
                 <span className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-100">
-                  全期間の交差 {analysis.signals.length}件
+                  取得期間の交差 {analysis.signals.length}件
                 </span>
               </div>
               <EmaChart candles={payload.candles} ema9={analysis.ema9} ema21={analysis.ema21} signals={analysis.signals} />
@@ -212,7 +260,7 @@ export default function EmaSignalWorkbench() {
 
             <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
               <h2 className="text-lg font-black">直近の売買サイン</h2>
-              <p className="mt-1 text-xs text-slate-500">直近約6か月の観察。勝率・利益率を示すものではありません。</p>
+              <p className="mt-1 text-xs text-slate-500">選択期間のEMA交差一覧です。上部の成績は翌始値で約定した仮想取引に限定しています。</p>
               {lastSignal && <p className="mt-3 font-bold">最新サイン：{dateJp(lastSignal.time)} ・{lastSignal.kind === "BUY" ? "🟢 買い交差" : "🔴 売り交差"}</p>}
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[330px] text-left text-sm">
@@ -240,8 +288,11 @@ export default function EmaSignalWorkbench() {
 }
 
 function Metric({ title, value }: { title: string; value: string }) {
-  return <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+  return <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
     <p className="text-xs font-bold text-slate-500">{title}</p>
-    <p className="mt-1 text-lg font-black">{value}</p>
+    <p className="mt-1 break-words text-lg font-black">{value}</p>
   </div>;
 }
+
+function signedYen(value: number) { return (value > 0 ? "+" : "") + yen(value) + "円"; }
+function signedPercent(value: number) { return (value > 0 ? "+" : "") + value.toFixed(2) + "%"; }

@@ -20,7 +20,9 @@ export async function GET(request: Request) {
   const { isAdmin } = await getAdminSession();
   if (!isAdmin) return response({ error: "管理者専用です" }, 403);
 
-  const code = new URL(request.url).searchParams.get("code")?.trim().toUpperCase() ?? "";
+  const params = new URL(request.url).searchParams;
+  const code = params.get("code")?.trim().toUpperCase() ?? "";
+  const range = params.get("range") === "6mo" ? "6mo" : "2y";
   if (!/^[0-9A-Z]{4}$/.test(code)) {
     return response({ error: "国内株式の4桁の銘柄コードを入力してください" }, 400);
   }
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
   try {
     const symbol = code + ".T";
     const target = "https://query1.finance.yahoo.com/v8/finance/chart/"
-      + encodeURIComponent(symbol) + "?range=6mo&interval=1d";
+      + encodeURIComponent(symbol) + "?range=" + range + "&interval=1d";
     const upstream = await fetch(target, {
       headers: { "User-Agent": "Mozilla/5.0" },
       cache: "no-store",
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
         !Number.isFinite(close) || Math.min(open, high, low, close) <= 0
       ) return [];
       return [{ time, open, high, low, close, volume: Number.isFinite(volume) ? volume : 0 }];
-    }).sort((a, b) => a.time - b.time).slice(-180);
+    }).sort((a, b) => a.time - b.time).slice(-(range === "2y" ? 520 : 180));
 
     const now = new Date();
     const todayTokyo = tokyoDay.format(now);
@@ -82,6 +84,7 @@ export async function GET(request: Request) {
       success: true,
       code,
       timeframe: "1D",
+      range,
       candles,
       provisionalBarExcluded: excludedProvisionalBar,
       fetchedAt: now.toISOString(),
