@@ -160,7 +160,7 @@ export default function EmaComparisonClient() {
             <div className="mt-3 space-y-3">{studies.map((study) => <article key={study.code} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-lg font-black">{study.code} <span className="text-xs font-normal text-slate-500">・日足 {study.candles}本</span></h3>
-                <Link href={"/admin/ema-signals"} className="text-sm font-bold text-blue-600">単一銘柄ページ →</Link>
+                <Link href={"/chart/" + study.code} className="text-sm font-bold text-blue-600">通常チャート →</Link>
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-3">
                 {EMA_VARIANT_IDS.map((id) => {
