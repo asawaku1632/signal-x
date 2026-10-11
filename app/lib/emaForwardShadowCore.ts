@@ -78,3 +78,11 @@ export function planForwardSession(input:{
  }
  return {kind:"PROCESS",reason:null,lastTime:latest.time,actions};
 }
+
+/** Exact production host allowlist: the notification runner and preview sites never scan. */
+export function shouldRunForwardOnHost(host:string, flag:string|undefined, environment:string|undefined){
+ if(environment!=="production")return false;
+ if(flag==="0")return false;
+ if(flag==="1")return true;
+ return host.toLowerCase()==="signal-x-ppjg.vercel.app";
+}

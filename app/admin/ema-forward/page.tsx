@@ -1,5 +1,7 @@
 import Link from "next/link";
 import pool from "@/app/lib/postgres";
+import { headers } from "next/headers";
+import { shouldRunForwardOnHost } from "@/app/lib/emaForwardShadowCore.ts";
 import { getAdminSession } from "@/app/lib/admin";
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
@@ -18,7 +20,8 @@ export default async function EmaForwardPage(){
   ]);
   trades=a.rows as Trade[];state=b.rows;
  }catch(e){failure=e instanceof Error?e.message:"DB read failed";}
- const ready=process.env.EMA_FORWARD_SHADOW_ENABLED==="1";
+ const host=(await headers()).get("host")?.split(":")[0]??"";
+ const ready=shouldRunForwardOnHost(host,process.env.EMA_FORWARD_SHADOW_ENABLED,process.env.VERCEL_ENV);
  const completed=trades.filter(x=>x.status==="CLOSED");
  const results=(["TAKE","TIME"] as const).map(strategy=>{
   const records=completed.filter(x=>x.strategy===strategy),profit=records.reduce((s,x)=>s+num(x.net_pnl_yen),0);

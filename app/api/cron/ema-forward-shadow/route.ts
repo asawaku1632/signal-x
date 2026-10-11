@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { EMA_RESEARCH_UNIVERSE } from "@/app/lib/emaRegimeResearch.ts";
 import { processForwardStock } from "@/app/lib/emaForwardShadowStore";
+import { shouldRunForwardOnHost } from "@/app/lib/emaForwardShadowCore.ts";
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
 export const maxDuration=180;
@@ -10,8 +11,8 @@ export async function GET(request:NextRequest){
  const error=requireCronAuth(request);
  if(error)return error;
  // Only the explicitly enabled MAIN app runs this cron; other attached Vercel projects do nothing.
- if(process.env.EMA_FORWARD_SHADOW_ENABLED!=="1")
-  return NextResponse.json({success:true,enabled:false,reason:"FEATURE_DISABLED"});
+ if(!shouldRunForwardOnHost(request.nextUrl.hostname,process.env.EMA_FORWARD_SHADOW_ENABLED,process.env.VERCEL_ENV))
+  return NextResponse.json({success:true,enabled:false,reason:"NOT_PRIMARY_PRODUCTION_APP"});
  const now=new Date();
  const output:Array<{code:string;status:string;reason?:string|null;actions?:number}>=[];
  const codes=EMA_RESEARCH_UNIVERSE.map(stock=>stock.code);

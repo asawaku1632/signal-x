@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { analyzeEmaCrossovers } from "../app/lib/emaCrossoverBacktest.ts";
 import { bollingerEntryAllowed } from "../app/lib/emaSignalComparison.ts";
 import { regimeAtBuySignal } from "../app/lib/emaRegimeResearch.ts";
-import { planForwardSession, validForwardSession } from "../app/lib/emaForwardShadowCore.ts";
+import { planForwardSession, validForwardSession, shouldRunForwardOnHost } from "../app/lib/emaForwardShadowCore.ts";
 
 function bars(closes){
  return closes.map((close,i)=>({time:Date.UTC(2026,2,1)/1000+i*86400,open:close,high:close+3,low:close-3,close,volume:1000}));
@@ -103,4 +103,12 @@ test("isolated route and schema must not touch production scoring, notifications
  assert.match(ui,/if\(!isAdmin\)/);
  assert.match(schema,/ema_forward_shadow_trades/);
  assert.doesNotMatch(route+store+ui,/UPDATE daily_stock_results|INSERT INTO paper_trades|LINE_NOTIFY|sendLine|UPDATE ai_power/i);
+});
+
+test("only canonical primary production domain schedules an automatic scan",()=>{
+ assert.equal(shouldRunForwardOnHost("signal-x-ppjg.vercel.app",undefined,"production"),true);
+ assert.equal(shouldRunForwardOnHost("signal-x-hazel.vercel.app",undefined,"production"),false);
+ assert.equal(shouldRunForwardOnHost("signalx-notification-runner.vercel.app",undefined,"production"),false);
+ assert.equal(shouldRunForwardOnHost("signal-x-ppjg.vercel.app",undefined,"preview"),false);
+ assert.equal(shouldRunForwardOnHost("signal-x-ppjg.vercel.app","0","production"),false);
 });
