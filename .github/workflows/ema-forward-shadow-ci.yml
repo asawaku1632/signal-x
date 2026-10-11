@@ -1,0 +1,27 @@
+name: EMA Forward Shadow Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/emaForwardShadow*.ts"
+      - "app/admin/ema-forward/**"
+      - "app/api/cron/ema-forward-shadow/**"
+      - "tests/emaForwardShadow.test.mjs"
+      - "sql/ema-forward-shadow-v1.sql"
+      - "vercel.json"
+      - ".github/workflows/ema-forward-shadow-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/emaForwardShadow.test.mjs tests/emaStage5Research.test.mjs tests/emaExitRiskResearch.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

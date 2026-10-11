@@ -77,7 +77,7 @@ export default function EmaExitClient(){
 
  return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
   <div className="mx-auto max-w-7xl">
-   <Link href="/admin/ema-stage5" className="text-sm font-bold text-blue-600">← 第5段階・売買条件の研究へ戻る</Link>
+   <div className="flex flex-wrap items-center justify-between gap-2"><Link href="/admin/ema-stage5" className="text-sm font-bold text-blue-600">← 第5段階・売買条件の研究へ戻る</Link><Link href="/admin/ema-forward" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-black text-violet-700">📡 第7段階・未来の成績追跡 →</Link></div>
    <header className="mt-3 rounded-2xl border border-violet-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
     <p className="text-xs font-black tracking-widest text-violet-600">ADMIN / RESEARCH ONLY</p>
     <h1 className="mt-2 text-2xl font-black">🛡️ 第6段階・損切り・利確・保有日数の検証</h1>
