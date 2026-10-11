@@ -11,9 +11,14 @@ const start=Date.parse("2025-03-01T00:00:00Z")/1000;
 function bars(closes){
  return closes.map((close,i)=>({time:start+i*86400,open:close,high:close+2,low:close-2,close,volume:1000}));
 }
-const sample=()=>bars([...Array(100).fill(100),
- ...Array.from({length:40},(_,i)=>101+i*3), ...Array.from({length:40},(_,i)=>221-i*4),
- ...Array.from({length:45},(_,i)=>65+i*5), ...Array.from({length:40},(_,i)=>290-i*6)]);
+// Rising 75-day mean, short dip, then a rebound: first qualifying
+// EMA9/21 buy cross occurs on bar 154 and exits later on the next sell cross.
+const sample=()=>bars([
+ ...Array.from({length:130},(_,i)=>100+i*0.3),
+ ...Array.from({length:14},(_,i)=>138.7-(i+1)),
+ ...Array.from({length:45},(_,i)=>124.7+(i+1)*0.8),
+ ...Array.from({length:50},(_,i)=>160.7-(i+1)*2),
+]);
 
 function syntheticSignalBars(){
  const x=sample();
