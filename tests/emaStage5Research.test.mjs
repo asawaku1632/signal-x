@@ -95,7 +95,12 @@ test("stock concentration metric is based on same phase and strategy",()=>{
   const result=full.phases.ALL[id];
   const total=result.byStock.reduce((s,row)=>s+row.risk.totalPnlYen,0);
   assert.equal(result.metrics.totalPnlYen,total);
-  assert.equal(result.excludingHighestProfitYen,total-(result.highestProfitYen??0));
+  if(result.metrics.trades===0) {
+    assert.equal(result.highestProfitStock,null);
+    assert.equal(result.excludingHighestProfitYen,null);
+  } else {
+    assert.ok(Math.abs(result.excludingHighestProfitYen-(total-(result.highestProfitYen??0)))<0.01);
+  }
  }
 });
 
