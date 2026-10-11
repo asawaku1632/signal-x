@@ -39,7 +39,7 @@ export function planForwardSession(input:{
  if(lastSeen!==null&&prev!==idx-1)return {kind:"HALT",reason:"MISSED_TRADING_SESSION",lastTime:lastSeen,actions:[]};
  if(candles.some((c,i)=>!goodBar(c)||(i>0&&c.time<=candles[i-1].time)))return {kind:"HALT",reason:"INVALID_OHLC",lastTime:lastSeen,actions:[]};
  const quality=studyEmaStock({code,candles,splitEvents});
- if(quality.reason)return {kind:"HALT",reason:quality.reason,lastTime:lastSeen,actions:[]};
+ if(quality.reason)return {kind:lastSeen===null?"SKIP":"HALT",reason:quality.reason,lastTime:lastSeen,actions:[]};
 
  const signals=analyzeEmaCrossovers(candles).signals;
  const today=signals.find(s=>s.index===idx);
