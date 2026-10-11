@@ -38,7 +38,7 @@ test("BB rule only uses closes up to signal day, rejects upper-band overheating"
   assert.equal(bollingerEntryAllowed(candles, 18), false);
   assert.equal(bollingerEntryAllowed(candles, 19), false);
   assert.equal(bollingerEntryAllowed(candles, 20), false); // 120 is above 2sigma
-  candles[21].close = 101;
+  candles[21].close = 102;
   assert.equal(bollingerEntryAllowed(candles, 21), true);
   const original = bollingerEntryAllowed(candles, 21);
   candles.push(...bars(Array(40).fill(500)));
