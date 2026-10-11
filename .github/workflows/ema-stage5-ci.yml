@@ -1,0 +1,28 @@
+name: EMA Stage 5 Research Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/emaStage5Research.ts"
+      - "app/lib/emaRegimeResearch.ts"
+      - "app/lib/emaSignalComparison.ts"
+      - "app/lib/emaCrossoverBacktest.ts"
+      - "app/admin/ema-stage5/**"
+      - "app/admin/ema-regimes/EmaRegimeClient.tsx"
+      - "tests/emaStage5Research.test.mjs"
+      - ".github/workflows/ema-stage5-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/emaCrossoverBacktest.test.mjs tests/emaSignalComparison.test.mjs tests/emaRegimeResearch.test.mjs tests/emaStage5Research.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
