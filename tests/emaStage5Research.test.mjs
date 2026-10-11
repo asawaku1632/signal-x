@@ -7,7 +7,7 @@ import {bollingerEntryAllowed} from "../app/lib/emaSignalComparison.ts";
 import {EMA_STAGE5_IDS,computeStage5Stock,riskStatistics,stage5Summary} from "../app/lib/emaStage5Research.ts";
 
 function bars(closes) {
- return closes.map((close,i)=>({time: Date.parse("2024-10-01T00:00:00Z")/1000 + i*86400,
+ return closes.map((close,i)=>({time: Date.parse("2025-03-01T00:00:00Z")/1000 + i*86400,
  open:close, high:close+2, low:close-2, close, volume:1000}));
 }
 const sample=()=>bars([...Array(100).fill(100),
