@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/weekly-sector-outcomes",
       "schedule": "30 11 * * 0"
+    },
+    {
+      "path": "/api/cron/us-economic-observations",
+      "schedule": "23 22 * * 1-5"
     }
   ]
 }
