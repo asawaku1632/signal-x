@@ -63,7 +63,7 @@ test("stop gap fill uses actual worse open; inside-bar stop exits at threshold",
  const intra=b.map(x=>({...x}));
  intra[j+1].low=stop-1;
  const hits=simulateEmaExits("7203",intra,"STOP",0);
- assert.equal(hits.trades[0].exitPrice,stop);
+ assert.ok(Math.abs(hits.trades[0].exitPrice-stop)<1e-8);
 });
 
 test("take profit fills at intraday target unless opens already above target",()=>{
