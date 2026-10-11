@@ -1,0 +1,25 @@
+name: EMA Stage 6 Exit Risk Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/emaExitRiskResearch.ts"
+      - "app/admin/ema-stage6/**"
+      - "app/admin/ema-stage5/EmaStage5Client.tsx"
+      - "tests/emaExitRiskResearch.test.mjs"
+      - ".github/workflows/ema-stage6-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/emaCrossoverBacktest.test.mjs tests/emaSignalComparison.test.mjs tests/emaRegimeResearch.test.mjs tests/emaStage5Research.test.mjs tests/emaExitRiskResearch.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

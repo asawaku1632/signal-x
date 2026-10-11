@@ -112,7 +112,10 @@ export default function EmaStage5Client() {
 
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-7xl">
-      <Link href="/admin/ema-regimes" className="text-sm font-bold text-blue-600">← 第4段階・相場環境研究に戻る</Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/admin/ema-regimes" className="text-sm font-bold text-blue-600">← 第4段階・相場環境研究に戻る</Link>
+        <Link href="/admin/ema-stage6" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-black text-violet-700">🛡️ 第6段階・売り方と大損対策 →</Link>
+      </div>
       <header className="mt-3 rounded-2xl border border-violet-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-xs font-black tracking-widest text-violet-600">ADMIN RESEARCH / READ ONLY</p>
         <h1 className="mt-2 text-2xl font-black">🧪 第5段階・EMA＋BB複合条件＆リスク比較</h1>
