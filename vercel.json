@@ -63,6 +63,14 @@
     {
       "path": "/api/cron/us-economic-observations",
       "schedule": "23 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/ema-forward-shadow",
+      "schedule": "10 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/ema-forward-shadow",
+      "schedule": "10 9 * * 1-5"
     }
   ]
 }
