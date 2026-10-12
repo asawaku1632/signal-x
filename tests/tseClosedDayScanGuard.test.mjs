@@ -81,4 +81,8 @@ test("market-closed guard does not alter daily save and LINE notification execut
   assert.doesNotMatch(snapshot, /saveDailyStocks|sendLine|refreshPatternForwardStats/);
   const scanApi = read("app/api/scan/route.ts");
   assert.doesNotMatch(scanApi, /sendLine|saveDailyStocks/);
+  const lite = read("app/api/learning/save-daily-lite/route.ts");
+  assert.ok(lite.indexOf("const market = marketScanGuard()") < lite.indexOf("await runScan(1000)"));
+  assert.match(lite, /if \(!market\.refreshAllowed\) \{/);
+  assert.match(lite, /reason: "TSE_MARKET_CLOSED"/);
 });
