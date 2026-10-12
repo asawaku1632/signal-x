@@ -31,7 +31,7 @@ export default function SupportReboundMidPanel({scores,phase,busy}:{
     <div className="mt-2 max-h-[420px] overflow-auto">
       <table className="w-full min-w-[590px] text-left text-xs">
         <thead><tr className="bg-slate-100"><th className="p-2">特徴（単独・2条件）</th><th className="p-2">取引</th><th className="p-2">大損率</th><th className="p-2">勝率</th><th className="p-2">平均利益率</th></tr></thead>
-        <tbody>{current.factors.map(x)=><tr key={x.id} className="border-t">
+        <tbody>{current.factors.map(x=><tr key={x.id} className="border-t">
           <td className="p-2 font-bold">{x.label}{x.warning&&<span className="block text-[10px] text-amber-700">{x.warning}</span>}</td>
           <td className="p-2">{x.metrics.count}</td><td className="p-2">{pct(x.metrics.bigLossPercent)}</td>
           <td className="p-2">{pct(x.metrics.winPercent)}</td><td className="p-2">{signed(x.metrics.avgPercent)}</td>
