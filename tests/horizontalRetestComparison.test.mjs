@@ -90,7 +90,7 @@ test("strict candidate subset never invents a new entry price, stop, or exit", (
 test("retest eligibility does not look at future next open or later outcome candles", () => {
   const c = fixture();
   const before = compare(["3182", c]).entries[0];
-  c[67] = candle(67, 125, { open: 120, low: 119, high: 127 });
+  c[67] = candle(67, 118, { open: 112, low: 110, high: 125 });
   const after = compare(["3182", c]).entries[0];
   assert.deepEqual(after.eligible, before.eligible);
   assert.equal(after.rsiAtRetest, before.rsiAtRetest);
