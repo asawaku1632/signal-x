@@ -12,9 +12,23 @@ type SlotRow = {
   weekday: number; time_slot: string; total: string; judged: string;
   up: string; win: string; lose: string; hold: string; days: string;
   avg_change: string | null;
+  avg_hundred_share_pnl: string | null;
+  worst_hundred_share_pnl: string | null;
+  high_ai_judged: string; high_ai_win: string; high_ai_lose: string;
 };
 const WEEKDAYS = ["月", "火", "水", "木", "金"];
-const SLOTS = ["09:30", "10:30", "13:00", "14:30"];
+const SLOTS = ["09:15", "09:30", "10:30", "12:40", "13:00", "14:30", "15:15"];
+const SLOT_HINTS: Record<string, string> = {
+  "09:15": "寄り付き直後",
+  "09:30": "朝の序盤",
+  "10:30": "前場中盤",
+  "12:40": "後場寄り直後",
+  "13:00": "後場序盤",
+  "14:30": "大引けに向けて",
+  "15:15": "プレ・クロージング前",
+};
+const signedYen = (value: number | null) =>
+  value === null ? "—" : `${value > 0 ? "+" : ""}${Math.round(value).toLocaleString("ja-JP")}円`;
 const int = (value: number | string | null | undefined) => Number(value ?? 0);
 const pct = (value: number | null) => value === null ? "—" : `${value.toFixed(1)}%`;
 const rate = (win: number, lose: number) => win + lose > 0 ? 100 * win / (win + lose) : null;
@@ -51,7 +65,16 @@ async function getSlotData() {
         AND d.price > o.entry_price * 0.98)::text AS hold,
       COUNT(DISTINCT o.trade_date) FILTER (WHERE d.price > 0)::text AS days,
       ROUND(AVG(100.0 * (d.price - o.entry_price) / o.entry_price)
-        FILTER (WHERE d.price > 0)::numeric, 2)::text AS avg_change
+        FILTER (WHERE d.price > 0)::numeric, 2)::text AS avg_change,
+      ROUND(AVG(100.0 * (d.price - o.entry_price))
+        FILTER (WHERE d.price > 0)::numeric, 0)::text AS avg_hundred_share_pnl,
+      ROUND(MIN(100.0 * (d.price - o.entry_price))
+        FILTER (WHERE d.price > 0)::numeric, 0)::text AS worst_hundred_share_pnl,
+      COUNT(*) FILTER (WHERE o.ai_power >= 80 AND d.price > 0)::text AS high_ai_judged,
+      COUNT(*) FILTER (WHERE o.ai_power >= 80
+        AND d.price >= o.entry_price * 1.02)::text AS high_ai_win,
+      COUNT(*) FILTER (WHERE o.ai_power >= 80
+        AND d.price <= o.entry_price * 0.98 AND d.price > 0)::text AS high_ai_lose
     FROM public.golden_zone_observations AS o
     LEFT JOIN public.daily_stock_results AS d
       ON d.date = o.outcome_date::text AND d.code = o.code
@@ -82,16 +105,30 @@ export default async function GoldenZonePage() {
   const settledSamples = slotRows.reduce((sum, row) => sum + int(row.judged), 0);
   const slotTotals = SLOTS.map((slot) => {
     const rows = slotRows.filter((row) => row.time_slot === slot);
-    return { slot, judged: rows.reduce((sum, row) => sum + int(row.judged), 0),
-      up: rows.reduce((sum, row) => sum + int(row.up), 0),
-      wins: rows.reduce((sum, row) => sum + int(row.win), 0),
-      losses: rows.reduce((sum, row) => sum + int(row.lose), 0),
-      dayCount: rows.reduce((sum, row) => sum + int(row.days), 0) };
+    const sum = (key: "judged" | "total" | "up" | "win" | "lose" | "hold" | "days" |
+      "high_ai_judged" | "high_ai_win" | "high_ai_lose") =>
+      rows.reduce((total, row) => total + int(row[key]), 0);
+    const judged = sum("judged");
+    const weighted = (key: "avg_change" | "avg_hundred_share_pnl") =>
+      judged ? rows.reduce((total, row) =>
+        total + Number(row[key] ?? 0) * int(row.judged), 0) / judged : null;
+    const worst = rows.map((row) => mean(row.worst_hundred_share_pnl))
+      .filter((value): value is number => value !== null);
+    return {
+      slot, total: sum("total"), judged, up: sum("up"), wins: sum("win"),
+      losses: sum("lose"), holds: sum("hold"), dayCount: sum("days"),
+      avgChange: weighted("avg_change"), avgHundredSharePnl: weighted("avg_hundred_share_pnl"),
+      worstHundredSharePnl: worst.length ? Math.min(...worst) : null,
+      highAiJudged: sum("high_ai_judged"), highAiWins: sum("high_ai_win"),
+      highAiLosses: sum("high_ai_lose"),
+    };
   });
   const bestWeek = weekRows.filter((row) => int(row.win) + int(row.lose) >= 30)
     .sort((a, b) => (rate(int(b.win), int(b.lose)) ?? -1) - (rate(int(a.win), int(a.lose)) ?? -1))[0];
-  const bestSlot = slotTotals.filter((row) => row.judged >= 30 && row.dayCount >= 10)
+  const bestSlot = [...slotTotals].filter((row) => row.judged >= 30 && row.dayCount >= 10)
     .sort((a, b) => (rate(b.wins, b.losses) ?? -1) - (rate(a.wins, a.losses) ?? -1))[0];
+  const bestReturnSlot = [...slotTotals].filter((row) => row.judged >= 30 && row.dayCount >= 10)
+    .sort((a, b) => (b.avgChange ?? -Infinity) - (a.avgChange ?? -Infinity))[0];
 
   return (
     <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
@@ -101,16 +138,21 @@ export default async function GoldenZonePage() {
         <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
           管理者専用・観察モード。既存AI POWER、通知、売買には一切影響しません。
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <p className="text-xs text-slate-500">曜日別の最高勝率</p>
             <p className="mt-1 text-xl font-black">{bestWeek ? `${WEEKDAYS[bestWeek.weekday - 1]}曜日` : "検証中"}</p>
             <p className="text-sm font-bold text-emerald-600">{bestWeek ? pct(rate(int(bestWeek.win), int(bestWeek.lose))) : "—"}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs text-slate-500">時間帯の最高勝率</p>
+            <p className="text-xs text-slate-500">時間帯の最高勝率（±2%、HOLD除外）</p>
             <p className="mt-1 text-xl font-black">{bestSlot ? bestSlot.slot : "データ収集中"}</p>
             <p className="text-sm font-bold text-emerald-600">{bestSlot ? pct(rate(bestSlot.wins, bestSlot.losses)) : "—"}</p>
+          </div>
+          <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-3 sm:col-span-1 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500">翌日平均騰落率トップ（HOLD含む）</p>
+            <p className="mt-1 text-xl font-black">{bestReturnSlot ? bestReturnSlot.slot : "検証中"}</p>
+            <p className="text-sm font-bold text-emerald-600">{bestReturnSlot ? pct(bestReturnSlot.avgChange) : "—"}</p>
           </div>
         </div>
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
@@ -136,7 +178,7 @@ export default async function GoldenZonePage() {
 
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-lg font-black">⏰ 時間帯 × 曜日</h2>
-          <p className="mt-1 text-xs text-slate-500">時間帯は新規観測のみ。翌営業日の15:35頃に保存される株価で評価（±2%以上でWIN/LOSE）。</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">各時刻に保存できた銘柄だけを翌取引日の保存価格と比較（+2%以上WIN / -2%以下LOSE / それ以外HOLD）。保存価格は終値・約定価格とは限りません。</p>
           {slotResult.status !== "fulfilled" && <p className="mt-2 text-sm text-amber-600">時間帯の集計テーブル準備中／取得エラー。</p>}
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[350px] table-fixed border-separate border-spacing-1 text-center text-xs">
@@ -158,19 +200,34 @@ export default async function GoldenZonePage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-slate-500">確定30件・10取引日未満のマスは「—」表示。データが少ない状態でゴールデンゾーンを断定しません。</p>
+          <p className="mt-2 text-xs text-slate-500">時刻は観測点であり、時間帯全体を測ったものではありません。確定30件・10取引日未満のマスは「—」表示。サンプル不足なら優劣を断定しません。</p>
         </section>
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-lg font-black">📊 時間帯別まとめ</h2>
           <p className="mt-1 text-xs text-slate-500">新規観測 {totalSamples.toLocaleString()}件 / 翌営業日判定 {settledSamples.toLocaleString()}件</p>
           <div className="mt-3 space-y-2">
-            {slotTotals.map((row) => <div key={row.slot} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800">
-              <span className="font-bold">{row.slot}頃</span>
-              <span className="tabular-nums">±2%勝率 <b>{status(row.judged, row.dayCount) === "参考統計" ? pct(rate(row.wins, row.losses)) : "—"}</b></span>
-              <span className="text-xs text-slate-500 dark:text-slate-300">{row.judged}件判定・{status(row.judged, row.dayCount)}</span>
-            </div>)}
+            {slotTotals.map((row) => {
+              const ready = status(row.judged, row.dayCount) === "参考統計";
+              return <div key={row.slot} className="rounded-lg bg-slate-50 px-3 py-3 text-sm dark:bg-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-black">{row.slot} <span className="text-xs font-medium text-slate-500 dark:text-slate-300">{SLOT_HINTS[row.slot]}</span></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-300">{row.judged}/{row.total}件判定・{row.dayCount}日・{status(row.judged, row.dayCount)}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-xs sm:grid-cols-4">
+                  <span>±2%勝率 <b className="tabular-nums">{ready ? pct(rate(row.wins, row.losses)) : "—"}</b></span>
+                  <span>平均騰落 <b className="tabular-nums">{ready ? pct(row.avgChange) : "—"}</b></span>
+                  <span>100株平均損益 <b className="tabular-nums">{ready ? signedYen(row.avgHundredSharePnl) : "—"}</b></span>
+                  <span>100株最悪例 <b className="tabular-nums">{ready ? signedYen(row.worstHundredSharePnl) : "—"}</b></span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-300">
+                  WIN {row.wins} / LOSE {row.losses} / HOLD {row.holds} ・AI POWER 80以上:
+                  {row.highAiJudged}件（±2%勝率 {row.highAiJudged >= 30 && ready ? pct(rate(row.highAiWins, row.highAiLosses)) : "収集中"}）
+                </p>
+              </div>;
+            })}
           </div>
-          <p className="mt-3 text-xs leading-5 text-slate-500">サンプルはスキャンの上位最大30銘柄。市場全体の無作為抽出ではありません。取引コスト未考慮、過去の実績は将来の利益を保証しません。古い時間帯学習データは混ぜていません。</p>
+          <p className="mt-3 text-xs leading-5 text-slate-500">100株損益は観測価格と翌営業日の保存価格の差を100倍した仮定の数値で、実際に約定できる価格・利益ではありません。手数料・税金・スリッページは未考慮。サンプルはスキャン上位最大30銘柄で無作為抽出ではなく、同じ銘柄の複数時刻観測も含むため独立した試行ではありません。過去実績は将来の成績を保証しません。</p>
+          <p className="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">観測は既存の幅広いスキャンの保存データを再利用します。新鮮なスキャンが存在しない時刻や休場日は自動でスキップするため、スケジュール追加後も空欄になることがあります。売買・通知・AI POWERへの反映はありません。</p>
         </section>
       </div>
     </main>
