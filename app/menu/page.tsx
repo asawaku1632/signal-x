@@ -7,6 +7,7 @@ import { isLearningOwnerEmail } from "@/app/lib/learningOwner";
 const analysisItems: MenuItem[] = [
   { title: "AI分析", description: "銘柄をAIで分析", href: "/scan-mobile", icon: "✦", accent: "bg-violet-50 text-violet-600" },
   { title: "パターン図鑑", description: "チャート形状を学ぶ", href: "/learning/patterns", icon: "📖", accent: "bg-blue-50 text-blue-600" },
+  { title: "形状から銘柄検索", description: "55種類の形から一致銘柄を探す", href: "/chart-shape-search", icon: "🔎", accent: "bg-blue-50 text-blue-600" },
   { title: "かんたん用語集", description: "投資用語をやさしく解説", href: "/glossary", icon: "📘", accent: "bg-sky-50 text-sky-600" },
   { title: "はじめての株", description: "株の仕組み・注文・取引の流れ", href: "/beginner", icon: "🔰", accent: "bg-emerald-50 text-emerald-600" },
   { title: "学習コース", description: "投資スキルを学習", href: "/learning", icon: "🎓", accent: "bg-indigo-50 text-indigo-600" },
