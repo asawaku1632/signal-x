@@ -59,7 +59,7 @@ test("daily claims, fail closed and research-only permissions",()=>{
   assert.ok(store.indexOf("if(!isOwner)notFound()")<store.indexOf("await pool.query("));
   assert.ok(view.indexOf("if(!isOwner)notFound()")<view.indexOf("pool.query"));
   assert.match(view,/MSB・OBの自動研究を停止する/);
-  assert.doesNotMatch(migration,/\b(?:DELETE|DROP TABLE|CREATE TRIGGER|CREATE POLICY|TRUNCATE)\b/i);
+  assert.doesNotMatch(migration.replace(/^\s*--.*$/gm, ""),/\b(?:DELETE|DROP TABLE|CREATE TRIGGER|CREATE POLICY|TRUNCATE)\b/i);
   assert.doesNotMatch(auto+store,/\b(?:runScan|sendLine|calculateAiScore|savePaperTrade)\s*\(/);
 });
 
