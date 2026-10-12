@@ -48,6 +48,7 @@ test("replay is owner-only, one stock per click, and read-only", () => {
 
 test("sample cards link to the restricted replay and to regular chart", () => {
   assert.match(audit, /\/admin\/shape-precision-audit\/replay\?code=/);
+  assert.match(audit, /<Link prefetch=\{false\} href=\{\`\/admin\/shape-precision-audit\/replay/);
   assert.match(audit, /&at=\$\{encodeURIComponent\(snapshot\.updatedAt \?\? ""\)\}/);
   assert.match(audit, /\/chart\/\$\{stock\.code\}/);
   assert.match(audit, /Math\.min\(patternId === doubleBottomId/);
