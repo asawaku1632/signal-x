@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
-import { HORIZONTAL_COMPARE_VERSION, HORIZONTAL_VARIANTS } from "@/app/lib/research/horizontalRetestComparison";
+import { HORIZONTAL_COMPARE_VERSION } from "@/app/lib/research/horizontalRetestComparison";
 import {
   combineArchivedHorizontalTrades, type StoredHorizontalTrade,
 } from "@/app/lib/research/horizontalRetestArchiveStats";
@@ -48,8 +48,8 @@ export default async function HorizontalRetestArchivePage({ searchParams }: Prop
       pool.query<{ runs: string; stocks: string }>(
         "SELECT (SELECT COUNT(*) FROM public.horizontal_retest_archive_runs " +
         "WHERE detector_version=$1)::text AS runs, " +
-        "(SELECT COUNT(DISTINCT code)::text FROM public.horizontal_retest_archive_runs r " +
-        "CROSS JOIN LATERAL unnest(r.codes) AS code WHERE r.detector_version=$1) AS stocks",
+        "(SELECT COUNT(DISTINCT stock.code)::text FROM public.horizontal_retest_archive_runs r " +
+        "CROSS JOIN LATERAL unnest(r.codes) AS stock(code) WHERE r.detector_version=$1) AS stocks",
         [HORIZONTAL_COMPARE_VERSION],
       ),
     ]);
