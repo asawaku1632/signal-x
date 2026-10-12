@@ -71,13 +71,13 @@ test("cron uses fail-closed auth, activation switch, market preflight before DB 
   const source=read("app/api/cron/shadow-candle-research/route.ts");
   assert.match(source,/CRON_SECRET/);
   assert.match(source,/request\.headers\.get\("authorization"\)/);
-  assert.match(source,/SHADOW_CANDLE_AUTO_ENABLED/);
+  assert.match(source,/getShadowAutoSwitch/);
   assert.match(source,/selectShadowAutoDailyStocks/);
   const auth=source.indexOf("if (!authorized(request))");
-  const toggle=source.indexOf('process.env.SHADOW_CANDLE_AUTO_ENABLED !== "true"');
   const preflight=source.indexOf("const preflight = selectShadowAutoDailyStocks");
+  const toggle=source.indexOf("await getShadowAutoSwitch()");
   const run=source.indexOf("await runShadowCandleAutoDaily()");
-  assert.ok(auth >= 0 && toggle > auth && preflight > toggle && run > preflight);
+  assert.ok(auth >= 0 && preflight > auth && toggle > preflight && run > toggle);
   assert.doesNotMatch(source,/sendLine|runScan\(/);
 });
 
@@ -110,4 +110,22 @@ test("scheduler is only one invocation on JST trading weekday mornings", () => {
   assert.equal(jobs.length,1);
   assert.equal(jobs[0].schedule,SHADOW_CANDLE_AUTO_UTC_SCHEDULE);
   assert.equal(jobs[0].schedule,"35 23 * * 0-4");
+});
+
+test("owner-controlled switch is OFF by default, private and cannot affect live AI", () => {
+  const sql=read("supabase/migrations/20261012_create_shadow_candle_auto_control.sql");
+  assert.match(sql,/enabled boolean NOT NULL DEFAULT false/);
+  assert.match(sql,/ENABLE ROW LEVEL SECURITY/i);
+  assert.match(sql,/REVOKE ALL ON public\.shadow_candle_auto_control FROM public, anon, authenticated/);
+  assert.match(sql,/VALUES \(true, false\) ON CONFLICT \(id\) DO NOTHING/);
+  const action=read("app/admin/shadow-candlestick-nine/archive/actions.ts");
+  const auth=action.indexOf("await getLearningOwnerSession()");
+  const update=action.indexOf("UPDATE public.shadow_candle_auto_control");
+  assert.ok(auth >= 0 && update > auth);
+  assert.match(action,/if \(!isOwner\) notFound\(\)/);
+  assert.match(action,/choice !== "on" && choice !== "off"/);
+  assert.doesNotMatch(action,/runScan|sendLine|saveDailyStocks/);
+  const archive=read("app/admin/shadow-candlestick-nine/archive/page.tsx");
+  assert.match(archive,/action=\{setShadowAutoEnabled\}/);
+  assert.match(archive,/autoEnabled \? "off" : "on"/);
 });
