@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - "app/lib/research/horizontalRetest.ts"
+      - "app/lib/research/horizontalRetestComparison.ts"
       - "app/admin/horizontal-retest/**"
       - "app/admin/learning-hub/page.tsx"
       - "tests/horizontalRetest.test.mjs"
+      - "tests/horizontalRetestComparison.test.mjs"
       - ".github/workflows/horizontal-retest-shadow-ci.yml"
 permissions:
   contents: read
@@ -20,6 +22,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/horizontalRetest.test.mjs
+      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
