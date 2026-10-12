@@ -11,6 +11,8 @@ on:
       - "app/admin/support-rebound/**"
       - "app/lib/supportReboundResearch.ts"
       - "app/lib/research/supportReboundUniverse.ts"
+      - "app/lib/research/supportReboundRiskStudy.ts"
+      - "tests/supportReboundRiskStudy.test.mjs"
       - "tests/supportReboundResearch.test.mjs"
       - "tests/supportReboundExpansion.test.mjs"
       - "app/components/BottomNav.tsx"
@@ -59,6 +61,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
