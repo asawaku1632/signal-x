@@ -15,6 +15,11 @@ on:
       - "app/lib/research/supportReboundRiskScore.ts"
       - "app/lib/research/supportReboundMidRisk.ts"
       - "app/lib/research/supportReboundForwardLocal.ts"
+      - "app/lib/research/supportReboundAutoCore.ts"
+      - "app/lib/research/supportReboundAutoRunner.ts"
+      - "app/api/cron/rebound-forward/**"
+      - "supabase/migrations/20261012_create_rebound_forward_daily.sql"
+      - "tests/supportReboundAutoDaily.test.mjs"
       - "tests/supportReboundMidForward.test.mjs"
       - "tests/supportReboundRiskScore.test.mjs"
       - "tests/supportReboundRiskStudy.test.mjs"
@@ -66,6 +71,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
