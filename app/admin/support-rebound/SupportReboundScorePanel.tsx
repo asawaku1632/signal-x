@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import SupportReboundMidPanel from "./SupportReboundMidPanel";
+import SupportReboundForwardLocalPanel from "./SupportReboundForwardLocalPanel";
 import type { ReboundCandle, ReboundOpportunity } from "@/app/lib/supportReboundResearch";
 import {
   REBOUND_SCORE_VERSION, buildScoredHints, compareRiskScore,
@@ -130,6 +132,8 @@ export default function SupportReboundScorePanel({ studies, busy, completed, exp
         </div>)}
       </div>
     </details>
+    <SupportReboundMidPanel scores={scores} phase={phase} busy={preliminary} />
+    <SupportReboundForwardLocalPanel studies={studies} busy={busy} completed={completed} expected={expected} />
     <p className="mt-4 border-t border-slate-100 pt-3 text-xs leading-6 text-slate-500">
       v1固定配点（最大100点）：薄い出来高15点、50日線の10日傾き25点、ATR14を終値で割った変動率25点、
       RSI14の極端な水準20点、BB20下限割れ15点。RSI14・ATR14はWilder方式、60本の確定日足から計算。
