@@ -62,7 +62,7 @@ function summarize(trades: readonly SwingResearchTrade[]): SensitivityStat {
  * subsequent entries in that symbol through its exit CLOSE, inclusive.
  * The result is not a portfolio because different symbols may still overlap.
  */
-export function selectNonOverlappingSwing<T extends SwingResearchTrade>(observations: readonly T[]): T[] {
+export function selectNonOverlappingSwing<T extends { code: string; signalTime: number; entryTime: number; exitTime: number }>(observations: readonly T[]): T[] {
   const ordered = [...observations].sort((a, b) =>
     a.code.localeCompare(b.code) || a.entryTime - b.entryTime || a.signalTime - b.signalTime);
   const lastExitByCode = new Map<string, number>();
