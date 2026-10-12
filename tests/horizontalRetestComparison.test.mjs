@@ -102,8 +102,9 @@ test("empty or unfinished cohorts have no fabricated 0% win rate", () => {
   const empty = compare();
   assert.equal(empty.completedBaseTrades, 0);
   assert.ok(empty.comparison.every(s => s.eligible === 0 && s.winRatePercent === null));
-  const c = fixture().slice(0, 69);
-  const pending = compare(["3994", c]);
+  const c = fixture();
+  c[67] = candle(67, 113, { open: 111, high: 115, low: 110 });
+  const pending = compare(["3994", c.slice(0, 68)]);
   assert.equal(pending.completedBaseTrades, 0);
   assert.ok(pending.comparison.every(s => s.winRatePercent === null));
 });
