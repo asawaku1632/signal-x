@@ -60,8 +60,8 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
       },
       {
         href: "/admin/support-rebound", icon: "🌱",
-        title: "支持線反発・2段階研究", tag: "研究用",
-        detail: "③反発の兆しと②陽線2本の確認を過去日足で比較",
+        title: "支持線反発・最大100銘柄研究", tag: "研究用",
+        detail: "③と②の勝率・損失を20・100銘柄で比較、業種別・期間別も検証",
       },
       {
         href: "/admin/pattern-performance", icon: "📚",
