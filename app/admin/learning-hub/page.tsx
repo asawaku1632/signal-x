@@ -73,6 +73,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         title: "ローソク足9種類・隔離研究", tag: "研究用",
         detail: "1銘柄の過去日足から9種類を検出し、1・3・5営業日後の方向一致を確認",
       },
+      {
+        href: "/admin/shadow-candlestick-nine/batch", icon: "📊",
+        title: "ローソク足9種類・複数銘柄比較", tag: "研究用",
+        detail: "最大5銘柄の方向一致率・平均騰落率・最悪の結果と期間別比較",
+      },
     ],
   },
   {

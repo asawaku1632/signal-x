@@ -23,6 +23,8 @@ on:
       - "app/lib/research/shadowCandlestickNine.ts"
       - "app/admin/shadow-candlestick-nine/**"
       - "tests/shadowCandlestickNine.test.mjs"
+      - "app/lib/research/shadowCandlestickBatch.ts"
+      - "tests/shadowCandlestickBatch.test.mjs"
       - "vercel.json"
       - ".github/workflows/swing-exit-audit-ci.yml"
 permissions:
@@ -38,6 +40,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
