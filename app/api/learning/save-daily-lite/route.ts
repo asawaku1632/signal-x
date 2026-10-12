@@ -6,6 +6,7 @@ import { saveSectorLearning } from "@/app/lib/sectorLearning";
 import { saveMarketLearning } from "@/app/lib/marketLearning";
 import { saveExperienceLearning } from "@/app/lib/experienceLearning";
 import { runScan } from "@/app/lib/learning/scanEngine";
+import { marketScanGuard } from "@/app/lib/marketScanGuard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -96,6 +97,19 @@ export async function GET() {
   const startedAt = Date.now();
 
   try {
+    // Legacy learning endpoint: independently calls runScan(1000), unlike
+    // the shared snapshot refresh. On JPX holidays do not scan or save a
+    // duplicate "new" trading-day learning observation.
+    const market = marketScanGuard();
+    if (!market.refreshAllowed) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: "TSE_MARKET_CLOSED",
+        marketDateJst: market.dateJst,
+        route: "save-daily-lite",
+      });
+    }
     const scanStartedAt = Date.now();
     const scanResult = await runScan(1000);
     const stocks = scanResult.stocks as Stock[];
