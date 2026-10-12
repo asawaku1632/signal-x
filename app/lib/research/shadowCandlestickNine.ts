@@ -6,6 +6,8 @@
  * All decisions use candles up to and including index i, never future bars.
  * Detection thresholds are research hypotheses, NOT trading probabilities.
  */
+export const SHADOW_CANDLE_DETECTOR_VERSION = "CANDLE9_V1" as const;
+
 export type ShadowCandle = {
   time: number;
   open: number;
