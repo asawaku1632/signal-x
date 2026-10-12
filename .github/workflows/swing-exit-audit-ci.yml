@@ -25,6 +25,12 @@ on:
       - "tests/shadowCandlestickNine.test.mjs"
       - "app/lib/research/shadowCandlestickBatch.ts"
       - "tests/shadowCandlestickBatch.test.mjs"
+      - "app/lib/research/shadowCandleYahoo.ts"
+      - "app/lib/research/shadowCandleArchiveStats.ts"
+      - "app/admin/shadow-candlestick-nine/archive/**"
+      - "app/admin/shadow-candlestick-nine/batch/actions.ts"
+      - "tests/shadowCandleStudyArchive.test.mjs"
+      - "supabase/migrations/20261012_create_shadow_candle_research_runs.sql"
       - "vercel.json"
       - ".github/workflows/swing-exit-audit-ci.yml"
 permissions:
@@ -40,6 +46,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
