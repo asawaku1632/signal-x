@@ -1,0 +1,131 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getLearningOwnerSession } from "@/app/lib/learningOwner";
+import { dateJst, fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
+import { studyHorizontalRetest } from "@/app/lib/research/horizontalRetest";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Props = { searchParams: Promise<{ codes?: string; preset?: string }> };
+const PRESETS: Record<string, string> = {
+  A: "3182,3387,6855,7203,9984",
+  B: "1605,2760,3994,5805,8058",
+};
+const yen = (n: number) => (n > 0 ? "+" : "") + Math.round(n).toLocaleString("ja-JP") + "円";
+const percent = (n: number | null) => n === null ? "—" : n.toFixed(1) + "%";
+
+export default async function HorizontalRetestPage({ searchParams }: Props) {
+  const { isOwner } = await getLearningOwnerSession();
+  if (!isOwner) notFound();
+
+  const params = await searchParams;
+  const preset = typeof params.preset === "string" && Object.hasOwn(PRESETS, params.preset)
+    ? params.preset : null;
+  const raw = preset ? PRESETS[preset] : typeof params.codes === "string" ? params.codes.slice(0, 80) : "";
+  const attempted = raw.trim().length > 0;
+  const codes = raw.trim().split(/[\s,、]+/).filter(Boolean);
+  const inputError = attempted && (!codes.length || codes.length > 5 ||
+    new Set(codes).size !== codes.length || codes.some(code => !/^[0-9]{4}$/.test(code)))
+    ? "日本株4桁コードを重複なく1〜5件指定してください。" : null;
+
+  // Strict owner check BEFORE the deliberate on-demand fetch.
+  // No background job, write, cache or automatic universe scan.
+  const loaded = attempted && !inputError ? await fetchCohort(codes) : [];
+  const rows = loaded.filter(r => !r.error).map(r => ({
+    code: r.code, report: studyHorizontalRetest(r.candles),
+  }));
+  const excluded = loaded.filter(r => r.error);
+  const allTrades = rows.flatMap(r => r.report.trades.map(t => ({ code: r.code, ...t })));
+  const wins = allTrades.filter(t => t.profitYen100 > 0).length;
+  const total = allTrades.reduce((s, t) => s + t.profitYen100, 0);
+  const allSignals = rows.reduce((s, r) => s + r.report.breakoutCount, 0);
+  const retests = rows.reduce((s, r) => s + r.report.retestCount, 0);
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-3 py-5 pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700 dark:text-blue-300">
+          ← 学習管理へ戻る
+        </Link>
+        <header>
+          <h1 className="text-2xl font-black">📏 水平線ブレイク・押し目研究</h1>
+          <p className="mt-2 text-sm leading-6">2回以上止められた高値を突破し、水平線へ戻って陽線で反発した場面を過去の日足で研究する。</p>
+        </header>
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+          <p className="font-black">🔒 本人専用 / SHADOW ONLY / 本番の売買判定・通知・学習DBは変更しません</p>
+          <p className="mt-2">銘柄を指定して「検証する」を押したときのみ、選択した最大5銘柄の過去6か月の参考日足を取得します（最大135本で計算）。自動収集・定期実行・DB保存はありません。</p>
+          <p className="mt-2">新たな有料データ契約は不要。ただし外部データの利用条件の確認が必要で、クリック時の通信とサーバー処理は発生します。</p>
+        </section>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <form action="/admin/horizontal-retest" method="get">
+            <label className="block text-sm font-bold" htmlFor="codes">検証する銘柄（1〜5件、カンマ区切り）</label>
+            <input id="codes" name="codes" maxLength={80} defaultValue={raw}
+              placeholder="例：3182,3387,6855,7203,9984"
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900" />
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <button type="submit" className="min-h-12 rounded-xl bg-blue-700 px-2 text-sm font-bold text-white">検証する</button>
+              <button type="submit" name="preset" value="A" className="min-h-12 rounded-xl border border-blue-300 p-2 text-xs font-bold text-blue-700 dark:text-blue-300">サンプルA</button>
+              <button type="submit" name="preset" value="B" className="min-h-12 rounded-xl border border-blue-300 p-2 text-xs font-bold text-blue-700 dark:text-blue-300">サンプルB</button>
+            </div>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">初期表示では株価を取得しません。サンプルは恣意的に選んだ銘柄であり、全市場の勝率を示しません。</p>
+          {inputError && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{inputError}</p>}
+        </section>
+        {attempted && !inputError && (
+          <>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <h2 className="text-lg font-black">検証結果（日足・仮想100株）</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-800"><p className="text-xs">突破候補</p><p className="text-xl font-black">{allSignals}件</p></div>
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-800"><p className="text-xs">押し目反発</p><p className="text-xl font-black">{retests}件</p></div>
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-800"><p className="text-xs">確定取引 / 勝率</p><p className="text-xl font-black">{allTrades.length} / {percent(allTrades.length ? wins / allTrades.length * 100 : null)}</p></div>
+                <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-800"><p className="text-xs">仮想損益合計</p><p className="text-xl font-black">{yen(total)}</p></div>
+              </div>
+              <p className="mt-3 text-xs leading-6 text-slate-600 dark:text-slate-300">
+                手法：日足20日平均 ＞ 50日平均、出来高1.2倍以上、過去65本以内に独立した高値接触2回以上。
+                終値で上抜け後5営業日以内に反発陽線を確認、翌営業日寄り付き買い。
+                損切りは水平線／押し目安値の下、利確はリスクの2倍、最大5営業日保有。
+                同一足で利確と損切りが重なる場合は損切り優先。売買時の想定滑りは片道0.1%。税・手数料は含まず、100株固定・資金制約なし。
+                未確定の取引は勝率・利益から除外します。
+              </p>
+              {allTrades.length === 0 && <p className="mt-3 text-sm font-bold text-amber-700">確定できた取引はまだ0件です。0%の勝率という意味ではありません。</p>}
+            </section>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <h2 className="text-lg font-black">銘柄別の結果</h2>
+              <div className="mt-3 space-y-2">
+                {rows.map(({ code, report }) => (
+                  <div key={code} className="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+                    <p className="font-black">{code}　<span className="font-normal text-slate-500">{report.candleCount}本</span></p>
+                    <p className="mt-1">突破 {report.breakoutCount}件 → 反発 {report.retestCount}件 → 確定 {report.completed}件</p>
+                    <p className="font-bold">勝率 {percent(report.winRatePercent)} / 仮想損益 {yen(report.profitYen100)}</p>
+                  </div>
+                ))}
+                {excluded.map(r => <p key={r.code} className="text-sm text-red-700">{r.code}：{r.error}</p>)}
+              </div>
+            </section>
+            {allTrades.length > 0 && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                <h2 className="text-lg font-black">確定した取引（新しい順・最大10件）</h2>
+                <div className="mt-3 space-y-2">
+                  {[...allTrades].sort((a,b) => b.entryIndex - a.entryIndex).slice(0,10).map((t, i) => (
+                    <div key={t.code + "-" + t.breakoutIndex + "-" + i} className="rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-800">
+                      <p className="font-black">{t.code}｜抵抗線 {t.resistance.toLocaleString("ja-JP")}円（接触{t.touches}回）</p>
+                      <p className="mt-1">買い {yen(t.entry)} / 売り {yen(t.exit)}　{t.reason}</p>
+                      <p className="font-bold">100株損益 {yen(t.profitYen100)} ({percent(t.returnPercent)})</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+        <p className="text-xs leading-6 text-slate-500 dark:text-slate-400">
+          ※研究結果は過去データを使った仮説の検証で、将来の勝率を保証しません。
+          データ期間・銘柄選択・約定の再現性・株式分割・配当調整・取引コストなどに制限があります。
+          本番スコアや通知には反映されません。
+        </p>
+      </div>
+    </main>
+  );
+}
