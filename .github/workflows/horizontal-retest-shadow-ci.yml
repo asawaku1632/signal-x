@@ -19,8 +19,10 @@ on:
       - "tests/horizontalRetestArchive.test.mjs"
       - "tests/horizontalAutoDaily.test.mjs"
       - "app/lib/research/msbMaSwing.ts"
+      - "app/lib/research/msbMaVolumeSensitivity.ts"
       - "app/admin/shadow-msb-ob-swing/**"
       - "tests/msbMaSwing.test.mjs"
+      - "tests/msbMaVolumeSensitivity.test.mjs"
       - ".github/workflows/horizontal-retest-shadow-ci.yml"
 permissions:
   contents: read
@@ -35,6 +37,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs tests/horizontalAutoDaily.test.mjs tests/msbMaSwing.test.mjs
+      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs tests/horizontalAutoDaily.test.mjs tests/msbMaSwing.test.mjs tests/msbMaVolumeSensitivity.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
