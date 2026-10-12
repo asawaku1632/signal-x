@@ -4,10 +4,13 @@ on:
     paths:
       - "app/lib/research/horizontalRetest.ts"
       - "app/lib/research/horizontalRetestComparison.ts"
+      - "app/lib/research/horizontalRetestArchiveStats.ts"
+      - "supabase/migrations/20261012_create_horizontal_retest_archive.sql"
       - "app/admin/horizontal-retest/**"
       - "app/admin/learning-hub/page.tsx"
       - "tests/horizontalRetest.test.mjs"
       - "tests/horizontalRetestComparison.test.mjs"
+      - "tests/horizontalRetestArchive.test.mjs"
       - ".github/workflows/horizontal-retest-shadow-ci.yml"
 permissions:
   contents: read
@@ -22,6 +25,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs
+      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
