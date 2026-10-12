@@ -74,6 +74,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "ダブルボトム過剰検出・信頼度分布とサンプルチャートを点検",
       },
       {
+        href: "/admin/horizontal-retest", icon: "📏",
+        title: "水平線ブレイク・押し目検証", tag: "研究用",
+        detail: "過去の日足で反発後の勝率・100株損益を隔離検証",
+      },
+      {
         href: "/admin/shadow-candlestick-nine", icon: "🕯️",
         title: "ローソク足9種類・隔離研究", tag: "研究用",
         detail: "1銘柄の過去日足から9種類を検出し、1・3・5営業日後の方向一致を確認",
