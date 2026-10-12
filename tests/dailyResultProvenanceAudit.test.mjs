@@ -34,6 +34,6 @@ test("admin-only audit is read-only and does not rewrite legacy scores", () => {
   assert.match(api, /new Date\(\)\.toISOString\(\)/);
   assert.doesNotMatch(api, /\bUPDATE\b|\bDELETE\b|\bINSERT\b/);
   const page = read("app/admin/ai-win-rate-audit/page.tsx");
-  assert.match(page, /取得元未記録/);
-  assert.match(page, /正誤を断定しません/);
+  assert.match(page, /過去データの監査/);
+  assert.match(page, /取得元不明を誤判定とみなすことはできません/);
 });
