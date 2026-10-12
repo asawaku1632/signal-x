@@ -21,6 +21,7 @@ const supportItems: MenuItem[] = [
   { title: "ウォッチリスト", description: "登録銘柄を管理", href: "/favorites", icon: "◉", accent: "bg-teal-50 text-teal-600" },
   { title: "通知履歴", description: "過去の通知を確認", href: "/history", icon: "🔔", accent: "bg-emerald-50 text-emerald-600" },
   { title: "注目銘柄", description: "今日の注目銘柄", href: "/top-signals", icon: "★", accent: "bg-yellow-50 text-yellow-500" },
+  { title: "米国経済イベント", description: "CPI・雇用統計の予定と市場の動き", href: "/economic-events", icon: "🇺🇸", accent: "bg-blue-50 text-blue-600" },
 ];
 
 const accountItems: MenuItem[] = [
