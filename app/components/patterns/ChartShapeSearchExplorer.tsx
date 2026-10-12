@@ -151,8 +151,8 @@ export default function ChartShapeSearchExplorer({
     if (!selectedId) return [];
     return stocks.flatMap((stock) => {
       const match = stock.patterns.find((pattern) => pattern.id === selectedId);
-      return match && (stock.score ?? -1) >= minAiPower &&
-        (match.confidence ?? -1) >= minConfidence
+      return match && (minAiPower === 0 || (stock.score ?? -1) >= minAiPower) &&
+        (minConfidence === 0 || (match.confidence ?? -1) >= minConfidence)
         ? [{ stock, confidence: match.confidence }] : [];
     }).sort((a, b) =>
       (b.confidence ?? -1) - (a.confidence ?? -1) ||
@@ -235,18 +235,94 @@ export default function ChartShapeSearchExplorer({
         </div>
       </section>
 
+      {historicalStats !== null && (
+        <section aria-label="研究実績による形状の絞り込み" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="text-sm font-black text-amber-950">🔒 オーナー専用：パターン別の過去実績</h2>
+          <p className="mt-2 text-xs leading-5 text-amber-950">
+            保存した発生日から5営業日後の方向一致率と平均騰落率です。
+            下落型は「その後に株価が下がった割合」を勝率とします。売買利益や個別銘柄の上昇確率ではありません。
+          </p>
+          {statsUnavailable ? (
+            <p className="mt-3 text-sm font-bold text-red-700">研究データを取得できませんでした。形状検索は引き続き利用できます。</p>
+          ) : (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-amber-950">
+                実績の絞り込み
+                <select value={researchFilter}
+                  onChange={(event) => { setResearchFilter(event.target.value as ResearchFilter); setSelectedId(null); }}
+                  className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm text-slate-900">
+                  <option value="ALL">すべて（研究途中も表示）</option>
+                  <option value="MIN20">5日後の確定結果20件以上</option>
+                  <option value="VALIDATED">検証済みパターンのみ</option>
+                </select>
+              </label>
+              <label className="text-xs font-black text-amber-950">
+                パターンの並び替え
+                <select value={researchSort}
+                  onChange={(event) => setResearchSort(event.target.value as ResearchSort)}
+                  className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm text-slate-900">
+                  <option value="MATCHES">一致銘柄数が多い順</option>
+                  <option value="WINRATE">5日後の方向一致率が高い順（20件以上）</option>
+                  <option value="AVERAGE">5日後の方向別平均騰落率が高い順（20件以上）</option>
+                </select>
+              </label>
+            </div>
+          )}
+          <p className="mt-2 text-xs font-bold leading-5 text-amber-900">
+            実績が少ないパターンは数値が大きく変動する場合があります。研究データは本人以外に表示しません。
+          </p>
+        </section>
+      )}
+
       {selectedPattern && (
         <section ref={resultRef} aria-live="polite" className="mt-5 scroll-mt-4 rounded-2xl border-2 border-blue-300 bg-white p-3 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black text-blue-700">選択した形状に一致する銘柄</p>
               <h2 className="mt-1 text-lg font-black">{selectedPattern.name}</h2>
-              <p className="mt-1 text-sm font-bold text-slate-600">{matches.length}銘柄</p>
+              <p className="mt-1 text-sm font-bold text-slate-600">
+                {matches.length}銘柄
+                {(minAiPower > 0 || minConfidence > 0) && (
+                  <span className="text-xs text-slate-500">（絞り込み前 {counts.get(selectedId ?? "") ?? 0}銘柄）</span>
+                )}
+              </p>
             </div>
             <button type="button" onClick={() => setSelectedId(null)}
               className="min-h-11 shrink-0 rounded-xl border border-slate-300 px-3 text-xs font-black">
               閉じる
             </button>
+          </div>
+          {historicalStats !== null && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-slate-800">
+              <p className="font-black">過去5営業日の研究実績：{researchStatus(selectedStat?.status)}</p>
+              <p>方向一致率：{percent((selectedStat?.completed5dCount ?? 0) > 0 ? selectedStat?.winRate5d ?? null : null)}
+                （確定 {selectedStat?.completed5dCount ?? 0}件）</p>
+              <p>方向別平均騰落率：{signedPercent(selectedStat?.avgDirectionalReturn5d ?? null)}
+                ／対象 {selectedStat?.distinctCodes ?? 0}銘柄・{selectedStat?.distinctDates ?? 0}日</p>
+              <p className="text-amber-900">この統計は同じ形を検出した過去の集計です。ここに並ぶ銘柄個別の勝率ではありません。</p>
+            </div>
+          )}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="text-xs font-black text-slate-700">
+              AI POWER
+              <select value={minAiPower} onChange={(event) => { setMinAiPower(Number(event.target.value)); setVisible(30); }}
+                className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-2 text-sm">
+                <option value={0}>すべて</option>
+                <option value={70}>70以上</option>
+                <option value={85}>85以上</option>
+                <option value={95}>95以上</option>
+              </select>
+            </label>
+            <label className="text-xs font-black text-slate-700">
+              形状の検出信頼度
+              <select value={minConfidence} onChange={(event) => { setMinConfidence(Number(event.target.value)); setVisible(30); }}
+                className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-2 text-sm">
+                <option value={0}>すべて</option>
+                <option value={75}>75%以上</option>
+                <option value={85}>85%以上</option>
+                <option value={95}>95%以上</option>
+              </select>
+            </label>
           </div>
           <p className="mt-2 text-xs leading-5 text-slate-600">
             検出信頼度順に表示。信頼度は形状への一致度であり、上昇・下落の確率や勝率ではありません。
@@ -306,6 +382,15 @@ export default function ChartShapeSearchExplorer({
             >
               <p className="min-h-10 text-center text-xs font-black leading-5 sm:text-sm">{pattern.name}</p>
               <PatternDiagram pattern={pattern} compact />
+              {historicalStats !== null && (
+                <div className="mt-2 rounded-lg bg-amber-50 px-2 py-2 text-center text-[11px] font-bold leading-5 text-amber-950">
+                  <p>{researchStatus(researchById.get(pattern.id)?.status)}</p>
+                  <p>5日方向一致率 {percent((researchById.get(pattern.id)?.completed5dCount ?? 0) > 0
+                    ? researchById.get(pattern.id)?.winRate5d ?? null : null)}
+                    （{researchById.get(pattern.id)?.completed5dCount ?? 0}件）</p>
+                  <p>5日方向別平均 {signedPercent(researchById.get(pattern.id)?.avgDirectionalReturn5d ?? null)}</p>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => { setSelectedId(pattern.id); setVisible(30); }}
@@ -322,7 +407,8 @@ export default function ChartShapeSearchExplorer({
         )}
       </section>
       <p className="mt-5 text-center text-xs font-bold leading-6 text-slate-500">
-        現段階は保存済みスキャンの形状検索です。画像の「1か月」などの期間別検索や、過去の勝率での絞り込みは未対応です。
+        現段階は保存済みスキャンを対象とします。過去実績は形状別の集計であり、将来の収益を保証しません。
+        画像の「1か月」など任意の期間を指定した形状検索は未対応です。
       </p>
     </>
   );
