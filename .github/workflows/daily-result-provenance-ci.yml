@@ -4,6 +4,11 @@ on:
     paths:
       - "app/lib/learning/checkDailyRunner.ts"
       - "app/api/admin/ai-win-rate-audit/**"
+      - "app/api/cron/win-rate-reliability-audit/**"
+      - "app/lib/learning/winRateReliabilityAudit.ts"
+      - "app/lib/learning/winRateWeeklyAudit.ts"
+      - "vercel.json"
+      - "tests/winRateReliabilityAudit.test.mjs"
       - "app/admin/ai-win-rate-audit/**"
       - "app/admin/learning-status/page.tsx"
       - "supabase/migrations/20261009_create_daily_result_price_provenance.sql"
@@ -22,6 +27,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/dailyResultProvenanceAudit.test.mjs tests/dailyCheckRecoveryCron.test.mjs tests/phase1DailySnapshotIsolation.test.mjs
+      - run: node --test tests/dailyResultProvenanceAudit.test.mjs tests/winRateReliabilityAudit.test.mjs tests/dailyCheckRecoveryCron.test.mjs tests/phase1DailySnapshotIsolation.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
