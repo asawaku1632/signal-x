@@ -126,8 +126,9 @@ function summarize(id: ResearchVariant, label: string, entries: readonly SwingRe
 }
 
 /**
- * Baseline samples are fixed before filtering, one per >=5 business-day holding
- * period per symbol. Same hypothetical fills across all four variants.
+ * Every MA-valid daily close is one observation. Five-day holding windows can
+ * overlap, so samples are correlated and NOT a portfolio backtest.
+ * Same hypothetical fills across all four variants.
  * Signal at completed close i, enter at next OPEN, leave at close i+5.
  * Slippage 0.1% each way; 100 shares; no commissions, tax, dividends or splits.
  * Only completed 5-day outcomes appear in win rates; future bars are never read
@@ -168,7 +169,6 @@ export function studyMsbMaSwing(
         eligible: { MA525: true, MA525_VOLUME: volume, MA525_MSB_OB: ob !== null,
           MA525_ALL: volume && ob !== null },
       });
-      i += 4; // At least five business days between baseline sample signals.
     }
   }
   return { version: SWING_SHADOW_VERSION, cohortCount, candleCount,
