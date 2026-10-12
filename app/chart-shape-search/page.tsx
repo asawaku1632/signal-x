@@ -7,6 +7,7 @@ import ChartShapeSearchExplorer, {
 } from "@/app/components/patterns/ChartShapeSearchExplorer";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import { SCAN_SNAPSHOT_KEY } from "@/app/lib/scanSnapshot";
+import { marketScanGuard, quoteDateJst } from "@/app/lib/marketScanGuard";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { getPatternForwardStats } from "@/app/lib/learning/patternForwardLearning";
 
@@ -28,14 +29,25 @@ function numberOrNull(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function parseStocks(value: unknown): ShapeStock[] {
-  if (!Array.isArray(value)) return [];
+function parseStocks(value: unknown): {
+  stocks: ShapeStock[];
+  oldestQuoteDateJst: string | null;
+  latestQuoteDateJst: string | null;
+} {
+  if (!Array.isArray(value)) return { stocks: [], oldestQuoteDateJst: null, latestQuoteDateJst: null };
+  let oldestQuoteDateJst: string | null = null;
+  let latestQuoteDateJst: string | null = null;
   const validIds = new Set(chartPatternCatalog.map((pattern) => pattern.id));
   const result: ShapeStock[] = [];
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
     const raw = item as Record<string, unknown>;
     if (typeof raw.code !== "string" || !/^[0-9A-Za-z]{4,5}$/.test(raw.code)) continue;
+    const quoteDate = quoteDateJst(raw.barTimestamp);
+    if (quoteDate) {
+      if (!oldestQuoteDateJst || quoteDate < oldestQuoteDateJst) oldestQuoteDateJst = quoteDate;
+      if (!latestQuoteDateJst || quoteDate > latestQuoteDateJst) latestQuoteDateJst = quoteDate;
+    }
     if (!Array.isArray(raw.patterns)) continue;
 
     const patterns: ShapeStock["patterns"] = [];
@@ -58,7 +70,7 @@ function parseStocks(value: unknown): ShapeStock[] {
       patterns,
     });
   }
-  return result;
+  return { stocks: result, oldestQuoteDateJst, latestQuoteDateJst };
 }
 
 async function loadSnapshot(): Promise<{
@@ -66,6 +78,8 @@ async function loadSnapshot(): Promise<{
   requestedCount: number;
   scannedCount: number;
   stocks: ShapeStock[];
+  oldestQuoteDateJst: string | null;
+  latestQuoteDateJst: string | null;
   unavailable: boolean;
 }> {
   try {
@@ -94,6 +108,7 @@ async function loadSnapshot(): Promise<{
               'name', entry.stock->>'name',
               'score', entry.stock->'score',
               'price', entry.stock->'price',
+              'barTimestamp', entry.stock->'latestBarTimestamp',
               'patterns', CASE
                 WHEN jsonb_typeof(entry.stock->'patternObservations') = 'array'
                   THEN entry.stock->'patternObservations'
@@ -110,24 +125,28 @@ async function loadSnapshot(): Promise<{
     `, [SCAN_SNAPSHOT_KEY]);
     const row = rows[0];
     if (!row) {
-      return { updatedAt: null, requestedCount: 0, scannedCount: 0, stocks: [], unavailable: false };
+      return { updatedAt: null, requestedCount: 0, scannedCount: 0, stocks: [],
+        oldestQuoteDateJst: null, latestQuoteDateJst: null, unavailable: false };
     }
     const timestamp = new Date(row.updated_at);
+    const parsed = parseStocks(row.stocks);
     return {
       updatedAt: Number.isNaN(timestamp.getTime()) ? null : timestamp.toISOString(),
       requestedCount: Number(row.item_count) || 0,
       scannedCount: Number(row.scanned_count) || 0,
-      stocks: parseStocks(row.stocks),
+      ...parsed,
       unavailable: false,
     };
   } catch (error) {
     console.error("chart shape read-only snapshot failed:", error);
-    return { updatedAt: null, requestedCount: 0, scannedCount: 0, stocks: [], unavailable: true };
+    return { updatedAt: null, requestedCount: 0, scannedCount: 0, stocks: [],
+      oldestQuoteDateJst: null, latestQuoteDateJst: null, unavailable: true };
   }
 }
 
 export default async function ChartShapeSearchPage() {
   const [snapshot, owner] = await Promise.all([loadSnapshot(), getLearningOwnerSession()]);
+  const market = marketScanGuard();
   // Forward outcomes are private research data. Public visitors only receive
   // the existing shape-matching snapshot; never serialize the private stats.
   let historicalStats: ShapePatternStat[] | null = null;
@@ -176,6 +195,9 @@ export default async function ChartShapeSearchPage() {
           unavailable={snapshot.unavailable}
           historicalStats={historicalStats}
           statsUnavailable={statsUnavailable}
+          marketClosed={market.closed}
+          oldestQuoteDateJst={snapshot.oldestQuoteDateJst}
+          latestQuoteDateJst={snapshot.latestQuoteDateJst}
         />
       </div>
       <BottomNav />

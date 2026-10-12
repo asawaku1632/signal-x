@@ -190,6 +190,8 @@ function ScanMobileContent() {
   const [totalStocks, setTotalStocks] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [marketClosed, setMarketClosed] = useState(false);
+  const [quoteDateRange, setQuoteDateRange] = useState<{ oldest: string | null; latest: string | null }>({ oldest: null, latest: null });
   const [signalFilter, setSignalFilter] = useState<SignalFilter>(initialSignalFilter);
   const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(initialBudget);
   const [sortMode, setSortMode] = useState<SortMode>("score");
@@ -228,7 +230,14 @@ function ScanMobileContent() {
       if (list.length === 0) throw new Error("scan api returned empty stocks");
       setStocks(list);
       setTotalStocks(Number(json?.totalStockList ?? list.length));
-      setLastUpdated(new Date());
+      // The response's snapshot time is NOT the time this device fetched it.
+      const savedAt = typeof json?.updatedAt === "string" ? new Date(json.updatedAt) : null;
+      setLastUpdated(savedAt && Number.isFinite(savedAt.getTime()) ? savedAt : null);
+      setMarketClosed(json?.marketClosed === true);
+      setQuoteDateRange({
+        oldest: typeof json?.oldestQuoteDateJst === "string" ? json.oldestQuoteDateJst : null,
+        latest: typeof json?.latestQuoteDateJst === "string" ? json.latestQuoteDateJst : null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setFetchError("timeout");
@@ -353,6 +362,20 @@ function ScanMobileContent() {
           updated={lastUpdated}
           market={market}
         />
+        {stocks.length > 0 && (
+          <div className={`mt-3 rounded-xl border px-3 py-3 text-xs font-bold leading-6 ${marketClosed
+            ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+            : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"}`}>
+            {marketClosed && <p>📅 東証休場日：前営業日の保存データを表示中。休場日は全銘柄の再スキャンを行いません。</p>}
+            <p>AI分析結果の保存日時：{lastUpdated ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
+            <p>株価データの最終日：{quoteDateRange.latest
+              ? quoteDateRange.oldest && quoteDateRange.oldest !== quoteDateRange.latest
+                ? `${quoteDateRange.oldest}〜${quoteDateRange.latest}`
+                : quoteDateRange.latest
+              : "元データの日時は未取得"}（日本時間）</p>
+            <p className="font-normal">株価日付とAI分析の保存日時は異なる場合があります。保存日時は新しい株価の取得を意味しません。</p>
+          </div>
+        )}
 
         {fetchError && stocks.length > 0 && (
           <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} compact />
