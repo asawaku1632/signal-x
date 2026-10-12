@@ -43,6 +43,9 @@ type Props = {
   unavailable: boolean;
   historicalStats: ShapePatternStat[] | null;
   statsUnavailable: boolean;
+  marketClosed: boolean;
+  oldestQuoteDateJst: string | null;
+  latestQuoteDateJst: string | null;
 };
 
 const directions: Array<{ value: DirectionFilter; label: string }> = [
@@ -81,6 +84,9 @@ export default function ChartShapeSearchExplorer({
   unavailable,
   historicalStats,
   statsUnavailable,
+  marketClosed,
+  oldestQuoteDateJst,
+  latestQuoteDateJst,
 }: Props) {
   const [direction, setDirection] = useState<DirectionFilter>("ALL");
   const [category, setCategory] = useState("ALL");
@@ -174,9 +180,23 @@ export default function ChartShapeSearchExplorer({
           {unavailable
             ? "データベースを読み取れませんでした"
             : dateLabel
-              ? `保存スキャン：${dateLabel}（日本時間）`
+              ? `AI分析結果の保存日時：${dateLabel}（日本時間）`
               : "保存済みスキャンはまだありません"}
         </p>
+        {hasData && (
+          <p className="mt-1 text-xs font-black text-slate-700">
+            株価データの最終日：{latestQuoteDateJst
+              ? oldestQuoteDateJst && oldestQuoteDateJst !== latestQuoteDateJst
+                ? `${oldestQuoteDateJst}〜${latestQuoteDateJst}`
+                : latestQuoteDateJst
+              : "未取得"}（日本時間）
+          </p>
+        )}
+        {marketClosed && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black leading-5 text-amber-900">
+            📅 東証休場日：前営業日の保存スキャンを表示しています。休場日の新しい値動きではありません。
+          </p>
+        )}
         {hasData && (
           <p className="mt-1 text-xs font-bold text-slate-600">
             取得済み {scannedCount.toLocaleString("ja-JP")}銘柄
