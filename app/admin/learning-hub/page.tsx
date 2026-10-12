@@ -79,6 +79,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "過去の日足で反発後の勝率・100株損益を隔離検証",
       },
       {
+        href: "/admin/shadow-msb-ob-swing", icon: "🧭",
+        title: "MSB・OB × 5日/25日線・出来高", tag: "研究用",
+        detail: "同じ過去の日足を4条件で比較（保存なし・本人専用）",
+      },
+      {
         href: "/admin/shadow-candlestick-nine", icon: "🕯️",
         title: "ローソク足9種類・隔離研究", tag: "研究用",
         detail: "1銘柄の過去日足から9種類を検出し、1・3・5営業日後の方向一致を確認",
