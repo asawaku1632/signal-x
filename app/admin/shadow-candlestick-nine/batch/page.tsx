@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
-import type { ShadowCandle } from "@/app/lib/research/shadowCandlestickNine";
+import { fetchCohort, dateJst } from "@/app/lib/research/shadowCandleYahoo";
+import { saveShadowCandleBatch } from "./actions";
 import {
   parseShadowBatchCodes,
   studyShadowCandleBatch,
@@ -17,100 +18,7 @@ const PRESETS: Record<string, { label: string; codes: string }> = {
   A: { label: "サンプルA（5銘柄）", codes: "3182,3387,6855,7203,9984" },
   B: { label: "サンプルB（5銘柄）", codes: "1605,2760,3994,5805,8058" },
 };
-const MAX_HISTORY = 135;
-
-type Props = { searchParams: Promise<{ codes?: string; preset?: string }> };
-type LoadedStock = {
-  code: string;
-  candles: ShadowCandle[];
-  error: string | null;
-};
-
-function dateJst(seconds: number) {
-  return new Date(seconds * 1000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-}
-function jstToday() {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-}
-function positive(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
-  return value;
-}
-
-// Per-click, owner-only, bounded and explicitly selected codes.
-// No periodic work, writing, caching, background collection or bulk universe access.
-async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_500);
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=6mo&interval=1d`;
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: { "User-Agent": "Mozilla/5.0" },
-      signal: controller.signal,
-    });
-    if (!response.ok) return { code, candles: [], error: "株価取得に失敗（応答エラー）" };
-    const value: unknown = await response.json();
-    const chart = (value as {
-      chart?: {
-        error?: unknown;
-        result?: Array<{
-          timestamp?: unknown;
-          indicators?: { quote?: Array<{
-            open?: unknown; high?: unknown; low?: unknown; close?: unknown; volume?: unknown;
-          }> };
-        }>;
-      };
-    })?.chart;
-    if (!chart || chart.error || !Array.isArray(chart.result)) throw new Error("invalid market data");
-    const first = chart.result[0];
-    const timeValues = first?.timestamp;
-    const quote = first?.indicators?.quote?.[0];
-    if (!Array.isArray(timeValues) || !quote ||
-      !Array.isArray(quote.open) || !Array.isArray(quote.high) ||
-      !Array.isArray(quote.low) || !Array.isArray(quote.close)) throw new Error("missing daily OHLC");
-
-    const cutoff = jstToday();
-    const candles: ShadowCandle[] = [];
-    for (let i = 0; i < timeValues.length; i++) {
-      const time = positive(timeValues[i]);
-      const open = positive(quote.open[i]);
-      const high = positive(quote.high[i]);
-      const low = positive(quote.low[i]);
-      const close = positive(quote.close[i]);
-      if (!time || !open || !high || !low || !close ||
-        high < Math.max(open, low, close) ||
-        low > Math.min(open, high, close) ||
-        dateJst(time) >= cutoff) continue; // Excludes incomplete/current-day OHLC.
-      if (candles.length && time <= candles[candles.length - 1].time) continue;
-      candles.push({
-        time, open, high, low, close,
-        volume: Array.isArray(quote.volume) ? positive(quote.volume[i]) ?? undefined : undefined,
-      });
-    }
-    if (candles.length < 20) return { code, candles: [], error: "確定済み日足が20本未満" };
-    return { code, candles: candles.slice(-MAX_HISTORY), error: null };
-  } catch (error) {
-    console.warn("shadow batch daily-data fetch failed", code, error instanceof Error ? error.message : "unknown");
-    return { code, candles: [], error: "参考日足が取得できませんでした" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function fetchCohort(codes: string[]): Promise<LoadedStock[]> {
-  const results: LoadedStock[] = new Array(codes.length);
-  let nextIndex = 0;
-  // At most 3 simultaneous HTTP calls, at most 5 in total.
-  const worker = async () => {
-    while (nextIndex < codes.length) {
-      const index = nextIndex++;
-      results[index] = await fetchCompletedDailyBars(codes[index]);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(3, codes.length) }, () => worker()));
-  return results;
-}
+type Props = { searchParams: Promise<{ codes?: string; preset?: string; save?: string }> };
 
 function signed(value: number | null): string {
   return value === null ? "—" : `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
@@ -159,6 +67,10 @@ export default async function ShadowCandlestickBatchPage({ searchParams }: Props
         <Link href="/admin/shadow-candlestick-nine" prefetch={false}
           className="text-sm font-black text-blue-700">← 1銘柄研究へ戻る</Link>
         <h1 className="mt-4 text-2xl font-black">🕯️ ローソク足9種類・複数銘柄比較</h1>
+        <Link href="/admin/shadow-candlestick-nine/archive" prefetch={false}
+          className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-blue-50 px-4 text-sm font-black text-blue-800">
+          💾 保存した研究結果・全銘柄合算を見る
+        </Link>
         <section className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6">
           <p className="font-black">🔒 本人専用 / SHADOW ONLY / 最大5銘柄 / 読み取りのみ</p>
           <p className="mt-2">調べたい銘柄を指定したときだけ、最大5銘柄の過去6か月の参考日足を取得します。
@@ -191,6 +103,14 @@ export default async function ShadowCandlestickBatchPage({ searchParams }: Props
             入力ミスや通信失敗の銘柄は結果から除外します。
           </p>
         </section>
+        {args.save && (
+          <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900">
+            {args.save === "unavailable"
+              ? "一部の銘柄の日足取得に失敗したため保存しませんでした。再度お試しください。"
+              : args.save === "invalid" ? "銘柄コードを確認してください。保存しませんでした。"
+              : "研究結果を保存できませんでした。保存テーブルや接続状態を確認してください。"}
+          </p>
+        )}
         {parsed.error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-800">{parsed.error}</p>}
         {attempted && !parsed.error && loaded.length > 0 && (
           <>
@@ -226,6 +146,23 @@ export default async function ShadowCandlestickBatchPage({ searchParams }: Props
                 </div>
               )}
             </section>
+            {report && successes.length === parsed.codes.length && (
+              <section className="mt-4 rounded-2xl border border-indigo-200 bg-white p-4">
+                <h2 className="font-black">💾 この研究結果を保存する</h2>
+                <p className="mt-2 text-xs leading-6 text-slate-600">
+                  保存を押すとサーバーで同じ最大5銘柄の日足を再取得し、判定を検証し直してから
+                  研究専用テーブルに記録します。過去の同一条件は重複保存しません。
+                  自動実行はまだ行いません。押したときだけ通常の通信・関数処理が発生します。
+                </p>
+                <form action={saveShadowCandleBatch} className="mt-3">
+                  <input type="hidden" name="codes" value={parsed.codes.join(",")} />
+                  <button type="submit"
+                    className="min-h-12 w-full rounded-xl bg-indigo-700 px-4 text-sm font-black text-white">
+                    研究結果を保存（1回だけ再取得）
+                  </button>
+                </form>
+              </section>
+            )}
             {report && (
               <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
                 <h2 className="text-lg font-black">9種類の合算成績</h2>
@@ -276,7 +213,8 @@ export default async function ShadowCandlestickBatchPage({ searchParams }: Props
           1・3・5営業日後とは、Yahooの日足データに存在する次の1・3・5本を指します。
           分割調整・上場廃止・欠損による偏り、相場状況、呼値、出来高などは完全には補正できません。
           検証値は売買助言でも、勝率や将来利益の保証でもありません。
-          結果は保存せず、ページ更新時には再取得されます。
+          「まとめて検証」でのプレビューは保存されず、画面更新時に再取得されます。
+          「研究結果を保存」を明示的に押した場合のみ、研究専用テーブルに記録されます。
         </p>
       </div>
       <BottomNav/>

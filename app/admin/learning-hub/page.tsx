@@ -78,6 +78,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         title: "ローソク足9種類・複数銘柄比較", tag: "研究用",
         detail: "最大5銘柄の方向一致率・平均騰落率・最悪の結果と期間別比較",
       },
+      {
+        href: "/admin/shadow-candlestick-nine/archive", icon: "💾",
+        title: "ローソク足研究・保存履歴", tag: "研究用",
+        detail: "明示的に保存した銘柄の重複を除いた成績と検証履歴",
+      },
     ],
   },
   {

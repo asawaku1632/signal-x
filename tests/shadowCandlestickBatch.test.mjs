@@ -82,14 +82,15 @@ test("no data returns no invented performance; no stock can count as a success f
 
 test("batch page is owner-gated before Yahoo calls, bounded and not auto-running on page open", () => {
   const page = read("app/admin/shadow-candlestick-nine/batch/page.tsx");
+  const yahoo = read("app/lib/research/shadowCandleYahoo.ts");
   const guard = page.indexOf("if (!isOwner) notFound()");
   const run = page.indexOf("await fetchCohort(parsed.codes)");
   assert.ok(guard > 0 && run > guard);
   assert.match(page, /attempted && !parsed\.error && parsed\.codes\.length/);
   assert.match(page, /const parsed = parseShadowBatchCodes\(input\)/);
-  assert.match(page, /Math\.min\(3, codes\.length\)/);
-  assert.match(page, /dateJst\(time\) >= cutoff/);
-  assert.match(page, /cache: "no-store"/);
+  assert.match(yahoo, /Math\.min\(3, codes\.length\)/);
+  assert.match(yahoo, /dateJst\(time\) >= cutoff/);
+  assert.match(yahoo, /cache: "no-store"/);
   assert.match(page, /途中の最大ドローダウンではありません/);
   assert.doesNotMatch(page, /\b(?:pool\.query|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|runScan\s*\(|sendLine\s*\()/i);
 });
