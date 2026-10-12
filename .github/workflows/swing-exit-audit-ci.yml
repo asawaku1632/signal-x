@@ -13,6 +13,9 @@ on:
       - "app/lib/research/supportReboundUniverse.ts"
       - "app/lib/research/supportReboundRiskStudy.ts"
       - "app/lib/research/supportReboundRiskScore.ts"
+      - "app/lib/research/supportReboundMidRisk.ts"
+      - "app/lib/research/supportReboundForwardLocal.ts"
+      - "tests/supportReboundMidForward.test.mjs"
       - "tests/supportReboundRiskScore.test.mjs"
       - "tests/supportReboundRiskStudy.test.mjs"
       - "tests/supportReboundResearch.test.mjs"
@@ -63,6 +66,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
