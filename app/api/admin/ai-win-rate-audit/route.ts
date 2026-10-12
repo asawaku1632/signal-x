@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
 import { getAdminSession } from "@/app/lib/admin";
+import { getJstDateString } from "@/app/lib/learning/learningSaveStatus";
+import { WIN_RATE_DAILY_AUDIT_ROUTE } from "@/app/lib/learning/winRateReliabilityAudit";
+import { readAuditHistory, summarizeWeeklyAudits } from "@/app/lib/learning/winRateWeeklyAudit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,7 +15,7 @@ export async function GET() {
   }
   try {
     // Read-only; archived rows are never reclassified based on missing snapshots.
-    const [summary, batches, provenance] = await Promise.all([
+    const [summary, batches, provenance, recentAuditLogs] = await Promise.all([
       pool.query(`
         SELECT
           COUNT(*) FILTER (WHERE result='WIN')::int AS wins,
@@ -52,6 +55,15 @@ export async function GET() {
           MAX(recorded_at) AS last_recorded_at
         FROM public.daily_result_price_provenance
       `),
+      pool.query(`
+        SELECT status, details, created_at
+        FROM cron_run_logs
+        WHERE route = $1
+          AND created_at >= NOW() - INTERVAL '45 days'
+          AND status IN ('COMPLETED','ERROR')
+        ORDER BY created_at DESC
+        LIMIT 100
+      `, [WIN_RATE_DAILY_AUDIT_ROUTE]),
     ]);
     const s = summary.rows[0];
     const wins = Number(s.wins);
@@ -59,9 +71,22 @@ export async function GET() {
     const legacyWins = Number(s.legacy_wins);
     const legacyLosses = Number(s.legacy_losses);
     const rate = (w: number, l: number) => w + l ? Math.round(10000 * w / (w + l)) / 100 : null;
+    const now = new Date();
+    const todayJst = getJstDateString(now);
+    const timeJst = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(now);
+    const days = readAuditHistory(recentAuditLogs.rows);
+    const weekly = summarizeWeeklyAudits(days, todayJst, timeJst);
     return NextResponse.json({
       success: true,
-      asOf: new Date().toISOString(),
+      asOf: now.toISOString(),
+      dailyReliability: {
+        scheduleJst: "18:15",
+        latest: days[0] ?? null,
+        recent: days.slice(0, 15),
+        weekly,
+      },
       reported: { wins, losses, winRate: rate(wins, losses) },
       historicalUntraced: {
         tradeDate: "2026-08-12",
