@@ -8,6 +8,11 @@ on:
       - "app/lib/learningOwner.ts"
       - "app/lib/learningOwnerAccess.ts"
       - "app/admin/learning-hub/**"
+      - "app/admin/support-rebound/**"
+      - "app/lib/supportReboundResearch.ts"
+      - "app/lib/research/supportReboundUniverse.ts"
+      - "tests/supportReboundResearch.test.mjs"
+      - "tests/supportReboundExpansion.test.mjs"
       - "app/components/BottomNav.tsx"
       - "app/api/private-learning-access/**"
       - "app/menu/page.tsx"
@@ -54,6 +59,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs
+      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
