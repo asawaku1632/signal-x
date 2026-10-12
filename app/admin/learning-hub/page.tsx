@@ -68,6 +68,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         title: "チャート55形状・検出精度監査", tag: "新機能",
         detail: "ダブルボトム過剰検出・信頼度分布とサンプルチャートを点検",
       },
+      {
+        href: "/admin/shadow-candlestick-nine", icon: "🕯️",
+        title: "ローソク足9種類・隔離研究", tag: "研究用",
+        detail: "1銘柄の過去日足から9種類を検出し、1・3・5営業日後の方向一致を確認",
+      },
     ],
   },
   {
