@@ -5,12 +5,19 @@ on:
       - "app/lib/research/horizontalRetest.ts"
       - "app/lib/research/horizontalRetestComparison.ts"
       - "app/lib/research/horizontalRetestArchiveStats.ts"
+      - "app/lib/research/horizontalAutoPolicy.ts"
+      - "app/lib/research/horizontalAutoRunner.ts"
+      - "app/lib/research/horizontalAutoSwitch.ts"
+      - "app/api/cron/horizontal-retest-research/**"
+      - "vercel.json"
+      - "supabase/migrations/20261012_create_horizontal_retest_auto_control_daily.sql"
       - "supabase/migrations/20261012_create_horizontal_retest_archive.sql"
       - "app/admin/horizontal-retest/**"
       - "app/admin/learning-hub/page.tsx"
       - "tests/horizontalRetest.test.mjs"
       - "tests/horizontalRetestComparison.test.mjs"
       - "tests/horizontalRetestArchive.test.mjs"
+      - "tests/horizontalAutoDaily.test.mjs"
       - ".github/workflows/horizontal-retest-shadow-ci.yml"
 permissions:
   contents: read
@@ -25,6 +32,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs
+      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs tests/horizontalAutoDaily.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
