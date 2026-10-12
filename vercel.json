@@ -75,6 +75,10 @@
     {
       "path": "/api/cron/win-rate-reliability-audit",
       "schedule": "15 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/shadow-candle-research",
+      "schedule": "35 23 * * 0-4"
     }
   ]
 }

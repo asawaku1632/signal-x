@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
+import { setShadowAutoEnabled } from "./actions";
+import { getShadowAutoSwitch } from "@/app/lib/research/shadowCandleAutoSwitch";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { SHADOW_CANDLE_DETECTOR_VERSION } from "@/app/lib/research/shadowCandlestickNine";
 import {
@@ -20,6 +22,15 @@ type SavedRun = ArchivedShadowRun & {
   first_bar_date: string;
   last_bar_date: string;
   created_at: string;
+};
+
+type AutoDailyRow = {
+  trade_date: string;
+  status: string;
+  codes: string[];
+  created_at: string;
+  finished_at: string | null;
+  note: string | null;
 };
 
 function percent(value: number | null) {
@@ -50,6 +61,23 @@ export default async function ShadowCandleArchivePage() {
     error = true;
   }
 
+  let autoDaily: AutoDailyRow[] = [];
+  let autoStatusUnavailable = false;
+  let autoEnabled = false;
+  try {
+    const result = await pool.query<AutoDailyRow>(`
+      SELECT trade_date::text, status, codes, created_at::text,
+        finished_at::text, note
+      FROM public.shadow_candle_auto_daily_runs
+      ORDER BY trade_date DESC LIMIT 10
+    `);
+    autoDaily = result.rows;
+    autoEnabled = await getShadowAutoSwitch();
+  } catch (e) {
+    console.error("shadow auto research status read failed", e);
+    autoStatusUnavailable = true;
+  }
+
   const totals = combineArchivedShadowRuns(runs);
   const ordered = [...totals.rows].sort((a, b) =>
     b.horizons[2].completed - a.horizons[2].completed || a.patternId.localeCompare(b.patternId));
@@ -60,18 +88,66 @@ export default async function ShadowCandleArchivePage() {
           className="text-sm font-black text-blue-700">← 5銘柄比較へ戻る</Link>
         <h1 className="mt-4 text-2xl font-black">💾 ローソク足研究の保存履歴</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          本人が明示的に保存した研究結果だけを集計します。同じ銘柄・検出日・パターンの
-          記録は重複して数えません。AI POWER・LINE通知・本番の学習には一切反映しません。
+          本人が保存した結果と、明示的に有効化された研究用の定期取得結果を集計します。
+          同じ銘柄・検出日・パターンの記録は重複して数えません。
+          AI POWER・LINE通知・本番の学習には一切反映しません。
         </p>
 
         <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6">
-          <p className="font-black">🔒 本人限定・SHADOW ONLY・自動収集はまだ無効</p>
+          <p className="font-black">
+            🔒 本人限定・SHADOW ONLY・自動研究：{autoEnabled ? "有効" : "停止中"}
+          </p>
           <p className="mt-1">
             「まとめて検証」で結果を見ただけでは保存されません。別途「研究結果を保存」を
             押したときだけ、最大5銘柄の確定日足を再取得して検証・保存します。
             保存内容には元の全ローソク足そのものは含めず、検出イベントと研究成績を記録します。
           </p>
           <p className="mt-1">保存済みデータの表示ではYahooへの新しい株価取得は発生しません。</p>
+          <p className="mt-1">
+            自動研究は有効化時のみ、東証営業日朝8:35（日本時間）に最大5銘柄を1回だけ照合し、
+            過去に調べた銘柄は選びません。失敗した日の自動再取得はしません。
+          </p>
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-lg font-black">🤖 自動研究の運転履歴（直近10営業日）</h2>
+          <p className="mt-1 text-xs text-slate-600">
+            有効化：{autoEnabled ? "ON" : "OFF"} ／1営業日最大5銘柄
+            ／休場日停止／同日再試行なし
+          </p>
+          {!autoStatusUnavailable && (
+            <form action={setShadowAutoEnabled} className="mt-3">
+              <input type="hidden" name="enabled" value={autoEnabled ? "off" : "on"} />
+              <button type="submit"
+                className={`min-h-12 w-full rounded-xl px-4 text-sm font-black text-white ${autoEnabled
+                  ? "bg-rose-700" : "bg-blue-700"}`}>
+                {autoEnabled ? "自動研究を停止する" : "自動研究をONにする（1営業日最大5銘柄）"}
+              </button>
+            </form>
+          )}
+          <p className="mt-2 text-xs text-slate-600">
+            ONにしてもこのページ閲覧では株価取得しません。翌東証営業日の朝8:35から定期実行。
+            ON/OFFは本人だけが変更できます。
+          </p>
+          {autoStatusUnavailable ? (
+            <p className="mt-3 text-sm font-bold text-amber-800">
+              運転履歴を取得できません。専用テーブルや接続状態を確認してください。
+            </p>
+          ) : autoDaily.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-600">
+              自動研究はまだ実行されていません。既存10銘柄の手動保存はそのまま残っています。
+            </p>
+          ) : autoDaily.map(row => (
+            <div key={row.trade_date} className="mt-3 border-t border-slate-100 pt-3 text-xs leading-6">
+              <p className="font-black">{row.trade_date} ／{
+                row.status === "COMPLETED" ? "完了" : row.status === "FAILED" ? "失敗・再試行なし" : "処理開始済み"
+              }</p>
+              <p>{row.codes.join(", ")}（{row.codes.length}銘柄）</p>
+              <p className="text-slate-500">開始：{
+                new Date(row.created_at).toLocaleString("ja-JP", {timeZone:"Asia/Tokyo"})
+              } ／状態：{row.note ?? "—"}</p>
+            </div>
+          ))}
         </section>
 
         {error ? (
