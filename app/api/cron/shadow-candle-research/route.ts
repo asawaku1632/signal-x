@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runShadowCandleAutoDaily } from "@/app/lib/research/shadowCandleAutoRunner";
 import { selectShadowAutoDailyStocks } from "@/app/lib/research/shadowCandleAutoPolicy";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
+import { getShadowAutoSwitch } from "@/app/lib/research/shadowCandleAutoSwitch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,16 +15,13 @@ function authorized(request: Request): boolean {
 
 /**
  * UTC 23:35 Sun-Thu == JST 08:35 Mon-Fri.
- * Feature is fail-closed: add production env SHADOW_CANDLE_AUTO_ENABLED=true
- * only AFTER migration, tests, and owner dashboard verification.
+ * Feature is fail-closed: the owner-controlled research-only database switch
+ * must be ON before any new stock market-data requests.
  * Cron never calls AI analysis, notifications or portfolio trades.
  */
 export async function GET(request: Request) {
   if (!authorized(request)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
-  if (process.env.SHADOW_CANDLE_AUTO_ENABLED !== "true") {
-    return NextResponse.json({ success: true, skipped: true, reason: "FEATURE_DISABLED" });
   }
   // Fail closed on holidays/outside safe window before ANY SQL or Yahoo access.
   const preflight = selectShadowAutoDailyStocks({
@@ -35,6 +33,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, skipped: true, dateJst: preflight.dateJst, reason: preflight.reason });
   }
   try {
+    const enabled = await getShadowAutoSwitch();
+    if (!enabled) {
+      return NextResponse.json({ success: true, skipped: true, reason: "FEATURE_DISABLED" });
+    }
     const result = await runShadowCandleAutoDaily();
     return NextResponse.json(result, { status: result.success ? 200 : 503 });
   } catch (error) {
