@@ -8,6 +8,7 @@ import {
   saveDisplaySnapshot,
 } from "@/app/lib/displaySnapshot";
 import { shouldReplaceSnapshot } from "@/app/lib/learning/snapshotCoverage";
+import { marketScanGuard } from "@/app/lib/marketScanGuard";
 
 export const SCAN_SNAPSHOT_KEY = "scan:latest";
 export const TODAY_MARKET_SCAN_SNAPSHOT_KEY = "scan:today-market";
@@ -58,6 +59,13 @@ async function refreshSnapshot(
   limit: number,
   existingSnapshot?: Awaited<ReturnType<typeof getLatestScanSnapshot>>,
 ) {
+  // Shared boundary: /api/scan, /api/ranking and today-market refreshes all
+  // pass through here. Avoid full-market rescans on JPX holidays/weekends.
+  // Never change the saved snapshot or its updated_at on a closed day.
+  const market = marketScanGuard();
+  if (!market.refreshAllowed) {
+    return existingSnapshot ?? getDisplaySnapshot<StoredScanPayload>(key);
+  }
   return runSnapshotRefresh(
     key,
     async () => {
