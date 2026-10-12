@@ -30,6 +30,11 @@ export default function ChartPatternCatalogPage() {
           <p className="mt-3 text-xs font-black text-blue-700">Chart Pattern Engine 実装済み {chartPatternCatalog.length}パターンID</p>
         </section>
 
+          <Link href="/chart-shape-search"
+            className="mt-5 flex min-h-12 items-center justify-center rounded-2xl bg-blue-700 px-4 py-3 text-center text-sm font-black text-white shadow-sm">
+            🔎 チャートの形から銘柄を探す
+          </Link>
+
           <PatternCatalogExplorer patterns={sortedPatterns} />
         </div>
       </main>
