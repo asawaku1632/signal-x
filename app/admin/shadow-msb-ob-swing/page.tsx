@@ -52,7 +52,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
         <p className="mt-1">「検証する」を押した場合だけ最大5銘柄・過去6か月（最大135本）のYahoo参考日足を取得。検証だけならDB保存なし。「研究結果を保存」は本人が別途押したときだけ研究専用DBに記録します。自動監視・Cron・有料データ契約の追加なし。通信とVercel処理の利用枠は消費する場合があります。</p>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <form action="/admin/shadow-msb-ob-swing" method="get">
+        <form id="msb-research-form" action="/admin/shadow-msb-ob-swing" method="get">
           <label htmlFor="codes" className="text-sm font-black">調べる銘柄コード（1〜5件）</label>
           <input id="codes" name="codes" defaultValue={raw} maxLength={80}
             placeholder="例：3182,3387,6855,7203,9984"
@@ -67,7 +67,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
           <summary className="cursor-pointer text-sm font-black">🔬 新しい銘柄を調べる（追加C〜H・各5銘柄）</summary>
           <p className="mt-2 text-xs text-slate-500">合計30銘柄を6グループに分け、1回ずつ検証します。分野別に選んだ銘柄で、無作為抽出ではありません。</p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {MSB_PRESET_GROUPS.slice(2).map(item=><button key={item.key} type="submit" formAction="/admin/shadow-msb-ob-swing"
+            {MSB_PRESET_GROUPS.slice(2).map(item=><button key={item.key} type="submit" form="msb-research-form"
               name="preset" value={item.key} className="min-h-11 rounded-xl border border-blue-300 p-2 text-xs font-black text-blue-700 dark:text-blue-300">{item.label}</button>)}
           </div>
         </details>
