@@ -13,14 +13,14 @@ function bar(i, open, close, high = Math.max(open, close) + 1, low = Math.min(op
   return { time: baseTime + i * 86400, open, close, high, low };
 }
 function downtrend() {
-  return Array.from({ length: 12 }, (_, i) => {
+  return Array.from({ length: 18 }, (_, i) => {
     const close = 125 - 2 * i;
     return bar(i, close + 0.5, close);
   });
 }
 function bullEngulfingWithFuture(outcomes = []) {
-  const rows = [...downtrend(), bar(12, 101, 97), bar(13, 96, 102)];
-  outcomes.forEach((close, i) => rows.push(bar(i + 14, close - 0.3, close)));
+  const rows = [...downtrend(), bar(18, 101, 97), bar(19, 96, 102)];
+  outcomes.forEach((close, i) => rows.push(bar(i + 20, close - 0.3, close)));
   return rows;
 }
 
