@@ -22,7 +22,7 @@ function fixture(options = {}) {
   bars[45] = candle(45, 99, { open: 101, high: 101.5, low: 98.5 });
   bars[47] = candle(47, 131.5, { open: 100, high: 132, low: 99, volume: 1500 });
   bars[48] = candle(48, 118, {
-    open: 109, low: options.noRetest ? 110 : 100.5, high: 119,
+    open: options.noRetest ? 112 : 109, low: options.noRetest ? 110 : 100.5, high: 119,
     volume: options.lowVolume ? 1000 : 2100,
   });
   bars[49] = candle(49, 115);
