@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
+import { setHorizontalAutoEnabled } from "./actions";
+import { getHorizontalAutoEnabled } from "@/app/lib/research/horizontalAutoSwitch";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { HORIZONTAL_COMPARE_VERSION } from "@/app/lib/research/horizontalRetestComparison";
 import {
@@ -11,6 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 type Props = { searchParams: Promise<{ save?: string; run?: string }> };
+type AutoDayRow = { trade_date: string; status: string; codes: string[]; created_at: string; note: string | null };
 type RunRow = {
   id: string; codes: string[]; first_bar_date: string; last_bar_date: string;
   base_trade_count: number; created_at: string;
@@ -29,6 +32,21 @@ export default async function HorizontalRetestArchivePage({ searchParams }: Prop
   let totalRuns = 0;
   let researchedStocks = 0;
   let error = false;
+  let autoEnabled = false;
+  let autoDays: AutoDayRow[] = [];
+  let autoUnavailable = false;
+  try {
+    const [enabled, daily] = await Promise.all([
+      getHorizontalAutoEnabled(),
+      pool.query<AutoDayRow>("SELECT trade_date::text,status,codes,created_at::text,note " +
+        "FROM public.horizontal_retest_auto_daily_runs ORDER BY trade_date DESC LIMIT 10"),
+    ]);
+    autoEnabled = enabled;
+    autoDays = daily.rows;
+  } catch (e) {
+    console.error("horizontal auto status read unavailable",e);
+    autoUnavailable = true;
+  }
   try {
     // No Yahoo or other provider calls when opening saved results.
     const [recent, tradeRows, totals] = await Promise.all([
@@ -75,10 +93,12 @@ export default async function HorizontalRetestArchivePage({ searchParams }: Prop
           <strong> 新しく株価を取得しない読み取り画面</strong>です。
         </p>
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-          <p className="font-black">🔒 本人専用・SHADOW ONLY・自動収集なし</p>
+          <p className="font-black">🔒 本人専用・SHADOW ONLY・制限付き自動研究</p>
           <p className="mt-1">
             「検証する」だけでは保存されません。別途「結果を保存」を押した時だけ、
             同じ最大5銘柄をサーバーで1回再取得して研究専用テーブルに追加します。
+            また、自動研究がONの場合は東証営業日の朝8:50に新しい最大5銘柄を1度だけ研究します。
+            自動研究は本人が停止でき、失敗しても同日の再試行はしません。
             AI POWER・売買判断・LINE通知・本番学習は変更しません。
           </p>
           <p className="mt-1">
@@ -96,6 +116,51 @@ export default async function HorizontalRetestArchivePage({ searchParams }: Prop
             同じ銘柄・同じ確定日足の研究は保存済みです。重複して増やしていません。
           </p>
         )}
+        <section className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900">
+          <h2 className="text-lg font-black">🤖 水平線の自動研究</h2>
+          <p className="mt-2 text-sm font-bold">状態：{autoUnavailable ? "確認できません" : autoEnabled ? "ON（有効）" : "OFF（停止中）"}</p>
+          <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+            東証営業日だけ、朝8:50（日本時間）ごろに<strong>新規最大5銘柄</strong>を自動検証・保存。
+            同日1回のみ、同じ銘柄を再度選びません。株価は過去約6か月の確定日足で検証。
+            休場日、対象銘柄が尽きた場合、日付カレンダー未対応時は自動停止します。
+            保存履歴を見るだけならYahoo通信は発生しません。
+          </p>
+          {!autoUnavailable && (
+            <form action={setHorizontalAutoEnabled} className="mt-3">
+              <input type="hidden" name="enabled" value={autoEnabled ? "off" : "on"}/>
+              <button type="submit" className={"min-h-12 w-full rounded-xl px-3 text-sm font-black text-white " +
+                (autoEnabled ? "bg-rose-700" : "bg-blue-700")}>
+                {autoEnabled ? "水平線の自動研究を停止する" : "水平線の自動研究をONにする"}
+              </button>
+            </form>
+          )}
+          {params.auto && <p role="alert" className="mt-2 text-sm font-bold text-amber-700">
+            自動研究の設定が変更できませんでした。DBと接続状況を確認してください。
+          </p>}
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            新規有料データ契約はありませんが、1営業日につき最大5回の株価取得・DB書き込み・Vercel処理が発生します。
+            対象約1,000銘柄で毎日5銘柄なら、未調査銘柄を一巡するまで約200営業日です。
+            過去の2銘柄の敗因に合わせたルール変更はしていません。
+          </p>
+          <h3 className="mt-4 font-black">最近の自動実行（最大10営業日）</h3>
+          {autoUnavailable ? (
+            <p className="mt-2 text-sm text-amber-700">運転履歴の取得に失敗しました。</p>
+          ) : autoDays.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">まだ自動実行の記録はありません。</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {autoDays.map(day => (
+                <div key={day.trade_date} className="rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">
+                  <p className="font-black">{day.trade_date}：
+                    {day.status === "COMPLETED" ? "完了" : day.status === "FAILED" ? "取得失敗・再試行なし" : "処理開始済み"}
+                  </p>
+                  <p className="mt-1">{day.codes.join(", ")}（{day.codes.length}銘柄）</p>
+                  <p>{day.note ?? "—"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
         {error ? (
           <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-900">
             保存データを読み取れませんでした。研究専用テーブルの適用状況を確認してください。
