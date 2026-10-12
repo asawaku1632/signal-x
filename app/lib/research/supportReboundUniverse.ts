@@ -1,4 +1,4 @@
-import { STOCKS } from "../stockList";
+import { STOCKS } from "../stockList.ts";
 
 /** Curated 100-stock basket from SIGNALX's stock list, not a random JPX sample.
  * No scheduled job, database persistence, trades, or automatic AI integration.
