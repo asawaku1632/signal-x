@@ -4,11 +4,12 @@ import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
 import { studyHorizontalRetest } from "@/app/lib/research/horizontalRetest";
 import { compareHorizontalRetest, HORIZONTAL_VARIANTS } from "@/app/lib/research/horizontalRetestComparison";
+import { saveHorizontalRetestStudy } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type Props = { searchParams: Promise<{ codes?: string; preset?: string }> };
+type Props = { searchParams: Promise<{ codes?: string; preset?: string; save?: string }> };
 const PRESETS: Record<string, string> = {
   A: "3182,3387,6855,7203,9984",
   B: "1605,2760,3994,5805,8058",
@@ -50,13 +51,16 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
         <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700 dark:text-blue-300">
           ← 学習管理へ戻る
         </Link>
+        <Link href="/admin/horizontal-retest/archive" prefetch={false} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-300 px-4 text-sm font-black text-indigo-700 dark:text-indigo-300">
+          💾 保存履歴・累積勝率を見る
+        </Link>
         <header>
           <h1 className="text-2xl font-black">📏 水平線ブレイク・押し目研究</h1>
           <p className="mt-2 text-sm leading-6">2回以上止められた高値を突破し、水平線へ戻って陽線で反発した場面を過去の日足で研究する。</p>
         </header>
         <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
           <p className="font-black">🔒 本人専用 / SHADOW ONLY / 本番の売買判定・通知・学習DBは変更しません</p>
-          <p className="mt-2">銘柄を指定して「検証する」を押したときのみ、選択した最大5銘柄の過去6か月の参考日足を取得します（最大135本で計算）。自動収集・定期実行・DB保存はありません。</p>
+          <p className="mt-2">銘柄を指定して「検証する」を押したときのみ、選択した最大5銘柄の過去6か月の参考日足を取得します（最大135本で計算）。自動収集・定期実行はなく、明示的に「研究結果を保存」を押した場合だけ研究専用DBに記録します。</p>
           <p className="mt-2">新たな有料データ契約は不要。ただし外部データの利用条件の確認が必要で、クリック時の通信とサーバー処理は発生します。</p>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -74,6 +78,11 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
           <p className="mt-2 text-xs text-slate-500">初期表示では株価を取得しません。サンプルは恣意的に選んだ銘柄であり、全市場の勝率を示しません。</p>
           {inputError && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{inputError}</p>}
         </section>
+        {params.save && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900">
+          {params.save === "invalid" ? "銘柄コードが不正なため保存できませんでした。" :
+           params.save === "unavailable" ? "一部の株価データが不足したため、どの銘柄も保存しませんでした。" :
+           "研究データを保存できませんでした。専用テーブル・接続状態を確認してください。"}
+        </p>}
         {attempted && !inputError && (
           <>
             <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -162,6 +171,25 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
                 税・手数料は別、買い／売りの想定滑り片道0.1%。本番判定・通知・保存には反映しません。
               </p>
             </section>
+            {loaded.length === codes.length && loaded.every(r => !r.error && r.candles.length >= 60) && (
+              <section className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900">
+                <h2 className="text-lg font-black">💾 この5銘柄の研究を蓄積する</h2>
+                <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+                  保存ボタンを押した場合のみ、本人確認後、同じ最大5銘柄の確定日足をもう1回取得して再計算します。
+                  保存後は<a href="/admin/horizontal-retest/archive" className="font-bold underline">累積研究ページ</a>で①②③を比較。
+                  同じ銘柄・同じ取引は重複計上しません。0取引の銘柄も「調べた銘柄」として残ります。
+                </p>
+                <form action={saveHorizontalRetestStudy} className="mt-3">
+                  <input type="hidden" name="codes" value={codes.join(",")} />
+                  <button type="submit" className="min-h-12 w-full rounded-xl bg-blue-700 px-3 text-sm font-black text-white">
+                    研究結果を保存（最大5銘柄・再取得1回）
+                  </button>
+                </form>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  自動保存なし。1回の保存で最大5回の株価通信とVercelの関数処理が発生し、利用枠を消費する可能性があります。
+                </p>
+              </section>
+            )}
             <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
               <h2 className="text-lg font-black">銘柄別の結果</h2>
               <div className="mt-3 space-y-2">
@@ -194,7 +222,7 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
         <p className="text-xs leading-6 text-slate-500 dark:text-slate-400">
           ※研究結果は過去データを使った仮説の検証で、将来の勝率を保証しません。
           データ期間・銘柄選択・約定の再現性・株式分割・配当調整・取引コストなどに制限があります。
-          本番スコアや通知には反映されません。
+          本番スコアや通知、学習DBには反映されません。本人が明示的に保存したときだけ独立した研究DBに記録します。
         </p>
       </div>
     </main>
