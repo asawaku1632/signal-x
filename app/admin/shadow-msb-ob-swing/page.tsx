@@ -68,7 +68,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">📊 過去データの結果</h2>
           <p className="mt-1 text-xs text-slate-500">期間：{range} ／ 有効{report.cohortCount}銘柄・計{report.candleCount}日足</p>
-          <p className="mt-1 text-xs text-slate-500">基準条件で確定した仮想取引：{report.completedBaseTrades}件 ／ 未確定候補：{report.pendingBaseCandidates}件</p>
+          <p className="mt-1 text-xs text-slate-500">基準条件で確定した観察サンプル：{report.completedBaseTrades}件 ／ 未確定候補：{report.pendingBaseCandidates}件</p>
           {loaded.filter(row => row.error).map(row => <p key={row.code} role="alert" className="mt-1 text-xs text-red-700">{row.code}：{row.error}</p>)}
           {report.invalidCodes.map(code => <p key={code} role="alert" className="mt-1 text-xs text-red-700">{code}：研究用データ検証に失敗しました。</p>)}
           <div className="mt-3 space-y-2">
@@ -95,7 +95,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
             })}
           </div>
           <p className="mt-3 text-xs leading-6 text-slate-600 dark:text-slate-300">
-            比較方法：①を満たす日を同一銘柄で5営業日以上間隔を空けて抽出。確定足の終値で判定し翌営業日寄り付きで仮想100株買い、シグナルから5営業日後の終値で仮想売却。
+            比較方法：①を満たす全日を抽出（5営業日保有期間は重複します）。確定足の終値で判定し翌営業日寄り付きで仮想100株買い、シグナルから5営業日後の終値で仮想売却。
             全4条件は<strong>同じ候補・同じ約定想定価格</strong>の部分集合です。想定滑り片道0.1%、税・手数料・配当・株式分割調整・資金制約は別。
             未確定の未来は勝率に含めず、損切り／利確ルールの再現も行っていません。
           </p>
@@ -122,7 +122,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
         </section>
       </>}
       <p className="text-xs leading-6 text-slate-500">
-        研究条件は仮説であり、今後の上昇確率や利益を保証しません。少数・選択銘柄・短期の過去データによる過剰適合、期間重複、約定・株価調整・出来高欠損の制約があります。
+        研究条件は仮説であり、今後の上昇確率や利益を保証しません。少数・選択銘柄・短期の過去データによる過剰適合、同じ銘柄の保有期間重複（独立した取引数ではない）、約定・株価調整・出来高欠損の制約があります。
         有望でも別期間・別銘柄で再検証してから本番AIへの反映を検討します。今回のページには自動保存はありません。
       </p>
     </div>
