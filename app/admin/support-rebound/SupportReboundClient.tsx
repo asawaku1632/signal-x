@@ -165,6 +165,7 @@ export default function SupportReboundClient() {
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900">
     <div className="mx-auto max-w-5xl">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-600">← 学習データ・管理室へ</Link>
+      <Link href="/admin/support-rebound/auto" className="ml-3 inline-block text-sm font-black text-indigo-700">🤖 毎日自動の研究記録へ →</Link>
       <header className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-black tracking-widest text-violet-600">ADMIN / READ ONLY · SHADOW RESEARCH</p>
         <h1 className="mt-2 text-2xl font-black">🌱 支持線反発・2段階研究</h1>
