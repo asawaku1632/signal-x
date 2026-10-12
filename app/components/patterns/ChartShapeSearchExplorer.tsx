@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PatternDiagram from "@/app/components/patterns/PatternDiagram";
 import {
   CHART_PATTERN_CATEGORIES,
@@ -51,6 +51,11 @@ export default function ChartShapeSearchExplorer({
   const [keyword, setKeyword] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [visible, setVisible] = useState(30);
+  const resultRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (selectedId) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedId]);
 
   const counts = useMemo(() => {
     const countById = new Map<string, number>();
@@ -162,7 +167,7 @@ export default function ChartShapeSearchExplorer({
       </section>
 
       {selectedPattern && (
-        <section aria-live="polite" className="mt-5 rounded-2xl border-2 border-blue-300 bg-white p-3 sm:p-5">
+        <section ref={resultRef} aria-live="polite" className="mt-5 scroll-mt-4 rounded-2xl border-2 border-blue-300 bg-white p-3 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black text-blue-700">選択した形状に一致する銘柄</p>
@@ -225,21 +230,22 @@ export default function ChartShapeSearchExplorer({
         <h2 className="text-lg font-black">形状を選ぶ <span className="text-sm text-slate-500">（{filteredPatterns.length}種類）</span></h2>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {filteredPatterns.map((pattern) => (
-            <button
-              key={pattern.id}
-              type="button"
-              onClick={() => { setSelectedId(pattern.id); setVisible(30); }}
-              aria-pressed={selectedId === pattern.id}
-              className={`rounded-xl border-2 p-2 text-left shadow-sm transition active:scale-[0.99] ${selectedId === pattern.id
+            <article key={pattern.id}
+              className={`rounded-xl border-2 p-2 text-left shadow-sm ${selectedId === pattern.id
                 ? "border-blue-600 bg-blue-50"
                 : "border-slate-200 bg-white"}`}
             >
               <p className="min-h-10 text-center text-xs font-black leading-5 sm:text-sm">{pattern.name}</p>
               <PatternDiagram pattern={pattern} compact />
-              <p className="mt-2 text-center text-sm font-black text-blue-700">
-                {hasData ? `${counts.get(pattern.id) ?? 0}銘柄` : "件数未取得"}
-              </p>
-            </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedId(pattern.id); setVisible(30); }}
+                aria-pressed={selectedId === pattern.id}
+                className="mt-2 min-h-11 w-full rounded-lg bg-blue-50 px-1 text-center text-sm font-black text-blue-700 transition active:scale-[0.99]"
+              >
+                {hasData ? `${counts.get(pattern.id) ?? 0}銘柄を見る` : "形状を選ぶ"}
+              </button>
+            </article>
           ))}
         </div>
         {filteredPatterns.length === 0 && (
