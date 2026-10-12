@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
 import { calculateNanpin, type NanpinComparison } from "@/app/lib/nanpinScenario";
+import { evaluateNanpinResearch } from "@/app/lib/nanpinResearch";
 
 type PaperTrade = {
   id: number;
@@ -12,7 +13,16 @@ type PaperTrade = {
   quantity: number;
   status: "OPEN" | "CLOSED";
 };
-type Stock = { code: string; price?: number; currentPrice?: number };
+type Stock = {
+  code: string; price?: number; currentPrice?: number;
+  score?: number | null; aiPower?: number | null; rsi?: number | null;
+  changePercent?: number | null; volumeRatio?: number | null; stopLoss?: number | null;
+};
+const finiteNumber = (value: unknown): number | null => {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 type Field = "entryPrice" | "heldShares" | "addPrice" | "addShares" | "futurePrice";
 type FormValues = Record<Field, string>;
 type PriceSource = "example" | "reference" | "assumption" | "edited";
@@ -65,6 +75,9 @@ export default function NanpinComparisonPage() {
   const [tradeId, setTradeId] = useState("example");
   const [openTrades, setOpenTrades] = useState<PaperTrade[]>([]);
   const [quotes, setQuotes] = useState<Record<string, number>>({});
+  const [marketStocks, setMarketStocks] = useState<Record<string, Stock>>({});
+  const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
+  const [snapshotStale, setSnapshotStale] = useState(true);
   const [loadNote, setLoadNote] = useState("");
   const [priceSource, setPriceSource] = useState<PriceSource>("example");
 
@@ -82,7 +95,11 @@ export default function NanpinComparisonPage() {
         .then(async (r) => {
           if (!r.ok) throw new Error("参考株価の取得に失敗しました");
           const data = await r.json();
-          return (Array.isArray(data?.stocks) ? data.stocks : []) as Stock[];
+          return {
+            stocks: (Array.isArray(data?.stocks) ? data.stocks : []) as Stock[],
+            updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : null,
+            stale: data?.stale !== false,
+          };
         }),
     ]).then(([trades, stocks]) => {
       if (!active) return;
@@ -95,11 +112,16 @@ export default function NanpinComparisonPage() {
       }
       if (stocks.status === "fulfilled") {
         const prices: Record<string, number> = {};
-        for (const s of stocks.value) {
+        const details: Record<string, Stock> = {};
+        for (const s of stocks.value.stocks) {
+          if (s.code) details[s.code] = s;
           const value = Number(s.price ?? s.currentPrice);
           if (s.code && Number.isFinite(value) && value > 0) prices[s.code] = value;
         }
         setQuotes(prices);
+        setMarketStocks(details);
+        setSnapshotUpdatedAt(stocks.value.updatedAt);
+        setSnapshotStale(stocks.value.stale);
       }
     });
     return () => { active = false; };
@@ -143,6 +165,21 @@ export default function NanpinComparisonPage() {
 
   const result = calculateNanpin(input);
   const selectedTrade = openTrades.find((t) => String(t.id) === tradeId);
+  const selectedStock = selectedTrade ? marketStocks[selectedTrade.code] : undefined;
+  const research = result && selectedTrade ? evaluateNanpinResearch({
+    entryPrice: input.entryPrice,
+    addPrice: input.addPrice,
+    initialCost: result.initialCost,
+    additionalCost: result.additionalCost,
+    referencePrice: finiteNumber(selectedStock?.price ?? selectedStock?.currentPrice),
+    snapshotUpdatedAt,
+    snapshotStale,
+    aiPower: finiteNumber(selectedStock?.score ?? selectedStock?.aiPower),
+    rsi: finiteNumber(selectedStock?.rsi),
+    changePercent: finiteNumber(selectedStock?.changePercent),
+    volumeRatio: finiteNumber(selectedStock?.volumeRatio),
+    stopLoss: finiteNumber(selectedStock?.stopLoss),
+  }) : null;
   const inputClasses = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-lg font-bold text-slate-900 focus:border-blue-500 focus:outline-none";
 
   const fields: { key: Field; title: string; help: string; step: string }[] = [
@@ -235,6 +272,39 @@ export default function NanpinComparisonPage() {
           {input.addPrice >= input.entryPrice && <p className="mt-2 rounded-lg bg-amber-100 p-2 text-xs font-bold text-amber-900">
             ※ 最初の単価より安く買っていないため、これはナンピンではなく通常の買い増しです。
           </p>}
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+          <p className="text-[11px] font-black tracking-wide text-indigo-700">SIGNALX / SHADOW RESEARCH</p>
+          <h2 className="mt-1 text-lg font-black">🤖 ナンピン判断の研究表示（試験版）</h2>
+          <p className="mt-2 text-xs leading-5 text-slate-700">
+            現在のSIGNALX分析指標を、暫定的なルールに当てはめます。
+            過去のナンピン成績で検証されたAIモデルではなく、買い増し指示でもありません。
+          </p>
+          {!selectedTrade ? <div className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-slate-700">
+            練習用では銘柄の分析データがないため判定しません。上の「比較したい銘柄」から保有中の疑似銘柄を選んでね。
+          </div> : research && <>
+            <div className={`mt-3 rounded-xl border p-3 ${research.status === "RISK"
+              ? "border-rose-200 bg-rose-50 text-rose-800"
+              : research.status === "WATCH"
+                ? "border-indigo-200 bg-white text-indigo-800"
+                : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+              <p className="text-xs font-bold">研究上の目安</p>
+              <p className="mt-1 text-xl font-black">{research.label}</p>
+              <p className="mt-2 text-xs font-medium leading-5">{research.explanation}</p>
+            </div>
+            {research.reasons.length > 0 && <div className="mt-3 space-y-1">
+              {research.reasons.map((reason, i) => <p key={i} className="text-xs leading-5 text-slate-700">・{reason}</p>)}
+            </div>}
+            <p className="mt-3 text-[11px] leading-5 text-slate-600">
+              保存株価の取得時刻：{snapshotUpdatedAt && Number.isFinite(Date.parse(snapshotUpdatedAt))
+                ? new Date(snapshotUpdatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+                : "確認できません"}。
+              参考株価はリアルタイムの注文価格ではありません。
+              予定単価が参考株価から1%超離れる場合や、分析値が欠ける場合は判定を保留します。
+            </p>
+          </>}
+          <a href="/glossary" className="mt-3 inline-block text-xs font-black text-blue-700 underline underline-offset-2">📘 用語集で「ナンピン」を確認 →</a>
         </section>
 
         <section className="mt-4 space-y-3">
