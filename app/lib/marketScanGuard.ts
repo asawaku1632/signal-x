@@ -1,7 +1,7 @@
 import {
   getTseCashSessionStatus,
   TSE_MARKET_CALENDAR_VERSION,
-} from "@/app/lib/technicalObservation/tseMarketCalendar";
+} from "./technicalObservation/tseMarketCalendar.ts";
 
 /**
  * A conservative market-date guard for scheduled/display-only *full scans*.
