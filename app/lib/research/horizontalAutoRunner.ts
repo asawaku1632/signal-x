@@ -2,18 +2,19 @@ import "server-only";
 import { createHash } from "node:crypto";
 import pool from "@/app/lib/postgres";
 import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
-import { dateJst, fetchCohort } from "./shadowCandleYahoo";
+import { dateJst, fetchCohort, type LoadedStock } from "./shadowCandleYahoo";
+import { runMsbAutoShared, type MsbAutoStatus } from "./msbAutoRunner";
 import { HORIZONTAL_COMPARE_VERSION, compareHorizontalRetest } from "./horizontalRetestComparison";
 import { selectHorizontalAutoDailyStocks, HORIZONTAL_AUTO_POLICY_VERSION } from "./horizontalAutoPolicy";
 
 type Result = { success: boolean; skipped: boolean; dateJst: string; status: string;
-  codes?: string[]; archiveId?: string; reason?: string };
+  codes?: string[]; archiveId?: string; reason?: string; msb?: MsbAutoStatus };
 
 /** Only reached from authenticated cron + owner-enabled switch.
  * Every JST day is claimed ONCE before any HTTP request. Failed claims
  * are never automatically retried. Nothing touches production analysis.
  */
-export async function runHorizontalAutoDaily(now = new Date()): Promise<Result> {
+export async function runHorizontalAutoDaily(now = new Date(), shareMsb = false): Promise<Result> {
   // Manual archives and prior auto claims (including failed) are excluded.
   const existing = await pool.query<{code:string}>(
     "SELECT DISTINCT code FROM (" +
@@ -41,7 +42,15 @@ export async function runHorizontalAutoDaily(now = new Date()): Promise<Result> 
   }
 
   try {
-    const loaded = await fetchCohort(codes); // 1 request per code, <=5 daily, <=3 simultaneous
+    const loaded: LoadedStock[] = await fetchCohort(codes); // 1 request per code, <=5 daily, <=3 simultaneous
+    // Only after the existing once-per-day horizontal claim and bounded fetch:
+    // MSB analyses the EXACT SAME completed candles; no additional HTTP requests.
+    // A failure in independent MSB research must never stop horizontal study.
+    let msb: MsbAutoStatus | undefined;
+    if (shareMsb) {
+      try { msb = await runMsbAutoShared(loaded, tradeDate); }
+      catch (e) { console.error("isolated MSB research failed",e); }
+    }
     if (loaded.length !== codes.length || loaded.some(x => x.error || x.candles.length < 60)) {
       await pool.query(
         "UPDATE public.horizontal_retest_auto_daily_runs SET status='FAILED', " +
@@ -49,7 +58,7 @@ export async function runHorizontalAutoDaily(now = new Date()): Promise<Result> 
         [tradeDate]
       );
       return { success:false, skipped:false, status:"FAILED", dateJst:tradeDate, codes,
-        reason:"DATA_UNAVAILABLE" };
+        reason:"DATA_UNAVAILABLE", msb };
     }
     const studies = loaded.map(({code,candles}) => ({code,candles}));
     const report = compareHorizontalRetest(studies);
@@ -110,7 +119,7 @@ export async function runHorizontalAutoDaily(now = new Date()): Promise<Result> 
     } finally {
       client.release();
     }
-    return { success:true, skipped:false, status:"COMPLETED", dateJst:tradeDate, codes, archiveId };
+    return { success:true, skipped:false, status:"COMPLETED", dateJst:tradeDate, codes, archiveId, msb };
   } catch (error) {
     console.error("horizontal shadow auto run failed", error);
     // DO NOT delete claim or retry; fail safe if status update also fails.

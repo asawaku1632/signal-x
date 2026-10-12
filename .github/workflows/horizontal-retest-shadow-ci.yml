@@ -27,6 +27,12 @@ on:
       - "app/lib/research/msbMaArchiveStats.ts"
       - "supabase/migrations/20261012_create_msb_volume_research_archive.sql"
       - "tests/msbMaArchive.test.mjs"
+      - "app/lib/research/msbAutoRunner.ts"
+      - "app/lib/research/msbAutoSwitch.ts"
+      - "app/lib/research/horizontalAutoRunner.ts"
+      - "app/api/cron/horizontal-retest-research/route.ts"
+      - "supabase/migrations/20261012_create_msb_volume_auto_daily.sql"
+      - "tests/msbAutoDaily.test.mjs"
       - ".github/workflows/horizontal-retest-shadow-ci.yml"
 permissions:
   contents: read
@@ -41,6 +47,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs tests/horizontalAutoDaily.test.mjs tests/msbMaSwing.test.mjs tests/msbMaVolumeSensitivity.test.mjs tests/msbMaArchive.test.mjs
+      - run: node --test tests/horizontalRetest.test.mjs tests/horizontalRetestComparison.test.mjs tests/horizontalRetestArchive.test.mjs tests/horizontalAutoDaily.test.mjs tests/msbMaSwing.test.mjs tests/msbMaVolumeSensitivity.test.mjs tests/msbMaArchive.test.mjs tests/msbAutoDaily.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit

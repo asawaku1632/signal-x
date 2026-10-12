@@ -53,8 +53,8 @@ test("cron is authenticated first and requires owner's ON switch before any Yaho
   const c=read("app/api/cron/horizontal-retest-research/route.ts");
   const auth=c.indexOf("requireCronAuth(request)");
   const pre=c.indexOf("selectHorizontalAutoDailyStocks({");
-  const enabled=c.indexOf("await getHorizontalAutoEnabled()");
-  const run=c.indexOf("await runHorizontalAutoDaily()");
+  const enabled=c.indexOf("getHorizontalAutoEnabled()");
+  const run=c.indexOf("await runHorizontalAutoDaily(new Date(),msbOn)");
   assert.ok(auth>0 && auth<pre && pre<enabled && enabled<run);
   assert.match(c,/FEATURE_DISABLED/);
   assert.match(c,/maxDuration=60/);
