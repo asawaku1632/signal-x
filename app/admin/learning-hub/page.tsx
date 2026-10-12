@@ -63,6 +63,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         title: "チャートパターン実績",
         detail: "パターン別の的中率と未来追跡",
       },
+      {
+        href: "/admin/shape-precision-audit", icon: "🔬",
+        title: "チャート55形状・検出精度監査", tag: "新機能",
+        detail: "ダブルボトム過剰検出・信頼度分布とサンプルチャートを点検",
+      },
     ],
   },
   {
