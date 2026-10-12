@@ -51,6 +51,9 @@ type ScanResponse = {
   success?: boolean;
   status?: "loading" | "stale" | "fresh" | "error";
   updatedAt?: string | null;
+  marketClosed?: boolean;
+  oldestQuoteDateJst?: string | null;
+  latestQuoteDateJst?: string | null;
   totalStockList?: number;
   scannedCount?: number;
   stocks?: ApiStock[];
@@ -141,6 +144,8 @@ export default function ScanPage() {
   const [alerts, setAlerts] = useState<string[]>([]);
   const [dataStatus, setDataStatus] = useState<ScanResponse["status"]>("loading");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [marketClosed, setMarketClosed] = useState(false);
+  const [quoteDates, setQuoteDates] = useState({ oldest: null as string | null, latest: null as string | null });
 
   const fetchStocks = useCallback(async () => {
     const controller = new AbortController();
@@ -161,6 +166,11 @@ export default function ScanPage() {
       if (!Array.isArray(data)) {
         setDataStatus(data.status ?? "fresh");
         setUpdatedAt(data.updatedAt ?? null);
+        setMarketClosed(data.marketClosed === true);
+        setQuoteDates({
+          oldest: data.oldestQuoteDateJst ?? null,
+          latest: data.latestQuoteDateJst ?? null,
+        });
       }
       const newAlerts = normalized
         .filter((stock) => stock.score >= 95)
@@ -232,10 +242,23 @@ export default function ScanPage() {
           <Stat label="平均AI" value={stats.average} />
         </section>
 
-        {updatedAt && (
-          <p className="mb-4 text-right text-xs font-bold text-slate-500">
-            {dataStatus === "stale" ? "前回の正常データを表示中・更新しています" : "更新"} {new Date(updatedAt).toLocaleString("ja-JP")}
-          </p>
+        {stocks.length > 0 && (
+          <div className={`mb-4 rounded-2xl border p-3 text-xs leading-6 ${marketClosed
+            ? "border-amber-200 bg-amber-50 text-amber-900"
+            : "border-slate-200 bg-white text-slate-600"}`}>
+            {marketClosed && <p className="font-bold">東証休場日：前営業日の保存結果を表示中。休場日には全銘柄再スキャンを行いません。</p>}
+            <p>AI分析結果の保存日時：{updatedAt
+              ? new Date(updatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+              : "未取得"}（日本時間）</p>
+            <p>株価データの最終日：{quoteDates.latest
+              ? quoteDates.oldest && quoteDates.oldest !== quoteDates.latest
+                ? `${quoteDates.oldest}〜${quoteDates.latest}`
+                : quoteDates.latest
+              : "未取得"}（日本時間）</p>
+            <p>保存日時と株価データ日時は別です。{marketClosed
+              ? "休場日の保存結果は新しい取引日の株価を意味しません。"
+              : dataStatus === "stale" ? "保存済みデータを表示しています。" : ""}</p>
+          </div>
         )}
 
         {loading && stocks.length === 0 && <LoadingCard />}
