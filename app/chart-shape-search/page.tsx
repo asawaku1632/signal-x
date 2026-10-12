@@ -3,9 +3,12 @@ import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import ChartShapeSearchExplorer, {
   type ShapeStock,
+  type ShapePatternStat,
 } from "@/app/components/patterns/ChartShapeSearchExplorer";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import { SCAN_SNAPSHOT_KEY } from "@/app/lib/scanSnapshot";
+import { getLearningOwnerSession } from "@/app/lib/learningOwner";
+import { getPatternForwardStats } from "@/app/lib/learning/patternForwardLearning";
 
 export const dynamic = "force-dynamic";
 
@@ -124,7 +127,31 @@ async function loadSnapshot(): Promise<{
 }
 
 export default async function ChartShapeSearchPage() {
-  const snapshot = await loadSnapshot();
+  const [snapshot, owner] = await Promise.all([loadSnapshot(), getLearningOwnerSession()]);
+  // Forward outcomes are private research data. Public visitors only receive
+  // the existing shape-matching snapshot; never serialize the private stats.
+  let historicalStats: ShapePatternStat[] | null = null;
+  let statsUnavailable = false;
+  if (owner.isOwner) {
+    try {
+      const stats = await getPatternForwardStats();
+      historicalStats = stats.map((item) => ({
+        id: item.patternId,
+        status: item.validationStatus,
+        sampleCount: item.sampleCount,
+        completed5dCount: item.completed5dCount,
+        winRate5d: item.winRate5d,
+        avgDirectionalReturn5d: item.avgDirectionalReturn5d,
+        distinctCodes: item.distinctCodes,
+        distinctDates: item.distinctDates,
+      }));
+    } catch (error) {
+      // Never turn a research-stat outage into a shape-search outage.
+      console.error("chart shape private forward stats unavailable:", error);
+      historicalStats = [];
+      statsUnavailable = true;
+    }
+  }
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
       <div className="mx-auto max-w-5xl px-3 pt-5 sm:px-6">
@@ -147,6 +174,8 @@ export default async function ChartShapeSearchPage() {
           requestedCount={snapshot.requestedCount}
           scannedCount={snapshot.scannedCount}
           unavailable={snapshot.unavailable}
+          historicalStats={historicalStats}
+          statsUnavailable={statsUnavailable}
         />
       </div>
       <BottomNav />
