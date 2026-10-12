@@ -4,6 +4,8 @@ import { ACTIVE_STOCKS } from "@/app/lib/activeStockList";
 import { selectHorizontalAutoDailyStocks } from "@/app/lib/research/horizontalAutoPolicy";
 import { getHorizontalAutoEnabled } from "@/app/lib/research/horizontalAutoSwitch";
 import { runHorizontalAutoDaily } from "@/app/lib/research/horizontalAutoRunner";
+import { getMsbAutoEnabled } from "@/app/lib/research/msbAutoSwitch";
+import { runMsbAutoSolo } from "@/app/lib/research/msbAutoRunner";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -24,13 +26,28 @@ export async function GET(request: Request) {
       dateJst:preflight.dateJst,reason:preflight.reason});
   }
   try {
-    if (!(await getHorizontalAutoEnabled())) {
-      return NextResponse.json({success:true,skipped:true,reason:"FEATURE_DISABLED"});
+    const [horizontalOn,msbOn] = await Promise.all([
+      getHorizontalAutoEnabled(),getMsbAutoEnabled(),
+    ]);
+    if(!horizontalOn&&!msbOn){
+      return NextResponse.json({success:true,skipped:true,reason:"BOTH_FEATURES_DISABLED"});
     }
-    const result=await runHorizontalAutoDaily();
-    return NextResponse.json(result,{status:result.success?200:503});
+    if(horizontalOn){
+      // The usual five-stock Yahoo batch is shared with MSB only when opted in.
+      const horizontal=await runHorizontalAutoDaily(new Date(),msbOn);
+      if(msbOn&&horizontal.skipped&&horizontal.reason==="NO_ELIGIBLE_STOCKS"){
+        const msb=await runMsbAutoSolo();
+        return NextResponse.json({success:horizontal.success&&msb.success,horizontal,msb},
+          {status:horizontal.success&&msb.success?200:503});
+      }
+      return NextResponse.json(horizontal,{status:horizontal.success?200:503});
+    }
+    // The horizontal study is OFF: MSB uses the very same cron slot, max 5 codes.
+    const msb=await runMsbAutoSolo();
+    return NextResponse.json({success:msb.success,horizontal:{skipped:true,reason:"FEATURE_DISABLED"},msb},
+      {status:msb.success?200:503});
   } catch (e) {
-    console.error("horizontal auto preclaim unavailable",e);
+    console.error("isolated research cron preclaim unavailable",e);
     return NextResponse.json({success:false,error:"HORIZONTAL_AUTO_UNAVAILABLE"},{status:503});
   }
 }
