@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
 import type { ScanDetectedPattern } from "@/app/components/scan/DetectedPatternSummary";
 
 type Stock = {
@@ -163,7 +164,7 @@ function ScanLoading() {
       <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-400" />
         <p className="mt-5 text-lg font-black">AIスキャンを準備しています</p>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">約1000銘柄から今日の候補を探しています。</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">保存済みの分析結果と候補を確認しています。</p>
       </div>
     </main>
   );
@@ -191,6 +192,7 @@ function ScanMobileContent() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [marketClosed, setMarketClosed] = useState(false);
+  const displayLabels = scanDisplayLabels(marketClosed);
   const [quoteDateRange, setQuoteDateRange] = useState<{ oldest: string | null; latest: string | null }>({ oldest: null, latest: null });
   const [signalFilter, setSignalFilter] = useState<SignalFilter>(initialSignalFilter);
   const [budgetFilter, setBudgetFilter] = useState<BudgetFilter>(initialBudget);
@@ -351,7 +353,7 @@ function ScanMobileContent() {
           </div>
           <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-800">
             <h1 className="text-xl font-black tracking-tight sm:text-2xl">AIスキャン</h1>
-            <p className="mt-0.5 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">AIが約1000銘柄を監視し、今日の買い候補を抽出</p>
+            <p className="mt-0.5 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">{displayLabels.description}</p>
           </div>
         </header>
 
@@ -361,6 +363,7 @@ function ScanMobileContent() {
           candidates={candidateCount}
           updated={lastUpdated}
           market={market}
+          marketClosed={marketClosed}
         />
         {stocks.length > 0 && (
           <div className={`mt-3 rounded-xl border px-3 py-3 text-xs font-bold leading-6 ${marketClosed
@@ -386,7 +389,7 @@ function ScanMobileContent() {
         ) : fetchError && stocks.length === 0 ? (
           <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} />
         ) : bestSignal ? (
-          <FeaturedStock stock={bestSignal} metrics={bestSignalMetrics} onFavorite={() => void addFavorite(bestSignal.code, bestSignal.name)} totalStocks={totalStocks || stocks.length} />
+          <FeaturedStock stock={bestSignal} metrics={bestSignalMetrics} onFavorite={() => void addFavorite(bestSignal.code, bestSignal.name)} totalStocks={totalStocks || stocks.length} marketClosed={marketClosed} />
         ) : (
           <EmptyResult onChangeConditions={() => setFiltersOpen(true)} />
         )}
@@ -403,7 +406,7 @@ function ScanMobileContent() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-black tracking-wide text-slate-500 dark:text-slate-400">現在の条件</p>
-              <p className="mt-1 truncate text-xs font-bold text-slate-700 dark:text-slate-200 sm:text-sm">{signalLabel(signalFilter)}・{budgetLabel(budgetFilter)}・{sortLabel(sortMode)}</p>
+              <p className="mt-1 truncate text-xs font-bold text-slate-700 dark:text-slate-200 sm:text-sm">{signalFilter === "hot" ? displayLabels.hotFilter : signalLabel(signalFilter)}・{budgetLabel(budgetFilter)}・{sortLabel(sortMode)}</p>
             </div>
             <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)} className="min-h-10 shrink-0 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
               {filtersOpen ? "閉じる" : "条件を変更"}
@@ -411,7 +414,7 @@ function ScanMobileContent() {
           </div>
           {filtersOpen && (
             <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-3">
-              <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400">候補条件</span><select value={signalFilter} onChange={(event) => setSignalFilter(event.target.value as SignalFilter)} className={selectClass}><option value="strong">買い候補</option><option value="hot">今日の最有力</option><option value="all">すべて</option><option value="market-hot">市場の激熱候補</option><option value="market-watch">市場の注目候補</option></select></label>
+              <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400">候補条件</span><select value={signalFilter} onChange={(event) => setSignalFilter(event.target.value as SignalFilter)} className={selectClass}><option value="strong">買い候補</option><option value="hot">{displayLabels.hotFilter}</option><option value="all">すべて</option><option value="market-hot">市場の激熱候補</option><option value="market-watch">市場の注目候補</option></select></label>
               <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400">必要資金</span><select value={budgetFilter} onChange={(event) => setBudgetFilter(event.target.value === "all" ? "all" : Number(event.target.value) as BudgetFilter)} className={selectClass}>{budgetOptions.map((option) => <option key={option.label} value={option.value}>{option.label}</option>)}</select></label>
               <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400">並び順</span><select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className={selectClass}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             </div>
@@ -443,14 +446,14 @@ function ScanLoadingCard() {
   return <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900"><div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-400" /><p className="mt-4 font-black text-slate-700 dark:text-slate-200">AIが候補を選定しています</p></section>;
 }
 
-function ScanSummary({ total, fetched, candidates, updated, market }: { total: number; fetched: number; candidates: number; updated: Date | null; market: ReturnType<typeof getMarketJudge> }) {
+function ScanSummary({ total, fetched, candidates, updated, market, marketClosed }: { total: number; fetched: number; candidates: number; updated: Date | null; market: ReturnType<typeof getMarketJudge>; marketClosed: boolean }) {
   return (
     <section className="mt-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-4" aria-label="スキャン状況と相場判定">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 sm:text-xs">
         <span>監視 <b className="text-slate-900 dark:text-slate-100">{total.toLocaleString()}銘柄</b></span>
         <span>取得 <b className="text-slate-900 dark:text-slate-100">{fetched.toLocaleString()}件</b></span>
         <span>候補 <b className="text-blue-600 dark:text-blue-400">{candidates.toLocaleString()}件</b></span>
-        <span className="ml-auto">最終更新 <b className="text-slate-700 dark:text-slate-200">{updated ? updated.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</b></span>
+        <span className="ml-auto">{marketClosed ? "分析保存" : "最終更新"} <b className="text-slate-700 dark:text-slate-200">{updated ? updated.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</b></span>
       </div>
       <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 text-[11px] dark:border-slate-800 sm:text-xs">
         <span className="font-bold text-slate-500 dark:text-slate-400">相場判定</span>
@@ -482,7 +485,8 @@ function EmptyResult({ onChangeConditions }: { onChangeConditions: () => void })
   return <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900"><p className="text-base font-black">条件に合う候補がありません</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">条件を変更して再検索してください</p><button type="button" onClick={onChangeConditions} className="mt-4 min-h-10 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-black text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">条件を変更</button></section>;
 }
 
-function FeaturedStock({ stock, metrics, onFavorite, totalStocks }: { stock: Stock; metrics: ReturnType<typeof getBestSignalMetrics>; onFavorite: () => void; totalStocks: number }) {
+function FeaturedStock({ stock, metrics, onFavorite, totalStocks, marketClosed }: { stock: Stock; metrics: ReturnType<typeof getBestSignalMetrics>; onFavorite: () => void; totalStocks: number; marketClosed: boolean }) {
+  const displayLabels = scanDisplayLabels(marketClosed);
   const takeProfit = metrics?.takeProfit ?? stock.takeProfit;
   const stopLoss = metrics?.stopLoss ?? stock.stopLoss;
   const reasons = reasonItems(stock);
@@ -513,14 +517,14 @@ function FeaturedStock({ stock, metrics, onFavorite, totalStocks }: { stock: Sto
       <Link href={`/analysis/${stock.code}`} aria-label={`${stock.code} ${stock.name}の個別解析を見る`} className="absolute inset-0 z-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-blue-500" />
       <div className="pointer-events-none relative z-10">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0"><p className="text-[10px] font-black tracking-[0.12em] text-amber-700 dark:text-amber-400">🥇 本日の最有力候補</p><p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">約{totalStocks.toLocaleString()}銘柄からAIランキング1位</p></div>
+          <div className="min-w-0"><p className="text-[10px] font-black tracking-[0.12em] text-amber-700 dark:text-amber-400">🥇 {displayLabels.strongest}</p><p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">約{totalStocks.toLocaleString()}銘柄からAIランキング1位</p></div>
           <button type="button" onClick={onFavorite} className="pointer-events-auto relative z-20 -mr-1 -mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-2xl text-amber-500 dark:border-amber-800 dark:bg-amber-950" aria-label={`${stock.name}をお気に入りに追加`}>☆</button>
         </div>
         <div className="mt-2 flex min-w-0 items-center gap-2"><span className="shrink-0 text-sm font-black text-slate-500 dark:text-slate-400">{stock.code}</span><h2 className="min-w-0 flex-1 truncate text-xl font-black">{stock.name}</h2><span className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-black text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300">{getSignal(stock.score)}</span></div>
 
         <div className="mt-3 grid grid-cols-[1.15fr_.85fr] gap-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
           <div><p className="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:text-slate-400">AI POWER</p><p data-testid="scan-mobile-ai-power" className="mt-0.5 text-5xl font-black leading-none tracking-tight text-blue-600 dark:text-blue-400">{scoreText(stock.score)}</p><p className="mt-1.5 text-[8px] font-bold text-slate-400"><span className="mr-1">補助評価</span>{getRank(stock.score)}ランク・{"★".repeat(stars)}・AI勝率 {aiWinRateText}</p></div>
-          <dl className="space-y-1.5 text-xs"><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">現在値</dt><dd className="font-black">{yen(stock.price)}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">変化率</dt><dd className={`font-black ${changePercentTone}`}>{changePercentText}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">必要資金</dt><dd className="font-black text-orange-600 dark:text-orange-400">{requiredMoneyText}</dd></div></dl>
+          <dl className="space-y-1.5 text-xs"><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">{displayLabels.quote}</dt><dd className="font-black">{yen(stock.price)}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">変化率</dt><dd className={`font-black ${changePercentTone}`}>{changePercentText}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">必要資金</dt><dd className="font-black text-orange-600 dark:text-orange-400">{requiredMoneyText}</dd></div></dl>
         </div>
 
         <section className="mt-3">

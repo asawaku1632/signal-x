@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   normalizeScanDetectedPatterns,
@@ -145,6 +146,7 @@ export default function ScanPage() {
   const [dataStatus, setDataStatus] = useState<ScanResponse["status"]>("loading");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [marketClosed, setMarketClosed] = useState(false);
+  const displayLabels = scanDisplayLabels(marketClosed);
   const [quoteDates, setQuoteDates] = useState({ oldest: null as string | null, latest: null as string | null });
 
   const fetchStocks = useCallback(async () => {
@@ -226,7 +228,7 @@ export default function ScanPage() {
               <span aria-hidden>←</span> Dashboard
             </Link>
             <p className="text-xs font-black tracking-[0.22em] text-blue-600">AI STOCK SCAN</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">今日の買い候補</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{displayLabels.headline}</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">AIが全銘柄を分析し、有力候補をランキング表示します。</p>
           </div>
           <button type="button" onClick={() => void fetchStocks()} className="mt-8 min-h-11 shrink-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md">
@@ -266,7 +268,7 @@ export default function ScanPage() {
           <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700">{errorText}</div>
         )}
 
-        {!loading && topStock && <TopPickCard stock={topStock} />}
+        {!loading && topStock && <TopPickCard stock={topStock} marketClosed={marketClosed} />}
 
         {!loading && stocks.length > 1 && (
           <section className="mt-4 grid gap-3 sm:grid-cols-2" aria-label="上位候補">
@@ -296,7 +298,7 @@ export default function ScanPage() {
         )}
 
         {!loading && !topStock && (
-          <EmptyTopPickCard onRetry={() => void fetchStocks()} />
+          <EmptyTopPickCard onRetry={() => void fetchStocks()} marketClosed={marketClosed} />
         )}
 
         {!loading && stocks.length > 0 && (
@@ -304,7 +306,7 @@ export default function ScanPage() {
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-black tracking-[0.18em] text-blue-600">RANKING</p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight">今日のTOP10</h2>
+                <h2 className="mt-1 text-2xl font-black tracking-tight">{displayLabels.topTen}</h2>
               </div>
               <p className="text-xs font-medium text-slate-400">銘柄をタップして詳細へ</p>
             </div>
@@ -339,7 +341,8 @@ export default function ScanPage() {
   );
 }
 
-function TopPickCard({ stock }: { stock: Stock }) {
+function TopPickCard({ stock, marketClosed }: { stock: Stock; marketClosed: boolean }) {
+  const displayLabels = scanDisplayLabels(marketClosed);
   const reasons = reasonItems(stock);
   const stars = Math.max(1, Math.min(5, Math.ceil(stock.score / 20)));
   return (
@@ -350,9 +353,9 @@ function TopPickCard({ stock }: { stock: Stock }) {
           <div className="flex min-w-0 items-center gap-4">
             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-500 text-4xl shadow-[0_10px_25px_rgba(217,154,22,0.3)]" aria-label="1位ゴールドメダル">🥇</span>
             <div className="min-w-0">
-              <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black tracking-[0.16em] text-amber-800">本日の最有力候補</div>
+              <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black tracking-[0.16em] text-amber-800">{displayLabels.strongest}</div>
               <h2 className="mt-2 truncate text-2xl font-black tracking-tight sm:text-3xl">{stock.name}</h2>
-              <p className="mt-1 text-sm font-bold text-slate-500">{stock.code} ・ 現在値 {yen(stock.price)}</p>
+              <p className="mt-1 text-sm font-bold text-slate-500">{stock.code} ・ {displayLabels.quote} {yen(stock.price)}</p>
             </div>
           </div>
           <div className="min-w-[160px] text-left sm:text-right">
@@ -409,10 +412,11 @@ function PodiumStockCard({ stock, rank }: { stock: Stock; rank: number }) {
   );
 }
 
-function EmptyTopPickCard({ onRetry }: { onRetry: () => void }) {
+function EmptyTopPickCard({ onRetry, marketClosed }: { onRetry: () => void; marketClosed: boolean }) {
+  const displayLabels = scanDisplayLabels(marketClosed);
   return (
     <article data-testid="scan-top-pick-empty" className="mt-4 rounded-[32px] border border-amber-300 bg-[linear-gradient(145deg,#fffdf7_0%,#ffffff_55%,#fff8df_100%)] p-6 shadow-[0_20px_60px_rgba(180,125,20,0.14)] sm:p-8">
-      <p className="text-xs font-black tracking-[0.16em] text-amber-800">♛ 本日の最有力候補</p>
+      <p className="text-xs font-black tracking-[0.16em] text-amber-800">♛ {displayLabels.strongest}</p>
       <h2 className="mt-3 text-2xl font-black text-slate-950">スキャン結果を取得できませんでした</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">候補データが届き次第、AI POWER・星評価・ランク・AI理由・利確・損切・R:Rをここに表示します。</p>
       <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-blue-700">再取得する</button>
