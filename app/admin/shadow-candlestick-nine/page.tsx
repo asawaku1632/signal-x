@@ -120,6 +120,10 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
           <p className="mt-2">元画像は形を学ぶための参考例です。「底値圏なら必ず上昇」「高値圏なら必ず下落」という意味ではありません。</p>
         </section>
 
+        <Link href="/admin/shadow-candlestick-nine/batch" prefetch={false}
+          className="mt-4 flex min-h-12 items-center justify-center rounded-2xl border border-blue-300 bg-blue-50 p-3 text-sm font-black text-blue-800">
+          📊 最大5銘柄をまとめて比較する
+        </Link>
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
           <form action="/admin/shadow-candlestick-nine" method="get" className="flex flex-wrap items-end gap-3">
             <label className="min-w-[160px] flex-1 text-sm font-black">
