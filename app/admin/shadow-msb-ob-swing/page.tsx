@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchCohort, dateJst } from "@/app/lib/research/shadowCandleYahoo";
 import { studyMsbMaSwing, SWING_RESEARCH_VARIANTS } from "@/app/lib/research/msbMaSwing";
+import { studySwingVolumeSensitivity } from "@/app/lib/research/msbMaVolumeSensitivity";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,6 +33,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
   const loaded = attempted && !inputError ? await fetchCohort(codes) : [];
   const successful = loaded.filter(row => !row.error);
   const report = studyMsbMaSwing(successful.map(row => ({ code: row.code, candles: row.candles })));
+  const sensitivity = studySwingVolumeSensitivity(successful.map(row => ({ code: row.code, candles: row.candles })), report);
   const first = successful.map(r => r.candles[0]?.time).filter((x): x is number => x !== undefined);
   const last = successful.map(r => r.candles.at(-1)?.time).filter((x): x is number => x !== undefined);
   const range = first.length && last.length ? dateJst(Math.min(...first)) + " 〜 " + dateJst(Math.max(...last)) : "—";
@@ -98,6 +100,82 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
             比較方法：①を満たす全日を抽出（5営業日保有期間は重複します）。確定足の終値で判定し翌営業日寄り付きで仮想100株買い、シグナルから5営業日後の終値で仮想売却。
             全4条件は<strong>同じ候補・同じ約定想定価格</strong>の部分集合です。想定滑り片道0.1%、税・手数料・配当・株式分割調整・資金制約は別。
             未確定の未来は勝率に含めず、損切り／利確ルールの再現も行っていません。
+          </p>
+        </section>
+        <section className="rounded-2xl border border-indigo-200 bg-white p-4 dark:border-indigo-800 dark:bg-slate-900">
+          <h2 className="text-base font-black">🔬 出来高は何倍が適切？ MSB・OB追加研究</h2>
+          <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+            今回は<strong>MSB・OB反発が確認された候補</strong>から、同じ銘柄の5営業日保有期間が重なるものを時系列の先着順で除外し、<strong>全く同じ候補</strong>を出来高の閾値だけ変えて比較します。
+            出来高は<strong>直前20営業日の平均との比率</strong>。構造突破日と、その後の反発日を別々に調べます。
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["①の元観察数", sensitivity.baseObservationCount],
+              ["①の重複なし", sensitivity.nonOverlapBaseCount],
+              ["MSB・OB元観察数", sensitivity.obObservationCount],
+              ["MSB・OB重複なし", sensitivity.obNonOverlapCount],
+            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-100 p-2 dark:bg-slate-800">
+              <p className="text-[11px] text-slate-600 dark:text-slate-300">{label}</p>
+              <p className="text-lg font-black">{value}件</p>
+            </div>)}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            MSB・OBの保有期間重複による除外：{sensitivity.obRemovedForOverlap}件 ／
+            突破日の出来高不明：{sensitivity.missingBreakoutVolume}件 ／
+            反発日の出来高不明：{sensitivity.missingRetestVolume}件
+          </p>
+          <h3 className="mt-4 text-sm font-black">出来高条件の違い（重複なしMSB・OB候補）</h3>
+          <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+                <tr>
+                  <th className="px-2 py-3">必要倍率</th>
+                  <th className="px-2 py-3">突破日だけ</th>
+                  <th className="px-2 py-3">反発日だけ</th>
+                  <th className="px-2 py-3">両日とも</th>
+                </tr>
+              </thead>
+              <tbody>{sensitivity.rows.map(row => <tr key={row.threshold} className="border-t border-slate-200 dark:border-slate-700">
+                <th className="p-2">{row.threshold === 0 ? "条件なし" : row.threshold.toFixed(1) + "倍以上"}</th>
+                {[row.breakout, row.retest, row.both].map((stat, index) => <td key={index} className="p-2 align-top">
+                  <p className="font-black">{stat.count}件 / {pct(stat.winRatePercent)}</p>
+                  <p className="mt-1 text-slate-500">平均 {yen(stat.averageProfitYen100)}</p>
+                  <p className="text-slate-500">合計 {stat.count ? yen(stat.totalProfitYen100) : "—"}</p>
+                </td>)}
+              </tr>)}</tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+            0倍は「出来高条件なし」で不明データも対象。1.0・1.2・1.5倍は出来高不明なら不採用。各欄の対象が0件なら勝率は「—」であり0%ではありません。
+            勝率だけでなく、件数・平均100株損益・合計も確認してください。ここでの合計は独立した投資ポートフォリオの収益ではありません。
+          </p>
+          <details className="mt-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <summary className="cursor-pointer text-sm font-black">①〜④も同一銘柄の重複を除いたら？</summary>
+            <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              ①の元候補を先着順で重複除外してから②〜④で絞ります。上のMSB・OB専用比較と母集団が異なるので、件数や率が一致しない場合があります。
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {sensitivity.baselineNonOverlap.map(stat => <div key={stat.id} className="rounded-lg bg-slate-100 p-3 text-xs dark:bg-slate-800">
+                <p className="font-black">{stat.label}</p>
+                <p className="mt-1">対象 {stat.count}件 ／ 勝率 {pct(stat.winRatePercent)}</p>
+                <p>平均 {yen(stat.averageProfitYen100)} ／ 最悪 {yen(stat.worstProfitYen100)}</p>
+              </div>)}
+            </div>
+          </details>
+          <details className="mt-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <summary className="cursor-pointer text-sm font-black">MSB・OB候補の突破日・反発日出来高を見る（最大15件）</summary>
+            <div className="mt-2 space-y-2">{sensitivity.details.slice().sort((a,b) => b.trade.signalTime - a.trade.signalTime).slice(0,15).map(entry =>
+              <div key={entry.trade.code + "-" + entry.trade.signalTime} className="rounded-lg bg-slate-100 p-3 text-xs leading-6 dark:bg-slate-800">
+                <p className="font-black">{entry.trade.code}｜{dateJst(entry.trade.signalTime)}｜100株 {yen(entry.trade.profitYen100)}</p>
+                <p>突破日：{entry.trade.orderBlock ? dateJst(successful.find(s => s.code === entry.trade.code)!.candles[entry.trade.orderBlock.breakIndex].time) : "—"}
+                  ／ 出来高 {entry.breakoutRatio === null ? "不明" : entry.breakoutRatio.toFixed(2) + "倍"}</p>
+                <p>反発日：{dateJst(entry.trade.signalTime)} ／ 出来高 {entry.retestRatio === null ? "不明" : entry.retestRatio.toFixed(2) + "倍"}</p>
+              </div>)}
+            </div>
+          </details>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            同一銘柄の保有期間だけを除外しており、異なる銘柄の相関は残ります。先着選択法による偏りがあり、条件の優劣はこの短期間だけでは結論できません。
+            MSB・OBは価格データによる仮説で、実際の大口注文を確認したものではありません。既存の①〜④やAI判定は変更していません。
           </p>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
