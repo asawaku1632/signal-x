@@ -12,7 +12,7 @@ import {
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-type Props = { searchParams: Promise<{ save?: string; run?: string }> };
+type Props = { searchParams: Promise<{ save?: string; run?: string; auto?: string }> };
 type AutoDayRow = { trade_date: string; status: string; codes: string[]; created_at: string; note: string | null };
 type RunRow = {
   id: string; codes: string[]; first_bar_date: string; last_bar_date: string;
