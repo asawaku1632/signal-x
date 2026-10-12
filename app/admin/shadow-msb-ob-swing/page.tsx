@@ -4,14 +4,13 @@ import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchCohort, dateJst } from "@/app/lib/research/shadowCandleYahoo";
 import { studyMsbMaSwing, SWING_RESEARCH_VARIANTS } from "@/app/lib/research/msbMaSwing";
 import { studySwingVolumeSensitivity } from "@/app/lib/research/msbMaVolumeSensitivity";
+import { MSB_PRESET_GROUPS, msbPresetCodes } from "@/app/lib/research/msbResearchPresets";
+import { saveMsbVolumeResearch } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-type Props = { searchParams: Promise<{ codes?: string; preset?: string }> };
-const PRESETS: Record<string, string> = {
-  A: "3182,3387,6855,7203,9984",
-  B: "1605,2760,3994,5805,8058",
-};
+export const maxDuration = 60;
+type Props = { searchParams: Promise<{ codes?: string; preset?: string; save?: string }> };
 const number = (n: number) => n.toLocaleString("ja-JP");
 const yen = (n: number | null) => n === null ? "—" : (n > 0 ? "+" : "") + number(n) + "円";
 const pct = (n: number | null) => n === null ? "—" : n.toFixed(1) + "%";
@@ -21,8 +20,8 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
   if (!isOwner) notFound();
 
   const params = await searchParams;
-  const raw = typeof params.preset === "string" && Object.hasOwn(PRESETS, params.preset)
-    ? PRESETS[params.preset] : typeof params.codes === "string" ? params.codes.slice(0, 80) : "";
+  const preset = typeof params.preset === "string" ? msbPresetCodes(params.preset) : null;
+  const raw = preset ? preset.join(",") : typeof params.codes === "string" ? params.codes.slice(0, 80) : "";
   const attempted = raw.trim().length > 0;
   const codes = raw.trim().split(/[\s,、]+/).filter(Boolean);
   const inputError = attempted && (!codes.length || codes.length > 5 ||
@@ -41,6 +40,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
   return <main className="min-h-screen bg-slate-50 px-3 py-5 pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-3xl space-y-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700 dark:text-blue-300">← 学習管理へ戻る</Link>
+      <Link href="/admin/shadow-msb-ob-swing/archive" prefetch={false} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-300 px-3 text-sm font-black text-indigo-700 dark:text-indigo-300">💾 累積研究結果を見る（追加検証C〜H）</Link>
       <header>
         <p className="text-xs font-black tracking-widest text-indigo-700 dark:text-indigo-300">OWNER RESEARCH / SHADOW ONLY</p>
         <h1 className="mt-1 text-2xl font-black">🧪 大口の痕跡？ MSB・OB × 5日/25日線</h1>
@@ -49,7 +49,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
       <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-950">
         <p className="font-black text-sm">🔒 本人専用・観察のみ。本番AI/LINE通知/学習履歴/疑似購入は変更しません。</p>
         <p className="mt-1">大口注文の実測ではありません。OHLCVの形から推測するMSB・オーダーブロックの研究仮説です。AI POWERを過去にさかのぼって復元した比較ではありません。</p>
-        <p className="mt-1">「検証する」を押した場合だけ最大5銘柄・過去6か月（最大135本）のYahoo参考日足を取得。DBへの書き込み・自動監視・Cron・有料データ契約の追加なし。通信とVercel処理の利用枠は消費する場合があります。</p>
+        <p className="mt-1">「検証する」を押した場合だけ最大5銘柄・過去6か月（最大135本）のYahoo参考日足を取得。検証だけならDB保存なし。「研究結果を保存」は本人が別途押したときだけ研究専用DBに記録します。自動監視・Cron・有料データ契約の追加なし。通信とVercel処理の利用枠は消費する場合があります。</p>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <form action="/admin/shadow-msb-ob-swing" method="get">
@@ -63,10 +63,32 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
             <button name="preset" value="B" className="min-h-12 rounded-xl border border-blue-300 px-2 text-xs font-black text-blue-700 dark:text-blue-300">サンプルB</button>
           </div>
         </form>
+        <details className="mt-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <summary className="cursor-pointer text-sm font-black">🔬 新しい銘柄を調べる（追加C〜H・各5銘柄）</summary>
+          <p className="mt-2 text-xs text-slate-500">合計30銘柄を6グループに分け、1回ずつ検証します。分野別に選んだ銘柄で、無作為抽出ではありません。</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {MSB_PRESET_GROUPS.slice(2).map(item=><button key={item.key} type="submit" formAction="/admin/shadow-msb-ob-swing"
+              name="preset" value={item.key} className="min-h-11 rounded-xl border border-blue-300 p-2 text-xs font-black text-blue-700 dark:text-blue-300">{item.label}</button>)}
+          </div>
+        </details>
         <p className="mt-2 text-xs text-slate-500">初期表示ではデータを取得しません。サンプル銘柄は統計的に無作為抽出したものではありません。</p>
         {inputError && <p role="alert" className="mt-2 text-sm font-bold text-red-700">{inputError}</p>}
       </section>
+      {params.save&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900">
+        {params.save==="invalid"?"銘柄コードが不正です。":params.save==="unavailable"?"有効な確定日足がそろわなかったため保存していません。":"保存できませんでした。研究専用DBの状態を確認してください。"}
+      </p>}
       {attempted && !inputError && <>
+        {loaded.length===codes.length && loaded.every(r=>!r.error && r.candles.length>=60)&&report.invalidCodes.length===0&&(
+          <section className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900">
+            <h2 className="text-base font-black">💾 この結果を累積研究に追加</h2>
+            <p className="mt-2 text-xs leading-6">保存するときだけ、同じ最大5銘柄の確定日足を再取得して研究専用DBへ記録します。同じ銘柄・同じシグナルは何度保存しても重複しません。A・Bと新しいC〜Hは分けて集計します。</p>
+            <form action={saveMsbVolumeResearch} className="mt-3">
+              <input type="hidden" name="codes" value={codes.join(",")}/>
+              <button type="submit" className="min-h-12 w-full rounded-xl bg-blue-700 px-3 text-sm font-black text-white">研究結果を保存して累積を見る</button>
+            </form>
+            <p className="mt-2 text-xs text-slate-500">保存ボタンで株価通信が最大5回追加発生し、Vercel・DBの使用量に含まれます。自動保存なし。</p>
+          </section>
+        )}
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">📊 過去データの結果</h2>
           <p className="mt-1 text-xs text-slate-500">期間：{range} ／ 有効{report.cohortCount}銘柄・計{report.candleCount}日足</p>
@@ -201,7 +223,7 @@ export default async function ShadowMsbObSwingPage({ searchParams }: Props) {
       </>}
       <p className="text-xs leading-6 text-slate-500">
         研究条件は仮説であり、今後の上昇確率や利益を保証しません。少数・選択銘柄・短期の過去データによる過剰適合、同じ銘柄の保有期間重複（独立した取引数ではない）、約定・株価調整・出来高欠損の制約があります。
-        有望でも別期間・別銘柄で再検証してから本番AIへの反映を検討します。今回のページには自動保存はありません。
+        有望でも別期間・別銘柄で再検証してから本番AIへの反映を検討します。本人の明示操作以外に保存はしません。
       </p>
     </div>
   </main>;
