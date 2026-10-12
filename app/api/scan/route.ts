@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { clampLimit, getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
+import { marketScanGuard, quoteDateJst } from "@/app/lib/marketScanGuard";
 import {
   getLatestScanSnapshot,
   getLatestScanSnapshotSlice,
@@ -32,7 +33,22 @@ function selectStocks(stocks: any[], top: number | null, filter: MarketFilter) {
   return top ? filtered.slice(0, top) : filtered;
 }
 
+function quoteDateBounds(stocks: Array<{ latestBarTimestamp?: unknown }>) {
+  let oldestQuoteDateJst: string | null = null;
+  let latestQuoteDateJst: string | null = null;
+  let quoteTimestampCount = 0;
+  for (const stock of stocks) {
+    const day = quoteDateJst(stock.latestBarTimestamp);
+    if (!day) continue;
+    quoteTimestampCount += 1;
+    if (!oldestQuoteDateJst || day < oldestQuoteDateJst) oldestQuoteDateJst = day;
+    if (!latestQuoteDateJst || day > latestQuoteDateJst) latestQuoteDateJst = day;
+  }
+  return { oldestQuoteDateJst, latestQuoteDateJst, quoteTimestampCount };
+}
+
 export async function GET(request: Request) {
+  const market = marketScanGuard();
   const url = new URL(request.url);
   const limit = clampLimit(Number(url.searchParams.get("limit") || 200));
   const requestedTop = Number(url.searchParams.get("top"));
@@ -93,6 +109,11 @@ export async function GET(request: Request) {
       totalStockList: getFallbackTotalStockList(),
       scannedCount: 0,
       stocks: [],
+      marketClosed: market.closed,
+      marketCalendarKnown: market.calendarKnown,
+      marketDateJst: market.dateJst,
+      oldestQuoteDateJst: null,
+      latestQuoteDateJst: null,
     }, { status: 202 });
   }
 
@@ -111,6 +132,7 @@ export async function GET(request: Request) {
 
   const sourceStocks = snapshot.payload.stocks.slice(0, limit);
   const stocks = selectStocks(sourceStocks, top, filter);
+  const quoteDates = quoteDateBounds(sourceStocks);
   const scannedCount = "payloadStockCount" in snapshot &&
     typeof snapshot.payloadStockCount === "number"
     ? Math.min(limit, snapshot.payloadStockCount)
@@ -124,6 +146,10 @@ export async function GET(request: Request) {
     requestedLimit: top ?? limit,
     count: stocks.length,
     scannedCount,
+    marketClosed: market.closed,
+    marketCalendarKnown: market.calendarKnown,
+    marketDateJst: market.dateJst,
+    ...quoteDates,
     stocks,
   });
 }
