@@ -9,10 +9,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const SLOTS = {
+  "0915": { label: "09:15", minute: 9 * 60 + 15 },
   "0930": { label: "09:30", minute: 9 * 60 + 30 },
   "1030": { label: "10:30", minute: 10 * 60 + 30 },
+  "1240": { label: "12:40", minute: 12 * 60 + 40 },
   "1300": { label: "13:00", minute: 13 * 60 },
   "1430": { label: "14:30", minute: 14 * 60 + 30 },
+  "1515": { label: "15:15", minute: 15 * 60 + 15 },
 } as const;
 type SlotKey = keyof typeof SLOTS;
 const MAX_SAMPLES = 30;

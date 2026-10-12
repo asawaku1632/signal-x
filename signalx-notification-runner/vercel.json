@@ -28,6 +28,18 @@
     {
       "path": "/api/run?job=golden-zone-1430",
       "schedule": "34 5 * * 1-5"
+    },
+    {
+      "path": "/api/run?job=golden-zone-0915",
+      "schedule": "19 0 * * 1-5"
+    },
+    {
+      "path": "/api/run?job=golden-zone-1240",
+      "schedule": "44 3 * * 1-5"
+    },
+    {
+      "path": "/api/run?job=golden-zone-1515",
+      "schedule": "19 6 * * 1-5"
     }
   ]
 }

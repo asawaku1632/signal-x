@@ -1,0 +1,27 @@
+name: Golden Zone Shadow Research Checks
+on:
+  pull_request:
+    paths:
+      - "app/admin/golden-zone/page.tsx"
+      - "app/api/cron/golden-zone/route.ts"
+      - "signalx-notification-runner/api/run.js"
+      - "signalx-notification-runner/vercel.json"
+      - "supabase/migrations/20261012_expand_golden_zone_session_slots.sql"
+      - "tests/goldenZoneSessionSlots.test.mjs"
+      - ".github/workflows/golden-zone-research-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/goldenZoneSessionSlots.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
