@@ -59,6 +59,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "曜日別・時間帯別の傾向とサンプル数",
       },
       {
+        href: "/admin/support-rebound", icon: "🌱",
+        title: "支持線反発・2段階研究", tag: "研究用",
+        detail: "③反発の兆しと②陽線2本の確認を過去日足で比較",
+      },
+      {
         href: "/admin/pattern-performance", icon: "📚",
         title: "チャートパターン実績",
         detail: "パターン別の的中率と未来追跡",
