@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
 import { studyHorizontalRetest } from "@/app/lib/research/horizontalRetest";
+import { compareHorizontalRetest, HORIZONTAL_VARIANTS } from "@/app/lib/research/horizontalRetestComparison";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,6 +42,7 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
   const total = allTrades.reduce((s, t) => s + t.profitYen100, 0);
   const allSignals = rows.reduce((s, r) => s + r.report.breakoutCount, 0);
   const retests = rows.reduce((s, r) => s + r.report.retestCount, 0);
+  const comparison = compareHorizontalRetest(loaded.filter(r => !r.error).map(r => ({ code: r.code, candles: r.candles })));
 
   return (
     <main className="min-h-screen bg-slate-50 px-3 py-5 pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -90,6 +92,75 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
                 未確定の取引は勝率・利益から除外します。
               </p>
               {allTrades.length === 0 && <p className="mt-3 text-sm font-bold text-amber-700">確定できた取引はまだ0件です。0%の勝率という意味ではありません。</p>}
+            </section>
+            <section className="rounded-2xl border border-indigo-200 bg-white p-3 sm:p-4 dark:border-indigo-900 dark:bg-slate-900">
+              <h2 className="text-lg font-black">📊 同じ取引を3条件で比べる（研究用）</h2>
+              <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+                この比較は<strong>①で確定した同じ取引のうち、②・③ならエントリー対象だったか</strong>を判定するものです。
+                追加条件による新規の別取引は発生させず、買値・売値は①から変えません。
+                <strong>過去のAI POWER・実際のAI予測を復元した結果ではありません。</strong>
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                データ：取得できた{comparison.cohortCount}銘柄・確定済み日足 /
+                突破{comparison.totalBreakouts}件 / 押し目反発{comparison.totalRetests}件 /
+                判定済み取引{comparison.completedBaseTrades}件
+              </p>
+              <div className="mt-3 space-y-2">
+                {comparison.comparison.map(stat => {
+                  const definition = HORIZONTAL_VARIANTS.find(v => v.id === stat.id)!;
+                  return (
+                    <div key={stat.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <p className="text-sm font-black">{definition.name}</p>
+                      <p className="mt-1 text-[11px] leading-5 text-slate-500 dark:text-slate-400">{definition.criteria}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800">
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">対象 / 勝率</p>
+                          <p className="text-lg font-black">{stat.eligible}件 / {percent(stat.winRatePercent)}</p>
+                          <p className="text-[11px]">勝{stat.wins}・負{stat.losses}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800">
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">仮想100株損益合計</p>
+                          <p className="text-lg font-black">{stat.eligible ? yen(stat.profitYen100) : "—"}</p>
+                          <p className="text-[11px]">①から除外 {stat.rejectedFromBase}件</p>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs leading-5">
+                        平均騰落率 {percent(stat.averageReturnPercent)} /
+                        最悪の1取引 {stat.worstProfitYen100 === null ? "—" : yen(stat.worstProfitYen100)} /
+                        簡易最大ドローダウン {stat.maxDrawdownYen100 === null ? "—" : yen(stat.maxDrawdownYen100)}
+                      </p>
+                      {stat.eligible === 0 && <p className="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+                        対象0件：勝率や収益性の優劣は判定できません。
+                      </p>}
+                    </div>
+                  );
+                })}
+              </div>
+              {comparison.entries.length > 0 && (
+                <details className="mt-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <summary className="cursor-pointer text-sm font-black">銘柄別：どの条件で除外された？（{comparison.entries.length}取引）</summary>
+                  <div className="mt-3 space-y-2">
+                    {comparison.entries.map(entry => (
+                      <div key={entry.code + "-" + entry.breakoutTime + "-" + entry.entryTime}
+                        className="rounded-lg bg-slate-100 p-3 text-xs leading-6 dark:bg-slate-800">
+                        <p className="text-sm font-black">{entry.code}：{yen(entry.trade.profitYen100)}</p>
+                        <p>①対象 / ②{entry.eligible.TREND_VOLUME ? "対象" : "除外"} / ③{entry.eligible.TECHNICAL ? "対象" : "除外"}</p>
+                        <p>突破時出来高倍率 {entry.breakoutVolumeRatio === null ? "不明" : entry.breakoutVolumeRatio.toFixed(2) + "倍"} /
+                          MA差 {entry.maSpreadPercent === null ? "不明" : entry.maSpreadPercent.toFixed(2) + "%"}</p>
+                        <p>反発時 RSI {entry.rsiAtRetest ?? "不明"} /
+                          MACD {entry.macdHistogramAtRetest === null ? "不明" : entry.macdHistogramAtRetest.toFixed(2)}</p>
+                        <p>追加条件：{entry.failed.length ? entry.failed.join("・") : "すべて通過"}</p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+              <p className="mt-3 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+                ②・③は①の取引の部分集合。勝率が上がっても選んだ過去データへの過剰適合の可能性があります。
+                比較の閾値は研究仮説であり、後から都合良く変更しないで別期間・別銘柄で確認が必要です。
+                損益は100株×各取引の単純合計（資金制約なし）、簡易ドローダウンは確定売買損益のみ。
+                税・手数料は別、買い／売りの想定滑り片道0.1%。本番判定・通知・保存には反映しません。
+              </p>
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
               <h2 className="text-lg font-black">銘柄別の結果</h2>
