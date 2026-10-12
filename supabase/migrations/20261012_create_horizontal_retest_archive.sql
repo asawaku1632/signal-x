@@ -1,4 +1,4 @@
--- Isolated horizontal-retet research archive only. No production triggers,
+-- Isolated horizontal-retest research archive only. No production triggers,
 -- cron, LINE, AI POWER, paper trades or alterations to existing tables.
 -- An explicit owner-only server action is the only application writer.
 CREATE TABLE IF NOT EXISTS public.horizontal_retest_archive_runs (
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.horizontal_retest_archive_trades (
   entry_time bigint NOT NULL CHECK (entry_time > retest_time),
   exit_time bigint NOT NULL CHECK (exit_time >= entry_time),
   profit_yen_100 integer NOT NULL,
-  return_percent double precision NOT NULL CHECK (isfinite(return_percent)),
+  return_percent numeric(12,4) NOT NULL CHECK (return_percent BETWEEN -100000 AND 100000),
   volume_eligible boolean NOT NULL,
   technical_eligible boolean NOT NULL,
   first_run_id uuid NOT NULL REFERENCES public.horizontal_retest_archive_runs(id),
