@@ -54,7 +54,8 @@ function avgClose(bars: readonly SwingResearchCandle[], index: number, period: n
 function asOfVolume(bars: readonly SwingResearchCandle[], index: number): number | null {
   const history = bars.slice(index - 20, index).map(b => b.volume);
   const current = bars[index].volume;
-  if (history.length !== 20 || !history.every(positive) || !positive(current)) return null;
+  if (history.length !== 20 || !history.every(positive) ||
+      typeof current !== "number" || !Number.isFinite(current) || current <= 0) return null;
   return current / mean(history as number[]);
 }
 
