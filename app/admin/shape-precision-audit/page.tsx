@@ -5,6 +5,12 @@ import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import { SCAN_SNAPSHOT_KEY } from "@/app/lib/scanSnapshot";
+import {
+  classifyDoubleBottomReasons,
+  doubleBottomStageLabel,
+  DOUBLE_BOTTOM_STAGES,
+  type DoubleBottomStage,
+} from "@/app/lib/research/doubleBottomEvidence";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,6 +28,7 @@ type AuditMatch = {
   stock: AuditStock;
   confidence: number | null;
   breakout: "recorded" | "not-recorded" | "unknown";
+  stage: DoubleBottomStage;
 };
 type PatternSummary = {
   id: string;
@@ -199,7 +206,12 @@ function collectMatches(stocks: AuditStock[], patternId: string): AuditMatch[] {
     const breakout = details?.reasons === null || details === undefined
       ? "unknown"
       : details.reasons.includes(breakoutReason) ? "recorded" : "not-recorded";
-    return [{ stock, confidence: pattern.confidence, breakout } satisfies AuditMatch];
+    return [{
+      stock,
+      confidence: pattern.confidence,
+      breakout,
+      stage: classifyDoubleBottomReasons(details?.reasons),
+    } satisfies AuditMatch];
   });
 }
 
@@ -208,11 +220,7 @@ function collectMatches(stocks: AuditStock[], patternId: string): AuditMatch[] {
 function sampleMatches(matches: AuditMatch[], patternId: string): AuditMatch[] {
   const ordered = [...matches].sort((a, b) => a.stock.code.localeCompare(b.stock.code, "ja", { numeric: true }));
   const buckets = patternId === doubleBottomId
-    ? [
-        ordered.filter((m) => m.breakout === "recorded"),
-        ordered.filter((m) => m.breakout === "not-recorded"),
-        ordered.filter((m) => m.breakout === "unknown"),
-      ]
+    ? DOUBLE_BOTTOM_STAGES.map((item) => ordered.filter((m) => m.stage === item.value))
     : [
         ordered.filter((m) => (m.confidence ?? 0) === 96),
         ordered.filter((m) => (m.confidence ?? 0) >= 85 && (m.confidence ?? 0) < 96),
@@ -220,9 +228,11 @@ function sampleMatches(matches: AuditMatch[], patternId: string): AuditMatch[] {
       ];
   const picks: AuditMatch[] = [];
   const seen = new Set<string>();
-  for (const bucket of buckets) {
+  for (const [bucketIndex, bucket] of buckets.entries()) {
     if (!bucket.length) continue;
-    const take = Math.min(5, bucket.length);
+    // Four evidence classes: 4 + 4 + 4 + 3 = at most 15 total.
+    const take = Math.min(patternId === doubleBottomId
+      ? (bucketIndex === 3 ? 3 : 4) : 5, bucket.length);
     for (let i = 0; i < take; i++) {
       const entry = bucket[Math.floor((i + 0.5) * bucket.length / take)];
       if (!seen.has(entry.stock.code)) { picks.push(entry); seen.add(entry.stock.code); }
@@ -247,7 +257,7 @@ function summarize(stocks: AuditStock[]): PatternSummary[] {
   }).sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
 }
 
-type Props = { searchParams: Promise<{ pattern?: string }> };
+type Props = { searchParams: Promise<{ pattern?: string; stage?: string }> };
 
 export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
   const { isOwner } = await getLearningOwnerSession();
@@ -255,14 +265,26 @@ export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
 
   const [snapshot, forward] = await Promise.all([loadSnapshot(), loadForwardHealth()]);
   const summaries = summarize(snapshot.stocks);
-  const requestedId = (await searchParams).pattern;
+  const query = await searchParams;
+  const requestedId = query.pattern;
   const selectedId = requestedId && ids.has(requestedId) ? requestedId : doubleBottomId;
   const selected = summaries.find((item) => item.id === selectedId);
-  const matches = collectMatches(snapshot.stocks, selectedId);
+  const allMatches = collectMatches(snapshot.stocks, selectedId);
+  const requestedStage = query.stage;
+  const selectedStage: DoubleBottomStage | null = selectedId === doubleBottomId &&
+    DOUBLE_BOTTOM_STAGES.some((stage) => stage.value === requestedStage)
+    ? requestedStage as DoubleBottomStage
+    : null;
+  const stageCounts = new Map<DoubleBottomStage, number>(
+    DOUBLE_BOTTOM_STAGES.map((item) => [
+      item.value, allMatches.filter((match) => match.stage === item.value).length,
+    ]),
+  );
+  const matches = selectedStage ? allMatches.filter((match) => match.stage === selectedStage) : allMatches;
   const samples = sampleMatches(matches, selectedId);
-  const visibleReasons = matches.filter((x) => x.breakout !== "unknown").length;
-  const confirmed = matches.filter((x) => x.breakout === "recorded").length;
-  const share = snapshot.scannedCount > 0 ? (matches.length * 100 / snapshot.scannedCount).toFixed(1) : "—";
+  const visibleReasons = allMatches.filter((x) => x.breakout !== "unknown").length;
+  const confirmed = allMatches.filter((x) => x.breakout === "recorded").length;
+  const share = snapshot.scannedCount > 0 ? (allMatches.length * 100 / snapshot.scannedCount).toFixed(1) : "—";
   const refreshed = snapshot.updatedAt
     ? new Date(snapshot.updatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "未取得";
 
@@ -356,7 +378,25 @@ export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
             <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6">
               <p className="font-black">ダブルボトム特別監査</p>
               <p>判定理由を確認できた件数 {visibleReasons}件 ／そのうち「ネックラインを上抜け」記録あり {confirmed}件</p>
-              <p>理由に突破記録がない件数 {visibleReasons - confirmed}件 ／理由そのものが未保存 {matches.length - visibleReasons}件</p>
+              <p>理由に突破記録がない件数 {visibleReasons - confirmed}件 ／理由そのものが未保存 {allMatches.length - visibleReasons}件</p>
+              <p className="mt-2 text-xs font-bold">以下の4段階は保存された判定理由の分類で、完成・未完成の確定判定ではありません。</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link href={`/admin/shape-precision-audit?pattern=${doubleBottomId}`}
+                  className={`rounded-lg border p-3 text-center ${selectedStage === null ? "border-blue-500 bg-white" : "border-amber-200 bg-white/70"}`}>
+                  <div className="text-xs font-bold">すべて</div>
+                  <div className="text-2xl font-black">{allMatches.length}</div>
+                </Link>
+                {DOUBLE_BOTTOM_STAGES.map((item) => (
+                  <Link key={item.value}
+                    href={`/admin/shape-precision-audit?pattern=${doubleBottomId}&stage=${item.value}`}
+                    title={item.detail}
+                    className={`rounded-lg border p-3 text-center ${selectedStage === item.value ? "border-blue-500 bg-white" : "border-amber-200 bg-white/70"}`}>
+                    <div className="text-xs font-bold">{item.name}</div>
+                    <div className="text-2xl font-black">{stageCounts.get(item.value) ?? 0}</div>
+                  </Link>
+                ))}
+              </div>
+              {selectedStage && <p className="mt-2 text-xs font-black text-blue-800">表示中：{doubleBottomStageLabel(selectedStage)}（{matches.length}銘柄）</p>}
               <p className="mt-2 text-xs leading-5 text-amber-900">
                 現在の判定コードは過去60本以内の安値2つ（差3.5%以内）、直近株価が二番目の安値より1%以上上昇という条件で候補を検出します。
                 ネックライン突破は必須ではありません。理由がないだけで「突破していない」とは断定できません。
@@ -369,8 +409,8 @@ export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-lg font-black">実際のチャートを確認するサンプル（最大15銘柄）</h2>
           <p className="mt-2 text-xs leading-6 text-slate-600">
-            銘柄コード順に母集団から間隔を空けて抽出し、判定理由の種類（ダブルボトム以外は信頼度帯）ごとに最大5件を表示。
-            AI POWERや株価の高い順ではありません。正しい形かどうかはチャートを開いて目視確認してください。
+            銘柄コード順に母集団から間隔を空けて抽出し、判定理由の種類（ダブルボトム以外は信頼度帯）ごとに抽出します。
+            AI POWERや株価の高い順ではありません。判定時と現在では株価や形が変わるため、日時も確認してください。
           </p>
           <div className="mt-3 space-y-2">
             {samples.length ? samples.map(({ stock, confidence, breakout }) => (
@@ -383,10 +423,14 @@ export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
                       ／検出信頼度 {confidence === null ? "—" : Math.round(confidence) + "%"}
                     </p>
                     {selectedId === doubleBottomId && (
-                      <p className="mt-1 text-xs font-bold text-amber-800">{breakoutLabel(breakout)}</p>
+                      <p className="mt-1 text-xs font-bold text-amber-800">{doubleBottomStageLabel(classifyDoubleBottomReasons(stock.displayed.find((item) => item.id === doubleBottomId)?.reasons))} ／ {breakoutLabel(breakout)}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {selectedId === doubleBottomId && (
+                      <Link prefetch={false} href={`/admin/shape-precision-audit/replay?code=${encodeURIComponent(stock.code)}&at=${encodeURIComponent(snapshot.updatedAt ?? "")}`}
+                        className="grid min-h-11 place-items-center rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-900">参考日足で照合</Link>
+                    )}
                     <Link href={`/chart/${stock.code}`} className="grid min-h-11 place-items-center rounded-xl bg-blue-700 px-3 text-xs font-black text-white">チャート</Link>
                     <Link href={`/analysis/${stock.code}`} className="grid min-h-11 place-items-center rounded-xl border border-blue-300 bg-white px-3 text-xs font-black text-blue-700">AI解析</Link>
                   </div>
