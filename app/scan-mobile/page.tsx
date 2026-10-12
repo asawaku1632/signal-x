@@ -363,6 +363,7 @@ function ScanMobileContent() {
           candidates={candidateCount}
           updated={lastUpdated}
           market={market}
+          marketClosed={marketClosed}
         />
         {stocks.length > 0 && (
           <div className={`mt-3 rounded-xl border px-3 py-3 text-xs font-bold leading-6 ${marketClosed
@@ -445,14 +446,14 @@ function ScanLoadingCard() {
   return <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900"><div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-400" /><p className="mt-4 font-black text-slate-700 dark:text-slate-200">AIが候補を選定しています</p></section>;
 }
 
-function ScanSummary({ total, fetched, candidates, updated, market }: { total: number; fetched: number; candidates: number; updated: Date | null; market: ReturnType<typeof getMarketJudge> }) {
+function ScanSummary({ total, fetched, candidates, updated, market, marketClosed }: { total: number; fetched: number; candidates: number; updated: Date | null; market: ReturnType<typeof getMarketJudge>; marketClosed: boolean }) {
   return (
     <section className="mt-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:px-4" aria-label="スキャン状況と相場判定">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 sm:text-xs">
         <span>監視 <b className="text-slate-900 dark:text-slate-100">{total.toLocaleString()}銘柄</b></span>
         <span>取得 <b className="text-slate-900 dark:text-slate-100">{fetched.toLocaleString()}件</b></span>
         <span>候補 <b className="text-blue-600 dark:text-blue-400">{candidates.toLocaleString()}件</b></span>
-        <span className="ml-auto">最終更新 <b className="text-slate-700 dark:text-slate-200">{updated ? updated.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</b></span>
+        <span className="ml-auto">{marketClosed ? "分析保存" : "最終更新"} <b className="text-slate-700 dark:text-slate-200">{updated ? updated.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</b></span>
       </div>
       <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 text-[11px] dark:border-slate-800 sm:text-xs">
         <span className="font-bold text-slate-500 dark:text-slate-400">相場判定</span>
