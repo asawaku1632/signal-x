@@ -7,6 +7,7 @@ import {
   REBOUND_SCORE_VERSION, buildScoredHints, compareRiskScore,
 } from "@/app/lib/research/supportReboundRiskScore";
 import type { ScoredHint, ScoreMetrics, RiskBand } from "@/app/lib/research/supportReboundRiskScore";
+import { inReboundRiskPhase } from "@/app/lib/research/supportReboundRiskStudy";
 import type { RiskPhase } from "@/app/lib/research/supportReboundRiskStudy";
 
 type Study = {
@@ -46,8 +47,8 @@ export default function SupportReboundScorePanel({ studies, busy, completed, exp
   const latestPending = useMemo(() => scores.filter((x) => !x.trade)
     .sort((a, b) => b.hintTime - a.hintTime).slice(0, 12), [scores]);
   const severe = useMemo(() => scores.filter((x): x is ScoredHint & { trade: NonNullable<ScoredHint["trade"]> } =>
-    x.trade !== null && x.trade.returnPercent <= -5 && x.score !== null)
-    .sort((a, b) => a.trade.returnPercent - b.trade.returnPercent).slice(0, 10), [scores]);
+    x.trade !== null && inReboundRiskPhase(x.trade, phase) && x.trade.returnPercent <= -5 && x.score !== null)
+    .sort((a, b) => a.trade.returnPercent - b.trade.returnPercent).slice(0, 10), [scores, phase]);
   const preliminary = busy || completed !== expected;
   return <section className="mt-5 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm">
     <p className="text-xs font-black tracking-widest text-indigo-700">EXPERIMENTAL / READ ONLY / {REBOUND_SCORE_VERSION}</p>
