@@ -114,7 +114,7 @@ export default function SupportReboundClient() {
       if (!o.hintTrade || !inPeriod(o.hintTrade, phase)) continue;
       const bars = byCode.get(o.code);
       if (!bars || o.hintIndex < 3) continue;
-      const first = bars[o.hintIndex - 3].close;
+      const first = bars[o.hintIndex - 4].close;
       const last = bars[o.hintIndex - 1].close;
       (first > 0 && 100 * (last / first - 1) <= -5 ? highDrop : lowDrop).push(o.hintTrade);
     }
@@ -208,7 +208,10 @@ export default function SupportReboundClient() {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: (100 * completed / Math.max(1, codes.length)) + "%" }} /></div>
         {completed < codes.length && <p className="mt-2 text-xs">途中までの結果も暫定表示します。完了前は全体の勝率として評価しないでください。</p>}
       </div>}
-      {items.filter((x) => x.error).map((x) => <p key={x.code} className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{x.code}：{x.error}</p>)}
+      {items.some((x) => x.error) && <details className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+        <summary className="cursor-pointer font-bold">取得できなかった銘柄：{items.filter((x) => x.error).length}件（タップで詳細）</summary>
+        <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">{items.filter((x) => x.error).map((x) => <p key={x.code}>{x.code}：{x.error}</p>)}</div>
+      </details>}
       {studies.length > 0 && <>
         <p className="mt-4 text-xs text-slate-600">対象：{phase === "ALL" ? "全期間" : phase === "TRAIN" ? "2025年9月までに取引完了" : "2025年10月以降に買付"} ／ {holdBars}営業日保有。学習済み期間を分ける参考検証で、完全な未使用データ検証ではありません。</p>
         <section className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -245,8 +248,9 @@ export default function SupportReboundClient() {
             <thead><tr className="bg-slate-100"><th className="p-2">銘柄</th><th className="p-2">日足数</th><th className="p-2">③候補</th><th className="p-2">②候補</th><th className="p-2">②勝率</th></tr></thead>
             <tbody>{studies.map((s) => <tr key={s.code} className="border-t border-slate-100">
               <td className="p-2"><Link className="font-bold text-blue-600" href={"/chart/" + s.code}>{s.code} ↗</Link></td>
-              <td className="p-2">{s.bars}</td><td className="p-2">{s.result.hintCount}</td><td className="p-2">{s.result.confirmedCount}</td>
-              <td className="p-2">{pct(s.result.confirmations.winRatePercent)}</td>
+              <td className="p-2">{s.bars}</td><td className="p-2">{s.result.opportunities.filter((o) => phase === "ALL" || (phase === "TRAIN" ? o.hintTime < TEST_CUTOFF : o.hintTime >= TEST_CUTOFF)).length}</td>
+              <td className="p-2">{s.result.opportunities.filter((o) => o.confirmedTrade && inPeriod(o.confirmedTrade, phase) && (phase === "ALL" || (phase === "TRAIN" ? o.hintTime < TEST_CUTOFF : o.hintTime >= TEST_CUTOFF))).length}</td>
+              <td className="p-2">{pct(aggregate(s.result.opportunities.flatMap((o) => o.confirmedTrade && inPeriod(o.confirmedTrade, phase) ? [o.confirmedTrade] : [])).winRate)}</td>
             </tr>)}</tbody>
           </table></div>
         </section>
@@ -267,7 +271,7 @@ export default function SupportReboundClient() {
         </section>
       </>}
       <p className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-6 text-slate-600">
-        【100銘柄拡大検証】母集団は現時点の登録銘柄からの固定選定で、上場廃止や生存者バイアスの可能性があります。Yahooの日足取得が失敗した銘柄は集計から除外され、取得失敗数を表示します。過去の同一銘柄・相関の高い銘柄でサインが重なるため、件数を独立試行と見なせません。
+        【100銘柄拡大検証】「直前3営業日の下落率」は③の4本前の終値と1本前の終値から計算します。母集団は現時点の登録銘柄からの固定選定で、上場廃止や生存者バイアスの可能性があります。Yahooの日足取得が失敗した銘柄は集計から除外され、取得失敗数を表示します。過去の同一銘柄・相関の高い銘柄でサインが重なるため、件数を独立試行と見なせません。
         【暫定検証ルール】支持線は過去20営業日の最安値。直前3営業日の終値下落後、支持線付近（安値が支持線の-2%〜+2%）に小さな陽線（実体が値幅の50%以下）で③。3営業日以内に陽線2本連続、終値上昇かつ支持線を維持すれば②。③を出した後の4営業日は同じ銘柄で新候補を重複計上しません。保有期間は仮想買付後の3・5・10営業日、売却は翌セッション始値。株式分割が重なる期間を除外。100株ずつの単純合算で、資金制約、税・手数料・スリッページは考慮しません。母数や銘柄選択・日足データ品質に限界があり、将来の勝率を保証しません。DB保存・通知・実売買・本番AI判定への反映はありません。
       </p>
     </div>
