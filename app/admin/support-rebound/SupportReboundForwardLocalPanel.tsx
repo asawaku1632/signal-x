@@ -53,7 +53,7 @@ export default function SupportReboundForwardLocalPanel({studies,busy,completed,
     <p className="mt-3 text-xs leading-6 text-slate-600">
       初回開始時点の最後の確定日足を基準に、それより後に見つかった③だけを記録。
       ③のサイン日の点数・終値を保存し、あとから点数を再計算・上書きしません。
-      { " " }**完全な自動定期追跡ではありません。**
+      {" "}<strong>完全な自動定期追跡ではありません。</strong>
       このブラウザで再び100銘柄を取得したときに、翌営業日始値で買って5営業日後の始値で売った仮想結果を自動照合します。
       他端末への同期・サーバーDB・Cron・LINEはありません。ブラウザのデータを消すと記録も消えます。
     </p>
