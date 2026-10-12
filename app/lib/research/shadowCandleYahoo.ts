@@ -24,7 +24,7 @@ function positive(value: unknown): number | null {
 
 // Per-click, owner-only, bounded and explicitly selected codes.
 // No periodic work, writing, caching, background collection or bulk universe access.
-async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
+async function fetchCompletedDailyBars(code: string, allowTodayJst: string | null): Promise<LoadedStock> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5_500);
   try {
@@ -56,6 +56,7 @@ async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
       !Array.isArray(quote.low) || !Array.isArray(quote.close)) throw new Error("missing daily OHLC");
 
     const cutoff = jstToday();
+    const canUseCompletedToday = allowTodayJst === cutoff;
     const candles: ShadowCandle[] = [];
     for (let i = 0; i < timeValues.length; i++) {
       const time = positive(timeValues[i]);
@@ -66,7 +67,7 @@ async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
       if (!time || !open || !high || !low || !close ||
         high < Math.max(open, low, close) ||
         low > Math.min(open, high, close) ||
-        dateJst(time) >= cutoff) continue; // Excludes incomplete/current-day OHLC.
+        (canUseCompletedToday ? dateJst(time) > cutoff : dateJst(time) >= cutoff)) continue; // Today permitted only to the post-close authorized Cron caller.
       if (candles.length && time <= candles[candles.length - 1].time) continue;
       candles.push({
         time, open, high, low, close,
@@ -83,14 +84,18 @@ async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
   }
 }
 
-export async function fetchCohort(codes: string[]): Promise<LoadedStock[]> {
+export async function fetchCohort(codes: string[], options: { completedTodayJst?: string } = {}): Promise<LoadedStock[]> {
+  if (codes.length < 1 || codes.length > 5 || new Set(codes).size !== codes.length ||
+    codes.some(code => !/^[0-9A-Z]{4,5}$/.test(code))) throw new Error("RESEARCH_FETCH_LIMIT");
+  const allowToday = options.completedTodayJst && /^\\d{4}-\\d{2}-\\d{2}$/.test(options.completedTodayJst)
+    ? options.completedTodayJst : null;
   const results: LoadedStock[] = new Array(codes.length);
   let nextIndex = 0;
   // At most 3 simultaneous HTTP calls, at most 5 in total.
   const worker = async () => {
     while (nextIndex < codes.length) {
       const index = nextIndex++;
-      results[index] = await fetchCompletedDailyBars(codes[index]);
+      results[index] = await fetchCompletedDailyBars(codes[index], allowToday);
     }
   };
   await Promise.all(Array.from({ length: Math.min(3, codes.length) }, () => worker()));
