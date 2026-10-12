@@ -100,7 +100,8 @@ test("schema protects daily one-time cap with PRIMARY KEY and RLS", () => {
   assert.match(sql,/cardinality\(codes\) BETWEEN 1 AND 5/);
   assert.match(sql,/ENABLE ROW LEVEL SECURITY/i);
   assert.match(sql,/REVOKE ALL ON TABLE public\.shadow_candle_auto_daily_runs FROM public, anon, authenticated/);
-  assert.doesNotMatch(sql,/\b(?:DROP|TRUNCATE|DELETE|ALTER TABLE public\.shadow_candle_research_runs)\b/i);
+  const executableSql = sql.replace(/^\s*--.*$/gm, "");
+  assert.doesNotMatch(executableSql,/\b(?:DROP|TRUNCATE|DELETE|ALTER TABLE public\.shadow_candle_research_runs)\b/i);
 });
 
 test("scheduler is only one invocation on JST trading weekday mornings", () => {
