@@ -3,7 +3,7 @@ import {
   detectShadowCandlePatterns,
   type ShadowCandle,
   type ShadowCandleId,
-} from "./shadowCandlestickNine";
+} from "./shadowCandlestickNine.ts";
 
 export const MAX_SHADOW_BATCH_STOCKS = 5;
 
