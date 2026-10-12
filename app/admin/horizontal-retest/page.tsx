@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
-import { dateJst, fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
+import { fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
 import { studyHorizontalRetest } from "@/app/lib/research/horizontalRetest";
 
 export const dynamic = "force-dynamic";
@@ -111,7 +111,7 @@ export default async function HorizontalRetestPage({ searchParams }: Props) {
                   {[...allTrades].sort((a,b) => b.entryIndex - a.entryIndex).slice(0,10).map((t, i) => (
                     <div key={t.code + "-" + t.breakoutIndex + "-" + i} className="rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-800">
                       <p className="font-black">{t.code}｜抵抗線 {t.resistance.toLocaleString("ja-JP")}円（接触{t.touches}回）</p>
-                      <p className="mt-1">買い {yen(t.entry)} / 売り {yen(t.exit)}　{t.reason}</p>
+                      <p className="mt-1">買い {Math.round(t.entry).toLocaleString("ja-JP")}円 / 売り {Math.round(t.exit).toLocaleString("ja-JP")}円　{t.reason}</p>
                       <p className="font-bold">100株損益 {yen(t.profitYen100)} ({percent(t.returnPercent)})</p>
                     </div>
                   ))}
