@@ -17,6 +17,22 @@ export type ShapeStock = {
   patterns: Array<{ id: string; confidence: number | null }>;
 };
 
+// These are aggregate forward-study results per shape, not individual
+// probabilities for the stocks currently matching that shape.
+export type ShapePatternStat = {
+  id: string;
+  status: "COLLECTING" | "PROMISING" | "VALIDATED" | "OBSERVATION_ONLY";
+  sampleCount: number;
+  completed5dCount: number;
+  winRate5d: number | null;
+  avgDirectionalReturn5d: number | null;
+  distinctCodes: number;
+  distinctDates: number;
+};
+
+type ResearchFilter = "ALL" | "MIN20" | "VALIDATED";
+type ResearchSort = "MATCHES" | "WINRATE" | "AVERAGE";
+
 type DirectionFilter = "ALL" | PatternDirection;
 type Props = {
   patterns: ChartPatternCatalogItem[];
@@ -25,6 +41,8 @@ type Props = {
   requestedCount: number;
   scannedCount: number;
   unavailable: boolean;
+  historicalStats: ShapePatternStat[] | null;
+  statsUnavailable: boolean;
 };
 
 const directions: Array<{ value: DirectionFilter; label: string }> = [
@@ -38,6 +56,22 @@ function yen(value: number | null) {
   return value === null ? "価格未取得" : `${Math.round(value).toLocaleString("ja-JP")}円`;
 }
 
+function percent(value: number | null) {
+  return value === null ? "—" : `${value.toFixed(1)}%`;
+}
+
+function signedPercent(value: number | null) {
+  return value === null ? "—" : `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function researchStatus(status: ShapePatternStat["status"] | undefined) {
+  if (status === "VALIDATED") return "検証済み";
+  if (status === "PROMISING") return "有望・途中経過";
+  if (status === "COLLECTING") return "収集中";
+  if (status === "OBSERVATION_ONLY") return "方向判定なし";
+  return "結果なし";
+}
+
 export default function ChartShapeSearchExplorer({
   patterns,
   stocks,
@@ -45,17 +79,28 @@ export default function ChartShapeSearchExplorer({
   requestedCount,
   scannedCount,
   unavailable,
+  historicalStats,
+  statsUnavailable,
 }: Props) {
   const [direction, setDirection] = useState<DirectionFilter>("ALL");
   const [category, setCategory] = useState("ALL");
   const [keyword, setKeyword] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [visible, setVisible] = useState(30);
+  const [researchFilter, setResearchFilter] = useState<ResearchFilter>("ALL");
+  const [researchSort, setResearchSort] = useState<ResearchSort>("MATCHES");
+  const [minAiPower, setMinAiPower] = useState(0);
+  const [minConfidence, setMinConfidence] = useState(0);
   const resultRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (selectedId) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedId]);
+
+  const researchById = useMemo(
+    () => new Map((historicalStats ?? []).map((item) => [item.id, item])),
+    [historicalStats],
+  );
 
   const counts = useMemo(() => {
     const countById = new Map<string, number>();
@@ -71,26 +116,50 @@ export default function ChartShapeSearchExplorer({
   const filteredPatterns = useMemo(() => {
     const q = keyword.trim().toLocaleLowerCase("ja-JP");
     return patterns
-      .filter((pattern) =>
-        (direction === "ALL" || pattern.direction === direction) &&
-        (category === "ALL" || pattern.category === category) &&
-        (!q || pattern.name.toLocaleLowerCase("ja-JP").includes(q))
-      )
-      .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0));
-  }, [patterns, counts, direction, category, keyword]);
+      .filter((pattern) => {
+        const stat = researchById.get(pattern.id);
+        return (direction === "ALL" || pattern.direction === direction) &&
+          (category === "ALL" || pattern.category === category) &&
+          (!q || pattern.name.toLocaleLowerCase("ja-JP").includes(q)) &&
+          (researchFilter === "ALL" ||
+            (researchFilter === "MIN20" && (stat?.completed5dCount ?? 0) >= 20) ||
+            (researchFilter === "VALIDATED" && stat?.status === "VALIDATED"));
+      })
+      .sort((a, b) => {
+        if (researchSort !== "MATCHES") {
+          const x = researchById.get(a.id);
+          const y = researchById.get(b.id);
+          const xValue = researchSort === "WINRATE"
+            ? (x?.completed5dCount ?? 0) >= 20 ? x?.winRate5d : null
+            : (x?.completed5dCount ?? 0) >= 20 ? x?.avgDirectionalReturn5d : null;
+          const yValue = researchSort === "WINRATE"
+            ? (y?.completed5dCount ?? 0) >= 20 ? y?.winRate5d : null
+            : (y?.completed5dCount ?? 0) >= 20 ? y?.avgDirectionalReturn5d : null;
+          if (xValue !== null && xValue !== undefined && yValue !== null && yValue !== undefined && xValue !== yValue) {
+            return yValue - xValue;
+          }
+          if (xValue !== null && xValue !== undefined) return -1;
+          if (yValue !== null && yValue !== undefined) return 1;
+        }
+        return (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0);
+      });
+  }, [patterns, counts, direction, category, keyword, researchById, researchFilter, researchSort]);
 
   const selectedPattern = patterns.find((pattern) => pattern.id === selectedId);
+  const selectedStat = selectedId ? researchById.get(selectedId) : undefined;
   const matches = useMemo(() => {
     if (!selectedId) return [];
     return stocks.flatMap((stock) => {
       const match = stock.patterns.find((pattern) => pattern.id === selectedId);
-      return match ? [{ stock, confidence: match.confidence }] : [];
+      return match && (stock.score ?? -1) >= minAiPower &&
+        (match.confidence ?? -1) >= minConfidence
+        ? [{ stock, confidence: match.confidence }] : [];
     }).sort((a, b) =>
       (b.confidence ?? -1) - (a.confidence ?? -1) ||
       (b.stock.score ?? -1) - (a.stock.score ?? -1) ||
       a.stock.code.localeCompare(b.stock.code)
     );
-  }, [selectedId, stocks]);
+  }, [selectedId, stocks, minAiPower, minConfidence]);
 
   const hasData = updatedAt !== null && !unavailable;
   const dateLabel = updatedAt
