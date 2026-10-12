@@ -83,6 +83,14 @@
     {
       "path": "/api/cron/horizontal-retest-research",
       "schedule": "50 23 * * 0-4"
+    },
+    {
+      "path": "/api/cron/rebound-forward/0",
+      "schedule": "45 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/rebound-forward/1",
+      "schedule": "5 8 * * 1-5"
     }
   ]
 }
