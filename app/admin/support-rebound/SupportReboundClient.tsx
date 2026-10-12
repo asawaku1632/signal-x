@@ -7,6 +7,7 @@ import { studySupportRebounds } from "@/app/lib/supportReboundResearch";
 import type { ReboundCandle, ReboundTrade } from "@/app/lib/supportReboundResearch";
 import { SUPPORT_REBOUND_20, SUPPORT_REBOUND_100 } from "@/app/lib/research/supportReboundUniverse";
 import { getSectorLabel } from "@/app/lib/sectorMap";
+import SupportReboundRiskPanel from "./SupportReboundRiskPanel";
 
 type Payload = { success: true; code: string; candles: ReboundCandle[]; splitEvents: number[]; provisionalBarExcluded: boolean };
 type Item = { code: string; data: Payload | null; error: string | null };
@@ -96,6 +97,7 @@ export default function SupportReboundClient() {
     code: item.code,
     bars: item.data.candles.length,
     candles: item.data.candles,
+    splitEvents: item.data.splitEvents ?? [],
     result: studySupportRebounds(item.data.candles, {
       holdBars, shares: 100, splitEvents: item.data.splitEvents || [],
     }),
@@ -240,6 +242,7 @@ export default function SupportReboundClient() {
           ].map((group) => <div key={group.title} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-black">{group.title}</p><p className="mt-2 text-lg font-black">{pct(aggregate(group.trades).winRate)}</p><p className="text-xs">完了 {group.trades.length}件／平均 {pct(aggregate(group.trades).average)}</p></div>)}</div>
           <p className="mt-2 text-xs text-slate-500">急落型の成績が悪くても、今回の数値だけで除外ルールを本番AIに採用しません。</p>
         </section>
+        <SupportReboundRiskPanel studies={studies} busy={busy} completed={completed} expected={codes.length} holdBars={holdBars} phase={phase} />
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-black">📊 候補数・保留中</h2>
           <p className="mt-2 text-sm">③を検出：{rollup.all.length}件 → ②まで進んだ：{rollup.all.filter((o) => o.confirmedTime !== null).length}件</p>
