@@ -38,7 +38,7 @@ export async function runReboundAutoBatch(
 
   const results:Result[]=[];
   for(let i=0;i<codes.length;i+=MAX_PARALLEL){
-    const group=await Promise.all(codes.slice(i,i+MAX_PARALLEL).map(async code: string):Promise<Result>=>{
+    const group=await Promise.all(codes.slice(i,i+MAX_PARALLEL).map(async (code: string): Promise<Result> => {
       try{
         // At most one vendor request per code/day; no backoff/retry storm.
         const source=await loader(code);
