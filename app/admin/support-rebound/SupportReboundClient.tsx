@@ -8,6 +8,7 @@ import type { ReboundCandle, ReboundTrade } from "@/app/lib/supportReboundResear
 import { SUPPORT_REBOUND_20, SUPPORT_REBOUND_100 } from "@/app/lib/research/supportReboundUniverse";
 import { getSectorLabel } from "@/app/lib/sectorMap";
 import SupportReboundRiskPanel from "./SupportReboundRiskPanel";
+import SupportReboundScorePanel from "./SupportReboundScorePanel";
 
 type Payload = { success: true; code: string; candles: ReboundCandle[]; splitEvents: number[]; provisionalBarExcluded: boolean };
 type Item = { code: string; data: Payload | null; error: string | null };
@@ -243,6 +244,7 @@ export default function SupportReboundClient() {
           <p className="mt-2 text-xs text-slate-500">急落型の成績が悪くても、今回の数値だけで除外ルールを本番AIに採用しません。</p>
         </section>
         <SupportReboundRiskPanel studies={studies} busy={busy} completed={completed} expected={codes.length} holdBars={holdBars} phase={phase} />
+        <SupportReboundScorePanel studies={studies} busy={busy} completed={completed} expected={codes.length} holdBars={holdBars} phase={phase} />
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-black">📊 候補数・保留中</h2>
           <p className="mt-2 text-sm">③を検出：{rollup.all.length}件 → ②まで進んだ：{rollup.all.filter((o) => o.confirmedTime !== null).length}件</p>
