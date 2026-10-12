@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
+import { setShadowAutoEnabled } from "./actions";
+import { getShadowAutoSwitch } from "@/app/lib/research/shadowCandleAutoSwitch";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { SHADOW_CANDLE_DETECTOR_VERSION } from "@/app/lib/research/shadowCandlestickNine";
 import {
@@ -61,6 +63,7 @@ export default async function ShadowCandleArchivePage() {
 
   let autoDaily: AutoDailyRow[] = [];
   let autoStatusUnavailable = false;
+  let autoEnabled = false;
   try {
     const result = await pool.query<AutoDailyRow>(`
       SELECT trade_date::text, status, codes, created_at::text,
@@ -69,12 +72,12 @@ export default async function ShadowCandleArchivePage() {
       ORDER BY trade_date DESC LIMIT 10
     `);
     autoDaily = result.rows;
+    autoEnabled = await getShadowAutoSwitch();
   } catch (e) {
     console.error("shadow auto research status read failed", e);
     autoStatusUnavailable = true;
   }
 
-  const autoEnabled = process.env.SHADOW_CANDLE_AUTO_ENABLED === "true";
   const totals = combineArchivedShadowRuns(runs);
   const ordered = [...totals.rows].sort((a, b) =>
     b.horizons[2].completed - a.horizons[2].completed || a.patternId.localeCompare(b.patternId));
@@ -111,6 +114,20 @@ export default async function ShadowCandleArchivePage() {
           <p className="mt-1 text-xs text-slate-600">
             有効化：{autoEnabled ? "ON" : "OFF"} ／1営業日最大5銘柄
             ／休場日停止／同日再試行なし
+          </p>
+          {!autoStatusUnavailable && (
+            <form action={setShadowAutoEnabled} className="mt-3">
+              <input type="hidden" name="enabled" value={autoEnabled ? "off" : "on"} />
+              <button type="submit"
+                className={`min-h-12 w-full rounded-xl px-4 text-sm font-black text-white ${autoEnabled
+                  ? "bg-rose-700" : "bg-blue-700"}`}>
+                {autoEnabled ? "自動研究を停止する" : "自動研究をONにする（1営業日最大5銘柄）"}
+              </button>
+            </form>
+          )}
+          <p className="mt-2 text-xs text-slate-600">
+            ONにしてもこのページ閲覧では株価取得しません。翌東証営業日の朝8:35から定期実行。
+            ON/OFFは本人だけが変更できます。
           </p>
           {autoStatusUnavailable ? (
             <p className="mt-3 text-sm font-bold text-amber-800">
