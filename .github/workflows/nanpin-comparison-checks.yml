@@ -1,0 +1,37 @@
+name: Nanpin Comparison Checks
+
+on:
+  pull_request:
+    paths:
+      - "app/lib/nanpinScenario.ts"
+      - "app/simulation/nanpin/page.tsx"
+      - "app/simulation/page.tsx"
+      - "tests/nanpinScenario.test.mjs"
+      - ".github/workflows/nanpin-comparison-checks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/lib/nanpinScenario.ts"
+      - "app/simulation/nanpin/page.tsx"
+      - "app/simulation/page.tsx"
+      - "tests/nanpinScenario.test.mjs"
+      - ".github/workflows/nanpin-comparison-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Test nanpin calculations and read-only protections
+        run: node --test tests/nanpinScenario.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
