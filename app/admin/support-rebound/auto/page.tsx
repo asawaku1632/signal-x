@@ -15,8 +15,8 @@ export default async function ReboundAutoPage(){
   const {isAdmin}=await getAdminSession();
   if(!isAdmin)return <main className="mx-auto max-w-xl p-8"><h1 className="text-xl font-black">研究管理者専用</h1><Link href="/login" className="text-blue-600">ログイン</Link></main>;
   let enabled=false,error="",signals:Signal[]=[],batches:Batch[]=[];
-  let totals:{all:string;closed:string;open:string;review:string;wins:string;bigloss:string;avg:string|null}=
-    {all:"0",closed:"0",open:"0",review:"0",wins:"0",bigloss:"0",avg:null};
+  let totals:{total:string;closed:string;open:string;review:string;wins:string;bigloss:string;avg:string|null}=
+    {total:"0",closed:"0",open:"0",review:"0",wins:"0",bigloss:"0",avg:null};
   try{
     const [switchRes,signalsRes,batchesRes,sumRes]=await Promise.all([
       pool.query<{enabled:boolean}>("SELECT enabled FROM public.rebound_forward_control WHERE singleton=1"),
@@ -24,7 +24,7 @@ export default async function ReboundAutoPage(){
         "FROM public.rebound_forward_signals ORDER BY signal_day DESC,id DESC LIMIT 60"),
       pool.query<Batch>("SELECT trade_date::text,batch,state,succeeded,failed,new_signals,started_at,finished_at "+
         "FROM public.rebound_forward_daily_batches ORDER BY trade_date DESC,batch LIMIT 20"),
-      pool.query("SELECT count(*)::text all, "+
+      pool.query("SELECT count(*)::text AS total, "+
         "count(*) FILTER(WHERE state='CLOSED')::text closed,"+
         "count(*) FILTER(WHERE state IN('PENDING','OPEN'))::text open,"+
         "count(*) FILTER(WHERE state='REVIEW')::text review,"+
@@ -55,7 +55,7 @@ export default async function ReboundAutoPage(){
       </header>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          ["未来サイン保存",totals.all+"件"],["結果確定",totals.closed+"件"],
+          ["未来サイン保存",totals.total+"件"],["結果確定",totals.closed+"件"],
           ["結果待ち",totals.open+"件"],["要確認",totals.review+"件"],
           ["確定後の勝率",closed?fmt(100*p(totals.wins)/closed)+"%":"—"],
           ["-5%以下の大損",closed?fmt(100*p(totals.bigloss)/closed)+"%":"—"],
