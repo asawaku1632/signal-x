@@ -55,7 +55,7 @@ const publicNavItems: NavItem[] = [
     href: "/learning/patterns",
     icon: "📚",
     label: "図鑑",
-    matchPaths: ["/learning"],
+    matchPaths: ["/learning", "/chart-shape-search"],
   },
   {
     href: "/menu",
