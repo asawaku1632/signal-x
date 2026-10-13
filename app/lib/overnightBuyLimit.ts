@@ -5,6 +5,8 @@
  * historical distribution of positive overnight opening gaps. It does not
  * predict tomorrow's open, guarantee execution, or place orders.
  */
+import { roundDownToTseOrderTick } from "./tseOrderTick";
+
 export type DailyCandle = {
   time: number; // Yahoo epoch seconds (daily bar)
   open: number;
@@ -17,7 +19,9 @@ export type OvernightBuyLimit =
       status: "ready";
       referenceDate: string;
       referenceClose: number;
-      limitYen: number;
+      rawLimitYen: number; // unchanged statistical calculation
+      limitYen: number; // conservative TSE price step, never above raw
+      tickSizeYen: number;
       additionalYen: number;
       premiumPercent: number;
       gapSamples: number;
@@ -115,15 +119,19 @@ export function estimateOvernightBuyLimit(
   const index = Math.max(0, Math.ceil(upwardGaps.length * 0.75) - 1);
   const premium = Math.min(upwardGaps[index], MAX_PREMIUM_PERCENT / 100);
   const referenceClose = latest[1].close;
-  // Floor prevents exceeding the statistical cap; securities tick sizes may
-  // require the user to adjust the order price downward at their broker.
-  const limitYen = Math.floor(referenceClose * (1 + premium));
-  if (limitYen <= 0) return { status: "insufficient_data" };
+  // Keep the statistical upper bound intact for transparency, then round
+  // DOWN for the TSE order reference (never round up beyond that bound).
+  const rawLimitYen = Math.floor(referenceClose * (1 + premium));
+  const orderPrice = roundDownToTseOrderTick(rawLimitYen);
+  if (!orderPrice) return { status: "insufficient_data" };
+  const limitYen = orderPrice.priceYen;
   return {
     status: "ready",
     referenceDate: latest[0],
     referenceClose,
+    rawLimitYen,
     limitYen,
+    tickSizeYen: orderPrice.tickYen,
     additionalYen: Math.max(0, limitYen - referenceClose),
     premiumPercent: Math.round(((limitYen / referenceClose) - 1) * 10_000) / 100,
     gapSamples,
