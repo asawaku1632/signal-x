@@ -132,7 +132,7 @@ export function estimateOvernightBuyLimit(
     rawLimitYen,
     limitYen,
     tickSizeYen: orderPrice.tickYen,
-    additionalYen: Math.max(0, limitYen - referenceClose),
+    additionalYen: Math.round((limitYen - referenceClose) * 100) / 100,
     premiumPercent: Math.round(((limitYen / referenceClose) - 1) * 10_000) / 100,
     gapSamples,
     positiveGapSamples: upwardGaps.length,
