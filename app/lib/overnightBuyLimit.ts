@@ -60,12 +60,13 @@ function ageInCalendarDays(earlier: string, later: string) {
 export function estimateOvernightBuyLimit(
   candles: DailyCandle[],
   now = new Date(),
+  options: { forMorningRecheck?: boolean } = {},
 ): OvernightBuyLimit {
   const clock = tokyoTime(now);
   const weekday = clock.weekday !== "Sat" && clock.weekday !== "Sun";
   // The previous close is not the basis for a new overnight reference while
   // the Japanese cash market is open. Wait until after the 15:30 close.
-  if (weekday && clock.minutes >= 9 * 60 && clock.minutes < 15 * 60 + 45) {
+  if (!options.forMorningRecheck && weekday && clock.minutes >= 9 * 60 && clock.minutes < 15 * 60 + 45) {
     return { status: "market_open" };
   }
 

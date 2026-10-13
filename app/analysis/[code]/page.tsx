@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
 import OvernightBuyLimitCard from "@/app/components/analysis/OvernightBuyLimitCard";
+import MorningEntryRecheckCard from "@/app/components/analysis/MorningEntryRecheckCard";
 import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
@@ -475,6 +476,7 @@ export default function AnalysisPage() {
   const code = String(params.code);
 
   const [signal, setSignal] = useState<Signal | null>(null);
+  const [scanFreshness, setScanFreshness] = useState<{ status: string | null; updatedAt: string | null }>({ status: null, updatedAt: null });
   const [historyStats, setHistoryStats] = useState<HistoryStats | null>(null);
   const [performance, setPerformance] = useState<PerformanceSummary | null>(
     null,
@@ -505,6 +507,7 @@ export default function AnalysisPage() {
         const stockJson = await readJsonResponse<{
           success?: boolean;
           status?: string;
+          updatedAt?: string;
           stock?: Signal;
           rank?: number;
           totalStockList?: number;
@@ -525,6 +528,7 @@ export default function AnalysisPage() {
             }
           : null;
         setSignal(target);
+        setScanFreshness({ status: stockJson?.status ?? null, updatedAt: stockJson?.updatedAt ?? null });
         // Do not use rank from the single-stock refresh: that scan contains only
         // one stock, so its rank is always 1. Ranking must come from the full
         // scan snapshot below.
@@ -576,6 +580,7 @@ export default function AnalysisPage() {
       } catch {
         setScanError(true);
         setSignal(null);
+        setScanFreshness({ status: null, updatedAt: null });
         setHistoryStats(null);
         setPerformance(null);
       } finally {
@@ -851,6 +856,14 @@ export default function AnalysisPage() {
         </section>
 
         <SwingEntryCard decision={swingEntryDecision} />
+        <MorningEntryRecheckCard
+          code={signal.code}
+          aiPower={Number.isFinite(power) ? power : null}
+          rsi={signal.rsi ?? null}
+          scanPrice={price > 0 ? price : null}
+          scanStatus={scanFreshness.status}
+          scanUpdatedAt={scanFreshness.updatedAt}
+        />
         <OvernightBuyLimitCard code={signal.code} />
 
         <Link href={`/chart/${signal.code}`} className="mt-3 block rounded-2xl border border-blue-600 bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
