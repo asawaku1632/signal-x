@@ -35,7 +35,14 @@ test("closed-market and holiday fail closed before queries",()=>{
   assert.equal(reboundAutoPreflight(new Date("2026-10-13T07:45:00Z")).ok,true);
   assert.equal(reboundAutoPreflight(new Date("2028-10-13T07:45:00Z")).reason,"CALENDAR_UNAVAILABLE");
   assert.equal(shouldRunReboundOnHost("signal-x-ppjg.vercel.app","production"),true);
+  // Vercel logged these immutable deployment hosts for the real Cron calls on Oct 13.
+  const cronHost="signal-x-ppjg-r7ola8x32-signalx-runner-v2-trial2.vercel.app";
+  assert.equal(shouldRunReboundOnHost(cronHost,"production"),true);
+  assert.equal(shouldRunReboundOnHost(cronHost,"preview"),false);
   assert.equal(shouldRunReboundOnHost("signal-x-ppjg.vercel.app","preview"),false);
+  assert.equal(shouldRunReboundOnHost("signal-x-ppjg-evil-other-team.vercel.app","production"),false);
+  assert.equal(shouldRunReboundOnHost("signal-x-ppjg-r7ola8x32-signalx-runner-v2-trial2.vercel.app.evil.com","production"),false);
+  assert.equal(shouldRunReboundOnHost("signal-x-ppjg-r7ola8x32-signalx-runner-v2-trial2XvercelXapp","production"),false);
   assert.equal(shouldRunReboundOnHost("signalx-notification-runner.vercel.app","production"),false);
 });
 test("today-only signal, no historical backfill; frozen score uses last known close",()=>{

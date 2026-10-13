@@ -10,8 +10,12 @@ export const maxDuration=240; // Pro Function; 50 stocks per invocation, max fiv
 export async function GET(request:NextRequest,{params}:{params:Promise<{batch:string}>}){
   const invalid=requireCronAuth(request);
   if(invalid)return invalid;
-  if(!shouldRunReboundOnHost(request.nextUrl.hostname,process.env.VERCEL_ENV))
+  if(!shouldRunReboundOnHost(request.nextUrl.hostname,process.env.VERCEL_ENV)){
+    console.warn("rebound-forward skipped: non-primary production host",{
+      host:request.nextUrl.hostname,environment:process.env.VERCEL_ENV,
+    });
     return NextResponse.json({success:true,skipped:true,reason:"NOT_PRIMARY_PRODUCTION_HOST"});
+  }
   const {batch:raw}=await params;
   if(raw!=="0"&&raw!=="1")
     return NextResponse.json({success:false,error:"INVALID_BATCH"},{status:400});
@@ -21,6 +25,12 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{batch:st
     return NextResponse.json({success:true,skipped:true,reason:preflight.reason,date:preflight.date});
   try{
     const result=await runReboundAutoBatch(raw==="0"?0:1);
+    console.info("rebound-forward batch result",{
+      batch:raw,skipped:result.skipped??false,reason:"reason" in result?result.reason:null,
+      succeeded:"succeeded" in result?result.succeeded:null,
+      failed:"failed" in result?result.failed:null,
+      newSignals:"newSignals" in result?result.newSignals:null,
+    });
     return NextResponse.json(result,{status:result.success?200:503,
       headers:{"Cache-Control":"private, no-store"}});
   }catch(error){

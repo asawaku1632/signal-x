@@ -27,8 +27,17 @@ export function reboundAutoPreflight(now:Date){
   if(minutes<16*60+40||minutes>=21*60)return {ok:false as const,reason:"OUTSIDE_CLOSED_MARKET_WINDOW",date};
   return {ok:true as const,date};
 }
+/**
+ * Vercel Cron may invoke the immutable production deployment hostname rather than
+ * the project's stable public alias. Accept either ONLY for the primary project.
+ * Cron Bearer authentication is separately required by the API route.
+ * Preview environments and similarly-named projects stay blocked.
+ */
 export function shouldRunReboundOnHost(host:string,environment:string|undefined){
-  return environment==="production"&&host.toLowerCase()==="signal-x-ppjg.vercel.app";
+  if(environment!=="production")return false;
+  const normalized=host.toLowerCase();
+  return normalized==="signal-x-ppjg.vercel.app"||
+    /^signal-x-ppjg-[a-z0-9]+-signalx-runner-v2-trial2\.vercel\.app$/.test(normalized);
 }
 function validBar(c:ReboundCandle){
   return Number.isFinite(c.time)&&c.time>0&&
