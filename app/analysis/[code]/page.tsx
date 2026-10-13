@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
+import OvernightBuyLimitCard from "@/app/components/analysis/OvernightBuyLimitCard";
 import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
@@ -850,6 +851,7 @@ export default function AnalysisPage() {
         </section>
 
         <SwingEntryCard decision={swingEntryDecision} />
+        <OvernightBuyLimitCard code={signal.code} />
 
         <Link href={`/chart/${signal.code}`} className="mt-3 block rounded-2xl border border-blue-600 bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
           <div className="flex items-center justify-between gap-3">
