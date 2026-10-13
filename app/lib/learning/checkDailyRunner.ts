@@ -221,7 +221,7 @@ async function saveDailyResultProvenance(
   const values: string[] = [];
   const placeholders = updates.map((item, index) => {
     values.push(item.id, item.sourceRowId);
-    return `(${index * 2 + 1}::text, ${index * 2 + 2}::text)`;
+    return `($${index * 2 + 1}::text, $${index * 2 + 2}::text)`;
   });
 
   // Same database transaction as the WIN/LOSE/HOLD update. The saved source
