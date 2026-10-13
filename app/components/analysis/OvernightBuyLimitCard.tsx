@@ -74,11 +74,17 @@ export default function OvernightBuyLimitCard({ code }: { code: string }) {
             基準：{result.referenceDate} の終値 {price(result.referenceClose)}
           </p>
           <div className="mt-2 rounded-xl bg-indigo-50 p-3 dark:bg-indigo-950/40">
-            <p className="text-xs font-black text-indigo-700 dark:text-indigo-300">翌営業日・買い指値の参考上限</p>
+            <p className="text-xs font-black text-indigo-700 dark:text-indigo-300">翌営業日・東証の呼値に合わせた参考上限</p>
             <p className="mt-1 text-3xl font-black tabular-nums text-slate-950 dark:text-white">{price(result.limitYen)}</p>
             <p className="mt-1 text-xs font-bold text-indigo-700 dark:text-indigo-200">
-              終値から +{price(result.additionalYen)}（+{result.premiumPercent.toFixed(2)}%）
+              終値から {result.additionalYen >= 0 ? "+" : ""}{price(result.additionalYen)}（{result.premiumPercent >= 0 ? "+" : ""}{result.premiumPercent.toFixed(2)}%）
             </p>
+            {result.rawLimitYen !== result.limitYen && (
+              <p className="mt-2 rounded-lg bg-white/80 px-2 py-1.5 text-xs font-bold leading-5 text-indigo-800 dark:bg-slate-900 dark:text-indigo-200">
+                統計上の上限 {price(result.rawLimitYen)} → 入力用の参考価格 {price(result.limitYen)}
+                <span className="block text-[11px] font-medium">東証の通常銘柄の{result.tickSizeYen}円刻みに合わせて切り下げ</span>
+              </p>
+            )}
           </div>
           <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800">
             <span className="font-medium text-slate-600 dark:text-slate-300">100株の最大購入代金</span>
@@ -101,7 +107,7 @@ export default function OvernightBuyLimitCard({ code }: { code: string }) {
 
       <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] font-medium leading-5 text-slate-500 dark:border-slate-700 dark:text-slate-400">
         ※ AIの将来予測・推奨買値ではなく、過去の日足からの未検証の統計目安です。高く指値を入れるほど高値づかみのリスクがあります。
-        指値は「その価格以下なら買う」上限であり、約定は保証されません。実際の注文時は呼値の刻み・余力・損切ラインを確認してください。
+        指値は「その価格以下なら買う」上限であり、約定は保証されません。東証の通常銘柄の呼値を使った保守的な参考価格です（銘柄や市場により刻みが異なる場合があります）。実際の注文時は証券会社の価格表示・余力・損切ラインを確認してください。
       </p>
     </section>
   );
