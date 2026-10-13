@@ -24,6 +24,24 @@ test("pre-open: capped historical premium is a limit, not a guaranteed execution
   assert.ok(result.positiveGapSamples >= 8);
 });
 
+
+test("3,219 yen raw upper limit is preserved, while display/order reference is 3,215", () => {
+  const candles = dailyCandles().map((candle, i) => {
+    const gap = i % 3 === 0 ? 0.014 : i % 3 === 1 ? 0.005 : -0.005;
+    return { ...candle, close: 3175, open: 3175 * (1 + gap) };
+  });
+  const result = estimateOvernightBuyLimit(candles, new Date("2026-10-12T20:10:00Z"));
+  assert.equal(result.status, "ready");
+  if (result.status !== "ready") return;
+  assert.equal(result.referenceClose, 3175);
+  assert.equal(result.rawLimitYen, 3219);
+  assert.equal(result.limitYen, 3215);
+  assert.equal(result.tickSizeYen, 5);
+  assert.equal(result.additionalYen, 40);
+  assert.equal(result.limitYen * 100, 321500);
+  assert.ok(result.limitYen <= result.rawLimitYen);
+});
+
 test("cash-market session: never show a stale overnight reference as today's order price", () => {
   assert.deepEqual(
     estimateOvernightBuyLimit(dailyCandles(), new Date("2026-10-13T00:13:00Z")),
