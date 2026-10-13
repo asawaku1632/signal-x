@@ -37,7 +37,7 @@ export function shouldRunReboundOnHost(host:string,environment:string|undefined)
   if(environment!=="production")return false;
   const normalized=host.toLowerCase();
   return normalized==="signal-x-ppjg.vercel.app"||
-    /^signal-x-ppjg-[a-z0-9]+-signalx-runner-v2-trial2\\.vercel\\.app$/.test(normalized);
+    /^signal-x-ppjg-[a-z0-9]+-signalx-runner-v2-trial2\.vercel\.app$/.test(normalized);
 }
 function validBar(c:ReboundCandle){
   return Number.isFinite(c.time)&&c.time>0&&
