@@ -3,14 +3,21 @@ on:
   pull_request:
     paths:
       - "app/lib/research/externalAiBenchmark.mjs"
+      - "app/lib/research/externalAiArchive.mjs"
+      - "app/admin/external-ai-audit/**"
+      - "app/admin/learning-hub/page.tsx"
       - "tests/externalAiBenchmark.test.mjs"
+      - "tests/externalAiArchive.test.mjs"
+      - "supabase/migrations/20261014_create_external_ai_forecast_archive.sql"
       - "docs/external-ai-entry-audit-shadow.md"
       - ".github/workflows/external-ai-benchmark-ci.yml"
   push:
     branches: ["main"]
     paths:
       - "app/lib/research/externalAiBenchmark.mjs"
+      - "app/lib/research/externalAiArchive.mjs"
       - "tests/externalAiBenchmark.test.mjs"
+      - "tests/externalAiArchive.test.mjs"
 jobs:
   offline-test:
     runs-on: ubuntu-latest
@@ -19,4 +26,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/externalAiBenchmark.test.mjs
+      - run: node --test tests/externalAiBenchmark.test.mjs tests/externalAiArchive.test.mjs
