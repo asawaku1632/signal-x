@@ -32,7 +32,7 @@ type ReadRow={group_key:string;horizon:number|string;samples:number|string;
 type AttemptRow={batch_id:number;target_date:string;status:string;new_outcomes:number};
 export async function getBollingerBatchProgress(){
   const [results,attempts]=await Promise.all([
-    pool.query<ReadRow>(\`SELECT group_key,horizon,COUNT(*)::int AS samples,
+    pool.query<ReadRow>(`SELECT group_key,horizon,COUNT(*)::int AS samples,
         COUNT(*) FILTER (WHERE return_percent>0)::int AS wins,
         AVG(return_percent)::float AS average_return,
         AVG(max_adverse_percent)::float AS average_adverse,
@@ -40,9 +40,9 @@ export async function getBollingerBatchProgress(){
         COUNT(*) FILTER (WHERE horizon=1 AND next_day_return_inside IS TRUE)::int AS falsebreak_count
       FROM public.bb_breakout_shadow_outcomes
       WHERE detector_version=$1
-      GROUP BY group_key,horizon ORDER BY group_key,horizon\`,[BB_VERSION]),
-    pool.query<AttemptRow>(\`SELECT batch_id,target_date::text,status,new_outcomes
-      FROM public.bb_breakout_shadow_batch_attempts ORDER BY target_date DESC,batch_id ASC LIMIT 28\`),
+      GROUP BY group_key,horizon ORDER BY group_key,horizon`,[BB_VERSION]),
+    pool.query<AttemptRow>(`SELECT batch_id,target_date::text,status,new_outcomes
+      FROM public.bb_breakout_shadow_batch_attempts ORDER BY target_date DESC,batch_id ASC LIMIT 28`),
   ]);
   const stats=Object.fromEntries(["SQUEEZE_UP_BREAKOUT","OTHER_UP_BREAKOUT"].map(group=>
     [group,{horizons:Object.fromEntries([1,3,5].map(h=>{
@@ -60,9 +60,9 @@ export async function getBollingerBatchProgress(){
 }
 async function finishAttempt(batch:BbBatchId,date:string,status:"COMPLETED"|"DATA_REJECTED"|"FAILED",
   count:number,note:string){
-  await pool.query(\`UPDATE public.bb_breakout_shadow_batch_attempts
+  await pool.query(`UPDATE public.bb_breakout_shadow_batch_attempts
     SET status=$3,new_outcomes=$4,note=$5,finished_at=now()
-    WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'\`,
+    WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'`,
     [batch,date,status,count,note.slice(0,160)]);
 }
 /** An explicit owner action. One permanent target-date claim per batch comes
@@ -73,10 +73,10 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
   if(!verifyBbBasket()) throw Error("BASKET_POLICY_INVALID");
   const codes=[...chooseBbBreakoutBatch(batch)];
   const target=resolveTargetTradeDate(now).targetTradeDate;
-  const claim=await pool.query(\`INSERT INTO public.bb_breakout_shadow_batch_attempts
+  const claim=await pool.query(`INSERT INTO public.bb_breakout_shadow_batch_attempts
      (batch_id,target_date,codes,policy_version)
      VALUES ($1,$2::date,$3::text[],$4)
-     ON CONFLICT (batch_id,target_date) DO NOTHING RETURNING batch_id\`,
+     ON CONFLICT (batch_id,target_date) DO NOTHING RETURNING batch_id`,
      [batch,target,codes,BB_BATCH_POLICY]);
   if(!claim.rowCount)return {
     status:"ALREADY_CLAIMED",batch,targetDate:target,codes,
@@ -137,7 +137,7 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
     try{
       await client.query("BEGIN");
       // Freeze the first graded result; later price revisions trigger fail-closed review.
-      const conflicts=await client.query<{code:string;signal_time:string;horizon:number}>(\`
+      const conflicts=await client.query<{code:string;signal_time:string;horizon:number}>(`
         WITH incoming AS (
           SELECT * FROM jsonb_to_recordset($1::jsonb) AS x (
             detector_version text,code text,signal_time bigint,horizon smallint,source_hash text)
@@ -147,9 +147,9 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
         ON prior.detector_version=i.detector_version AND prior.code=i.code
         AND prior.signal_time=i.signal_time AND prior.horizon=i.horizon
         WHERE prior.source_hash<>i.source_hash
-        LIMIT 1\`,[JSON.stringify(rows)]);
+        LIMIT 1`,[JSON.stringify(rows)]);
       if(conflicts.rowCount)throw Error("FROZEN_PRICE_SOURCE_REVISION");
-      const saved=await client.query(\`
+      const saved=await client.query(`
         INSERT INTO public.bb_breakout_shadow_outcomes
           (detector_version,code,signal_time,horizon,group_key,signal_close,
            entry_price,exit_price,return_percent,max_adverse_percent,
@@ -163,12 +163,12 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
           return_percent numeric,max_adverse_percent numeric,
           next_day_return_inside boolean,source_hash text,
           calendar_version text,batch_id smallint,first_target_date date)
-        ON CONFLICT (detector_version,code,signal_time,horizon) DO NOTHING\`,
+        ON CONFLICT (detector_version,code,signal_time,horizon) DO NOTHING`,
         [JSON.stringify(rows)]);
       inserted=saved.rowCount??0;
-      await client.query(\`UPDATE public.bb_breakout_shadow_batch_attempts
+      await client.query(`UPDATE public.bb_breakout_shadow_batch_attempts
         SET status='COMPLETED',new_outcomes=$3,finished_at=now(),note=$4
-        WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'\`,
+        WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'`,
         [batch,target,inserted,"COMPLETE_QUALITY; FROZEN_RETROSPECTIVE"]);
       await client.query("COMMIT");
     }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
