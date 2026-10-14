@@ -62,14 +62,16 @@ function getPower(stock: Stock) {
 }
 
 function getJudge(power: number) {
-  if (power >= 80) return "買い候補";
+  if (power >= 95) return "大本命";
+  if (power >= 85) return "買い候補";
   if (power >= 75) return "押し目待ち";
   if (power >= 65) return "様子見";
   return "見送り";
 }
 
 function getJudgeColor(power: number) {
-  if (power >= 80) return "bg-green-100 text-green-700";
+  if (power >= 95) return "bg-yellow-100 text-yellow-800";
+  if (power >= 85) return "bg-green-100 text-green-700";
   if (power >= 75) return "bg-blue-100 text-blue-700";
   if (power >= 65) return "bg-yellow-100 text-yellow-700";
   return "bg-red-100 text-red-700";
