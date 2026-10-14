@@ -51,6 +51,12 @@ function quoteAsOf(timestamp?: number) {
   });
 }
 
+function quoteIsFromEarlierDay(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return false;
+  const options: Intl.DateTimeFormatOptions = { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Date(timestamp * 1000).toLocaleDateString("ja-JP", options) !== new Date().toLocaleDateString("ja-JP", options);
+}
+
 function getPower(stock: Stock) {
   return Number(stock.score ?? stock.aiPower ?? 0);
 }
@@ -389,6 +395,7 @@ export default function FavoritesPage() {
                   </div>
 
                   <p className="mt-2 text-[11px] font-bold text-slate-500">株価データ: {quoteAsOf(stock.latestBarTimestamp)}（日本時間）</p>
+                  {quoteIsFromEarlierDay(stock.latestBarTimestamp) ? <p className="text-[11px] font-bold text-amber-700">⚠ 本日分ではない参考株価です</p> : null}
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <Mini label="AI" value={String(power)} />
                     <Mini label="参考株価" value={yen(stock.price)} />
