@@ -18,7 +18,7 @@ type RecheckGateRow={
 };
 type RecheckStudyStock={
   date:string;code:string;name:string;priorScore:number;recheckScore:number;
-  decision:"BUY"|"SKIP";earlyEntry:number;lateEntry:number;closePrice:number;
+  decision:string;earlyEntry:number;lateEntry:number;closePrice:number;
   earlyPnl100:number;alwaysLatePnl100:number;gatedPnl100:number;
   missedProfit100:number;avoidedLoss100:number;
 };
