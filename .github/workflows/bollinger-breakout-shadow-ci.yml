@@ -4,6 +4,9 @@ on:
     paths:
       - "app/lib/research/bollingerBreakoutShadow.mjs"
       - "app/lib/research/bollingerBreakoutQuality.mjs"
+      - "app/lib/research/bollingerBreakoutPilot.ts"
+      - "app/api/admin/bollinger-breakout-shadow/**"
+      - "app/admin/bollinger-breakout-shadow/**"
       - "tests/bollingerBreakoutShadow.test.mjs"
       - "tests/bollingerBreakoutQuality.test.mjs"
       - ".github/workflows/bollinger-breakout-shadow-ci.yml"
