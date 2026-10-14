@@ -68,6 +68,9 @@ type Candle = {
 type ChartApi = {
   success: boolean;
   currentPrice: number | null;
+  latestBarTimestamp?: number | null;
+  updatedAt?: string;
+  status?: string;
   ma20: number | null;
   ema20: number | null;
   ema75: number | null;
@@ -92,6 +95,13 @@ type ChartApi = {
 function yen(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${Math.round(value).toLocaleString()}円`;
+}
+
+function chartQuoteAsOf(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return "取得時刻不明";
+  return new Date(timestamp * 1000).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 function signedYen(value?: number | null) {
@@ -467,6 +477,11 @@ export default function ChartPage() {
             currentPrice={currentPrice}
           />
 
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-5 text-amber-900">
+            Yahoo Finance参考価格・最終ローソク足: {chartQuoteAsOf(chart.latestBarTimestamp)}（日本時間）。リアルタイムの約定価格ではありません。
+            {chart.status === "stale" ? <p className="text-red-700">⚠ データ更新失敗のため保存済みチャートを表示中です。</p> : null}
+          </div>
+
           <section className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-2">
             <div className="flex min-w-0 items-center justify-between gap-2">
               <div className="grid min-w-0 flex-1 grid-cols-6 rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800" role="tablist" aria-label="チャート時間足">
@@ -494,7 +509,7 @@ export default function ChartPage() {
               })}
               </div>
               <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1.5 text-[11px] font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 md:px-2.5 md:py-2 md:text-xs">
-                <span className="mr-1 text-[9px]">●</span>実データ
+                <span className="mr-1 text-[9px]">●</span>Yahoo参考値
               </span>
             </div>
 
