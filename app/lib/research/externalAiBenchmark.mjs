@@ -33,7 +33,7 @@ function result(status, explanation, extras = {}) {
  *   publicationVerified} -- publicationVerified means independent proof of
  *   ORIGINAL publication time, not the later screenshot capture time.
  * quote: {tradeDate, open, high, low, close, verified, sameShareBasis,
- *   source} -- completed unadjusted/split-comparable market-day OHLC.
+ *   source} -- completed unadjusted/split-comparable market-day OHLC; sessionComplete must be true.
  */
 export function evaluateExternalLimitForecast(forecast, quote) {
   if (!forecast || !validCode(forecast.code) || !validDate(forecast.tradeDate) ||
@@ -57,7 +57,7 @@ export function evaluateExternalLimitForecast(forecast, quote) {
     return result("STALE_PREDICTION",
       "Publication is more than seven days before the specified trade date.", basics);
   }
-  if (!quote || quote.tradeDate !== forecast.tradeDate || quote.verified !== true ||
+  if (!quote || quote.tradeDate !== forecast.tradeDate || quote.sessionComplete !== true || quote.verified !== true ||
       typeof quote.source !== "string" || !quote.source.trim() || !marketValid(quote)) {
     return result("MARKET_DATA_UNVERIFIED",
       "Completed date-matched, sourced OHLC is needed; never estimate missing bars.", basics);
