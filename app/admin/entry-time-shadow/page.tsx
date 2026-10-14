@@ -5,6 +5,8 @@ import BottomNav from "@/app/components/BottomNav";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {ENTRY_TIME_SLOTS, summarizeEntryTimes, compareEarlyVsWait, summarizeEntryRisk, ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
 import {evaluateRecheckEntryStrategy, RECHECK_ENTRY_POLICY_VERSION} from "@/app/lib/research/recheckEntryStrategy.mjs";
+import {evaluateRecheckResearchHealth,jstStudyClock} from "@/app/lib/research/recheckResearchHealth.mjs";
+import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 export const dynamic="force-dynamic";
 export const revalidate=0;
@@ -27,6 +29,15 @@ type DailyRun={trade_date:string;prior_date:string;status:string;cohort:unknown;
 const yen=(n:number|null)=>n===null?"—":Math.round(n).toLocaleString("ja-JP")+"円";
 const pct=(n:number|null)=>n===null?"—":(n>0?"+":"")+n.toFixed(2)+"%";
 const signedYen=(n:number|null)=>n===null?"—":(n>0?"+":"")+Math.round(n).toLocaleString("ja-JP")+"円";
+const statusLabel:Record<string,string>={
+  NOT_STARTED:"初回研究待ち",MARKET_CLOSED:"休場日",PENDING:"予定時刻待ち",
+  PROCESSING:"保存処理中",RECORDED:"確認済み",PARTIAL:"一部のみ保存",
+  MISSING:"指定時刻の記録なし",FAILED:"実行エラー",READ_ERROR:"データ取得エラー",
+  MISSING_VALID_PAIRS:"有効な比較なし",CHECK_REQUIRED:"要点検"
+};
+const statusTone=(v:string)=>v==="RECORDED"?"text-emerald-700":
+  ["CHECK_REQUIRED","READ_ERROR","FAILED","MISSING","MISSING_VALID_PAIRS"].includes(v)?
+  "text-rose-700":"text-slate-600";
 
 export default async function EntryTimingResearchPage(){
   const {isOwner}=await getLearningOwnerSession();
@@ -65,6 +76,22 @@ export default async function EntryTimingResearchPage(){
   const recentRechecks:RecheckStudyStock[]=strategy.analyzed
     .filter((p:RecheckStudyStock)=>p.date===latestDate);
   const recheckSufficient=strategy.days>=20 && strategy.evaluated>=100;
+  const now=new Date();
+  const today=jstStudyClock(now).date;
+  let isTradingDay=false;
+  try{isTradingDay=isTseTradingDate(today);}catch(e){
+    console.error("entry time research calendar unavailable",e);
+  }
+  const todayRun=runs.find(x=>x.trade_date===today)??null;
+  const expected=Array.isArray(todayRun?.cohort)?todayRun.cohort.length:5;
+  const captured=recheckRows.filter(x=>x.trade_date===today);
+  const matchedToday=strategy.analyzed.filter((s:{date:string})=>s.date===today).length;
+  const health=evaluateRecheckResearchHealth({
+    now,tradingDay:isTradingDay,tradeDate:today,
+    hasObservationReadError:recheckReadError,hasResultReadError:failed,
+    expectedCohort:expected,recheckCount:captured.length,
+    closeRun:todayRun,matchedCount:matchedToday
+  });
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700">← 学習管理室へ戻る</Link>
@@ -81,6 +108,44 @@ export default async function EntryTimingResearchPage(){
         自動研究は東証営業日の16:45（日本時間）に最大5銘柄、1日1回だけ実行します。株価はYahooの5分足・各時間足の始値を仮想購入価格に使用します。
         実約定価格とは一致しません。ローソク足が欠けた銘柄は成績から除外します。失敗日の自動再取得なし。
         過去日のSIGNALX候補が無い場合や株価が取得できない場合は推測で補完しません。
+      </section>
+      <section className="rounded-2xl border bg-white p-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-black">🩺 今日の自動研究チェック</h2>
+          <span className="text-xs font-bold text-slate-500">{today} JST</span>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          研究用の保存記録を読むだけの点検。自動売買や新しい再取得はしません。
+          当日の予定時刻が過ぎるまでは失敗扱いしません。
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            {label:"10:30 AI再判定",schedule:"10:34実行予定",status:health.recheck,
+              count:captured.length+"/"+expected+"銘柄"},
+            {label:"当日の価格比較",schedule:"16:45実行予定",status:health.close,
+              count:(health.closingValidCount??0)+"/"+expected+"銘柄"},
+            {label:"同じ銘柄で照合",schedule:"価格保存後に集計",status:health.comparison,
+              count:matchedToday+"件"}
+          ].map(item=><div key={item.label} className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[11px] font-black">{item.label}</p>
+            <p className={"mt-1 text-xs font-black "+statusTone(item.status)}>
+              {statusLabel[item.status]??item.status}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-500">{item.count}</p>
+            <p className="mt-1 text-[10px] text-slate-500">{item.schedule}</p>
+          </div>)}
+        </div>
+        {health.overall==="CHECK_REQUIRED"?
+          <p className="mt-2 text-xs leading-5 text-rose-700">
+            保存時刻を過ぎても欠損・エラーがあります。研究のデータ不足であり、
+            相場や証券取引の異常を意味しません。
+          </p>:
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            {health.overall==="NOT_STARTED"?"新方式の初回対象は2026年10月15日の営業日です。":
+            health.overall==="MARKET_CLOSED"?"休場日のため新しい市場観測はありません。":
+            health.overall==="RECORDED"?"3段階の保存・照合を確認できました。":
+            "一部のデータが未確定です。研究の進捗は保存済み実績に基づきます。"}
+          </p>}
       </section>
       <section className="grid grid-cols-3 gap-2">
         {[["研究日数",runs.length+"日"],["完全な比較",eligible.length+"銘柄"],["判定",mature?"暫定比較":"データ収集中"]].map(([label,value])=>
