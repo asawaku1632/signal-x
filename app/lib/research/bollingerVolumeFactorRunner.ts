@@ -43,8 +43,12 @@ export async function volumeFactorProgress(){
        FROM public.bb_breakout_shadow_outcomes o
        JOIN public.bb_breakout_volume_factors f
          ON o.detector_version=f.detector_version AND o.code=f.code
-         AND o.signal_time=f.signal_time AND o.source_hash=f.original_source_hash
-           AND o.horizon=1
+         AND o.signal_time=f.signal_time
+       JOIN public.bb_breakout_shadow_outcomes frozen_one_day
+         ON frozen_one_day.detector_version=f.detector_version
+         AND frozen_one_day.code=f.code AND frozen_one_day.signal_time=f.signal_time
+         AND frozen_one_day.horizon=1
+         AND frozen_one_day.source_hash=f.original_source_hash
        WHERE o.detector_version=$1 GROUP BY o.group_key,f.volume_bucket,o.horizon
        ORDER BY o.group_key,f.volume_bucket,o.horizon`,[BB_VERSION]),
     pool.query(`SELECT batch_id,target_date::text,status,saved_count
