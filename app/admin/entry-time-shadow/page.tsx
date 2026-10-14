@@ -3,11 +3,13 @@ import {notFound} from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
-import {ENTRY_TIME_SLOTS, summarizeEntryTimes, ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
+import {ENTRY_TIME_SLOTS, summarizeEntryTimes, compareEarlyVsWait, summarizeEntryRisk, ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
 
 export const dynamic="force-dynamic";
 export const revalidate=0;
-type Entry={time:string;entryPrice:number|null;closePrice:number|null;returnPct:number|null;pnl100:number|null};
+type Entry={time:string;entryPrice:number|null;closePrice:number|null;returnPct:number|null;pnl100:number|null;maxAdversePct?:number|null;maxAdversePnl100?:number|null};
+type PairedStock={date:string;code:string;name:string;earlyEntry:number;lateEntry:number;earlyPnl100:number;latePnl100:number;earlyAdvantage100:number};
+type RiskSlot={time:string;samples:number;avgMaxAdversePct:number|null;worstMaxAdversePct:number|null;avgMaxAdversePnl100:number|null};
 type StockResult={code:string;name:string;priorScore:number;rank:number;complete:boolean;closePrice:number|null;entries:Entry[];error?:string};
 type DailyRun={trade_date:string;prior_date:string;status:string;cohort:unknown;results:StockResult[];note:string|null};
 const yen=(n:number|null)=>n===null?"—":Math.round(n).toLocaleString("ja-JP")+"円";
@@ -27,8 +29,12 @@ export default async function EntryTimingResearchPage(){
   const completed=runs.flatMap(r=>Array.isArray(r.results)?r.results:[]);
   const eligible=completed.filter(r=>r.complete && r.entries?.length===ENTRY_TIME_SLOTS.length);
   const summary=summarizeEntryTimes(completed);
-  const dayCount=new Set(runs.filter(r=>r.status==="COMPLETE").map(r=>r.trade_date)).size;
+  const dayCount=new Set(runs.filter(r=>Array.isArray(r.results)&&r.results.some(x=>x.complete)).map(r=>r.trade_date)).size;
   const mature=dayCount>=20&&eligible.length>=100;
+  const compared=compareEarlyVsWait(completed);
+  const risk:RiskSlot[]=summarizeEntryRisk(completed);
+  const latestDate=runs[0]?.trade_date??null;
+  const latestPairs:PairedStock[]=compared.pairs.filter((p:PairedStock)=>p.date===latestDate);
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700">← 学習管理室へ戻る</Link>
@@ -55,6 +61,57 @@ export default async function EntryTimingResearchPage(){
       {failed&&<p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-800">専用研究テーブルを読み込めません。DBの準備・接続状態を確認してください。</p>}
       {!failed&&runs.length===0&&<p className="rounded-xl border bg-white p-4 text-sm">自動保存の初回結果待ちです。初回の条件が揃った取引日の大引け後に蓄積します。</p>}
       <section className="rounded-2xl border bg-white p-3">
+        <h2 className="text-lg font-black">🔍 朝9:05に買う？ 11:00まで待つ？</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          同じ日・同じ銘柄・同じ大引けを使い、朝と11時の仮想損益を直接比較。
+          六つの時刻がすべてそろった銘柄だけを利用します。
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[10px] text-slate-500">朝9:05の勝率</p>
+            <p className="mt-1 text-xl font-black">
+              {compared.samples?(compared.earlyWins/compared.samples*100).toFixed(1)+"%":"—"}
+            </p>
+            <p className="text-[10px] text-slate-500">{compared.earlyWins}/{compared.samples}件</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[10px] text-slate-500">11:00の勝率</p>
+            <p className="mt-1 text-xl font-black">
+              {compared.samples?(compared.lateWins/compared.samples*100).toFixed(1)+"%":"—"}
+            </p>
+            <p className="text-[10px] text-slate-500">{compared.lateWins}/{compared.samples}件</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[10px] text-slate-500">朝の方が有利な損益差</p>
+            <p className="mt-1 text-lg font-black">{signedYen(compared.avgEarlyAdvantage100)}</p>
+            <p className="text-[10px] text-slate-500">各銘柄100株・平均</p>
+          </div>
+        </div>
+        <p className="mt-3 text-sm font-bold">
+          11時まで待って安くなった：{compared.waitCheaper}件 ／
+          朝の方が安かった：{compared.earlyCheaper}件 ／ 同値：{compared.equalPrice}件
+        </p>
+        {latestPairs.length>0&&<details className="mt-3 rounded-lg border p-3" open={latestPairs.length<=5}>
+          <summary className="cursor-pointer text-sm font-black">
+            {latestDate} 銘柄別の答え合わせ（{latestPairs.length}件）
+          </summary>
+          <div className="mt-2 space-y-2">
+            {latestPairs.map((p:PairedStock)=><div key={p.code} className="border-t pt-2 text-xs">
+              <p className="font-black">{p.code} {p.name}</p>
+              <p className="mt-1">9:05 {yen(p.earlyEntry)} → 同日引け {signedYen(p.earlyPnl100)} ／
+                11:00 {yen(p.lateEntry)} → {signedYen(p.latePnl100)}</p>
+              <p className="mt-1 text-slate-600">朝に買った場合の損益優位：
+                {signedYen(p.earlyAdvantage100)}（100株）</p>
+            </div>)}
+          </div>
+        </details>}
+        <p className="mt-3 text-xs leading-5 text-amber-800">
+          ⚠ これは11時の新しいAI判定で「買う／見送る」を選別した研究ではありません。
+          どの時間でも必ず買った仮定。朝と11時では保有時間も異なり、価格の上下や最大含み損は別に調べる必要があります。
+          {compared.days<20?" 現在"+compared.days+"営業日分であり優劣は確定しません。":""}
+        </p>
+      </section>
+      <section className="rounded-2xl border bg-white p-3">
         <h2 className="text-lg font-black">📊 同じ候補を6時点で比較</h2>
         <p className="mt-1 text-xs leading-5 text-slate-500">同日引けの損益。勝率＝損益がプラスの割合（ゼロは勝ち扱いしない）。手数料・税金・スリッページ・配当を含みません。</p>
         <div className="mt-3 space-y-2">
@@ -77,6 +134,33 @@ export default async function EntryTimingResearchPage(){
         </p>
       </section>
       <section className="rounded-2xl border bg-white p-3">
+        <h2 className="text-lg font-black">📉 買った後の一時的な下落幅</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          同日大引けまでに、購入価格から一時どこまで下がったかを5分足安値で確認します。
+          全5分足が取得できた銘柄だけ集計。欠けた記録は「不明」とし、損失0円にはしません。
+        </p>
+        {risk.every((r:RiskSlot)=>r.samples===0)?
+          <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
+            過去に保存された結果には5分足安値の追跡記録がないため、集計は次回の自動研究から開始します。
+          </p>:
+          <div className="mt-3 space-y-2">
+            {risk.map((r:RiskSlot)=><div key={r.time} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3">
+              <div>
+                <p className="font-black">{r.time}</p>
+                <p className="text-xs text-slate-500">{r.samples}件の連続5分足</p>
+              </div>
+              <div className="text-right text-sm">
+                <p className="font-bold">平均最大逆行 {pct(r.avgMaxAdversePct)}</p>
+                <p className="text-xs text-slate-600">100株参考損失 {signedYen(r.avgMaxAdversePnl100)}</p>
+              </div>
+            </div>)}
+          </div>}
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          下落幅は保存された5分足の安値に基づく仮想値です。証券会社の約定価格、実際の損切価格、
+          株価飛びやスリッページを反映しません。
+        </p>
+      </section>
+      <section className="rounded-2xl border bg-white p-3">
         <h2 className="text-lg font-black">💾 自動研究の保存履歴</h2>
         {runs.slice(0,20).map(run=><article key={run.trade_date} className="mt-3 rounded-lg border p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,7 +175,7 @@ export default async function EntryTimingResearchPage(){
           </div>):null}
         </article>)}
       </section>
-      <p className="text-xs leading-5 text-slate-500">研究バージョン：{ENTRY_TIME_SHADOW_VERSION}。この第一段階は同日大引けまでの比較であり、翌日・3日・5日保有や11時の再判定ルールはまだ検証していません。</p>
+      <p className="text-xs leading-5 text-slate-500">研究バージョン：{ENTRY_TIME_SHADOW_VERSION}。この段階は同日大引けまでの損益と、保存後の完全な5分足がある場合の最大逆行幅を比較します。翌日・3日・5日保有や11時のAI再判定ルールはまだ検証していません。</p>
     </div><BottomNav/>
   </main>;
 }
