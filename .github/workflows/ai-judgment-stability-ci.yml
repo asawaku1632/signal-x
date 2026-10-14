@@ -5,6 +5,7 @@ on:
       - "app/lib/research/aiJudgmentStability.mjs"
       - "app/lib/research/fixedCohortJudgment.mjs"
       - "app/lib/research/broadCohortShadow.mjs"
+      - "app/lib/research/broadCohortAudit.mjs"
       - "app/lib/research/broadCohortShadowStore.ts"
       - "app/lib/research/fixedCohortJudgmentStore.ts"
       - "app/api/cron/golden-zone/route.ts"
@@ -15,6 +16,7 @@ on:
       - "tests/aiJudgmentStability.test.mjs"
       - "tests/fixedCohortJudgment.test.mjs"
       - "tests/broadCohortShadow.test.mjs"
+      - "tests/broadCohortAudit.test.mjs"
       - ".github/workflows/ai-judgment-stability-ci.yml"
   push:
     branches: ["main"]
@@ -22,6 +24,7 @@ on:
       - "app/lib/research/aiJudgmentStability.mjs"
       - "app/lib/research/fixedCohortJudgment.mjs"
       - "app/lib/research/broadCohortShadow.mjs"
+      - "app/lib/research/broadCohortAudit.mjs"
       - "app/lib/research/broadCohortShadowStore.ts"
       - "app/lib/research/fixedCohortJudgmentStore.ts"
       - "app/api/cron/golden-zone/route.ts"
@@ -30,6 +33,7 @@ on:
       - "tests/aiJudgmentStability.test.mjs"
       - "tests/fixedCohortJudgment.test.mjs"
       - "tests/broadCohortShadow.test.mjs"
+      - "tests/broadCohortAudit.test.mjs"
 jobs:
   offline-test:
     runs-on: ubuntu-latest
@@ -38,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/aiJudgmentStability.test.mjs tests/fixedCohortJudgment.test.mjs tests/broadCohortShadow.test.mjs
+      - run: node --test tests/aiJudgmentStability.test.mjs tests/fixedCohortJudgment.test.mjs tests/broadCohortShadow.test.mjs tests/broadCohortAudit.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
