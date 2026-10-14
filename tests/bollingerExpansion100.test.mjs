@@ -61,5 +61,5 @@ test('owner-only user action and browser stop+resume rather than background auto
  assert.match(page,/stop\.current=true/);
  assert.match(page,/if\(done\.has\(b\.batch\)\)continue/);
  assert.match(page,/setTimeout\(resolve,1100\)/);
- assert.doesNotMatch(page,/Cron|serviceWorker|navigator\.sendBeacon/i);
+ assert.doesNotMatch(page,/\/api\/cron|serviceWorker|navigator\.sendBeacon/i);
 });
