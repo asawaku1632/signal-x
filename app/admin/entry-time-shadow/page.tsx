@@ -95,6 +95,7 @@ export default async function EntryTimingResearchPage(){
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700">← 学習管理室へ戻る</Link>
+      <Link href="/admin/ai-judgment-stability" className="block text-sm font-bold text-violet-700">📈 新しい30銘柄の固定追跡研究はこちら →</Link>
       <header className="rounded-2xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black tracking-widest text-blue-600">OWNER ONLY / SHADOW RESEARCH</p>
         <h1 className="mt-1 text-2xl font-black">⏰ 時間帯別エントリー最適化</h1>
