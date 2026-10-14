@@ -5,7 +5,7 @@ import {getForwardCandles} from "@/app/lib/emaForwardShadowStore";
 import {resolveTargetTradeDate,isTseTradingDate,
  TSE_MARKET_CALENDAR_COVERAGE,TSE_MARKET_CALENDAR_VERSION} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {studyCompletedArchiveCohort,studyCompletedArchiveStock} from "./bollingerBreakoutQuality.mjs";
-import {BB_EXPANSION_POLICY,getExpansionBatch,verifyExpansionBaskets} from "./bollingerExpansionUniverse";
+import {BB_EXPANSION_BATCHES,BB_EXPANSION_POLICY,getExpansionBatch,verifyExpansionBaskets} from "./bollingerExpansionUniverse";
 import {VERSION as BB_VERSION} from "./bollingerBreakoutShadow.mjs";
 
 const FIRST_DATE="2026-01-01";
@@ -69,6 +69,7 @@ export async function bbExpansionProgress(){
  });
  const done=attempts.rows.filter(x=>x.status==="COMPLETE").length;
  return {policy:BB_EXPANSION_POLICY,batchCount:16,completedBatches:done,
+   baskets:BB_EXPANSION_BATCHES.map((codes,index)=>({batch:4+index,codes})),
    codesTarget:100,expandedCodesWithEvents:Number(more.rows[0]?.stocks??0),
    base:{signals:Number(base.rows[0]?.signals??0),outcomes:Number(base.rows[0]?.results??0)},
    expansion:{signals:Number(more.rows[0]?.signals??0),outcomes:Number(more.rows[0]?.results??0)},
