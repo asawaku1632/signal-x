@@ -104,6 +104,12 @@ function chartQuoteAsOf(timestamp?: number | null) {
   });
 }
 
+function quoteIsFromEarlierDay(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return false;
+  const options: Intl.DateTimeFormatOptions = { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Date(timestamp * 1000).toLocaleDateString("ja-JP", options) !== new Date().toLocaleDateString("ja-JP", options);
+}
+
 function signedYen(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   const rounded = Math.round(value);
@@ -479,6 +485,7 @@ export default function ChartPage() {
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-5 text-amber-900">
             Yahoo Finance参考価格・最終ローソク足: {chartQuoteAsOf(chart.latestBarTimestamp)}（日本時間）。リアルタイムの約定価格ではありません。
+            {quoteIsFromEarlierDay(chart.latestBarTimestamp) ? <p className="text-red-700">⚠ 最終足は本日分ではありません。証券会社の最新株価を確認してください。</p> : null}
             {chart.status === "stale" ? <p className="text-red-700">⚠ データ更新失敗のため保存済みチャートを表示中です。</p> : null}
           </div>
 
