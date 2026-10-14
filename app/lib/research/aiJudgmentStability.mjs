@@ -85,6 +85,16 @@ export function evaluateJudgmentStability(rows) {
   return result.sort((a,b)=>b.date.localeCompare(a.date)||b.changes-a.changes||
     b.scoreRange-a.scoreRange||a.code.localeCompare(b.code));
 }
+/** Equal-opportunity cohort for the forward-looking study:
+ * judge only securities observed in ALL seven shared clock slots.
+ * Partial records are displayed for diagnosis, not called "stable".
+ */
+export function onlyCompleteSevenSlotStudies(rows){
+  return rows.filter(row=>Array.isArray(row.observations)&&
+    row.observations.length===JST_SLOTS.length&&
+    JST_SLOTS.every((time,index)=>row.observations[index]?.time===time));
+}
+
 export function summarizeStability(dailyRows){
   const considered=dailyRows.filter(r=>r.samples>=2);
   const groups=["CHANGED","STABLE"].map(name=>{

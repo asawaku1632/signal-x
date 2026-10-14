@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
-import { AI_STABILITY_STUDY_VERSION, evaluateJudgmentStability, summarizeStability, bandLabel } from "@/app/lib/research/aiJudgmentStability.mjs";
+import { AI_STABILITY_STUDY_VERSION, evaluateJudgmentStability, summarizeStability, onlyCompleteSevenSlotStudies, bandLabel } from "@/app/lib/research/aiJudgmentStability.mjs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -77,7 +77,9 @@ export default async function StabilityPage({searchParams}:{
   try {saved=await loadSnapshotComparison(code);} catch(e){console.error("stability snapshot read",e);snapshotError=true;}
   const results=evaluateJudgmentStability(archive);
   const fixedResults=evaluateJudgmentStability(fixedArchive);
-  const fixedStats=summarizeStability(fixedResults);
+  const fixedComplete=onlyCompleteSevenSlotStudies(fixedResults);
+  const fixedTrackedDays=new Set(fixedResults.map(r=>r.date)).size;
+  const fixedStats=summarizeStability(fixedComplete);
   const fixedSelected=fixedResults.filter(r=>r.code===code).slice(0,10);
   const fixedReady=fixedStats.days>=20&&fixedStats.changed.judged>=30&&fixedStats.stable.judged>=30;
   const stats=summarizeStability(results);
@@ -109,8 +111,8 @@ export default async function StabilityPage({searchParams}:{
         </p>:null}
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           {[
-            ["追跡した取引日",fixedStats.days+"日"],
-            ["2回以上観測",fixedStats.comparable+"銘柄日"],
+            ["追跡した取引日",fixedTrackedDays+"日"],
+            ["7時点すべて完了",fixedComplete.length+"銘柄日"],
             ["判定帯が変化",fixedStats.changed.candidates+"銘柄日"],
           ].map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-2">
             <p className="text-[10px] text-slate-500">{label}</p>
@@ -131,6 +133,7 @@ export default async function StabilityPage({searchParams}:{
         <p className="mt-2 text-xs text-slate-600">
           {fixedReady?"研究用の暫定比較。結果には市場環境や銘柄同士の偏りがあります。":
           "まだ十分な実績がありません（目安：20営業日以上・両グループ各30件以上の結果確定）。"}
+          成績比較には7時点すべてそろった銘柄だけを使用（欠けた記録は統計対象外：{fixedResults.length-fixedComplete.length}件）。
           判定帯の最終観測時点から翌営業日の保存参考値への騰落です。
         </p>
         {fixedSelected.length>0?<div className="mt-3 border-t pt-2">
