@@ -57,10 +57,14 @@ export function evaluateJudgmentStability(rows) {
       if(prev.band!==next.band){changes++;switches.push({from:prev.band,to:next.band,fromSlot:prev.slot,toSlot:next.slot});}
     }
     const first=observations[0];
-    const outcomePrice=numberOrNull(first.outcome_price);
+    const last=observations.at(-1);
+    // Bias guard: a classification that uses changes observed throughout the
+    // session cannot be compared against a hypothetical earlier purchase.
+    // The evaluation clock begins AFTER the last required observation.
+    const outcomePrice=numberOrNull(last.outcome_price);
     const comparable=outcomePrice!==null&&outcomePrice>0&&
-      String(first.outcome_date??"")>first.trade_date;
-    const futureReturn=comparable?(outcomePrice-first.price)/first.price*100:null;
+      String(last.outcome_date??"")>last.trade_date;
+    const futureReturn=comparable?(outcomePrice-last.price)/last.price*100:null;
     result.push({
       key,date:first.trade_date,code:first.code,name:String(first.name??""),
       samples:observations.length,firstSlot:first.slot,lastSlot:observations.at(-1).slot,
@@ -70,8 +74,9 @@ export function evaluateJudgmentStability(rows) {
       maxConsecutiveScoreChange:largestScoreChange,
       changes,switches,observations:observations.map(r=>({time:r.slot,score:r.score,
         band:r.band,price:r.price,sampledAt:r.sampled_at})),
-      firstPrice:first.price,outcomePrice:comparable?outcomePrice:null,
-      outcomeDate:comparable?first.outcome_date:null,
+      firstPrice:first.price,entryPriceForOutcome:last.price,
+      evaluationSlot:last.slot,outcomePrice:comparable?outcomePrice:null,
+      outcomeDate:comparable?last.outcome_date:null,
       futureReturnPct:futureReturn,
       // A single observation is not evidence of stability.
       group:observations.length<2?"INSUFFICIENT":changes>0?"CHANGED":"STABLE",

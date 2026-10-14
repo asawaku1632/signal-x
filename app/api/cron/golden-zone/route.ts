@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { getLatestScanSnapshot } from "@/app/lib/scanSnapshot";
+import { saveFixedStabilityObservation } from "@/app/lib/research/fixedCohortJudgmentStore";
 import { getTseCashSessionStatus, resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 export const dynamic = "force-dynamic";
@@ -109,8 +110,20 @@ export async function GET(request: Request) {
        ON CONFLICT (trade_date, time_slot, code) DO NOTHING`,
       values,
     );
+    // Ancillary shadow capture is strictly independent of the existing Golden Zone
+    // insert. No additional market-data fetch or runtime AI calculation.
+    let stabilityCapture: unknown = { skipped: "UNAVAILABLE" };
+    try {
+      stabilityCapture = await saveFixedStabilityObservation({
+        now, tradeDate: market.date, timeSlot: slot.label,
+        stocks, snapshotSavedAt: snapshot.updatedAt, outcomeDate,
+      });
+    } catch (error) {
+      console.warn("[ai-stability-fixed-cohort] research-only archive unavailable", error);
+    }
     const result = {
       success: true, date: market.date, slot: slot.label, sampledAt: snapshot.updatedAt,
+      stabilityCapture,
       outcomeDate, selected: selected.length, added: saved.rowCount ?? 0, source: "cached_scan_top_30",
     };
     console.info("[golden-zone]", JSON.stringify(result));

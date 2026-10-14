@@ -3,15 +3,25 @@ on:
   pull_request:
     paths:
       - "app/lib/research/aiJudgmentStability.mjs"
+      - "app/lib/research/fixedCohortJudgment.mjs"
+      - "app/lib/research/fixedCohortJudgmentStore.ts"
+      - "app/api/cron/golden-zone/route.ts"
+      - "supabase/migrations/20261014_create_ai_stability_fixed_cohort.sql"
       - "app/admin/ai-judgment-stability/**"
       - "app/admin/learning-hub/page.tsx"
       - "tests/aiJudgmentStability.test.mjs"
+      - "tests/fixedCohortJudgment.test.mjs"
       - ".github/workflows/ai-judgment-stability-ci.yml"
   push:
     branches: ["main"]
     paths:
       - "app/lib/research/aiJudgmentStability.mjs"
+      - "app/lib/research/fixedCohortJudgment.mjs"
+      - "app/lib/research/fixedCohortJudgmentStore.ts"
+      - "app/api/cron/golden-zone/route.ts"
+      - "supabase/migrations/20261014_create_ai_stability_fixed_cohort.sql"
       - "tests/aiJudgmentStability.test.mjs"
+      - "tests/fixedCohortJudgment.test.mjs"
 jobs:
   offline-test:
     runs-on: ubuntu-latest
@@ -20,4 +30,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/aiJudgmentStability.test.mjs
+      - run: node --test tests/aiJudgmentStability.test.mjs tests/fixedCohortJudgment.test.mjs
