@@ -3,6 +3,7 @@ import pool from "@/app/lib/postgres";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { getLatestScanSnapshot } from "@/app/lib/scanSnapshot";
 import { saveFixedStabilityObservation } from "@/app/lib/research/fixedCohortJudgmentStore";
+import { saveBroadCohortShadow } from "@/app/lib/research/broadCohortShadowStore";
 import { getTseCashSessionStatus, resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 export const dynamic = "force-dynamic";
@@ -121,9 +122,21 @@ export async function GET(request: Request) {
     } catch (error) {
       console.warn("[ai-stability-fixed-cohort] research-only archive unavailable", error);
     }
+    // Phased full-universe research: up to 30 frozen prior-day symbols.
+    // Reuse only this cached scan; errors do not impact Golden Zone, 5-name
+    // stability capture, other AI or LINE notifications.
+    let broadCapture: unknown = { skipped: "NOT_AVAILABLE" };
+    try {
+      broadCapture = await saveBroadCohortShadow({
+        now, tradeDate: market.date, timeSlot: slot.label,
+        stocks, snapshotSavedAt: snapshot.updatedAt,
+      });
+    } catch (error) {
+      console.warn("[ai-broad-30] isolated research archive unavailable", error);
+    }
     const result = {
       success: true, date: market.date, slot: slot.label, sampledAt: snapshot.updatedAt,
-      stabilityCapture,
+      stabilityCapture, broadCapture,
       outcomeDate, selected: selected.length, added: saved.rowCount ?? 0, source: "cached_scan_top_30",
     };
     console.info("[golden-zone]", JSON.stringify(result));
