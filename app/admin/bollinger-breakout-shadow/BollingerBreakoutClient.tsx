@@ -53,6 +53,10 @@ export default function BollingerBreakoutClient(){
         if(!g)return null;
         return <section key={id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="font-black">{label}：{g.eventCount}件</h2>
+          <p className="mt-2 text-sm">翌営業日に＋2σの内側へ戻った割合（失速の参考）：
+            {g.nextDayKnownCount>=30
+              ?(100*g.nextDayReturnedInsideCount/g.nextDayKnownCount).toFixed(1)+"%"
+              :"標本不足"}（判定可能 {g.nextDayKnownCount}件）</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {[1,3,5].map(h=>{
               const p=g.horizons[String(h)];
