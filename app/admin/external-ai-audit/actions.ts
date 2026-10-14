@@ -26,7 +26,7 @@ export async function archiveExternalForecast(form: FormData): Promise<void> {
     publishedAtJst: input("publishedAtJst"),
     sourceNote: input("sourceNote")
   });
-  if (!parsed.ok) redirect("/admin/external-ai-audit?result=invalid");
+  if (!parsed.ok || !parsed.value) redirect("/admin/external-ai-audit?result=invalid");
 
   const p = parsed.value;
   let message = "saved";
