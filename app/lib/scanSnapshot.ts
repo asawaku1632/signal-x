@@ -9,6 +9,7 @@ import {
 } from "@/app/lib/displaySnapshot";
 import { shouldReplaceSnapshot } from "@/app/lib/learning/snapshotCoverage";
 import { marketScanGuard } from "@/app/lib/marketScanGuard";
+import { preferStockSnapshot } from "@/app/lib/preferStockSnapshot.mjs";
 
 export const SCAN_SNAPSHOT_KEY = "scan:latest";
 export const TODAY_MARKET_SCAN_SNAPSHOT_KEY = "scan:today-market";
@@ -114,9 +115,13 @@ export function refreshTodayMarketScanSnapshot(limit = 20) {
 export async function getStockSnapshot(code: string) {
   // Individual rows keep the complete versioned scan payload.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const individual = await getDisplaySnapshot<any>(`scan:stock:${code}`);
-  if (individual) return individual;
-  return getDisplaySnapshotStock(SCAN_SNAPSHOT_KEY, code);
+  const [individual, market] = await Promise.all([
+    getDisplaySnapshot<any>(`scan:stock:${code}`),
+    getDisplaySnapshotStock<any>(SCAN_SNAPSHOT_KEY, code),
+  ]);
+  // Compare the Yahoo candle times: the last saved isolated stock analysis
+  // can be older than the latest market-wide scan used by Favorites.
+  return preferStockSnapshot(individual, market);
 }
 
 export async function refreshStockSnapshot(code: string) {
