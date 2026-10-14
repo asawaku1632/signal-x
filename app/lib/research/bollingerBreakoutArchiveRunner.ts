@@ -105,15 +105,16 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
     const report=studyCompletedArchiveCohort(inputs);
     if(report.status!=="READY_FOR_SHADOW_COMPARISON"){
       await finishAttempt(batch,target,"DATA_REJECTED",0,
-        report.quality.filter((x:{ok:boolean})=>!x.ok).map((x:{code:string;reason:string})=>x.code+":"+x.reason).join(";"));
+        report.quality.filter((x:{ok:boolean})=>!x.ok).map(x=>String(x.code)+":"+String(x.reason??"INVALID_SOURCE")).join(";"));
       return {status:"DATA_REJECTED",batch,targetDate:target,codes,
         quality:report.quality,progress:await getBollingerBatchProgress()};
     }
     const rows=inputs.flatMap(item=>studyCompletedArchiveStock(item).records.flatMap(r=>
       ([1,3,5] as const).flatMap(h=>{
-        const result=r.horizons[h];
+        const result=(r.horizons as Record<number,{status:string;entryPrice:number;exitPrice:number;returnPercent:number;maxAdversePercent:number}>)[h];
         if(result?.status!=="COMPLETE")return [];
-        const t=r.signal.signalIndex;
+        const t=Number(r.signal.signalIndex);
+        if(!Number.isInteger(t)||t<80||t>=item.candles.length)throw Error("SIGNAL_INDEX_INVALID");
         const fingerprint=createHash("sha256").update(JSON.stringify({
           version:BB_VERSION,calendar:TSE_MARKET_CALENDAR_VERSION,
           code:item.code,history:item.candles.slice(t-80,t+1),
