@@ -40,6 +40,12 @@ test("no 15:25/15:30 final bar means no scored outcomes",()=>{
   assert.equal(a.closePrice,null);
   assert.equal(a.entries[0].returnPct,null);
 });
+test("explicit 15:30 auction close has priority over preceding 15:25",()=>{
+  const date="2026-10-14";
+  const a=evaluateEntryTimes(date,{code:"3762",name:"A",rank:1,score:95,referencePrice:3000},
+    [...slots.map(s=>bar(date,s,3100)),bar(date,"15:25",3090,3090),bar(date,"15:30",3200,3200)]);
+  assert.equal(a.closePrice,3200);
+});
 test("sample consistency across time slots, losses and skipped bars separate",()=>{
   const make=(code,p)=>evaluateEntryTimes("2026-10-14",{code,name:code,rank:1,score:95,referencePrice:3100},
     [...slots.map(s=>bar("2026-10-14",s,p)),bar("2026-10-14","15:25",3100,3100)]);
