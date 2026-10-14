@@ -1,0 +1,22 @@
+name: External AI Benchmark Shadow Offline Tests
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/externalAiBenchmark.mjs"
+      - "tests/externalAiBenchmark.test.mjs"
+      - "docs/external-ai-entry-audit-shadow.md"
+      - ".github/workflows/external-ai-benchmark-ci.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "app/lib/research/externalAiBenchmark.mjs"
+      - "tests/externalAiBenchmark.test.mjs"
+jobs:
+  offline-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/externalAiBenchmark.test.mjs
