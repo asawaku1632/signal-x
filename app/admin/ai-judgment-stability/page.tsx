@@ -4,6 +4,7 @@ import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { AI_STABILITY_STUDY_VERSION, evaluateJudgmentStability, summarizeStability, onlyCompleteSevenSlotStudies, bandLabel } from "@/app/lib/research/aiJudgmentStability.mjs";
+import { BROAD_SHADOW_VERSION, BROAD_SHADOW_SLOTS, summarizeBroadCoverage } from "@/app/lib/research/broadCohortShadow.mjs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,6 +14,13 @@ type ObservationRow = {
   outcome_date:string;outcome_price:number|string|null;
 };
 type SavedStock = {source:string;saved_at:string;score:string|null;price:string|null;change_pct:string|null;latest_bar:string|null};
+type BroadObservation={code:string;name:string;priorRank:number;priorScore:number;
+  score:number;price:number;quoteTime:string;timeSlot:string};
+type BroadArchive={trade_date:string;prior_date:string;time_slot:string;
+  expected_count:number;observed_count:number;observations:BroadObservation[];
+  missing:{code:string;reason:string}[]};
+type BroadCandidate={code:string;name:string;rank:number;firstScore:number;
+  lastScore:number;slots:Set<string>};
 const pct=(v:number|null)=>v===null?"未確定":(v>0?"+":"")+v.toFixed(2)+"%";
 const yen=(v:number|null)=>v===null||!Number.isFinite(v)?"—":Math.round(v).toLocaleString("ja-JP")+"円";
 const jst=(s:string)=>new Date(s).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
@@ -47,6 +55,16 @@ async function loadFixedObservations():Promise<ObservationRow[]> {
   const {rows}=await pool.query<ObservationRow>(sql);
   return rows;
 }
+async function loadBroadResearch():Promise<BroadArchive[]>{
+  const {rows}=await pool.query<BroadArchive>(
+    "SELECT trade_date::text,prior_date::text,time_slot,expected_count,observed_count,"+
+    "observations,missing FROM public.broad_ai_research_snapshots "+
+    "WHERE policy_version=$1 AND trade_date >= (CURRENT_DATE - INTERVAL '45 days')::date "+
+    "ORDER BY trade_date DESC,time_slot ASC LIMIT 315",
+    [BROAD_SHADOW_VERSION]
+  );
+  return rows;
+}
 async function loadSnapshotComparison(code:string):Promise<SavedStock[]> {
   const sql=[
     "SELECT '全銘柄スキャン' AS source, updated_at::text AS saved_at,",
@@ -71,10 +89,33 @@ export default async function StabilityPage({searchParams}:{
   const params=await searchParams;
   const code=/^[0-9]{4}$/.test(params.code??"")?params.code!:"3762";
   let archive:ObservationRow[]=[];let fixedArchive:ObservationRow[]=[];let saved:SavedStock[]=[];
-  let archiveError=false,snapshotError=false,fixedError=false;
+  let broadArchive:BroadArchive[]=[];
+  let archiveError=false,snapshotError=false,fixedError=false,broadError=false;
+  try{broadArchive=await loadBroadResearch();}catch(err){
+    console.error("broad research archive read",err);broadError=true;
+  }
   try {fixedArchive=await loadFixedObservations();} catch(e){console.error("fixed stability read",e);fixedError=true;}
   try {archive=await loadObservations();} catch(e){console.error("stability archive read",e);archiveError=true;}
   try {saved=await loadSnapshotComparison(code);} catch(e){console.error("stability snapshot read",e);snapshotError=true;}
+  const broadCoverage=summarizeBroadCoverage(broadArchive);
+  const broadLatestDate=broadArchive[0]?.trade_date??null;
+  const broadLatest=broadArchive.filter(r=>r.trade_date===broadLatestDate);
+  const broadMap=new Map<string,BroadCandidate>();
+  for(const daySlot of broadLatest){
+    if(!Array.isArray(daySlot.observations))continue;
+    for(const x of daySlot.observations){
+      let candidate=broadMap.get(x.code);
+      if(!candidate){
+        candidate={code:x.code,name:x.name,rank:x.priorRank,firstScore:x.score,
+          lastScore:x.score,slots:new Set()};
+        broadMap.set(x.code,candidate);
+      }
+      candidate.lastScore=x.score;
+      candidate.slots.add(daySlot.time_slot);
+    }
+  }
+  const broadCandidates=Array.from(broadMap.values()).sort((a,b)=>a.rank-b.rank);
+  const broadComplete=broadCandidates.filter(r=>r.slots.size===BROAD_SHADOW_SLOTS.length).length;
   const results=evaluateJudgmentStability(archive);
   const fixedResults=evaluateJudgmentStability(fixedArchive);
   const fixedComplete=onlyCompleteSevenSlotStudies(fixedResults);
@@ -98,6 +139,68 @@ export default async function StabilityPage({searchParams}:{
           実際の売買・疑似購入・AI POWER・通知には一切影響しません。
         </p>
       </header>
+      <section className="rounded-xl border border-violet-100 bg-white p-3">
+        <p className="text-[11px] font-black tracking-widest text-violet-700">PHASE B / 30-STOCK CACHED-SCAN PILOT</p>
+        <h2 className="mt-1 text-lg font-black">📈 全銘柄研究への拡張・第1段階</h2>
+        <p className="mt-2 text-xs leading-6 text-slate-600">
+          前夜の上位最大30銘柄を固定し、翌日の7つの時刻に同じ銘柄を追跡。
+          既存スキャンの株価・AI POWER・株価データ時刻だけを利用します。
+          <b>新しいYahoo通信・Cron・AI売買判定・通知の変更はありません。</b>
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            ["観測済み営業日",broadCoverage.days+"日"],
+            ["最新の保存時刻",broadLatest.length+"/7枠"],
+            ["7時刻そろった銘柄",broadComplete+"件"],
+          ].map(([label,value])=><div key={label} className="rounded-xl bg-violet-50 p-2 text-center">
+            <p className="text-[10px] text-slate-500">{label}</p>
+            <p className="mt-1 text-base font-black">{value}</p>
+          </div>)}
+        </div>
+        {broadError?<p className="mt-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">
+          新しい研究保存テーブルを読み込めませんでした。
+        </p>:null}
+        {!broadError&&broadLatest.length===0?<p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm">
+          拡張版の初回データ待ち。導入前の日付は後から推測で埋めません。
+        </p>:null}
+        <p className="mt-3 text-xs font-black">
+          {broadLatestDate?broadLatestDate+" の": "まだない"}7時点の保存状況
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {BROAD_SHADOW_SLOTS.map((slot:string)=>{
+            const entry=broadLatest.find(x=>x.time_slot===slot);
+            return <div key={slot} className="rounded-lg border bg-slate-50 p-2">
+              <p className="font-black">{slot}</p>
+              <p className="mt-1 text-xs">
+                {entry?entry.observed_count+"/"+entry.expected_count+"件":"記録待ち"}
+              </p>
+              <p className="text-[10px] text-slate-500">
+                {entry&&entry.observed_count<entry.expected_count?"欠損は別途記録":""}
+              </p>
+            </div>;
+          })}
+        </div>
+        {broadCandidates.length>0&&<details className="mt-3 rounded-lg border p-3">
+          <summary className="cursor-pointer text-sm font-black">
+            最新の固定追跡銘柄（実際に記録できた{broadCandidates.length}銘柄）
+          </summary>
+          <div className="mt-2 space-y-2">
+            {broadCandidates.map(x=><div key={x.code} className="flex items-center justify-between gap-2 border-b pb-2 text-xs">
+              <div className="min-w-0">
+                <p className="font-bold">{x.rank}位 {x.code} {x.name}</p>
+                <p className="text-slate-600">AI初回 {x.firstScore} → 最終 {x.lastScore}</p>
+              </div>
+              <span className="shrink-0 font-bold">{x.slots.size}/7時点</span>
+            </div>)}
+          </div>
+        </details>}
+        <p className="mt-3 text-xs leading-5 text-amber-800">
+          この拡張版は時間帯ごとのAI評価・参考価格を観測する研究です。
+          <b>9:05や11:00の実際の約定価格・5分足損益を30銘柄分保存する機能ではありません。</b>
+          株価データが25分以上古い場合などはその時点を欠損扱いとし、勝率を作りません。
+          収集品質を見てから100銘柄、全銘柄への増加を検討します。
+        </p>
+      </section>
       <section className="rounded-xl border border-blue-100 bg-white p-3">
         <h2 className="text-lg font-black">🧭 新研究：前夜の同じ5銘柄を追跡</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
