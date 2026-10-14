@@ -74,7 +74,7 @@ test("all 7 slots known and coverage denominators preserve gaps",()=>{
   {trade_date:date,time_slot:"10:30",expected_count:30,observed_count:25},
   {trade_date:date,time_slot:"09:15",expected_count:30,observed_count:0}]);
  assert.equal(r.days,1);
- assert.equal(r.slots.find(x=>x.slot==="10:30").rate,25/30*100);
+ assert.ok(Math.abs(r.slots.find(x=>x.slot==="10:30").rate-25/30*100)<1e-9);
  assert.equal(r.slots.find(x=>x.slot==="09:15").rate,0);
  assert.equal(r.slots.find(x=>x.slot==="14:30").rate,null);
 });
