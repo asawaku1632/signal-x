@@ -3,18 +3,22 @@ on:
   pull_request:
     paths:
       - "app/lib/research/entryTimeShadow.mjs"
+      - "app/lib/research/recheckEntryStrategy.mjs"
       - "app/lib/research/entryTimeShadowRunner.ts"
       - "app/admin/entry-time-shadow/**"
       - "app/api/cron/entry-time-shadow/**"
       - "tests/entryTimeShadow.test.mjs"
+      - "tests/recheckEntryStrategy.test.mjs"
       - "supabase/migrations/20261014_create_entry_time_shadow_runs.sql"
       - ".github/workflows/entry-time-shadow-ci.yml"
   push:
     branches: ["main"]
     paths:
       - "app/lib/research/entryTimeShadow.mjs"
+      - "app/lib/research/recheckEntryStrategy.mjs"
       - "app/lib/research/entryTimeShadowRunner.ts"
       - "tests/entryTimeShadow.test.mjs"
+      - "tests/recheckEntryStrategy.test.mjs"
 jobs:
   offline-test:
     runs-on: ubuntu-latest
@@ -23,4 +27,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/entryTimeShadow.test.mjs
+      - run: node --test tests/entryTimeShadow.test.mjs tests/recheckEntryStrategy.test.mjs
