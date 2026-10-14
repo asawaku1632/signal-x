@@ -1,33 +1,38 @@
-# Bollinger squeeze breakout vs failed breakout (SHADOW ONLY)
+# Bollinger breakout research (SHADOW ONLY)
 
-Status: research code only. This branch does not start live verification. A source-code commit is not proof that scheduled accumulation, database tracking, or evaluation is operational.
+Status: **draft PR / manual pilot implementation**, not activated. There is no unattended job, no database table, and no stored forward observations. Production main is unchanged until an independent review and merge.
 
-## Existing foundations
-- BB20 observation, ±2σ / ±3σ, crossing and return-inside event capture already exist.
-- Existing chart pattern045 detects BB squeeze. Other BB research has future-result evaluation and a distinct DEV Phase 7/8 workflow.
-- The Phase 7/8 DEV workflow has separate review and approval boundaries. Do not run its DEV connection, evaluations, writes or deployment here.
+## Existing independent foundations
+- BB20 observation, ±2σ/±3σ and return-inside detection already exist.
+- Chart pattern045 already detects BB squeezes.
+- Other BB DEV Phase 7/8 workflows have distinct safety and approval boundaries. Do NOT invoke the DEV connection or historical Phase 8 execution as part of this pilot.
 
-## Comparison
-Standalone: app/lib/research/bollingerBreakoutShadow.mjs
+## Defined experiment
+- Detect upper 2σ breakout on signal-day close using the **previous completed day** band, versus t-1 close <= t-2 upper band.
+- Compare prior-day BB20 width <= 25th percentile of 60 earlier completed widths (SQUEEZE_UP_BREAKOUT) versus other upper breakout.
+- Calculate volume ratio from completed signal volume and previous 20 trading days; 1.3x is observational ONLY.
+- Grade t+1, t+3, t+5 closes using **t+1 OPEN** as the hypothetical entry; collect mean return, positive fraction, max adverse excursion. Next-day close below contemporaneous +2σ is an outcome-only failed-followthrough proxy.
+- With fewer than 30 *complete* observations per category, no performance percentages are emitted. Do not infer profitability from synthetic fixture tests.
 
-Compare the same upper 2σ breakout event:
-- SQUEEZE_UP_BREAKOUT: prior-day BB20 band width <= 25th percentile of 60 earlier completed widths.
-- OTHER_UP_BREAKOUT: identical crossing rule without prior squeeze.
+## Offline as-of and input integrity
+- Pure code: app/lib/research/bollingerBreakoutShadow.mjs and bollingerBreakoutQuality.mjs.
+- Historical price signals are frozen at their original close; future bars never enter as-of detection.
+- Source code, OHLC validity, uniqueness and strict chronological ordering, all official trading dates, as-of completion, and provider/interval are validated before grading. An external calendar source is explicitly required; an invented date list must never be considered authoritative.
+- Split events within 80 completed bars prior to signal through available +5 outcomes exclude that event. Missing split-event provenance, holidays, dropped/duplicate bars or provider delays cause a hard reject.
+- Cross-stock quality is all-or-nothing; invalid symbols do not silently disappear from a comparison, which would inflate wins.
+- Dividends, execution slippage/fees and corporate action revisions remain unmodeled; results are **historical simulations**, not live fills. Repeated overlapping same-stock signals can be correlated.
 
-On signal day t, close > prior day's upper 2σ while close on t-1 <= upper 2σ on t-2. All needed data for the signal are frozen at t (80+ ordered valid daily bars). The volume ratio uses t volume / mean t-20..t-1 volume, with 1.3x as research-only confirmation and unavailable input as NULL.
+## Owner-only real-data pilot (not automated)
+- Files: app/lib/research/bollingerBreakoutPilot.ts, API POST route under /api/admin/bollinger-breakout-shadow, and private /admin/bollinger-breakout-shadow page.
+- One explicit owner click invokes the existing Yahoo daily loader for **two fixed stocks, 9984 and 3762**, at most one call each, no retry; manually launches comparisons with the 2026–2027 exchange calendar.
+- Trading-day boundary is the project's existing 15:40 JST guard. Current incomplete candles are removed; if the latest expected completed bar is unavailable, the cohort fails closed.
+- Results are returned to the owner page only. There is **NO** database write, auto schedule, queue, notification, change to trade/ranking/AI POWER, new migration or secret.
+- This is *not* proof of daily tracking. Actual provider data quality and live results cannot be certified by unit tests.
 
-Evaluate 1/3/5 trading sessions forward using t+1 OPEN as the simulated entry (not t close). Retrospective return-inside means t+1 close below its own t+1 upper 2σ band. This outcome is NEVER a t-day signal feature.
+## Tests & future automatic accumulation
+CI GitHub Actions runs two offline suites on PR changes; the real-data pilot also requires a successful Vercel build and one owner-triggered data validation before considering merge.
 
-Publish mean return, positive share and adverse excursion only after >=30 complete events in a cohort. Pending and invalid periods stay unevaluated. Duplicate stock code + signal time is rejected.
+Later work, **not activated by this PR**: separately review a bounded per-day frozen universe, source fidelity (including splits/adjustments), independent idempotent shadow archive, backfills exclusion, maturity-gated +1/+3/+5 results, auditability, production cost and rollback. Explicitly approve any DB migration/scheduled consumer. Do not reinterpret existing BB event results using signal-close entries as next-open executable results.
 
-## Limitations
-- The eventual consumer must enforce trading-calendar continuity, split/corporate-action handling, market closures and full-source provenance. The module does not claim realistic fills, account for slippage/fees, or guarantee an executable opening price.
-- Repeated events in the same stock may be correlated; count and report that separately.
-- Intraday 09:05 vs 11:00 entry requires a distinct time-stamped paired study; daily BB alone cannot measure it.
-- This addition is not an automated scanner or observation writer.
-
-## Offline test
-Run: node --test tests/bollingerBreakoutShadow.test.mjs
-
-## Production separation
-NO modifications to production AI POWER, buy/sell decisions, notifications, rankings, trades, Vercel cron, DB schema, API routes, or environment variables. The standalone research consumer is deliberately not connected to any live scheduler or database. Separately review and authorize a read-only adapter to immutable completed daily candle archives before real forward samples are recorded.
+Run offline:
+node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs
