@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {bandForScore,evaluateJudgmentStability,summarizeStability} from "../app/lib/research/aiJudgmentStability.mjs";
+import {bandForScore,evaluateJudgmentStability,summarizeStability,onlyCompleteSevenSlotStudies,JST_SLOTS} from "../app/lib/research/aiJudgmentStability.mjs";
 const sample=(code,slot,score,price=3100,date="2026-10-14",extra={})=>
   ({trade_date:date,time_slot:slot,code,name:code,entry_price:price,ai_power:score,
     sampled_at:date+"T"+slot+":00+09:00",outcome_date:"2026-10-15",...extra});
@@ -59,4 +59,15 @@ test("group comparisons use actual outcomes and disclose denominators, no zero-s
   assert.equal(s.changed.judged,1);assert.equal(s.changed.wins,1);
   assert.equal(s.stable.judged,1);assert.equal(s.stable.wins,0);
   assert.equal(s.changed.winRate,100);assert.equal(s.stable.winRate,0);
+});
+
+test("fixed-cohort performance requires all seven slots; incomplete observations are not stability evidence",()=>{
+  const complete=JST_SLOTS.map((slot,i)=>sample("3762",slot,i===0?85:90));
+  const incomplete=[sample("6758","09:15",85),sample("6758","09:30",90)];
+  const rows=evaluateJudgmentStability([...complete,...incomplete]);
+  const valid=onlyCompleteSevenSlotStudies(rows);
+  assert.equal(valid.length,1);
+  assert.equal(valid[0].code,"3762");
+  assert.equal(valid[0].evaluationSlot,"15:15");
+  assert.equal(summarizeStability(valid).stable.candidates,1);
 });
