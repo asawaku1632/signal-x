@@ -5,6 +5,8 @@ import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { AI_STABILITY_STUDY_VERSION, evaluateJudgmentStability, summarizeStability, onlyCompleteSevenSlotStudies, bandLabel } from "@/app/lib/research/aiJudgmentStability.mjs";
 import { BROAD_SHADOW_VERSION, BROAD_SHADOW_SLOTS, summarizeBroadCoverage } from "@/app/lib/research/broadCohortShadow.mjs";
+import { expectedAuditTradingDates, auditBroadCohortQuality } from "@/app/lib/research/broadCohortAudit.mjs";
+import { isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -97,6 +99,10 @@ export default async function StabilityPage({searchParams}:{
   try {fixedArchive=await loadFixedObservations();} catch(e){console.error("fixed stability read",e);fixedError=true;}
   try {archive=await loadObservations();} catch(e){console.error("stability archive read",e);archiveError=true;}
   try {saved=await loadSnapshotComparison(code);} catch(e){console.error("stability snapshot read",e);snapshotError=true;}
+  // Read-only. The quality gate is intentionally separate from auto-scaling;
+  // its result never changes capture limits, scans, signals or notifications.
+  const auditTradeDates=expectedAuditTradingDates({now:new Date(),isTradingDay:isTseTradingDate});
+  const broadQuality=auditBroadCohortQuality(broadArchive,auditTradeDates);
   const broadCoverage=summarizeBroadCoverage(broadArchive);
   const broadLatestDate=broadArchive[0]?.trade_date??null;
   const broadLatest=broadArchive.filter(r=>r.trade_date===broadLatestDate);
@@ -180,6 +186,67 @@ export default async function StabilityPage({searchParams}:{
             </div>;
           })}
         </div>
+        <section className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-black">🩺 30銘柄研究の収集品質監査</h3>
+            <span className={"text-xs font-black "+(
+              broadError?"text-rose-700":
+              broadQuality.status==="READY_FOR_REVIEW"?"text-emerald-700":
+              broadQuality.status==="QUALITY_GATE_BLOCKED"?"text-rose-700":"text-slate-600"
+            )}>
+              {broadError?"データ取得に失敗":
+                broadQuality.status==="READY_FOR_REVIEW"?"次段階を検討可能":
+                broadQuality.status==="QUALITY_GATE_BLOCKED"?"品質基準に未達":"実測収集中"}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            収集が完了した直近最大5営業日について、30銘柄×7時点の欠損と保存率を自動点検。
+            未保存の時刻は成功として数えません。開始前・当日の観測途中は失敗扱いしません。
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            {[
+              ["判定対象",broadQuality.checkedSessions+"/5営業日"],
+              ["記録された枠",broadQuality.presentSlots+"/"+broadQuality.expectedSlots],
+              ["有効データ率",broadQuality.captureRate===null?"未確定":broadQuality.captureRate.toFixed(1)+"%"],
+            ].map(([label,value])=><div key={label} className="rounded-lg border bg-white p-2">
+              <p className="text-[10px] text-slate-500">{label}</p>
+              <p className="mt-1 text-sm font-black">{value}</p>
+            </div>)}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-700">
+            100銘柄への拡張を検討する目安：
+            <b> 5営業日連続、毎日7/7枠、各枠30銘柄を対象、有効データ率95%以上。</b>
+            条件を満たしても自動で銘柄数は増やしません。
+          </p>
+          {broadQuality.days.length>0&&<details className="mt-2 rounded-lg border bg-white p-3">
+            <summary className="cursor-pointer text-xs font-black">日付ごとの保存結果を確認</summary>
+            <div className="mt-2 space-y-2">
+              {broadQuality.days.map((day:any)=><div key={day.date} className="border-t pt-2 text-xs">
+                <p className="font-black">{day.date} ／ {day.slots}/7枠 ／
+                  {day.observed}/{day.expected}件 ／
+                  {day.coverage===null?"率未確定":day.coverage.toFixed(1)+"%"}</p>
+                {day.missingSlots.length>0&&<p className="mt-1 text-rose-700">
+                  未保存の枠：{day.missingSlots.join("、")}
+                </p>}
+                {day.underTarget.length>0&&<p className="mt-1 text-amber-700">
+                  30銘柄に達しない枠：{day.underTarget.join("、")}
+                </p>}
+              </div>)}
+            </div>
+          </details>}
+          {Object.keys(broadQuality.missingReasonTotals).length>0&&<details className="mt-2 rounded-lg border bg-white p-3">
+            <summary className="cursor-pointer text-xs font-black">株価・AI記録が欠けた原因</summary>
+            <div className="mt-2 space-y-1 text-xs">
+              {Object.entries(broadQuality.missingReasonTotals).sort((a,b)=>Number(b[1])-Number(a[1]))
+                .map(([reason,count])=><p key={reason}>{reason}：{String(count)}件</p>)}
+            </div>
+          </details>}
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">
+            収集品質の判断であり、株の勝率や利益予測の精度を意味しません。
+            サイトの既存記録が全く保存されなかった営業日は、保存漏れとして扱います。
+            対象銘柄数と観測品質を確認した後、100銘柄への拡張は別途判断します。
+          </p>
+        </section>
         {broadCandidates.length>0&&<details className="mt-3 rounded-lg border p-3">
           <summary className="cursor-pointer text-sm font-black">
             最新の固定追跡銘柄（実際に記録できた{broadCandidates.length}銘柄）
