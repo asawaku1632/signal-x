@@ -5,7 +5,7 @@ import {ENTRY_TIME_SHADOW_VERSION, jstParts, selectPriorDayCandidates, evaluateE
 
 type SavedSignal = {code:string;name:string;score:number|string;price:number|string};
 type FrozenSignal = {code:string;name:string;score:number;referencePrice:number;rank:number};
-type Candle = {time:number;open:number|null;close:number|null};
+type Candle = {time:number;open:number|null;close:number|null;low:number|null};
 const MAX_CODES=5;
 const YAHOO_TIMEOUT_MS=8_000;
 
@@ -41,8 +41,10 @@ async function yahooIntraday(code:string):Promise<Candle[]> {
     const realIndex=times.length-array.length+index;
     const open=Number(q.open?.[realIndex]);
     const close=Number(q.close?.[realIndex]);
+    const low=Number(q.low?.[realIndex]);
     return {time:Number(time),open:Number.isFinite(open)&&open>0?open:null,
-      close:Number.isFinite(close)&&close>0?close:null};
+      close:Number.isFinite(close)&&close>0?close:null,
+      low:Number.isFinite(low)&&low>0?low:null};
   });
 }
 
