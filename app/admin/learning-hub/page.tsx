@@ -54,6 +54,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "前兆通知後の実績と検証ステータス",
       },
       {
+        href: "/admin/ai-judgment-stability", icon: "🔁",
+        title: "AI判定の揺れ・安定性研究", tag: "研究用",
+        detail: "買い候補→見送りなどAI評価帯の変化回数と翌営業日の成績を比較",
+      },
+      {
         href: "/admin/entry-time-shadow", icon: "🕰️",
         title: "時間帯別エントリー最適化", tag: "自動研究",
         detail: "前夜上位5候補を9:05〜14:00の6時点で仮想購入・同日終値を比較",
