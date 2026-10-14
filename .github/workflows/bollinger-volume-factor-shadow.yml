@@ -1,0 +1,30 @@
+name: Bollinger Volume Factor Shadow
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerVolumeFactors.mjs"
+      - "app/lib/research/bollingerVolumeFactorRunner.ts"
+      - "app/admin/bollinger-breakout-shadow/**"
+      - "app/api/admin/bollinger-breakout-shadow/volume/**"
+      - "supabase/migrations/20261015_bb_breakout_volume_factor_shadow.sql"
+      - "tests/bollingerVolumeFactors.test.mjs"
+      - ".github/workflows/bollinger-volume-factor-shadow.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs tests/bollingerBreakoutBatchArchive.test.mjs tests/bollingerVolumeFactors.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
