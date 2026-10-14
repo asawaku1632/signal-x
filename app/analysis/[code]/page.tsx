@@ -23,6 +23,7 @@ type Signal = {
   confidence?: number;
   aiPower?: number;
   changePercent?: number;
+  latestBarTimestamp?: number | null;
   rsi?: number;
   volumeRatio?: number;
   reason?: string;
@@ -119,6 +120,19 @@ async function readJsonResponse<T>(response: Response): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+function quoteAsOf(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return "時刻不明";
+  return new Date(timestamp * 1000).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function quoteMayBeDelayed(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return true;
+  // Timestamp describes the market bar, not when the latest snapshot was saved.
+  return Date.now() - timestamp * 1000 > 10 * 60 * 1000;
 }
 
 function levelYen(value?: number | null) {
@@ -826,11 +840,19 @@ export default function AnalysisPage() {
             <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100 min-[380px]:text-2xl">{signal.name}</h1>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-medium text-slate-600 dark:text-slate-300">現在値 <strong className="text-slate-950 dark:text-slate-100">{yen(price)}</strong></span>
+            <span className="font-medium text-slate-600 dark:text-slate-300">参考株価 <strong className="text-slate-950 dark:text-slate-100">{yen(price)}</strong></span>
             <span className={`font-black ${changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"}`}>
-              変化率 {changePercent > 0 ? "+" : ""}{changePercent}%
+              スキャン変化率 {changePercent > 0 ? "+" : ""}{changePercent}%
             </span>
           </div>
+        </section>
+
+        <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+          <p>Yahoo Finance参考価格・株価データ: {quoteAsOf(signal.latestBarTimestamp)}（日本時間）。注文の約定価格ではありません。</p>
+          {scanFreshness.updatedAt ? <p>分析データ保存: {new Date(scanFreshness.updatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p> : null}
+          {scanFreshness.status === "stale" ? <p className="mt-1 text-red-700 dark:text-red-300">⚠ 分析の保存データを表示しています。</p> : null}
+          {quoteMayBeDelayed(signal.latestBarTimestamp) ? <p className="mt-1 text-red-700 dark:text-red-300">⚠ 株価データは10分以上前、または取得時刻が不明です。売買には証券会社の最新価格を確認してください。</p> : null}
+          <button type="button" onClick={() => window.location.reload()} className="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-black">データを再読み込み</button>
         </section>
 
         <section className="mt-2 rounded-xl border border-blue-200 bg-white p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
