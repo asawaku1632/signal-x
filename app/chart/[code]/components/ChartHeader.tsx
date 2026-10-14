@@ -20,7 +20,7 @@ export default function ChartHeader(props: ChartHeaderProps) {
         <span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-black ${props.trendClass}`}>
           <span aria-hidden>{props.trendIcon}</span> {props.trend.replace("トレンド", "")}
         </span>
-        <span className="ml-auto shrink-0 text-[10px] font-bold text-slate-500 dark:text-slate-400">現在値</span>
+        <span className="ml-auto shrink-0 text-[10px] font-bold text-slate-500 dark:text-slate-400">参考値</span>
         <span className="shrink-0 text-sm font-black sm:text-base">{yen(props.currentPrice)}</span>
       </div>
     </section>
