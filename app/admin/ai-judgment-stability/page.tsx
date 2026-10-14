@@ -34,6 +34,19 @@ async function loadObservations():Promise<ObservationRow[]> {
   const {rows}=await pool.query<ObservationRow>(sql);
   return rows;
 }
+async function loadFixedObservations():Promise<ObservationRow[]> {
+  const sql=[
+    "SELECT o.trade_date::text,o.time_slot,o.code,o.name,",
+    "o.entry_price,o.ai_power,o.snapshot_saved_at::text AS sampled_at,",
+    "o.outcome_date::text,d.price AS outcome_price",
+    "FROM public.ai_judgment_fixed_cohort_observations o",
+    "LEFT JOIN public.daily_stock_results d ON d.date=o.outcome_date::text AND d.code=o.code",
+    "WHERE o.trade_date >= (CURRENT_DATE - INTERVAL '45 days')::date",
+    "ORDER BY o.trade_date DESC,o.code ASC,o.snapshot_saved_at ASC LIMIT 2000"
+  ].join(" ");
+  const {rows}=await pool.query<ObservationRow>(sql);
+  return rows;
+}
 async function loadSnapshotComparison(code:string):Promise<SavedStock[]> {
   const sql=[
     "SELECT '全銘柄スキャン' AS source, updated_at::text AS saved_at,",
@@ -57,11 +70,16 @@ export default async function StabilityPage({searchParams}:{
   if(!isOwner) notFound();
   const params=await searchParams;
   const code=/^[0-9]{4}$/.test(params.code??"")?params.code!:"3762";
-  let archive:ObservationRow[]=[];let saved:SavedStock[]=[];
-  let archiveError=false,snapshotError=false;
+  let archive:ObservationRow[]=[];let fixedArchive:ObservationRow[]=[];let saved:SavedStock[]=[];
+  let archiveError=false,snapshotError=false,fixedError=false;
+  try {fixedArchive=await loadFixedObservations();} catch(e){console.error("fixed stability read",e);fixedError=true;}
   try {archive=await loadObservations();} catch(e){console.error("stability archive read",e);archiveError=true;}
   try {saved=await loadSnapshotComparison(code);} catch(e){console.error("stability snapshot read",e);snapshotError=true;}
   const results=evaluateJudgmentStability(archive);
+  const fixedResults=evaluateJudgmentStability(fixedArchive);
+  const fixedStats=summarizeStability(fixedResults);
+  const fixedSelected=fixedResults.filter(r=>r.code===code).slice(0,10);
+  const fixedReady=fixedStats.days>=20&&fixedStats.changed.judged>=30&&fixedStats.stable.judged>=30;
   const stats=summarizeStability(results);
   const selected=results.filter(r=>r.code===code).slice(0,12);
   const moving=results.filter(r=>r.group==="CHANGED").slice(0,20);
@@ -78,6 +96,53 @@ export default async function StabilityPage({searchParams}:{
           実際の売買・疑似購入・AI POWER・通知には一切影響しません。
         </p>
       </header>
+      <section className="rounded-xl border border-blue-100 bg-white p-3">
+        <h2 className="text-lg font-black">🧭 新研究：前夜の同じ5銘柄を追跡</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          前日AI POWER85以上の上位5銘柄を固定し、翌日の既存7時点で保存。
+          途中で「買い候補」から「見送り」に落ちても追跡対象から外しません。
+          保存済みスキャンの株価データが25分以上古い場合・取得時刻不明の場合は記録を見送ります。
+          追加のYahoo通信やCronはありません。導入前の過去記録は自動復元しません。
+        </p>
+        {fixedError?<p className="mt-2 text-xs font-bold text-rose-700">
+          研究専用テーブルを読めません。準備状況を確認してください。
+        </p>:null}
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          {[
+            ["追跡した取引日",fixedStats.days+"日"],
+            ["2回以上観測",fixedStats.comparable+"銘柄日"],
+            ["判定帯が変化",fixedStats.changed.candidates+"銘柄日"],
+          ].map(([label,value])=><div key={label} className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[10px] text-slate-500">{label}</p>
+            <p className="mt-1 text-base font-black">{value}</p>
+          </div>)}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[{label:"🔁 変化あり",row:fixedStats.changed},
+            {label:"🟢 判定帯が安定",row:fixedStats.stable}].map(item=>
+            <div key={item.label} className="rounded-xl border p-3">
+              <p className="text-sm font-black">{item.label}</p>
+              <p className="mt-1 text-xs">対象 {item.row.candidates}件 ／ 翌営業日結果 {item.row.judged}件</p>
+              <p className="mt-2 text-xs text-slate-500">翌営業日上昇率</p>
+              <p className="text-xl font-black">{item.row.winRate===null?"未確定":item.row.winRate.toFixed(1)+"%"}</p>
+              <p className="text-xs text-slate-500">平均騰落 {pct(item.row.avgReturn)}</p>
+            </div>)}
+        </div>
+        <p className="mt-2 text-xs text-slate-600">
+          {fixedReady?"研究用の暫定比較。結果には市場環境や銘柄同士の偏りがあります。":
+          "まだ十分な実績がありません（目安：20営業日以上・両グループ各30件以上の結果確定）。"}
+          判定帯の最終観測時点から翌営業日の保存参考値への騰落です。
+        </p>
+        {fixedSelected.length>0?<div className="mt-3 border-t pt-2">
+          <p className="text-sm font-black">{code} の固定追跡記録</p>
+          {fixedSelected.map((row:any)=><details key={row.key} className="mt-2 rounded-lg bg-slate-50 p-3">
+            <summary className="text-sm font-bold">{row.date} ／ AI判定帯変更 {row.changes}回</summary>
+            <p className="mt-2 text-xs">{row.observations.map((o:{time:string;score:number})=>o.time+" AI "+o.score).join(" → ")}</p>
+            <p className="mt-1 text-xs">最後の観測 {row.evaluationSlot} ／ 翌営業日参考騰落 {pct(row.futureReturnPct)}</p>
+          </details>)}
+        </div>:null}
+      </section>
+      <h2 className="px-1 pt-2 text-sm font-black text-slate-600">参考：従来の時間別上位30銘柄の保存記録（銘柄構成が時刻ごとに異なる）</h2>
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
         AI POWERの判定帯：95以上「大本命」／85以上「買い候補」／75以上「押し目待ち」／65以上「様子見」／それ未満「見送り」。
         スイング判定やチャートの「現在の行動」とは別物です。
@@ -94,7 +159,7 @@ export default async function StabilityPage({searchParams}:{
       </div>
       <section className="rounded-xl border bg-white p-3">
         <h2 className="text-lg font-black">📊 判断が変わる銘柄と安定した銘柄</h2>
-        <p className="mt-1 text-xs text-slate-500">同日2回以上の観測だけを対象。翌営業日の保存参考価格で仮比較（約定価格ではありません）。</p>
+        <p className="mt-1 text-xs text-slate-500">同日2回以上の観測だけを対象。最後の観測時点から翌営業日の保存参考価格で仮比較（約定価格ではありません）。</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {[{label:"🔁 判定帯に変化",row:stats.changed},{label:"🟢 判定帯が同じ",row:stats.stable}].map(x=>
             <div key={x.label} className="rounded-xl bg-slate-50 p-3">
