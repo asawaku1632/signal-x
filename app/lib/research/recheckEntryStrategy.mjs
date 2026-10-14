@@ -80,6 +80,7 @@ export function evaluateRecheckEntryStrategy(runs,gateRows){
         continue;
       }
       const ai=scoreValue(gate.ai_power);
+      if(ai===null){excluded.push({date:run.trade_date,code,reason:"INVALID_AI_SCORE"});continue;}
       const bought=ai>=RECHECK_AI_THRESHOLD;
       const earlyPnl=amount((close-early)*100);
       const latePnl=amount((close-late)*100);
