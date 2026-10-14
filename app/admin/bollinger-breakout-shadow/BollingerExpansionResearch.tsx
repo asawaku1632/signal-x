@@ -11,7 +11,8 @@ type Progress={
  expansion:{signals:number;outcomes:number};attempts:Attempt[];stats:Stat[];
 };
 type Response={success:boolean;status:string;batch?:number;targetDate?:string;
- reason?:string;newOutcomes?:number;progress?:Progress};
+ reason?:string;newOutcomes?:number;progress?:Progress;
+ quality?:Array<{code:string;ok:boolean;reason:string|null;events:number}>};
 const format=(n:number|null,rate=false)=>n===null?"30件未満":(n*(rate?100:1)).toFixed(2)+"%";
 const kinds=[["SQUEEZE_UP_BREAKOUT","スクイーズ後"],["OTHER_UP_BREAKOUT","通常の上抜け"]] as const;
 const volumes=[["HIGH_1_3X","出来高1.3倍以上"],["BELOW_1_3X","1.3倍未満"],["UNKNOWN","出来高不明"]] as const;
