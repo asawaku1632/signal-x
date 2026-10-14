@@ -105,7 +105,7 @@ export default async function EntryTimingResearchPage(){
           {[
             ["前夜候補",strategy.candidates+"件"],
             ["比較できた",strategy.evaluated+"件"],
-            ["再判定が不明",strategy.excluded+"件"]
+            ["照合対象外",strategy.excluded+"件"]
           ].map(([name,value])=><div key={name} className="rounded-xl bg-slate-50 p-2">
             <p className="text-[10px] text-slate-500">{name}</p>
             <p className="mt-1 text-lg font-black">{value}</p>
