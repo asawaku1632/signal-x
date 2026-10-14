@@ -17,13 +17,20 @@ export function jstStudyClock(date){
   return {date:p("year")+"-"+p("month")+"-"+p("day"),
     minute:Number(p("hour"))*60+Number(p("minute"))};
 }
+/** @param {{
+ * now:Date, tradingDay:boolean, tradeDate:string,
+ * hasObservationReadError?:boolean, hasResultReadError?:boolean,
+ * expectedCohort?:number, recheckCount?:number, matchedCount?:number,
+ * closeRun?:{status:string,results?:Array<{complete:boolean}>}|null
+ * }} params
+ */
 export function evaluateRecheckResearchHealth({
   now,tradingDay,tradeDate,hasObservationReadError=false,hasResultReadError=false,
   expectedCohort=5,recheckCount=0,closeRun=null,matchedCount=0
 }){
   const t=jstStudyClock(now);
   if(t.date!==tradeDate)throw Error("WRONG_RESEARCH_DATE");
-  const base={date:tradeDate,expectedCohort,recheckCount,matchedCount,
+  const base={date:tradeDate,expectedCohort,recheckCount,matchedCount,closingValidCount:0,
     scheduled:RECHECK_HEALTH_SCHEDULE};
   if(tradeDate<RECHECK_HEALTH_START_DATE)
     return {...base,overall:"NOT_STARTED",recheck:"NOT_STARTED",close:"NOT_STARTED",comparison:"NOT_STARTED"};
