@@ -4,12 +4,24 @@ import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {ENTRY_TIME_SLOTS, summarizeEntryTimes, compareEarlyVsWait, summarizeEntryRisk, ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
+import {evaluateRecheckEntryStrategy, RECHECK_ENTRY_POLICY_VERSION} from "@/app/lib/research/recheckEntryStrategy.mjs";
 
 export const dynamic="force-dynamic";
 export const revalidate=0;
 type Entry={time:string;entryPrice:number|null;closePrice:number|null;returnPct:number|null;pnl100:number|null;maxAdversePct?:number|null;maxAdversePnl100?:number|null};
 type PairedStock={date:string;code:string;name:string;earlyEntry:number;lateEntry:number;earlyPnl100:number;latePnl100:number;earlyAdvantage100:number};
 type RiskSlot={time:string;samples:number;avgMaxAdversePct:number|null;worstMaxAdversePct:number|null;avgMaxAdversePnl100:number|null};
+type RecheckGateRow={
+  trade_date:string;prior_date:string;time_slot:string;code:string;
+  prior_rank:number|string;ai_power:number|string|null;
+  quote_timestamp:string;snapshot_saved_at:string;
+};
+type RecheckStudyStock={
+  date:string;code:string;name:string;priorScore:number;recheckScore:number;
+  decision:string;earlyEntry:number;lateEntry:number;closePrice:number;
+  earlyPnl100:number;alwaysLatePnl100:number;gatedPnl100:number;
+  missedProfit100:number;avoidedLoss100:number;
+};
 type StockResult={code:string;name:string;priorScore:number;rank:number;complete:boolean;closePrice:number|null;entries:Entry[];error?:string};
 type DailyRun={trade_date:string;prior_date:string;status:string;cohort:unknown;results:StockResult[];note:string|null};
 const yen=(n:number|null)=>n===null?"—":Math.round(n).toLocaleString("ja-JP")+"円";
@@ -20,12 +32,27 @@ export default async function EntryTimingResearchPage(){
   const {isOwner}=await getLearningOwnerSession();
   if(!isOwner) notFound();
   let runs:DailyRun[]=[];let failed=false;
+  let recheckRows:RecheckGateRow[]=[];let recheckReadError=false;
   try {
     const {rows}=await pool.query<DailyRun>(
       "SELECT trade_date::text,prior_date::text,status,cohort,results,note FROM public.entry_time_shadow_runs WHERE policy_version=$1 ORDER BY trade_date DESC LIMIT 60",
       [ENTRY_TIME_SHADOW_VERSION]);
     runs=rows;
   }catch(error){console.error("entry-time shadow archive unavailable",error);failed=true;}
+  try {
+    const {rows}=await pool.query<RecheckGateRow>(
+      "SELECT trade_date::text,prior_date::text,time_slot,code,prior_rank,ai_power,"+
+      "quote_timestamp::text,snapshot_saved_at::text FROM "+
+      "public.ai_judgment_fixed_cohort_observations "+
+      "WHERE time_slot='10:30' AND trade_date >= (CURRENT_DATE - INTERVAL '90 days')::date "+
+      "ORDER BY trade_date DESC,code ASC LIMIT 500"
+    );
+    recheckRows=rows;
+  }catch(error){
+    console.error("10:30 AI recheck archive unavailable",error);
+    recheckReadError=true;
+  }
+  const strategy=evaluateRecheckEntryStrategy(runs,recheckRows);
   const completed=runs.flatMap(r=>Array.isArray(r.results)?r.results:[]);
   const eligible=completed.filter(r=>r.complete && r.entries?.length===ENTRY_TIME_SLOTS.length);
   const summary=summarizeEntryTimes(completed);
@@ -35,6 +62,9 @@ export default async function EntryTimingResearchPage(){
   const risk:RiskSlot[]=summarizeEntryRisk(completed);
   const latestDate=runs[0]?.trade_date??null;
   const latestPairs:PairedStock[]=compared.pairs.filter((p:PairedStock)=>p.date===latestDate);
+  const recentRechecks:RecheckStudyStock[]=strategy.analyzed
+    .filter((p:RecheckStudyStock)=>p.date===latestDate);
+  const recheckSufficient=strategy.days>=20 && strategy.evaluated>=100;
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700">← 学習管理室へ戻る</Link>
@@ -60,6 +90,84 @@ export default async function EntryTimingResearchPage(){
       </section>
       {failed&&<p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-800">専用研究テーブルを読み込めません。DBの準備・接続状態を確認してください。</p>}
       {!failed&&runs.length===0&&<p className="rounded-xl border bg-white p-4 text-sm">自動保存の初回結果待ちです。初回の条件が揃った取引日の大引け後に蓄積します。</p>}
+      <section className="rounded-2xl border border-indigo-100 bg-white p-3">
+        <p className="text-[11px] font-black tracking-widest text-indigo-600">AI RECHECK / SHADOW ONLY</p>
+        <h2 className="mt-1 text-lg font-black">🤖 朝のAIを見て、11時に買う？</h2>
+        <p className="mt-1 text-xs leading-6 text-slate-600">
+          前夜に選んだ同じ5銘柄を固定して、10:30に保存されたAI POWERで再判定。
+          85以上なら11:00の5分足始値で100株仮想購入、85未満なら現金のまま見送り。
+          朝9:05全件購入・11:00全件購入とも、同じ銘柄と同じ大引け価格で比較します。
+        </p>
+        {recheckReadError?<p className="mt-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">
+          再判定の保存記録を読み込めませんでした。集計は表示しません。
+        </p>:null}
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          {[
+            ["前夜候補",strategy.candidates+"件"],
+            ["比較できた",strategy.evaluated+"件"],
+            ["照合対象外",strategy.excluded+"件"]
+          ].map(([name,value])=><div key={name} className="rounded-xl bg-slate-50 p-2">
+            <p className="text-[10px] text-slate-500">{name}</p>
+            <p className="mt-1 text-lg font-black">{value}</p>
+          </div>)}
+        </div>
+        {strategy.evaluated===0?
+          <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm leading-6">
+            10:30の固定銘柄AI観測と、大引け後の5分足比較が両方そろった結果待ち。
+            過去の日付に再判定を後付けしていません。次の営業日以降に自動的に照合します。
+          </p>:
+          <>
+            <div className="mt-3 space-y-2">
+              {[
+                {label:"9:05に全件買う",pnl:strategy.earlyTotalPnl100,
+                  cnt:strategy.evaluated,win:strategy.earlyWinRate},
+                {label:"11:00に全件買う",pnl:strategy.alwaysLateTotalPnl100,
+                  cnt:strategy.evaluated,win:strategy.alwaysLateWinRate},
+                {label:"10:30再判定 → 11:00条件付き購入",
+                  pnl:strategy.gatedTotalPnl100,
+                  cnt:strategy.buyCount,win:strategy.gateWinRate}
+              ].map(s=><div key={s.label} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-sm font-bold">{s.label}</p>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-600">{s.cnt}購入 ／ 購入分の勝率 {s.win===null?"—":s.win.toFixed(1)+"%"}</p>
+                  <p className="font-black">{signedYen(s.pnl)}</p>
+                </div>
+              </div>)}
+            </div>
+            <p className="mt-2 text-sm font-bold">
+              再判定で購入 {strategy.buyCount}件 ／ 見送り {strategy.skipCount}件
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">
+              見送りで回避できた仮想損失：{signedYen(strategy.avoidedLossTotal100)} ／
+              見送りで逃した仮想利益：{signedYen(strategy.missedOpportunityTotal100)}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">
+              同じ評価対象1件あたりの平均仮想損益：再判定
+              {signedYen(strategy.gatedAvgPerCandidate100)} ／
+              朝 {signedYen(strategy.earlyAvgPerCandidate100)} ／
+              11時無条件 {signedYen(strategy.alwaysLateAvgPerCandidate100)}
+            </p>
+          </>
+        }
+        {recentRechecks.length>0&&<details className="mt-3 rounded-lg border p-3">
+          <summary className="cursor-pointer text-sm font-black">最新日の再判定内訳（{recentRechecks.length}件）</summary>
+          {recentRechecks.map((s:RecheckStudyStock)=><div key={s.code} className="mt-2 border-t pt-2 text-xs">
+            <p className="font-bold">{s.code} {s.name} ／ 10:30 AI {s.recheckScore} ／
+              {s.decision==="BUY"?" 仮想購入":" 見送り"}</p>
+            <p className="mt-1">朝 {signedYen(s.earlyPnl100)} ／
+              11時無条件 {signedYen(s.alwaysLatePnl100)} ／
+              再判定 {signedYen(s.gatedPnl100)}</p>
+          </div>)}
+        </details>}
+        <p className="mt-3 text-xs leading-5 text-amber-800">
+          重要：AI判定は11:00そのものではなく10:30時点の保存値。
+          見送りは損益0円として扱い、勝率の母数に入れません。判定データ欠損は「見送り」ではなく
+          比較対象外です。3戦略は購入件数・保有時間・投下資金が異なるため、損益合計だけで優劣は決まりません。
+          {recheckSufficient?" 複数日の参考検証中。売買の勝率を保証しません。":
+          " 十分な検証には少なくとも20営業日・比較可能100銘柄日を目安にします。"}
+        </p>
+        <p className="mt-1 text-[10px] text-slate-500">{RECHECK_ENTRY_POLICY_VERSION}</p>
+      </section>
       <section className="rounded-2xl border bg-white p-3">
         <h2 className="text-lg font-black">🔍 朝9:05に買う？ 11:00まで待つ？</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -175,7 +283,7 @@ export default async function EntryTimingResearchPage(){
           </div>):null}
         </article>)}
       </section>
-      <p className="text-xs leading-5 text-slate-500">研究バージョン：{ENTRY_TIME_SHADOW_VERSION}。この段階は同日大引けまでの損益と、保存後の完全な5分足がある場合の最大逆行幅を比較します。翌日・3日・5日保有や11時のAI再判定ルールはまだ検証していません。</p>
+      <p className="text-xs leading-5 text-slate-500">研究バージョン：{ENTRY_TIME_SHADOW_VERSION}。この段階は同日大引けまでの損益と、保存後の完全な5分足がある場合の最大逆行幅を比較します。翌日・3日・5日保有、および11:00ちょうどのAI再判定はまだ検証していません。</p>
     </div><BottomNav/>
   </main>;
 }
