@@ -50,9 +50,46 @@ export function evaluateEntryTimes(tradeDate, candidate, candles) {
     const bar=bars.get(time);
     const price=bar && finitePositive(bar.open) ? bar.open:null;
     const pct=price!==null && close!==null ? (close-price)/price*100:null;
+
+    // Risk, not just closing profit: require EVERY five-minute low from the
+    // hypothetical purchase through 15:25. Missing bars => unknown, not zero.
+    // 11:30-12:25 is a scheduled lunch break; 15:30 auction close is reflected
+    // through `close` without inventing an intrabar low.
+    let minAfterEntry=null;
+    let observedBars=0;
+    let requiredBars=0;
+    if(price!==null && close!==null && closingBar){
+      const entryMinute=jstParts(bar.time*1000).minute;
+      const closingMinute=Math.min(jstParts(closingBar.time*1000).minute,15*60+25);
+      let coverage=true;
+      for(const [start,end] of [[9*60,11*60+25],[12*60+30,15*60+25]]){
+        for(let minute=start;minute<=end;minute+=5){
+          if(minute<entryMinute || minute>closingMinute)continue;
+          requiredBars++;
+          const hhmm=String(Math.floor(minute/60)).padStart(2,"0")+":"+
+            String(minute%60).padStart(2,"0");
+          const check=bars.get(hhmm);
+          if(!check||!finitePositive(check.low)){
+            coverage=false;
+            continue;
+          }
+          observedBars++;
+          minAfterEntry=minAfterEntry===null?check.low:Math.min(minAfterEntry,check.low);
+        }
+      }
+      if(!coverage||requiredBars===0||observedBars!==requiredBars){
+        minAfterEntry=null;
+      }else{
+        minAfterEntry=Math.min(minAfterEntry,close);
+      }
+    }
+    const adverse=minAfterEntry===null||price===null?null:Math.max(0,price-minAfterEntry);
     return {time,entryPrice:price,closePrice:close,
       returnPct:pct===null?null:Number(pct.toFixed(5)),
-      pnl100:pct===null?null:Number(((close-price)*100).toFixed(2))};
+      pnl100:pct===null?null:Number(((close-price)*100).toFixed(2)),
+      maxAdversePct:adverse===null?null:Number((-adverse/price*100).toFixed(5)),
+      maxAdversePnl100:adverse===null?null:Number((-adverse*100).toFixed(2)),
+      riskBarsRequired:requiredBars,riskBarsObserved:observedBars};
   });
   const complete=close!==null && entries.every(e=>e.entryPrice!==null);
   return {code:candidate.code,name:candidate.name,rank:candidate.rank,
@@ -73,5 +110,58 @@ export function summarizeEntryTimes(rows) {
     return {time,samples:n,winRate:n?100*entries.filter(e=>e.returnPct>0).length/n:null,
       meanReturn:mean,worstReturn:n?Math.min(...entries.map(e=>e.returnPct)):null,
       avgHundredSharePnl:avg100,missedGain:n?entries.filter(e=>e.returnPct>0).length:0};
+  });
+}
+
+/** Paired early-vs-wait comparison: same dates, same stocks, same close.
+ * A positive `earlyAdvantage100` means buying early cost less than waiting.
+ * It does NOT account for different holding durations or transaction costs.
+ */
+export function compareEarlyVsWait(rows,earlyTime="09:05",lateTime="11:00"){
+  if(!ENTRY_TIME_SLOTS.includes(earlyTime)||!ENTRY_TIME_SLOTS.includes(lateTime)||
+    ENTRY_TIME_SLOTS.indexOf(earlyTime)>=ENTRY_TIME_SLOTS.indexOf(lateTime)){
+    throw Error("INVALID_TIME_PAIR");
+  }
+  const complete=rows.filter(r=>r.complete&&Array.isArray(r.entries)&&
+    ENTRY_TIME_SLOTS.every(slot=>r.entries.some(e=>e.time===slot&&
+      Number.isFinite(e.entryPrice)&&Number.isFinite(e.pnl100))));
+  const pairs=complete.map(r=>{
+    const early=r.entries.find(e=>e.time===earlyTime);
+    const late=r.entries.find(e=>e.time===lateTime);
+    const earlyAdvantage100=Number(((late.entryPrice-early.entryPrice)*100).toFixed(2));
+    return {date:r.date,code:r.code,name:r.name,
+      earlyEntry:early.entryPrice,lateEntry:late.entryPrice,closePrice:r.closePrice,
+      earlyPnl100:early.pnl100,latePnl100:late.pnl100,
+      earlyAdvantage100,earlyWin:early.pnl100>0,lateWin:late.pnl100>0};
+  });
+  const n=pairs.length;
+  const sum=f=>pairs.reduce((a,r)=>a+f(r),0);
+  return {earlyTime,lateTime,samples:n,days:new Set(pairs.map(p=>p.date)).size,
+    earlyWins:sum(p=>p.earlyWin?1:0),lateWins:sum(p=>p.lateWin?1:0),
+    earlyOnlyWins:sum(p=>p.earlyWin&&!p.lateWin?1:0),
+    lateOnlyWins:sum(p=>!p.earlyWin&&p.lateWin?1:0),
+    waitCheaper:sum(p=>p.earlyAdvantage100<0?1:0),
+    earlyCheaper:sum(p=>p.earlyAdvantage100>0?1:0),
+    equalPrice:sum(p=>p.earlyAdvantage100===0?1:0),
+    avgEarlyPnl100:n?sum(p=>p.earlyPnl100)/n:null,
+    avgLatePnl100:n?sum(p=>p.latePnl100)/n:null,
+    avgEarlyAdvantage100:n?sum(p=>p.earlyAdvantage100)/n:null,
+    pairs};
+}
+
+/** Post-purchase maximum adverse excursions, available only for fully
+ * observed five-minute lows in NEW archives. Historic rows remain unknown.
+ */
+export function summarizeEntryRisk(rows){
+  const eligible=rows.filter(r=>r.complete&&Array.isArray(r.entries)&&
+    ENTRY_TIME_SLOTS.every(t=>r.entries.some(e=>e.time===t&&
+      Number.isFinite(e.maxAdversePct))));
+  return ENTRY_TIME_SLOTS.map(time=>{
+    const points=eligible.map(r=>r.entries.find(e=>e.time===time));
+    const n=points.length;
+    return {time,samples:n,
+      avgMaxAdversePct:n?points.reduce((a,e)=>a+e.maxAdversePct,0)/n:null,
+      worstMaxAdversePct:n?Math.min(...points.map(p=>p.maxAdversePct)):null,
+      avgMaxAdversePnl100:n?points.reduce((a,e)=>a+e.maxAdversePnl100,0)/n:null};
   });
 }
