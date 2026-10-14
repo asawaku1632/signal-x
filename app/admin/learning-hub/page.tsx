@@ -54,6 +54,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "前兆通知後の実績と検証ステータス",
       },
       {
+        href: "/admin/entry-time-shadow", icon: "🕰️",
+        title: "時間帯別エントリー最適化", tag: "自動研究",
+        detail: "前夜上位5候補を9:05〜14:00の6時点で仮想購入・同日終値を比較",
+      },
+      {
         href: "/admin/golden-zone", icon: "⏰",
         title: "曜日・時間帯ゴールデンゾーン",
         detail: "曜日別・時間帯別の傾向とサンプル数",

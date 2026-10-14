@@ -85,6 +85,10 @@
       "schedule": "50 23 * * 0-4"
     },
     {
+      "path": "/api/cron/entry-time-shadow",
+      "schedule": "45 7 * * 1-5"
+    },
+    {
       "path": "/api/cron/rebound-forward/0",
       "schedule": "45 7 * * 1-5"
     },
