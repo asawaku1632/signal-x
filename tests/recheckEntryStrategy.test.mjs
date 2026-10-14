@@ -82,3 +82,14 @@ test("missing initial price, missing closing price and empty archive are not cou
  assert.equal(data.gatedTotalPnl100,0);
  assert.equal(evaluateRecheckEntryStrategy([],[]).candidates,0);
 });
+
+test("excluded-count UI renders numeric count and not raw array of objects",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const page=readFileSync(new URL("../app/admin/entry-time-shadow/page.tsx",import.meta.url),"utf8");
+ assert.ok(page.includes('["照合対象外",strategy.excluded.length+"件"]'));
+ assert.ok(!page.includes('["照合対象外",strategy.excluded+"件"]'));
+ const data=evaluateRecheckEntryStrategy([run([cand("3762",1),cand("6758",2)],
+  [stock("3762",100,101,105),stock("6758",200,201,210)])],[]);
+ assert.equal(data.excluded.length,2);
+ assert.equal(data.candidates,2);
+});
