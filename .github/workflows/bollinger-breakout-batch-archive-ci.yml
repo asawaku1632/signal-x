@@ -1,0 +1,28 @@
+name: Bollinger Breakout Batch Archive Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerBreakoutBatches.ts"
+      - "app/lib/research/bollingerBreakoutArchiveRunner.ts"
+      - "app/api/admin/bollinger-breakout-shadow/batches/**"
+      - "app/admin/bollinger-breakout-shadow/**"
+      - "supabase/migrations/20261015_bb_breakout_shadow_batch_archive.sql"
+      - "tests/bollingerBreakoutBatchArchive.test.mjs"
+      - ".github/workflows/bollinger-breakout-batch-archive-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs tests/bollingerBreakoutBatchArchive.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
