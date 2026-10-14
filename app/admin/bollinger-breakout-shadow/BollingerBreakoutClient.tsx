@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import {useState} from "react";
+import BollingerBatchArchive from "./BollingerBatchArchive";
 
 type Period = {sampleCount:number;missing:number;status:string;
   positiveRate:number|null;meanReturnPercent:number|null;meanMaxAdversePercent:number|null};
@@ -71,6 +72,7 @@ export default function BollingerBreakoutClient(){
           </div>
         </section>;
       })}
+      <BollingerBatchArchive/>
       <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">30件未満では割合や平均成績を出しません。過去データによる再現研究であり、未来の勝率を証明するものではありません。株式分割・営業日欠損・未確定足がある銘柄は、結果を出さず除外します。</p>
     </div>
   </main>;
