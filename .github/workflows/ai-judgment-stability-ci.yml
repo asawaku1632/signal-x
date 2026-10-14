@@ -1,0 +1,23 @@
+name: AI Judgment Stability Offline Tests
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/aiJudgmentStability.mjs"
+      - "app/admin/ai-judgment-stability/**"
+      - "app/admin/learning-hub/page.tsx"
+      - "tests/aiJudgmentStability.test.mjs"
+      - ".github/workflows/ai-judgment-stability-ci.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "app/lib/research/aiJudgmentStability.mjs"
+      - "tests/aiJudgmentStability.test.mjs"
+jobs:
+  offline-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/aiJudgmentStability.test.mjs
