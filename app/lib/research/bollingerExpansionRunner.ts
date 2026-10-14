@@ -122,8 +122,8 @@ export async function runBbExpansion(id:number,now=new Date()){
   const check=studyCompletedArchiveCohort(inputs);
   if(check.status!=="READY_FOR_SHADOW_COMPARISON")
     throw Error("FULL_BATCH_DATA_QUALITY_REJECTED:"+
-      check.quality.filter((x:{ok:boolean})=>!x.ok).map((x:{code:string;reason:string})=>
-       x.code+":"+x.reason).join(";"));
+      check.quality.filter((x:{ok:boolean})=>!x.ok).map(x=>
+       String(x.code)+":"+String(x.reason??"INVALID_SOURCE")).join(";"));
   const rows=inputs.flatMap(item=>studyCompletedArchiveStock(item).records.flatMap(r=>
    ([1,3,5] as const).flatMap(h=>{
     const outcome=(r.horizons as Record<number,{status:string;entryPrice:number;
