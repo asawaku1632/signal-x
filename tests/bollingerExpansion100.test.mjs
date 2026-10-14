@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {readFileSync} from 'node:fs';
+const read=x=>readFileSync(x,'utf8');
+const base=read('app/lib/research/bollingerBreakoutBatches.ts');
+const stock=read('app/lib/research/supportReboundUniverse.ts');
+const universe=read('app/lib/research/bollingerExpansionUniverse.ts');
+const runner=read('app/lib/research/bollingerExpansionRunner.ts');
+const route=read('app/api/admin/bollinger-breakout-shadow/expand/route.ts');
+const page=read('app/admin/bollinger-breakout-shadow/BollingerExpansionResearch.tsx');
+const migration=read('supabase/migrations/20261015_bb_breakout_expansion_80.sql');
+test('frozen baskets are 20 old + 80 new, 100 distinct, no cross-table duplication',()=>{
+ const originals=[...base.matchAll(/'(\\d{4})'/g)].map(x=>x[1]);
+ const match=stock.match(/SUPPORT_REBOUND_RESEARCH_BASKET = \\[([\\s\\S]*?)\\] as const/);
+ assert.ok(match);
+ const curated=[...match[1].matchAll(/"(\\d{4})"/g)].map(x=>x[1]);
+ const newCodes=curated.filter(code=>!originals.includes(code)&&code!=='5253');
+ assert.equal(originals.length,20);
+ assert.equal(newCodes.length,80);
+ assert.equal(new Set([...originals,...newCodes]).size,100);
+ for(let i=0;i<16;i++)assert.equal(newCodes.slice(i*5,i*5+5).length,5);
+ assert.ok(universe.includes('BB_EXPANSION_BATCHES'));
+ assert.ok(universe.includes('id<4||id>19'));
+});
+test('new stage cannot mutate frozen Stage2 or Volume Stage3 tables',()=>{
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS public\\.bb_breakout_expansion_attempts/);
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS public\\.bb_breakout_expansion_outcomes/);
+ assert.doesNotMatch(migration,/ALTER TABLE public\\.bb_breakout_shadow_outcomes|ALTER TABLE public\\.bb_breakout_volume_factors|DROP TABLE|TRUNCATE|DELETE FROM/i);
+ assert.match(migration,/PRIMARY KEY\\(detector_version,code,signal_time,horizon\\)/);
+ assert.match(migration,/PRIMARY KEY\\(batch_id,target_date\\)/);
+ assert.match(migration,/ENABLE ROW LEVEL SECURITY/g);
+ assert.doesNotMatch(migration,/GRANT UPDATE ON public\\.bb_breakout_expansion_outcomes/i);
+});
+test('five requests maximum, sequential groups, cap two concurrent, claim before provider',()=>{
+ const claim=runner.indexOf('INSERT INTO public.bb_breakout_expansion_attempts');
+ const fetch=runner.indexOf('getForwardCandles));');
+ assert.ok(claim>=0&&fetch>claim);
+ assert.match(runner,/for\\(let i=0;i<codes.length;i\\+=2\\)/);
+ assert.match(runner,/getExpansionBatch\\(id\\)/);
+ assert.match(runner,/ON CONFLICT\\(batch_id,target_date\\) DO NOTHING/);
+ assert.match(runner,/if\\(!claim.rowCount\\)/);
+ assert.match(runner,/FROZEN_SOURCE_REVISED/);
+ assert.match(runner,/ON CONFLICT\\(detector_version,code,signal_time,horizon\\) DO NOTHING/);
+ assert.doesNotMatch(runner,/\/api\/cron|sendNotification|createOrder|runEntryTimeShadowDaily|setInterval/);
+});
+test('future open and original 1/3/5 grading source reused without price manipulation',()=>{
+ assert.match(runner,/studyCompletedArchiveCohort\\(inputs\\)/);
+ assert.match(runner,/studyCompletedArchiveStock\\(item\\)/);
+ assert.match(runner,/\[1,3,5\] as const/);
+ assert.match(runner,/outcome\\?\\.status!=="COMPLETE"/);
+ assert.match(runner,/source_hash:hash/);
+ assert.match(runner,/calendar:TSE_MARKET_CALENDAR_VERSION/);
+ assert.match(runner,/r\\.signal\\.volumeRatio/);
+ assert.match(runner,/UNION ALL/);
+ assert.match(runner,/n>=30\\?wins\\/n:null/);
+});
+test('owner-only user action and browser stop+resume rather than background automation',()=>{
+ assert.match(route,/getLearningOwnerSession/);
+ assert.match(route,/getExpansionBatch\\(batch\\)/);
+ assert.match(page,/onClick=\\{all\\}/);
+ assert.match(page,/stop\\.current=true/);
+ assert.match(page,/if\\(done\\.has\\(b\\.batch\\)\\)continue/);
+ assert.match(page,/setTimeout\\(resolve,1100\\)/);
+ assert.doesNotMatch(page,/Cron|serviceWorker|navigator\\.sendBeacon/i);
+});
