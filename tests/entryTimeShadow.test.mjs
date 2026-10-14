@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {ENTRY_TIME_SLOTS, selectPriorDayCandidates, evaluateEntryTimes, summarizeEntryTimes, jstParts} from "../app/lib/research/entryTimeShadow.mjs";
+import {ENTRY_TIME_SLOTS, selectPriorDayCandidates, evaluateEntryTimes, summarizeEntryTimes, jstParts, compareEarlyVsWait, summarizeEntryRisk} from "../app/lib/research/entryTimeShadow.mjs";
 
 const bar=(day,time,open,close=open)=>{
   const ms=Date.parse(day+"T"+time+":00+09:00");
@@ -54,4 +54,59 @@ test("sample consistency across time slots, losses and skipped bars separate",()
   assert.ok(study.every(s=>s.samples===2));
   assert.ok(study.every(s=>s.winRate===50));
   assert.ok(study.every(s=>s.worstReturn<0));
+});
+
+test("9:05 versus 11:00 uses same complete stocks and same exit, excluding incomplete candidates",()=>{
+ const date="2026-10-14";
+ const make=(code,pEarly,pLate)=>{
+   const candles=slots.map(s=>bar(date,s,s==="09:05"?pEarly:s==="11:00"?pLate:100));
+   candles.push(bar(date,"15:25",100,100));
+   return evaluateEntryTimes(date,{code,name:code,rank:1,score:95,referencePrice:100},candles);
+ };
+ const incomplete=evaluateEntryTimes(date,{code:"3333",name:"missing",rank:3,score:95,referencePrice:100},
+   [bar(date,"09:05",90),bar(date,"11:00",110),bar(date,"15:25",100,100)]);
+ const s=compareEarlyVsWait([make("1111",95,105),make("2222",105,95),incomplete]);
+ assert.equal(s.samples,2);assert.equal(s.days,1);
+ assert.equal(s.earlyWins,1);assert.equal(s.lateWins,1);
+ assert.equal(s.earlyOnlyWins,1);assert.equal(s.lateOnlyWins,1);
+ assert.equal(s.waitCheaper,1);assert.equal(s.earlyCheaper,1);
+ assert.equal(s.avgEarlyAdvantage100,0);
+ assert.throws(()=>compareEarlyVsWait([incomplete],"11:00","09:05"),/INVALID_TIME_PAIR/);
+});
+test("full observed 5m lows capture severe interim losses despite profitable closing price",()=>{
+ const date="2026-10-14", full=[];
+ for (const [start,end] of [[9*60,11*60+25],[12*60+30,15*60+25]]){
+  for(let min=start;min<=end;min+=5){
+    const time=String(Math.floor(min/60)).padStart(2,"0")+":"+String(min%60).padStart(2,"0");
+    const candle=bar(date,time,100,time==="15:25"?105:100);
+    candle.low=time==="09:40"?75:time==="11:00"?98:99;
+    full.push(candle);
+  }
+ }
+ const r=evaluateEntryTimes(date,{code:"3762",name:"stock",rank:1,score:95,referencePrice:100},full);
+ assert.equal(r.complete,true);
+ const early=r.entries.find(e=>e.time==="09:05");
+ const late=r.entries.find(e=>e.time==="11:00");
+ assert.equal(early.pnl100,500);assert.equal(late.pnl100,500);
+ assert.equal(early.maxAdversePnl100,-2500);
+ assert.equal(late.maxAdversePnl100,-200);
+ assert.equal(early.riskBarsObserved,early.riskBarsRequired);
+ assert.ok(early.riskBarsRequired>late.riskBarsRequired);
+ assert.equal(summarizeEntryRisk([r]).find(x=>x.time==="09:05").samples,1);
+});
+test("missing a 5m low leaves intraday risk unknown, not zero or an optimistic bound",()=>{
+ const date="2026-10-14", candles=[];
+ for (const [start,end] of [[9*60,11*60+25],[12*60+30,15*60+25]]){
+  for(let min=start;min<=end;min+=5){
+   const time=String(Math.floor(min/60)).padStart(2,"0")+":"+String(min%60).padStart(2,"0");
+   const candle=bar(date,time,100,time==="15:25"?105:100);
+   candle.low=time==="10:05"?null:99;
+   candles.push(candle);
+  }
+ }
+ const r=evaluateEntryTimes(date,{code:"3762",name:"stock",rank:1,score:95,referencePrice:100},candles);
+ assert.equal(r.complete,true);
+ assert.equal(r.entries.find(x=>x.time==="09:05").maxAdversePnl100,null);
+ assert.equal(r.entries.find(x=>x.time==="11:00").maxAdversePnl100,-100);
+ assert.equal(summarizeEntryRisk([r])[0].samples,0);
 });
