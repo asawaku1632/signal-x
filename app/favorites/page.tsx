@@ -17,6 +17,7 @@ type Stock = {
   score?: number;
   aiPower?: number;
   changePercent?: number;
+  latestBarTimestamp?: number;
   reason?: string;
   takeProfit?: number;
   stopLoss?: number;
@@ -31,6 +32,8 @@ type FavoritesApiResponse = {
 
 type ScanApiResponse = {
   stocks?: Stock[];
+  updatedAt?: string | null;
+  status?: string;
 };
 
 function yen(value?: number) {
@@ -39,6 +42,19 @@ function yen(value?: number) {
   }
 
   return `${Math.round(value).toLocaleString()}円`;
+}
+
+function quoteAsOf(timestamp?: number) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return "時刻不明";
+  return new Date(timestamp * 1000).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function quoteIsFromEarlierDay(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return false;
+  const options: Intl.DateTimeFormatOptions = { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Date(timestamp * 1000).toLocaleDateString("ja-JP", options) !== new Date().toLocaleDateString("ja-JP", options);
 }
 
 function getPower(stock: Stock) {
@@ -66,6 +82,8 @@ export default function FavoritesPage() {
   const [removingCode, setRemovingCode] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
+  const [scanUpdatedAt, setScanUpdatedAt] = useState<string | null>(null);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
 
   const loadFavorites = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
@@ -113,6 +131,8 @@ export default function FavoritesPage() {
       }
 
       const scanJson = (await scanRes.json()) as ScanApiResponse;
+      setScanUpdatedAt(scanJson.updatedAt ?? null);
+      setScanStatus(scanJson.status ?? null);
       const stocks = Array.isArray(scanJson.stocks)
         ? scanJson.stocks
         : [];
@@ -320,6 +340,11 @@ export default function FavoritesPage() {
           </section>
         ) : (
           <section className="space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
+              株価はYahoo Financeを元にした保存済みスキャンの参考価格です。証券会社のリアルタイム株価とは異なる場合があります。
+              {scanStatus === "stale" ? <p className="mt-1 text-red-700">⚠ スキャンの保存データを表示中（更新待ち）</p> : null}
+              {scanUpdatedAt ? <p className="mt-1">スキャン保存: {new Date(scanUpdatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p> : null}
+            </div>
             {favorites.map((stock) => {
               const power = getPower(stock);
               const judge = getJudge(power);
@@ -369,11 +394,13 @@ export default function FavoritesPage() {
                     </button>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  <p className="mt-2 text-[11px] font-bold text-slate-500">株価データ: {quoteAsOf(stock.latestBarTimestamp)}（日本時間）</p>
+                  {quoteIsFromEarlierDay(stock.latestBarTimestamp) ? <p className="text-[11px] font-bold text-amber-700">⚠ 本日分ではない参考株価です</p> : null}
+                  <div className="mt-3 grid grid-cols-3 gap-2">
                     <Mini label="AI" value={String(power)} />
-                    <Mini label="現在値" value={yen(stock.price)} />
+                    <Mini label="参考株価" value={yen(stock.price)} />
                     <Mini
-                      label="変化率"
+                      label="スキャン変化率"
                       value={`${stock.changePercent ?? 0}%`}
                     />
                   </div>
