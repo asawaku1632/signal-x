@@ -44,7 +44,7 @@ export function evaluateEntryTimes(tradeDate, candidate, candles) {
   // 15:25-15:30 is the final five-minute segment of the TSE cash session.
   // Fail closed if closing evidence is not available; do not substitute
   // last recorded morning/intraday close or yesterday's daily close.
-  const closingBar=bars.get("15:25") ?? bars.get("15:30") ?? null;
+  const closingBar=bars.get("15:30") ?? bars.get("15:25") ?? null;
   const close=closingBar && finitePositive(closingBar.close) ? closingBar.close:null;
   const entries=ENTRY_TIME_SLOTS.map(time => {
     const bar=bars.get(time);
