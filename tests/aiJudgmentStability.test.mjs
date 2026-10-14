@@ -44,7 +44,10 @@ test("next-day close is not guessed when missing or date is invalid",()=>{
   const [v]=evaluateJudgmentStability([
     sample("3762","09:15",80,3000,"2026-10-14",{outcome_price:3100}),
     sample("3762","09:30",89,3020,"2026-10-14",{outcome_price:3100})]);
-  assert.ok(Math.abs(v.futureReturnPct-3.3333)<.01);
+  // Classifying from an observed 09:30 change must not pretend we bought at 09:15.
+  assert.equal(v.evaluationSlot,"09:30");
+  assert.equal(v.entryPriceForOutcome,3020);
+  assert.ok(Math.abs(v.futureReturnPct-2.649)<.01);
 });
 test("group comparisons use actual outcomes and disclose denominators, no zero-sample fake win rate",()=>{
   const rows=evaluateJudgmentStability([
