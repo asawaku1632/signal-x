@@ -4,6 +4,7 @@ import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar
 import {ENTRY_TIME_SHADOW_VERSION, jstParts, selectPriorDayCandidates, evaluateEntryTimes} from "./entryTimeShadow.mjs";
 
 type SavedSignal = {code:string;name:string;score:number|string;price:number|string};
+type FrozenSignal = {code:string;name:string;score:number;referencePrice:number;rank:number};
 type Candle = {time:number;open:number|null;close:number|null};
 const MAX_CODES=5;
 const YAHOO_TIMEOUT_MS=8_000;
@@ -57,7 +58,7 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
     "SELECT code,name,score,price FROM public.daily_stock_results WHERE date=$1 AND score>=85 AND price>0 AND code ~ '^[0-9]{4}$' ORDER BY score DESC,code ASC LIMIT 5",
     [priorDate]
   );
-  const cohort=selectPriorDayCandidates(rows);
+  const cohort:FrozenSignal[]=selectPriorDayCandidates(rows);
   if(!cohort.length) return {success:true,skipped:true,date,priorDate,reason:"NO_FROZEN_PRIOR_DAY_SIGNALS"};
   // DB claim permanently caps requests to <=5 for this day, even if they fail.
   const claim=await pool.query<{trade_date:string}>(
