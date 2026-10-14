@@ -127,7 +127,7 @@ export default async function StabilityPage({searchParams}:{
         </p>:selected.map(r=><details key={r.key} className="mt-2 rounded-xl border p-3" open={selected.length===1}>
           <summary className="cursor-pointer text-sm font-black">{r.date} {r.code} {r.name} ／ 観測 {r.samples}回・帯変更 {r.changes}回</summary>
           <div className="mt-2 flex flex-wrap gap-2">
-            {r.observations.map(o=><div key={o.time} className="rounded-lg bg-slate-50 p-2 text-xs">
+            {r.observations.map((o:{time:string;score:number;band:string;price:number})=><div key={o.time} className="rounded-lg bg-slate-50 p-2 text-xs">
               <p className="font-black">{o.time} ／ AI {o.score}</p>
               <p>{bandLabel(o.band)} ／ {yen(o.price)}</p>
             </div>)}
