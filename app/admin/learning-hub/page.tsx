@@ -59,6 +59,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "買い候補→見送りなどAI評価帯の変化回数と翌営業日の成績を比較",
       },
       {
+        href: "/admin/external-ai-audit", icon: "🧪",
+        title: "他社AI予測・比較研究", tag: "本人専用",
+        detail: "外部AIの買い検討ラインと出典を時刻付きで保存、SIGNALXと同日照合",
+      },
+      {
         href: "/admin/entry-time-shadow", icon: "🕰️",
         title: "時間帯別エントリー最適化", tag: "自動研究",
         detail: "前夜上位5候補を9:05〜14:00の6時点で仮想購入・同日終値を比較",
