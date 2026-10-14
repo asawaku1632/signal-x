@@ -84,6 +84,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "ダブルボトム過剰検出・信頼度分布とサンプルチャートを点検",
       },
       {
+        href: "/admin/bollinger-breakout-shadow", icon: "📈",
+        title: "ボリンジャーバンド・上抜け比較", tag: "手動研究",
+        detail: "9984・3762の確定日足でスクイーズ後と通常の上抜けを比較（保存・通知なし）",
+      },
+      {
         href: "/admin/horizontal-retest", icon: "📏",
         title: "水平線ブレイク・押し目検証", tag: "研究用",
         detail: "過去の日足で反発後の勝率・100株損益を隔離検証",
