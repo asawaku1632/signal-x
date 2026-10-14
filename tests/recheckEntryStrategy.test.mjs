@@ -27,7 +27,7 @@ test("actual historical pair requires a preceding 10:30 AI score, without lookah
  assert.equal(data.missingRechecks,1);
  assert.equal(data.buyCount,1);assert.equal(data.skipCount,1);
  assert.equal(data.gatedTotalPnl100,3000);
- assert.equal(data.earlyTotalPnl100,3000);
+ assert.equal(data.earlyTotalPnl100,-1000);
  assert.equal(data.alwaysLateTotalPnl100,1000);
  assert.equal(data.gateWinRate,100);
  assert.equal(data.avoidedLossTotal100,2000);
