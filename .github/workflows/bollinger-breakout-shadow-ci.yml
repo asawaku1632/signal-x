@@ -1,0 +1,22 @@
+name: Bollinger Breakout Shadow Offline Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerBreakoutShadow.mjs"
+      - "app/lib/research/bollingerBreakoutQuality.mjs"
+      - "tests/bollingerBreakoutShadow.test.mjs"
+      - "tests/bollingerBreakoutQuality.test.mjs"
+      - ".github/workflows/bollinger-breakout-shadow-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs
