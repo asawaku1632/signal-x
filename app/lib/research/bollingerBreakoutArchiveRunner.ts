@@ -131,7 +131,7 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
           source_hash:fingerprint,calendar_version:TSE_MARKET_CALENDAR_VERSION,
           batch_id:batch,first_target_date:target
         }];
-      }))));
+      })));
     const client=await pool.connect();
     let inserted=0;
     try{
