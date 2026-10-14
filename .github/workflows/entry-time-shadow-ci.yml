@@ -28,3 +28,6 @@ jobs:
         with:
           node-version: "22"
       - run: node --test tests/entryTimeShadow.test.mjs tests/recheckEntryStrategy.test.mjs
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
