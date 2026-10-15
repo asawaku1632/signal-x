@@ -79,6 +79,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "曜日別・時間帯別の傾向とサンプル数",
       },
       {
+        href: "/admin/preclose-candidates", icon: "🌇",
+        title: "15:15実証候補", tag: "本人専用・研究用",
+        detail: "大引け前の研究候補と翌日結果を固定条件で検証。通知・売買なし",
+      },
+      {
         href: "/admin/support-rebound", icon: "🌱",
         title: "支持線反発・最大100銘柄研究", tag: "研究用",
         detail: "③と②の勝率・損失を20・100銘柄で比較、業種別・期間別も検証",
