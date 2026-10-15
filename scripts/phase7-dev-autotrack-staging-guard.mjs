@@ -10,12 +10,12 @@ const SHA256=[
  ["scripts/run-bollinger-shadow-dev.mjs","2616208435da6bda1c7761a4baba9c7096a6e52bf4b3fcbd5e7748e8f42e734a"]
 ];
 const GIT_BLOBS=[
- ["app/lib/technicalObservation/bollingerObservationResultRunner.ts","6630bd3dba7398c62a96fe4494290e0f265a3d68"],
+ ["app/lib/technicalObservation/bollingerObservationResultRunner.ts","39f19d2ce2b7862a06669a9962d137487ea8d315"],
  ["app/lib/technicalObservation/bollingerObservationResultPersistence.ts","4fb74ffe787f040b9dade625747e159fbce5dd7c"],
  ["app/lib/technicalObservation/bollingerObservationResultEvaluator.ts","3811360a505c880f158e114ab38c5eeba62467bf"],
  ["app/lib/technicalObservation/bollingerObservationResultTypes.ts","ce2b714bd31195d57b669f3f359e14775b821544"],
- ["app/lib/technicalObservation/bollingerShadowAutomation.ts","13858ac7ba92aa112f34bdd7e0fad444298196bc"],
- ["app/lib/technicalObservation/bollingerShadowQueries.ts","e5951aca5b426d7355c3bef5605a0a14bd47ea57"],
+ ["app/lib/technicalObservation/bollingerShadowAutomation.ts","e177ab5b84bdda51956ae5400aa1615a9b8826bf"],
+ ["app/lib/technicalObservation/bollingerShadowQueries.ts","d3ce6ea521228ddf02d7dfd6c64d9a6a7a74e9aa"],
  ["app/lib/technicalObservation/bollingerShadowLeaseFence.ts","28b43a2c1ed10959f769e7a9d2ec5ecf235d40c3"],
  ["app/lib/technicalObservation/bollingerObservationRunner.ts","d440df8fc37816f4357fa70f44c97024cbb3288c"],
  ["app/lib/technicalObservation/bollingerObservationPersistence.ts","0c899b98c0610e8c6bdb04c4c6db58083a12e732"],
