@@ -57,6 +57,7 @@ export function classifyLearningSave(input: {
     : [];
   const latest = latestRunLogs[0] ?? received ?? input.logs[0] ?? null;
   const completed = latestRunLogs.find((log) => log.status === "COMPLETED") ?? null;
+  const snapshotSaved = latestRunLogs.some((log) => log.status === "SAVE_SUCCESS");
   const error = latestRunLogs.find((log) => log.status === "ERROR") ?? null;
   const latestRunTerminal = latestRunLogs.some((log) =>
     ["COMPLETED", "ERROR", "SKIPPED"].includes(log.status),
@@ -77,6 +78,14 @@ export function classifyLearningSave(input: {
   } else if (input.savedCount > 0 && completed) {
     classification =
       delaySeconds >= SAVE_DELAY_THRESHOLD_SECONDS ? "SCHEDULER_DELAY" : "NORMAL";
+  } else if (
+    input.savedCount > 0 &&
+    snapshotSaved &&
+    latestAgeSeconds > RUNNING_GRACE_SECONDS
+  ) {
+    // A completed stock snapshot must not be reported as a failed DB save.
+    // Post-save tasks can time out without producing an ERROR or COMPLETED log.
+    classification = "POST_SAVE_FAILED";
   } else if (!received) {
     classification = "CRON_NOT_STARTED";
   } else if (!latestRunTerminal && latestAgeSeconds <= RUNNING_GRACE_SECONDS) {
