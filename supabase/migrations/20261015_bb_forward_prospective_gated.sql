@@ -92,6 +92,33 @@ CREATE TABLE IF NOT EXISTS public.bb_forward_outcomes (
     AND max_adverse_percent BETWEEN -100 AND 100000)
   )
 );
+CREATE TABLE IF NOT EXISTS public.bb_forward_signal_halts (
+  version text NOT NULL CHECK(version='BB_FORWARD_20261016_V1'),
+  code text NOT NULL CHECK(code ~ '^[0-9]{4} ON public.bb_forward_outcomes(status,horizon);
+CREATE INDEX IF NOT EXISTS bb_forward_signal_date_idx ON public.bb_forward_signals(signal_date);
+
+ALTER TABLE public.bb_forward_study_control ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bb_forward_study_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bb_forward_stock_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bb_forward_signals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bb_forward_outcomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bb_forward_signal_halts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.bb_forward_study_control,public.bb_forward_study_runs,
+ public.bb_forward_stock_checks,public.bb_forward_signals,public.bb_forward_outcomes,
+ public.bb_forward_signal_halts FROM PUBLIC,anon,authenticated;
+GRANT SELECT,UPDATE ON public.bb_forward_study_control TO service_role;
+GRANT SELECT,INSERT,UPDATE ON public.bb_forward_study_runs TO service_role;
+GRANT SELECT,INSERT ON public.bb_forward_stock_checks,public.bb_forward_signals,
+ public.bb_forward_outcomes,public.bb_forward_signal_halts TO service_role;
+-- Neither old BB archives nor AI/trades/notification tables are modified.
+),
+  signal_time bigint NOT NULL,
+  reason text NOT NULL CHECK(reason IN ('SOURCE_REVISED','HISTORY_EXPIRED','DETECTOR_CHANGED')),
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(version,code,signal_time),
+  FOREIGN KEY(version,code,signal_time)
+    REFERENCES public.bb_forward_signals(version,code,signal_time)
+);
 CREATE INDEX IF NOT EXISTS bb_forward_outcome_status_idx ON public.bb_forward_outcomes(status,horizon);
 CREATE INDEX IF NOT EXISTS bb_forward_signal_date_idx ON public.bb_forward_signals(signal_date);
 
