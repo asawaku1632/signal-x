@@ -4,8 +4,10 @@ on:
     paths:
       - "app/admin/preclose-candidates/**"
       - "app/lib/research/precloseCandidateStudy.ts"
+      - "app/lib/research/precloseBudgetComparison.ts"
       - "app/admin/learning-hub/page.tsx"
       - "tests/precloseCandidateStudy.test.mjs"
+      - "tests/precloseBudgetComparison.test.mjs"
       - ".github/workflows/preclose-candidates-shadow-ci.yml"
 permissions:
   contents: read
@@ -20,6 +22,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/precloseCandidateStudy.test.mjs tests/learningOwnerHub.test.mjs
+      - run: node --test tests/precloseCandidateStudy.test.mjs tests/precloseBudgetComparison.test.mjs tests/learningOwnerHub.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
