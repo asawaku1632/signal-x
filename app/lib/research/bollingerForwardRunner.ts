@@ -2,11 +2,10 @@ import "server-only";
 import pool from "@/app/lib/postgres";
 import {getForwardCandles} from "@/app/lib/emaForwardShadowStore";
 import {getTseCashSessionStatus,isTseTradingDate,TSE_MARKET_CALENDAR_COVERAGE,TSE_MARKET_CALENDAR_VERSION} from "@/app/lib/technicalObservation/tseMarketCalendar";
-import {BB_BREAKOUT_BATCHES} from "./bollingerBreakoutBatches";
-import {BB_EXPANSION_BATCHES} from "./bollingerExpansionUniverse";
+import {BB_FORWARD_FROZEN_CODES} from "./bollingerForwardUniverse";
 import {FORWARD_VERSION,FORWARD_START,MAX_PENDING_CODES,MAX_VENDOR_REQUESTS,batchForMarketOrdinal,identifyTodayProspectiveSignal,gradeFrozenProspectiveSignal} from "./bollingerForwardCore.mjs";
 
-const CODES=[...BB_BREAKOUT_BATCHES.flat(),...BB_EXPANSION_BATCHES.flat()];
+const CODES=[...BB_FORWARD_FROZEN_CODES];
 type Frozen={version:string;code:string;signal_time:string;signal_date:string;group_key:string;source_hash:string;calendar_version:string};
 type Control={enabled:boolean;activation_date:string|null};
 const dateJst=(s:number)=>new Date(s*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
