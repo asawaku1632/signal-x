@@ -91,3 +91,18 @@ test("saved-snapshot recovery checks distinct codes and prices before doing rese
   assert.ok(recovery.indexOf("integrity check failed") < recovery.indexOf("saveTrendPullbackReversalObservations"));
   assert.equal((recovery.match(/updateMomentumMemoryNotificationOutcomes\(targetDate\)/g) ?? []).length, 1);
 });
+
+
+test("related learning telemetry failure cannot skip the underlying work", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  const start = source.indexOf("async function logRelatedCheckpoint(");
+  const end = source.indexOf("const patternForward =", start);
+  assert.ok(start > 0 && end > start);
+  const instrumentation = source.slice(start, end);
+  assert.match(instrumentation, /try \{\s*await saveCronRunLog\(/);
+  assert.match(instrumentation, /catch \(error\) \{\s*console\.error\("Related learning checkpoint logging failed:"/);
+  assert.match(instrumentation, /const value = await work\(\)/);
+  assert.match(instrumentation, /return value/);
+  assert.match(instrumentation, /throw error/);
+  assert.equal((instrumentation.match(/await logRelatedCheckpoint\(/g) ?? []).length, 3);
+});
