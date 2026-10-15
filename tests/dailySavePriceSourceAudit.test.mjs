@@ -77,3 +77,17 @@ test("provenance is passive: daily save still inserts unchanged stocks and price
   assert.doesNotMatch(source, /\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bfetch\(|\bnotify\(/i);
   assert.doesNotMatch(source, /saveDailyStocks|runScan|sendNotification/);
 });
+
+
+test("saved-snapshot recovery checks distinct codes and prices before doing research writes", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  const start = source.indexOf("if (existingCount > 0)");
+  const end = source.indexOf("const scanUrl =", start);
+  assert.ok(start > 0 && end > start);
+  const recovery = source.slice(start, end);
+  assert.match(source, /COUNT\(DISTINCT code\)::int AS distinct_count/);
+  assert.match(source, /WHERE price IS NULL\)::int AS missing_price_count/);
+  assert.match(recovery, /distinctCount !== existingCount \|\| missingPriceCount > 0/);
+  assert.ok(recovery.indexOf("integrity check failed") < recovery.indexOf("saveTrendPullbackReversalObservations"));
+  assert.equal((recovery.match(/updateMomentumMemoryNotificationOutcomes\(targetDate\)/g) ?? []).length, 1);
+});
