@@ -121,3 +121,14 @@ test("related-learning diagnostics cover all post-save tasks without changing cr
   }
   assert.equal((source.match(/trackRelatedStep\("/g) ?? []).length, steps.length);
 });
+
+test("post-save timeout is reported as post-save failure, not missing stock data", () => {
+  const now = Date.parse("2026-10-15T07:45:00.000Z");
+  const logs = [
+    log("PROGRESS", "daily-run", "2026-10-15T06:35:38.242Z", { stage: "RELATED_LEARNING_STARTED" }),
+    log("SAVE_SUCCESS", "daily-run", "2026-10-15T06:35:38.092Z", { stage: "SNAPSHOT_SAVED" }),
+    log("STARTED", "daily-run", "2026-10-15T06:35:16.606Z"),
+  ];
+  assert.equal(classifyLearningSave({ savedCount: 953, logs, nowMs: now }).classification, "POST_SAVE_FAILED");
+  assert.equal(classifyLearningSave({ savedCount: 0, logs, nowMs: now }).classification, "CRON_STALLED");
+});
