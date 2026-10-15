@@ -22,7 +22,7 @@ test("checkpoint observation requires exact exchange dates and post-close daily 
   const service = read("app/lib/research/ownerPostSaleAudit.ts");
   const cron = read("app/api/cron/swing-exit-audit/route.ts");
   assert.match(service, /resolveTseTradingDatesAfter\(dateOnly\(sale\.sale_date\), 5/);
-  assert.match(service, /isTseTargetDateReady\(targetDate\)/);
+  assert.match(service, /isTseTargetDateReady\(day\)/);
   assert.match(service, /getForwardCandles/);
   assert.match(service, /MAX_YAHOO_CODES_PER_RUN = 8/);
   assert.match(service, /day >= getJstDateString\(\)/);
