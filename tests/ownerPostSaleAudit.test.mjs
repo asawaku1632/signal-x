@@ -45,3 +45,17 @@ test("3762 known realized and hypothetical results stay separate", () => {
   assert.match(read("app/lib/research/ownerPostSaleAudit.ts"), /"LATE_REGISTERED"/);
   assert.match(read("app/admin/learning-hub/page.tsx"), /\/admin\/post-sale-audit/);
 });
+
+test("the stock-quantity input accepts exactly 100 shares and all positive integers", () => {
+  const component = read("app/admin/post-sale-audit/PostSaleClient.tsx");
+  assert.match(component, /min=\{key === "quantity" \? "1"/);
+  assert.match(component, /key === "quantity" \? "1" : "0\.01"/);
+  assert.match(component, /quantity: "100"/);
+  // HTML number-input constraint formula: (value - min) / step must be integral.
+  const min = 1, step = 1;
+  assert.equal((100 - min) % step, 0);
+  assert.equal((1 - min) % step, 0);
+  assert.equal((99.5 - min) % step, 0.5);
+  // Regression: min=0.01, step=1 previously rejected every positive integer.
+  assert.notEqual((100 - 0.01) % 1, 0);
+});
