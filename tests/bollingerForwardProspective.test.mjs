@@ -68,7 +68,7 @@ test('frozen grades appear only on matured session and always enter NEXT open',(
  const one=gradeFrozenProspectiveSignal(signal,partial,date(partial.candles.at(-1).time));
  assert.deepEqual(one.map(x=>x.horizon),[1]);
  assert.equal(one[0].entry_time,partial.candles[111].time);
- assert.equal(one[0].entry_price,partial.candles[111].open);
+ assert.equal(one[0].entry_price,Number(partial.candles[111].open.toFixed(6)));
  const full=fixture(5);
  const grades=gradeFrozenProspectiveSignal(signal,full,date(full.candles.at(-1).time));
  assert.deepEqual(grades.map(x=>x.horizon),[1,3,5]);
