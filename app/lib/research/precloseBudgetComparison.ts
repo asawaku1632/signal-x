@@ -1,7 +1,7 @@
 import {
   PRECLOSE_POLICY, statsForPreclose,
   type PrecloseObservation, type PrecloseStats,
-} from "./precloseCandidateStudy";
+} from "./precloseCandidateStudy.ts";
 
 /**
  * Read-only historical comparison, NOT another certification gate.
