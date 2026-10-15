@@ -11,7 +11,7 @@ import {VERSION as BREAKOUT_VERSION} from "./bollingerBreakoutShadow.mjs";
 
 const BASKETS=[...BB_BREAKOUT_BATCHES,...BB_EXPANSION_BATCHES] as readonly (readonly string[])[];
 const FIRST_DATE="2026-01-01";
-const stamp=t=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+const stamp=(t:number)=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
 function verifyBaskets(){
  const all=BASKETS.flat();
  if(BASKETS.length!==20||all.length!==100||new Set(all).size!==100||
