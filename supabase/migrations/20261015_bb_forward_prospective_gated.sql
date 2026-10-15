@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.bb_forward_study_runs (
   observed_count integer NOT NULL DEFAULT 0 CHECK(observed_count BETWEEN 0 AND 20),
   failed_count integer NOT NULL DEFAULT 0 CHECK(failed_count BETWEEN 0 AND 20),
   new_signals integer NOT NULL DEFAULT 0 CHECK(new_signals BETWEEN 0 AND 20),
-  outcome_rows integer NOT NULL DEFAULT 0 CHECK(outcome_rows BETWEEN 0 AND 300),
+  outcome_rows integer NOT NULL DEFAULT 0 CHECK(outcome_rows BETWEEN 0 AND 1000),
   note text,
   claimed_at timestamptz NOT NULL DEFAULT now(),
   finished_at timestamptz,
