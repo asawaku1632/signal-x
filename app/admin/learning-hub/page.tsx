@@ -28,6 +28,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "疑似購入なしで1・3・5・10取引日の株価を比較",
       },
       {
+        href: "/admin/stock-win-rate-ranking", icon: "🏆",
+        title: "全銘柄・勝敗ランキング", tag: "管理者専用",
+        detail: "WIN・LOSE・勝率を全期間／直近30件で比較、母数で絞り込み",
+      },
+      {
         href: "/admin/ai-win-rate-audit", icon: "🎯",
         title: "AI勝率の信頼性監査",
         detail: "勝率の内訳と古いデータの限界を確認",
