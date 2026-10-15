@@ -6,6 +6,7 @@ import pool from "@/app/lib/postgres";
 import {
   analyzePrecloseStudy, type PrecloseObservation, type PrecloseStats,
 } from "@/app/lib/research/precloseCandidateStudy";
+import { comparePrecloseBudgets } from "@/app/lib/research/precloseBudgetComparison";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -94,6 +95,7 @@ export default async function PrecloseCandidatesPage() {
     ? "検証データ収集中" : result.phase === "REFERENCE_PASSED"
       ? "固定条件の参考基準を通過" : "固定条件は基準未達";
   const todayRows = result.researchCandidates;
+  const budgetComparisons = error ? [] : comparePrecloseBudgets(observations, result.date);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -139,6 +141,73 @@ export default async function PrecloseCandidatesPage() {
           )}
           <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
             「参考条件一致」は利益保証や買い推奨ではありません。翌日寄り付きの急変動・約定価格差などは別途考慮が必要です。
+          </p>
+        </section>
+
+        <section id="preclose-budgets" className="mt-4 rounded-2xl border border-sky-200 bg-white p-4 dark:border-sky-900 dark:bg-slate-900">
+          <h2 className="text-lg font-black">💴 購入予算別・15:15研究比較</h2>
+          <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+            10万円・30万円・50万円・100万円の予算内で「100株を買うと仮定できる銘柄」だけを比較します。
+            15:15の保存価格×100株で判定し、AI POWER {policy.minAiPower}以上の候補を対象にした参考成績です。
+          </p>
+          <p className="mt-1 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            ※ 下記は正式な実証条件とは別の探索的な比較です。2026-10-16より前の参考履歴も含み、
+            成績の良い予算帯を後から選んで実証済みとは扱いません。
+          </p>
+          {error ? <p className="mt-3 text-sm text-red-600" role="alert">取得エラーのため予算比較は表示できません。</p> : null}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {budgetComparisons.map((entry) => (
+              <div key={entry.budgetYen} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-black">{integer(entry.budgetYen / 10000)}万円以内</h3>
+                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                    今日の研究候補 {entry.researchCandidates.length}件
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                  今日の全30銘柄中・予算内 {entry.eligibleObservedToday}件 / AI {policy.minAiPower}以上 {entry.researchCandidates.length}件
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
+                  <div>参考判定数 <b className="block text-sm">{entry.reference.samples}件 / {entry.reference.observedDays}日</b></div>
+                  <div>±2%勝率 <b className="block text-sm">{winPct(entry.reference.winRate)}</b></div>
+                  <div>利益プラス率 <b className="block text-sm">{winPct(entry.referenceProfitableRate)}</b></div>
+                  <div>翌日平均騰落 <b className="block text-sm">{pct(entry.reference.meanChangePct)}</b></div>
+                  <div>100株平均損益 <b className="block text-sm">{yen(entry.reference.meanPnl100)}</b></div>
+                  <div>100株最悪例 <b className="block text-sm">{yen(entry.worstPnl100)}</b></div>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-300">
+                  WIN {entry.reference.wins} / LOSE {entry.reference.losses} / HOLD {entry.reference.holds}（±2%勝率はHOLD除外）
+                </p>
+                <details className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900">
+                  <summary className="cursor-pointer text-sm font-bold">
+                    今日の予算内候補を見る（{entry.researchCandidates.length}件）
+                  </summary>
+                  {entry.researchCandidates.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">該当候補なし。研究データ収集中です。</p>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {entry.researchCandidates.map((row) => (
+                        <div key={row.tradeDate + row.code} className="border-t border-slate-100 pt-2 text-xs dark:border-slate-700">
+                          <p className="font-bold">{row.name}（{row.code}） / AI {row.aiPower ?? "—"}</p>
+                          <p className="mt-1 text-slate-500 dark:text-slate-300">15:15保存価格 {price(row.entryPrice)} ・100株 {price(row.entryPrice * 100)}</p>
+                          <div className="mt-1 flex gap-3">
+                            <Link className="font-bold text-blue-600 dark:text-blue-400" href={"/chart/" + row.code}>チャート →</Link>
+                            <Link className="font-bold text-blue-600 dark:text-blue-400" href={"/analysis/" + row.code}>分析 →</Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </details>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            参考比較は前営業日以前の15:15観測と翌営業日の保存価格から計算。
+            100株換算の平均損益は「1銘柄を100株保有した仮の損益」で、予算総額を投資した成績ではありません。
+            取引コスト・税金・スリッページは含みません。
+            株式以外（J-REIT・ETFなど）は実際の売買単位が100株と異なるため、購入可否は別途確認が必要です。
+            予算帯同士は対象銘柄が重複し、少数日の比較に優劣の確証はありません。
           </p>
         </section>
 
