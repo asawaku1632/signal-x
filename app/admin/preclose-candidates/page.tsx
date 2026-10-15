@@ -7,6 +7,10 @@ import {
   analyzePrecloseStudy, type PrecloseObservation, type PrecloseStats,
 } from "@/app/lib/research/precloseCandidateStudy";
 import { comparePrecloseBudgets } from "@/app/lib/research/precloseBudgetComparison";
+import {
+  compareMatchedTimeByExclusiveBand, summarizeExclusivePrecloseBands,
+  type PrecloseMatchedTimePair,
+} from "@/app/lib/research/precloseDisjointTimeStudy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,6 +62,48 @@ async function loadObservations(): Promise<PrecloseObservation[]> {
   }));
 }
 
+type MatchedDbRow = {
+  trade_date: string; code: string; time_slot: string;
+  preclose_price: number | string; earlier_price: number | string;
+  preclose_ai: number | string | null; earlier_ai: number | string | null;
+  outcome_price: number | string;
+};
+
+async function loadPrecloseMatchedRows(): Promise<PrecloseMatchedTimePair[]> {
+  // Same-code same-day only, both timestamps tested against one saved next-day reference price.
+  // Last 60 calendar days caps scan volume. This is NOT a second scan or a write.
+  const sql = [
+    "SELECT p.trade_date::text AS trade_date, p.code, e.time_slot,",
+    "  p.entry_price AS preclose_price, e.entry_price AS earlier_price,",
+    "  p.ai_power AS preclose_ai, e.ai_power AS earlier_ai,",
+    "  d.price AS outcome_price",
+    "FROM public.golden_zone_observations AS p",
+    "JOIN public.golden_zone_observations AS e",
+    "  ON e.trade_date = p.trade_date AND e.code = p.code",
+    "  AND e.outcome_date = p.outcome_date AND e.time_slot <> '15:15'",
+    "JOIN public.daily_stock_results AS d",
+    "  ON d.date = p.outcome_date::text AND d.code = p.code",
+    "WHERE p.time_slot = '15:15'",
+    "  AND e.time_slot IN ('09:15','09:30','10:30','12:40','13:00','14:30')",
+    "  AND p.ai_power >= 90 AND e.ai_power >= 90",
+    "  AND p.entry_price > 0 AND e.entry_price > 0 AND d.price > 0",
+    "  AND p.trade_date >= ((NOW() AT TIME ZONE 'Asia/Tokyo')::date - INTERVAL '60 days')",
+    "  AND p.trade_date < (NOW() AT TIME ZONE 'Asia/Tokyo')::date",
+    "  AND p.outcome_date <= (NOW() AT TIME ZONE 'Asia/Tokyo')::date",
+    "ORDER BY p.trade_date DESC, p.code, e.time_slot",
+    "LIMIT 12000",
+  ].join("\n");
+  const response = await pool.query<MatchedDbRow>(sql);
+  return response.rows.map((r) => ({
+    tradeDate: r.trade_date, code: r.code, slot: r.time_slot,
+    preclosePrice: Number(r.preclose_price),
+    earlierPrice: Number(r.earlier_price),
+    precloseAi: r.preclose_ai === null ? null : Number(r.preclose_ai),
+    earlierAi: r.earlier_ai === null ? null : Number(r.earlier_ai),
+    outcomePrice: Number(r.outcome_price),
+  }));
+}
+
 function StatsBlock({ title, stats }: { title: string; stats: PrecloseStats }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
@@ -79,15 +125,16 @@ export default async function PrecloseCandidatesPage() {
   const { isOwner } = await getLearningOwnerSession();
   if (!isOwner) notFound();
 
-  let observations: PrecloseObservation[] = [];
-  let error = false;
-  try {
-    observations = await loadObservations();
-  } catch (cause) {
-    // Never pretend missing database observations mean the strategy passed.
-    console.error("[preclose-candidates] read-only observations unavailable", cause);
-    error = true;
-  }
+  // Independent read requests: a comparison-query failure never hides the original study.
+  const [observationQuery, matchedQuery] = await Promise.allSettled([
+    loadObservations(), loadPrecloseMatchedRows(),
+  ]);
+  const error = observationQuery.status === "rejected";
+  const matchedError = matchedQuery.status === "rejected";
+  if (error) console.error("[preclose-candidates] read-only observations unavailable", observationQuery.reason);
+  if (matchedError) console.error("[preclose-candidates] matching comparison unavailable", matchedQuery.reason);
+  const observations: PrecloseObservation[] = observationQuery.status === "fulfilled" ? observationQuery.value : [];
+  const matched: PrecloseMatchedTimePair[] = matchedQuery.status === "fulfilled" ? matchedQuery.value : [];
 
   const result = analyzePrecloseStudy(observations, todayJst());
   const { policy, training, validation, baseline } = result;
@@ -96,6 +143,8 @@ export default async function PrecloseCandidatesPage() {
       ? "固定条件の参考基準を通過" : "固定条件は基準未達";
   const todayRows = result.researchCandidates;
   const budgetComparisons = error ? [] : comparePrecloseBudgets(observations, result.date);
+  const exclusiveBands = error ? [] : summarizeExclusivePrecloseBands(observations, result.date);
+  const matchedBands = matchedError ? [] : compareMatchedTimeByExclusiveBand(matched, result.date);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -208,6 +257,81 @@ export default async function PrecloseCandidatesPage() {
             取引コスト・税金・スリッページは含みません。
             株式以外（J-REIT・ETFなど）は実際の売買単位が100株と異なるため、購入可否は別途確認が必要です。
             予算帯同士は対象銘柄が重複し、少数日の比較に優劣の確証はありません。
+          </p>
+        </section>
+
+        <section id="preclose-exclusive-bands" className="mt-4 rounded-2xl border border-indigo-200 bg-white p-4 dark:border-indigo-900 dark:bg-slate-900">
+          <h2 className="text-lg font-black">🧩 重複なし・購入金額帯別の比較</h2>
+          <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+            既存の「〇万円以内」と違い、同じ観測銘柄は<strong>4区分のうち1つだけ</strong>に入ります。
+            15:15の参考価格×100株を基準にし、AI POWER {policy.minAiPower}以上の銘柄を比較します。
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {exclusiveBands.map((band) => (
+              <div key={band.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="flex flex-wrap items-baseline justify-between gap-1">
+                  <h3 className="text-sm font-black">{band.label}</h3>
+                  <span className="text-xs text-indigo-700 dark:text-indigo-300">今日 {band.todayCount}件</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">翌日価格判定済み {band.stats.samples}件 / {band.stats.observedDays}日</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <p>利益プラス率 <b className="block text-base">{winPct(band.positivePct)}</b></p>
+                  <p>±2%勝率 <b className="block text-base">{winPct(band.stats.winRate)}</b></p>
+                  <p>平均騰落 <b className="block text-base">{pct(band.stats.meanChangePct)}</b></p>
+                  <p>100株平均損益 <b className="block text-base">{yen(band.stats.meanPnl100)}</b></p>
+                </div>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">100株最悪例 {yen(band.worst100)}
+                  ・WIN {band.stats.wins} / LOSE {band.stats.losses} / HOLD {band.stats.holds}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            全データは探索的な参考比較で、10月16日より前の履歴も含みます。
+            金額帯ごとの母数が違うため順位づけはせず、100株換算は実際の取引単位とは異なる場合があります。
+          </p>
+        </section>
+
+        <section id="preclose-matched-times" className="mt-4 rounded-2xl border border-violet-200 bg-white p-4 dark:border-violet-900 dark:bg-slate-900">
+          <h2 className="text-lg font-black">🕰️ 15:15 vs 他の6時刻・同じ銘柄で比較</h2>
+          <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+            同じ日・同じ銘柄が両時刻に観測され、両方でAI POWER {policy.minAiPower}以上、
+            さらに100株参考価格が同じ金額帯に属する場合だけ比較します。
+            共通の翌営業日保存価格に対して、各時刻の観測価格から計算した平均騰落率を表示します。
+          </p>
+          <p className="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            直近60暦日の参考比較。15:15の候補を朝から買えたことにはせず、未来情報を使った売買シミュレーションでもありません。
+            両時刻に残った同じ銘柄だけの比較なので、時間帯の優劣はこれだけでは確定しません。
+          </p>
+          {matchedError ? <p role="alert" className="mt-2 text-sm font-bold text-red-600">時刻比較の取得に失敗しました。0件と誤認しないため結果を非表示にしています。</p> : null}
+          {!matchedError && matchedBands.map((band) => (
+            <details key={band.bandId} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <summary className="cursor-pointer text-sm font-black">{band.label}（15:15との比較を開く）</summary>
+              <div className="mt-3 space-y-2">
+                {band.slots.map((slot) => (
+                  <div key={slot.slot} className="rounded-lg border border-slate-200 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <b>{slot.slot} vs 15:15</b>
+                      <span className="text-slate-500 dark:text-slate-400">同銘柄ペア {slot.matched}件 / {slot.observedDays}日</span>
+                    </div>
+                    <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <p>{slot.slot}で観測 <b className="block">{pct(slot.earlierMeanPct)}</b></p>
+                      <p>15:15で観測 <b className="block">{pct(slot.precloseMeanPct)}</b></p>
+                      <p>15:15−比較時刻 <b className="block">{slot.differencePctPoints === null ? "—" :
+                        (slot.differencePctPoints > 0 ? "+" : "") + slot.differencePctPoints.toFixed(2) + "pt"}</b></p>
+                    </div>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">
+                      ±2%勝率 {slot.slot} {winPct(slot.earlierWinRate)} / 15:15 {winPct(slot.precloseWinRate)}（HOLD除外）
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+          {!matchedError && matched.length === 0 ? <p className="mt-3 text-xs">比較できる同銘柄ペアはまだありません。</p> : null}
+          <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            各時刻の銘柄上位30件は変動するため、同じ銘柄が両時刻にある場合だけの条件付き分析。
+            取引コスト・税金・約定価格・大引けの特別気配などは反映しません。
+            実証判定・LINE通知・売買・既存の学習データには反映しない研究専用です。
           </p>
         </section>
 
