@@ -1,0 +1,30 @@
+name: Bollinger As-Of Factors Shadow Research
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerAsOfFactorCore.mjs"
+      - "app/lib/research/bollingerAsOfFactorRunner.ts"
+      - "app/api/admin/bollinger-breakout-shadow/factors/**"
+      - "app/admin/bollinger-breakout-shadow/**"
+      - "supabase/migrations/20261015_bb_asof_factor_research.sql"
+      - "tests/bollingerAsOfFactors.test.mjs"
+      - ".github/workflows/bollinger-asof-factors.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs tests/bollingerBreakoutBatchArchive.test.mjs tests/bollingerVolumeFactors.test.mjs tests/bollingerExpansion100.test.mjs tests/bollingerAsOfFactors.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
