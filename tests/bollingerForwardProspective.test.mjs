@@ -28,7 +28,7 @@ const fixture=(extra=0)=>{
 test('future study ships a literal frozen 100-code roster, not an imported mutable basket',()=>{
  const s=readFileSync('app/lib/research/bollingerForwardUniverse.ts','utf8');
  const runner=readFileSync('app/lib/research/bollingerForwardRunner.ts','utf8');
- const stockCodes=Array.from(s.matchAll(/'(\\d{4})'/g),m=>m[1]);
+ const stockCodes=Array.from(s.matchAll(/'(\d{4})'/g),m=>m[1]);
  assert.equal(stockCodes.length,100);
  assert.equal(new Set(stockCodes).size,100);
  assert.equal(stockCodes[0],'9984');
