@@ -115,3 +115,15 @@ test("pattern forward saver receives nested observations from scan stocks", () =
     /savePatternForwardObservations\(targetDate, stocks\.map\(\(stock\) => \(\{ code: stock\.code, price: stock\.price, patternObservations: stock\.patternLearning\?\.patternObservations \?\? \[\] \}\)\)\)/,
   );
 });
+
+
+test("daily replay payload validator stays isolated from production and rejects corrupt inputs", () => {
+  const source = code("app/lib/learning/dailyReplayPayload.ts");
+  assert.match(source, /export function validateDailyReplayPayload/);
+  assert.match(source, /REPLAY_CODE_INVALID_OR_DUPLICATE/);
+  assert.match(source, /REPLAY_OBSERVATION_INVALID/);
+  assert.match(source, /REPLAY_STOCK_NAME_OR_PRICE_INVALID/);
+  assert.doesNotMatch(source, /pool\.query|fetch\(|saveDailyStocks\(|saveRelatedLearning\(/);
+  const route = code("app/api/learning/save-daily/route.ts");
+  assert.doesNotMatch(route, /dailyReplayPayload/);
+});
