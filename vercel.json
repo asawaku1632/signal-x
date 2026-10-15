@@ -99,6 +99,22 @@
     {
       "path": "/api/cron/rebound-forward/1",
       "schedule": "5 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/save-post?phase=pattern",
+      "schedule": "50 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/save-post?phase=reversal",
+      "schedule": "55 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/save-post?phase=momentum",
+      "schedule": "0 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/save-post?phase=finalize",
+      "schedule": "5 7 * * 1-5"
     }
   ]
 }
