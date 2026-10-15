@@ -399,8 +399,11 @@ export async function GET(req: Request) {
       },
     });
 
+    // Snapshot existence and coverage must be checked before any recovery writes.
     const existingResult = await pool.query(
-      `SELECT COUNT(*)::int AS count FROM daily_stock_results WHERE date = $1`,
+      `SELECT COUNT(*)::int AS count, COUNT(DISTINCT code)::int AS distinct_count,
+              COUNT(*) FILTER (WHERE price IS NULL)::int AS missing_price_count
+       FROM daily_stock_results WHERE date = $1`,
       [targetDate],
     );
     const existingCount = Number(existingResult.rows[0]?.count ?? 0);
@@ -414,6 +417,13 @@ export async function GET(req: Request) {
       if (!coverage.valid) {
         throw new Error(
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
+        );
+      }
+      const distinctCount = Number(existingResult.rows[0]?.distinct_count ?? 0);
+      const missingPriceCount = Number(existingResult.rows[0]?.missing_price_count ?? 0);
+      if (distinctCount !== existingCount || missingPriceCount > 0) {
+        throw new Error(
+          `existing daily snapshot integrity check failed: total=${existingCount}, distinct=${distinctCount}, missingPrice=${missingPriceCount}`,
         );
       }
       const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
