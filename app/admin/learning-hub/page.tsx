@@ -13,6 +13,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
     subtitle: "当たりも外れも、その後の株価で確かめる",
     items: [
       {
+        href: "/admin/post-sale-audit", icon: "📈",
+        title: "実売却後の1・3・5営業日追跡", tag: "本人専用・自動研究",
+        detail: "確定売買を手入力して、売却後の参考株価を引け後に自動追跡",
+      },
+      {
         href: "/simulation/conflict-check", icon: "🟣",
         title: "爆益前兆 × 撤退候補", tag: "新機能",
         detail: "矛盾する2つのシグナルを3・5・10取引日後に比較",

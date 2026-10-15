@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - "app/lib/learning/swingExitAudit.ts"
+      - "app/lib/research/ownerPostSaleAudit.ts"
+      - "app/admin/post-sale-audit/**"
+      - "app/api/admin/post-sale-audit/**"
+      - "supabase/migrations/20261015_create_owner_post_sale_audits.sql"
+      - "tests/ownerPostSaleAudit.test.mjs"
       - "app/lib/learning/swingConflictAudit.ts"
       - "app/lib/learning/swingConflictRules.ts"
       - "app/lib/learningOwner.ts"
@@ -71,6 +76,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs
+      - run: node --test tests/ownerPostSaleAudit.test.mjs tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
