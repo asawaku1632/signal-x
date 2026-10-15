@@ -2,8 +2,6 @@ import {createHash} from 'node:crypto';
 import {inspectAsOf,gradeForward} from './bollingerBreakoutShadow.mjs';
 import {inspectAsOfFactors} from './bollingerAsOfFactorCore.mjs';
 import {validateCompletedArchive} from './bollingerBreakoutQuality.mjs';
-import {BB_BREAKOUT_BATCHES} from './bollingerBreakoutBatches.ts';
-import {BB_EXPANSION_BATCHES} from './bollingerExpansionUniverse.ts';
 
 export const FORWARD_VERSION='BB_FORWARD_20261016_V1';
 export const FORWARD_START='2026-10-16';
@@ -11,20 +9,17 @@ export const DAILY_CODES=20;
 export const MAX_PENDING_CODES=10;
 export const MAX_VENDOR_REQUESTS=DAILY_CODES+MAX_PENDING_CODES;
 export const ALL_HORIZONS=[1,3,5];
-export const FROZEN_100=Object.freeze([
- ...BB_BREAKOUT_BATCHES.flat(),...BB_EXPANSION_BATCHES.flat()
-]);
 const number6=n=>Number(n.toFixed(6));
 const dateJst=t=>new Date(Number(t)*1000).toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
-export function validateFrozenUniverse(){
- return FROZEN_100.length===100&&new Set(FROZEN_100).size===100&&
-  FROZEN_100.every(x=>/^\d{4}$/.test(x));
+export function validateFrozenUniverse(codes){
+ return Array.isArray(codes)&&codes.length===100&&new Set(codes).size===100&&
+  codes.every(x=>typeof x==='string'&&/^\d{4}$/.test(x));
 }
-export function batchForMarketOrdinal(ordinal){
- if(!validateFrozenUniverse())throw Error('INVALID_FIXED_UNIVERSE');
+export function batchForMarketOrdinal(ordinal,codes){
+ if(!validateFrozenUniverse(codes))throw Error('INVALID_FIXED_UNIVERSE');
  if(!Number.isSafeInteger(ordinal)||ordinal<0)throw Error('INVALID_TRADE_ORDINAL');
  const batchId=ordinal%5;
- return {batchId,codes:FROZEN_100.slice(batchId*DAILY_CODES,(batchId+1)*DAILY_CODES)};
+ return {batchId,codes:codes.slice(batchId*DAILY_CODES,(batchId+1)*DAILY_CODES)};
 }
 export function snapshotHash(candles,t,calendar){
  if(!Array.isArray(candles)||!Number.isInteger(t)||t<80||t>=candles.length)
