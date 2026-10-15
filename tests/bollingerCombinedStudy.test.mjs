@@ -80,7 +80,8 @@ test("duplicate horizon, missing factors or outcome coverage fails closed",()=>{
 });
 test("all 1+3+5 outcomes require one signal row each",()=>{
  const x=set().filter(r=>!(r.code==="1000"&&r.horizon===1));
- assert.throws(()=>report(x),/MISSING_NEXT_DAY_SOURCE/);
+ assert.throws(()=>evaluateCombinedResearch(x,{baseOutcomes:x.length,
+  expansionOutcomes:0,verifiedBaseVolume:36,factors:36}),/MISSING_NEXT_DAY_SOURCE/);
 });
 test("owner-only API, read-only snapshot, no vendor call, no Cron, no DB migration",()=>{
  const route=readFileSync("app/api/admin/bollinger-breakout-shadow/combined/route.ts","utf8");
