@@ -126,7 +126,9 @@ export async function runBollingerObservationBatch(
       outcomes.push({ code, status: "SUCCESS", eventCount: candidate.events.length });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (options.stopOnCanonicalMismatch && message.startsWith("CANONICAL_SNAPSHOT_MISMATCH")) throw error;
+      if (options.stopOnCanonicalMismatch && (message.startsWith("CANONICAL_SNAPSHOT_MISMATCH")
+        || message === "PHASE7_LEASE_LOST" || message === "INVALID_PHASE7_LEASE"
+        || message === "PHASE7_LEASE_CHECK_FAILED")) throw error;
       failedSymbols += 1; outcomes.push({ code, status: "PERSISTENCE_FAILED",
         reason: message.startsWith("CANONICAL_SNAPSHOT_MISMATCH") ? message : "OBSERVATION_SAVE_FAILED" });
     }
