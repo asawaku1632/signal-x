@@ -45,7 +45,7 @@ export default function PostSaleClient() {
       const body = await response.json();
       if (!response.ok || !body.success) throw new Error(body.error || "登録失敗");
       setMessage(body.created
-        ? "取引を登録しました。引け後に保存された株価から自動検証します。"
+        ? "取引を登録しました。翌取引日以降に確定した日足終値から自動検証します。"
         : "この取引は登録済みです（二重登録していません）。");
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : "登録失敗"); }
@@ -137,6 +137,6 @@ export default function PostSaleClient() {
         </div>
       </section>)}
     <p className="text-xs leading-5 text-slate-500">{report?.note ||
-      "売却後の株価は引け後の保存参考価格で自動検証し、途中の高値・安値や約定可能価格を保証しません。"}</p>
+      "売却後の株価は翌取引日以降に確認した日足終値で自動検証します。途中の高値・安値や約定可能価格は対象外です。"}</p>
   </div>;
 }
