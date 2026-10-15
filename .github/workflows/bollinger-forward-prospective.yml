@@ -1,0 +1,33 @@
+name: Bollinger Forward Prospective Safety
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerForwardCore.mjs"
+      - "app/lib/research/bollingerForwardUniverse.ts"
+      - "app/lib/research/bollingerForwardRunner.ts"
+      - "app/api/cron/bb-forward-research/**"
+      - "app/api/admin/bollinger-breakout-shadow/forward/**"
+      - "app/admin/bollinger-breakout-shadow/**"
+      - "supabase/migrations/20261015_bb_forward_prospective_gated.sql"
+      - "tests/bollingerForwardProspective.test.mjs"
+      - "vercel.json"
+      - ".github/workflows/bollinger-forward-prospective.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs tests/bollingerBreakoutBatchArchive.test.mjs tests/bollingerVolumeFactors.test.mjs tests/bollingerExpansion100.test.mjs tests/bollingerAsOfFactors.test.mjs tests/bollingerCombinedStudy.test.mjs tests/bollingerForwardProspective.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
