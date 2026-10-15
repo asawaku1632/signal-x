@@ -717,31 +717,37 @@ export async function GET(req: Request) {
       message: "Related learning core completed",
       details: { runId, targetDate, stage: "RELATED_LEARNING_CORE_COMPLETED", durationMs: Date.now() - relatedCoreStartedAt, timestamp: new Date().toISOString() },
     });
-    // Durable checkpoints identify the exact post-save operation interrupted by a hard timeout.
+    // Telemetry failure must never suppress the underlying learning operation.
+    async function logRelatedCheckpoint(
+      status: "PROGRESS" | "ERROR",
+      message: string,
+      details: Record<string, unknown>,
+    ) {
+      try {
+        await saveCronRunLog({ route: "/api/learning/save-daily", status, message, details });
+      } catch (error) {
+        console.error("Related learning checkpoint logging failed:", error);
+      }
+    }
+
     async function trackRelatedStep<T>(step: string, work: () => Promise<T>): Promise<T> {
       const stepStartedAt = Date.now();
-      await saveCronRunLog({
-        route: "/api/learning/save-daily",
-        status: "PROGRESS",
-        message: `Related step started: ${step}`,
-        details: { runId, targetDate, stage: "RELATED_STEP_STARTED", step, timestamp: new Date().toISOString() },
+      await logRelatedCheckpoint("PROGRESS", `Related step started: ${step}`, {
+        runId, targetDate, stage: "RELATED_STEP_STARTED", step, timestamp: new Date().toISOString(),
       });
       try {
         const value = await work();
-        await saveCronRunLog({
-          route: "/api/learning/save-daily",
-          status: "PROGRESS",
-          message: `Related step completed: ${step}`,
-          details: { runId, targetDate, stage: "RELATED_STEP_COMPLETED", step, durationMs: Date.now() - stepStartedAt, timestamp: new Date().toISOString() },
+        await logRelatedCheckpoint("PROGRESS", `Related step completed: ${step}`, {
+          runId, targetDate, stage: "RELATED_STEP_COMPLETED", step,
+          durationMs: Date.now() - stepStartedAt, timestamp: new Date().toISOString(),
         });
         return value;
       } catch (error) {
-        await saveCronRunLog({
-          route: "/api/learning/save-daily",
-          status: "ERROR",
-          message: `Related step failed: ${step}`,
-          details: { runId, targetDate, stage: "RELATED_STEP_FAILED", step, durationMs: Date.now() - stepStartedAt, error: error instanceof Error ? error.message : String(error) },
-        }).catch((logError) => console.error("Related step failure logging failed:", logError));
+        await logRelatedCheckpoint("ERROR", `Related step failed: ${step}`, {
+          runId, targetDate, stage: "RELATED_STEP_FAILED", step,
+          durationMs: Date.now() - stepStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
         throw error;
       }
     }
