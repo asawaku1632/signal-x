@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "app/lib/research/bollingerForwardCore.mjs"
+      - "app/lib/research/bollingerForwardUniverse.ts"
       - "app/lib/research/bollingerForwardRunner.ts"
       - "app/api/cron/bb-forward-research/**"
       - "app/api/admin/bollinger-breakout-shadow/forward/**"
