@@ -177,7 +177,9 @@ export default async function PrecloseCandidatesPage() {
           <h2 className="text-lg font-black">📊 固定条件の答え合わせ</h2>
           <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
             仮説：15:15枠でAI POWER {policy.minAiPower}以上。過去の結果を時系列で分け、
-            先の期間と後の10営業日の両方で成績を検証。今日の銘柄の翌日結果は判定に使用しません。
+            先の期間と後の10営業日の両方で成績を検証。
+            正式な合格判定は{policy.prospectiveStartDate}以降の新しい観測だけを使います。
+            それ以前の結果は参考履歴に留め、今日の翌日結果も判定に使用しません。
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <StatsBlock title="① 過去の学習期間" stats={training}/>
