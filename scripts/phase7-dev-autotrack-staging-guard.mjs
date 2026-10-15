@@ -7,7 +7,7 @@ import {fileURLToPath} from "node:url";
 const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const SHA256=[
  ["app/lib/technicalObservation/bollingerShadowDevSecurity.ts","9ac98cf17bbda5e5d617c462ea3e50d9684ff217cb73f7aa1701c5be153f217a"],
- ["scripts/run-bollinger-shadow-dev.mjs","2616208435da6bda1c7761a4baba9c7096a6e52bf4b3fcbd5e7748e8f42e734a"]
+ ["scripts/run-bollinger-shadow-dev.mjs","2616208435da6bda1c7761a4baba9c7096a6a52bf4b3fcbd5e7748e8f42e734a"]
 ];
 const GIT_BLOBS=[
  ["app/lib/technicalObservation/bollingerObservationResultRunner.ts","39f19d2ce2b7862a06669a9962d137487ea8d315"],
