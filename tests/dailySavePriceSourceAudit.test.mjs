@@ -106,3 +106,12 @@ test("related learning telemetry failure cannot skip the underlying work", () =>
   assert.match(instrumentation, /throw error/);
   assert.equal((instrumentation.match(/await logRelatedCheckpoint\(/g) ?? []).length, 3);
 });
+
+
+test("pattern forward saver receives nested observations from scan stocks", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  assert.match(
+    source,
+    /savePatternForwardObservations\(targetDate, stocks\.map\(\(stock\) => \(\{ code: stock\.code, price: stock\.price, patternObservations: stock\.patternLearning\?\.patternObservations \?\? \[\] \}\)\)\)/,
+  );
+});
