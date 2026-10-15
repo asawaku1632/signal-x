@@ -1,9 +1,12 @@
 import pool from "@/app/lib/postgres";
+import { getForwardCandles } from "@/app/lib/emaForwardShadowStore";
 import { getJstDateString } from "@/app/lib/learning/learningSaveStatus";
 import { isTseTradingDate, isTseTargetDateReady, resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 const HORIZONS = [1, 3, 5] as const;
 const LIMIT = 150;
+const MAX_YAHOO_CODES_PER_RUN = 8;
+const yahooJstDate = (unix: number) => new Date(unix * 1000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 type Price = number | string | null;
 type Row = {
   id: number | string; owner_email: string; code: string; name: string;
@@ -48,38 +51,52 @@ export async function registerPostSale(ownerEmail: string, input: NewSale) {
 }
 
 export async function updatePostSaleOutcomes() {
-  // Only reading immutable owner-entered executions; no order/paper trade/AI mutations.
+  // Independent, limited daily follow-up. No stock trading, AI changes or notifications.
   const pending = await pool.query<Row>(
     "SELECT * FROM public.owner_post_sale_audits " +
     "WHERE outcome_1d_price IS NULL OR outcome_3d_price IS NULL OR outcome_5d_price IS NULL " +
     "ORDER BY sale_date DESC, id DESC LIMIT $1",
     [LIMIT],
   );
-  let updated = 0;
-  let incomplete = 0;
+  let updated = 0, unavailable = 0;
+  const byCode = new Map<string, Awaited<ReturnType<typeof getForwardCandles>> | null>();
   for (const sale of pending.rows) {
     let sessions: string[];
     try { sessions = resolveTseTradingDatesAfter(dateOnly(sale.sale_date), 5, { maxLookaheadDays: 20 }); }
-    catch { incomplete++; continue; }
-
-    for (const days of HORIZONS) {
-      if (sale[("outcome_" + days + "d_price") as keyof Row] != null) continue;
+    catch { unavailable++; continue; }
+    const due = HORIZONS.filter(days => {
+      const day = sessions[days - 1];
+      // Yahoo's current-day 1d candle can still be provisional.
+      // Use yesterday-or-earlier daily bars only. Automatic audits lag at least one market day.
+      if (day >= getJstDateString()) return false;
+      try { return isTseTargetDateReady(day); } catch { return false; }
+    }).filter(days => sale[("outcome_" + days + "d_price") as keyof Row] == null);
+    if (due.length === 0) continue;
+    if (!byCode.has(sale.code)) {
+      if (byCode.size >= MAX_YAHOO_CODES_PER_RUN) { unavailable++; continue; }
+      try { byCode.set(sale.code, await getForwardCandles(sale.code)); }
+      catch (error) {
+        console.warn("[owner-post-sale] no completed daily data", sale.code,
+          error instanceof Error ? error.message : "UNKNOWN");
+        byCode.set(sale.code, null);
+      }
+    }
+    const archive = byCode.get(sale.code);
+    if (!archive) { unavailable++; continue; }
+    const saleDate = dateOnly(sale.sale_date);
+    for (const days of due) {
       const targetDate = sessions[days - 1];
-      try {
-        if (!isTseTargetDateReady(targetDate)) continue;
-      } catch { continue; }
-      // Never use intraday/pre-open or the nearest available day's price.
-      // 15:30 JST is the Tokyo cash-market close; these remain reference prices.
-      const prices = await pool.query<{ price: Price }>(
-        "SELECT price FROM public.daily_stock_results WHERE code=$1 AND date::date=$2::date " +
-        "AND price>0 AND created_at >= (($2::date + TIME '15:30') AT TIME ZONE 'Asia/Tokyo') " +
-        "AND created_at < ((($2::date + INTERVAL '1 day')::date + TIME '00:00') AT TIME ZONE 'Asia/Tokyo') " +
-        "ORDER BY created_at DESC LIMIT 1",
-        [sale.code, targetDate],
-      );
-      const price = validPrice(prices.rows[0]?.price ?? null);
-      if (price === null) { incomplete++; continue; }
-      // Column names come solely from the fixed, internal HORIZONS tuple.
+      // A split between execution and checkpoint invalidates a raw-price comparison.
+      if (archive.splitEvents.some(unix => {
+        const d = yahooJstDate(unix);
+        return d > saleDate && d <= targetDate;
+      })) { unavailable++; continue; }
+      const bar = archive.candles.find(item => yahooJstDate(item.time) === targetDate);
+      const price = validPrice(bar?.close ?? null);
+      if (price === null || !bar || !Number.isFinite(bar.low) || !Number.isFinite(bar.high) ||
+          bar.low <= 0 || bar.high < Math.max(bar.close, bar.open)) {
+        unavailable++; continue;
+      }
       const wrote = await pool.query(
         "UPDATE public.owner_post_sale_audits SET outcome_" + days + "d_date=$2::date, " +
         "outcome_" + days + "d_price=$3, updated_at=now() WHERE id=$1 " +
@@ -89,7 +106,9 @@ export async function updatePostSaleOutcomes() {
       updated += wrote.rowCount ?? 0;
     }
   }
-  return { checked: pending.rows.length, checkpointsSaved: updated, priceUnavailable: incomplete };
+  return { checked: pending.rows.length, checkpointsSaved: updated, priceUnavailable: unavailable,
+    provider: "YAHOO_DAILY_CLOSE", uniqueCodesRequested: byCode.size,
+    sameDayBarsExcluded: true };
 }
 
 export async function getPostSaleReport(ownerEmail: string) {
@@ -126,6 +145,6 @@ export async function getPostSaleReport(ownerEmail: string) {
     }),
   }));
   return { items, cohorts, horizons: [...HORIZONS],
-    note: "手入力された約定履歴と、指定営業日の引け後に保存された参考価格を比較。価格は実際の約定可能価格・公式終値を保証しません。過去日付で登録された取引は後知恵の影響を排除できないため別集計。税金・手数料、途中の高安値は計算外。"
+    note: "手入力された約定履歴と、Yahoo Financeの翌取引日以降に確定した日足終値を比較。日足の反映を待つため追跡結果は少なくとも1営業日遅れます。価格は実際の約定可能価格や取引手数料を保証しません。過去日付で登録された取引は後知恵の影響を排除できないため別集計。税金・手数料、途中の高安値は計算外。"
   };
 }
