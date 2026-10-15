@@ -100,7 +100,7 @@ export async function getLearningSaveStatus(now = new Date()) {
     SCHEDULER_DELAY: `保存Cronが${Math.floor(monitor.delaySeconds / 60)}分遅延しました`,
     SCAN_FAILED: "Scanまたは保存対象銘柄の取得に失敗しました",
     DB_SAVE_FAILED: "日次スナップショットのDB保存に失敗しました",
-    POST_SAVE_FAILED: "日次保存後の関連学習保存に失敗しました",
+    POST_SAVE_FAILED: "日次データは保存済みですが、追加学習の完了を確認できません",
     CRON_STALLED: "保存Cronが開始後に停止または長時間実行中です",
   };
   const alerts = businessDay && alertByClassification[monitor.classification]
