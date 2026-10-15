@@ -23,8 +23,12 @@ test("checkpoint observation requires exact exchange dates and post-close daily 
   const cron = read("app/api/cron/swing-exit-audit/route.ts");
   assert.match(service, /resolveTseTradingDatesAfter\(dateOnly\(sale\.sale_date\), 5/);
   assert.match(service, /isTseTargetDateReady\(targetDate\)/);
-  assert.match(service, /15:30/);
-  assert.match(service, /date::date=\$2::date/);
+  assert.match(service, /getForwardCandles/);
+  assert.match(service, /MAX_YAHOO_CODES_PER_RUN = 8/);
+  assert.match(service, /day >= getJstDateString\(\)/);
+  assert.match(service, /YAHOO_DAILY_CLOSE/);
+  assert.doesNotMatch(service, /FROM public\.daily_stock_results/);
+  assert.match(service, /archive\.splitEvents/);
   assert.match(service, /outcome_.*d_price IS NULL/);
   assert.match(cron, /requireCronAuth\(request\)/);
   assert.match(cron, /shouldRunReboundOnHost/);
