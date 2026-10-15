@@ -1,4 +1,4 @@
-import { PHASE7_CODES, PHASE7_PARENT_SQL, PHASE7_DUPLICATE_SQL, PHASE7_ORPHAN_SQL } from "./bollingerShadowQueries.ts";
+import { PHASE7_CODES, PHASE7_RESULT_CODES, PHASE7_PARENT_SQL, PHASE7_DUPLICATE_SQL, PHASE7_ORPHAN_SQL } from "./bollingerShadowQueries.ts";
 import { validatePhase7DedicatedDestination, PHASE7_OFFLINE_DESTINATION, assertPhase7Database, Phase7SecurityError,
   PHASE7_ACQUIRE_LOCK_SQL, PHASE7_RELEASE_LOCK_SQL } from "./bollingerShadowDevSecurity.ts";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -297,7 +297,7 @@ export async function runBollingerShadowResults(options: BollingerShadowResultsO
       throw new Phase7SecurityError("OFFLINE_DEPENDENCIES_REQUIRED");
     const events = await (options.selectEvents
       ? options.selectEvents(options.limit, database) : selectPendingBollingerEvents(database, options.limit, true));
-    if (events.some(event => event.phase7Provenance !== true || !PHASE7_CODES.includes(event.code))) throw new BollingerShadowAutomationError("INVALID_PROVENANCE");
+    if (events.some(event => event.phase7Provenance !== true || !PHASE7_RESULT_CODES.includes(event.code))) throw new BollingerShadowAutomationError("INVALID_PROVENANCE");
     const codes = Array.from(new Set(events.map((event) => event.code)));
     const fetcher = options.fetchBatch ?? fetchDailyCandleDatasets; const now = options.now ?? new Date();
     const raw = await fetcher(codes, "LONG_300", DAILY_DATASET_REQUIREMENTS.RECENT_RANGE_20,
