@@ -72,7 +72,8 @@ test("30-case minimum applies independently to each time period",()=>{
 });
 test("duplicate horizon, missing factors or outcome coverage fails closed",()=>{
  const x=set();
- assert.throws(()=>report([...x,x[0]]),/DUPLICATE_FROZEN_OUTCOME/);
+ assert.throws(()=>evaluateCombinedResearch([...x,x[0]],{baseOutcomes:x.length+1,
+  expansionOutcomes:0,verifiedBaseVolume:36,factors:36}),/DUPLICATE_FROZEN_OUTCOME/);
  assert.throws(()=>report(x.map((r,i)=>i===0?{...r,rsi_group:null}:r)),
   /MISSING_OR_BAD_FACTOR/);
  assert.throws(()=>evaluateCombinedResearch(x,{baseOutcomes:x.length+1,
