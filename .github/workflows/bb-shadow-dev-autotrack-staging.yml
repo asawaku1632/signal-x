@@ -1,0 +1,33 @@
+name: SIGNALX Phase7 DEV autotrack (staging only)
+
+# No database connection, no save and no production configuration change.
+# A scheduled workflow only dispatches after merging into the default branch.
+# Even if the disabled-by-default switch is enabled, only SHA verification runs.
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekdays 16:10 JST = weekdays 07:10 UTC
+    - cron: '10 7 * * 1-5'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-dev-autotrack-staging
+  cancel-in-progress: false
+
+jobs:
+  guarded-source-audit:
+    if: ${{ vars.SIGNALX_PHASE7_DEV_AUTOTRACK_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: signalx-dev-shadow
+    timeout-minutes: 5
+    steps:
+      - name: Checkout without write permission
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Read-only pinned security preflight
+        run: node scripts/phase7-dev-autotrack-staging-guard.mjs --repository-preflight
