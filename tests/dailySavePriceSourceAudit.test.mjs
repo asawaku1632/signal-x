@@ -77,3 +77,53 @@ test("provenance is passive: daily save still inserts unchanged stocks and price
   assert.doesNotMatch(source, /\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bfetch\(|\bnotify\(/i);
   assert.doesNotMatch(source, /saveDailyStocks|runScan|sendNotification/);
 });
+
+
+test("saved-snapshot recovery checks distinct codes and prices before doing research writes", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  const start = source.indexOf("if (existingCount > 0)");
+  const end = source.indexOf("const scanUrl =", start);
+  assert.ok(start > 0 && end > start);
+  const recovery = source.slice(start, end);
+  assert.match(source, /COUNT\(DISTINCT code\)::int AS distinct_count/);
+  assert.match(source, /WHERE price IS NULL\)::int AS missing_price_count/);
+  assert.match(recovery, /distinctCount !== existingCount \|\| missingPriceCount > 0/);
+  assert.ok(recovery.indexOf("integrity check failed") < recovery.indexOf("saveTrendPullbackReversalObservations"));
+  assert.equal((recovery.match(/updateMomentumMemoryNotificationOutcomes\(targetDate\)/g) ?? []).length, 1);
+});
+
+
+test("related learning telemetry failure cannot skip the underlying work", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  const start = source.indexOf("async function logRelatedCheckpoint(");
+  const end = source.indexOf("const patternForward =", start);
+  assert.ok(start > 0 && end > start);
+  const instrumentation = source.slice(start, end);
+  assert.match(instrumentation, /try \{\s*await saveCronRunLog\(/);
+  assert.match(instrumentation, /catch \(error\) \{\s*console\.error\("Related learning checkpoint logging failed:"/);
+  assert.match(instrumentation, /const value = await work\(\)/);
+  assert.match(instrumentation, /return value/);
+  assert.match(instrumentation, /throw error/);
+  assert.equal((instrumentation.match(/await logRelatedCheckpoint\(/g) ?? []).length, 3);
+});
+
+
+test("pattern forward saver receives nested observations from scan stocks", () => {
+  const source = code("app/api/learning/save-daily/route.ts");
+  assert.match(
+    source,
+    /savePatternForwardObservations\(targetDate, stocks\.map\(\(stock\) => \(\{ code: stock\.code, price: stock\.price, patternObservations: stock\.patternLearning\?\.patternObservations \?\? \[\] \}\)\)\)/,
+  );
+});
+
+
+test("daily replay payload validator stays isolated from production and rejects corrupt inputs", () => {
+  const source = code("app/lib/learning/dailyReplayPayload.ts");
+  assert.match(source, /export function validateDailyReplayPayload/);
+  assert.match(source, /REPLAY_CODE_INVALID_OR_DUPLICATE/);
+  assert.match(source, /REPLAY_OBSERVATION_INVALID/);
+  assert.match(source, /REPLAY_STOCK_NAME_OR_PRICE_INVALID/);
+  assert.doesNotMatch(source, /pool\.query|fetch\(|saveDailyStocks\(|saveRelatedLearning\(/);
+  const route = code("app/api/learning/save-daily/route.ts");
+  assert.doesNotMatch(route, /dailyReplayPayload/);
+});

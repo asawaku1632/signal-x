@@ -94,3 +94,41 @@ test("completion and errors are followed within the selected runId", () => {
   });
   assert.equal(failed.classification, "POST_SAVE_FAILED");
 });
+
+
+test("related-learning diagnostics cover all post-save tasks without changing cron schedule", () => {
+  const source = read("app/api/learning/save-daily/route.ts");
+  const schedule = JSON.parse(read("vercel.json"));
+  assert.ok(schedule.crons.some((entry) =>
+    entry.path === "/api/learning/save-daily" && entry.schedule === "35 6 * * 1-5"
+  ));
+  assert.match(source, /RELATED_LEARNING_CORE_STARTED/);
+  assert.match(source, /RELATED_LEARNING_CORE_COMPLETED/);
+  assert.match(source, /RELATED_STEP_STARTED/);
+  assert.match(source, /RELATED_STEP_COMPLETED/);
+  assert.match(source, /RELATED_STEP_FAILED/);
+  const steps = [
+    "pattern-forward-observations", "pattern-forward-outcomes", "pattern-forward-stats",
+    "tpr-observations", "tpr-outcomes", "ai-reversal-observations",
+    "ai-reversal-outcomes", "high-ai-pullback-observations", "high-ai-pullback-outcomes",
+    "momentum-memory-observations", "momentum-memory-outcomes",
+    "momentum-memory-benchmarks", "momentum-memory-forward-stats",
+    "momentum-memory-validation", "explosive-discovery-prices",
+    "momentum-memory-notification",
+  ];
+  for (const step of steps) {
+    assert.ok(source.includes(`trackRelatedStep("${step}"`), `missing checkpoint: ${step}`);
+  }
+  assert.equal((source.match(/trackRelatedStep\("/g) ?? []).length, steps.length);
+});
+
+test("post-save timeout is reported as post-save failure, not missing stock data", () => {
+  const now = Date.parse("2026-10-15T07:45:00.000Z");
+  const logs = [
+    log("PROGRESS", "daily-run", "2026-10-15T06:35:38.242Z", { stage: "RELATED_LEARNING_STARTED" }),
+    log("SAVE_SUCCESS", "daily-run", "2026-10-15T06:35:38.092Z", { stage: "SNAPSHOT_SAVED" }),
+    log("STARTED", "daily-run", "2026-10-15T06:35:16.606Z"),
+  ];
+  assert.equal(classifyLearningSave({ savedCount: 953, logs, nowMs: now }).classification, "POST_SAVE_FAILED");
+  assert.equal(classifyLearningSave({ savedCount: 0, logs, nowMs: now }).classification, "CRON_STALLED");
+});

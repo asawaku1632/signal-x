@@ -399,8 +399,11 @@ export async function GET(req: Request) {
       },
     });
 
+    // Snapshot existence and coverage must be checked before any recovery writes.
     const existingResult = await pool.query(
-      `SELECT COUNT(*)::int AS count FROM daily_stock_results WHERE date = $1`,
+      `SELECT COUNT(*)::int AS count, COUNT(DISTINCT code)::int AS distinct_count,
+              COUNT(*) FILTER (WHERE price IS NULL)::int AS missing_price_count
+       FROM daily_stock_results WHERE date = $1`,
       [targetDate],
     );
     const existingCount = Number(existingResult.rows[0]?.count ?? 0);
@@ -414,6 +417,13 @@ export async function GET(req: Request) {
       if (!coverage.valid) {
         throw new Error(
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
+        );
+      }
+      const distinctCount = Number(existingResult.rows[0]?.distinct_count ?? 0);
+      const missingPriceCount = Number(existingResult.rows[0]?.missing_price_count ?? 0);
+      if (distinctCount !== existingCount || missingPriceCount > 0) {
+        throw new Error(
+          `existing daily snapshot integrity check failed: total=${existingCount}, distinct=${distinctCount}, missingPrice=${missingPriceCount}`,
         );
       }
       const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
@@ -452,10 +462,6 @@ export async function GET(req: Request) {
         console.error("Momentum Memory benchmark update failed:", error);
         return { momentumMemoryBenchmarksUpdated: 0 };
       });
-    await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
-      console.error("Momentum Memory notification outcome update failed:", error);
-      return { momentumMemoryNotificationOutcomesUpdated: 0 };
-    });
       await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
         console.error("Momentum Memory notification outcome update failed:", error);
         return { momentumMemoryNotificationOutcomesUpdated: 0 };
@@ -695,65 +701,114 @@ export async function GET(req: Request) {
     });
 
     stage = "related-learning-save";
+    // Persist a checkpoint before the first expensive related-learning task.
+    // A platform timeout cannot be caught, so this identifies the last started step.
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning core started",
+      details: { runId, targetDate, stage: "RELATED_LEARNING_CORE_STARTED", timestamp: new Date().toISOString() },
+    });
+    const relatedCoreStartedAt = Date.now();
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
-    const patternForward = await savePatternForwardObservations(targetDate, stocks).catch((error) => {
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning core completed",
+      details: { runId, targetDate, stage: "RELATED_LEARNING_CORE_COMPLETED", durationMs: Date.now() - relatedCoreStartedAt, timestamp: new Date().toISOString() },
+    });
+    // Telemetry failure must never suppress the underlying learning operation.
+    async function logRelatedCheckpoint(
+      status: "PROGRESS" | "ERROR",
+      message: string,
+      details: Record<string, unknown>,
+    ) {
+      try {
+        await saveCronRunLog({ route: "/api/learning/save-daily", status, message, details });
+      } catch (error) {
+        console.error("Related learning checkpoint logging failed:", error);
+      }
+    }
+
+    async function trackRelatedStep<T>(step: string, work: () => Promise<T>): Promise<T> {
+      const stepStartedAt = Date.now();
+      await logRelatedCheckpoint("PROGRESS", `Related step started: ${step}`, {
+        runId, targetDate, stage: "RELATED_STEP_STARTED", step, timestamp: new Date().toISOString(),
+      });
+      try {
+        const value = await work();
+        await logRelatedCheckpoint("PROGRESS", `Related step completed: ${step}`, {
+          runId, targetDate, stage: "RELATED_STEP_COMPLETED", step,
+          durationMs: Date.now() - stepStartedAt, timestamp: new Date().toISOString(),
+        });
+        return value;
+      } catch (error) {
+        await logRelatedCheckpoint("ERROR", `Related step failed: ${step}`, {
+          runId, targetDate, stage: "RELATED_STEP_FAILED", step,
+          durationMs: Date.now() - stepStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    }
+    const patternForward = await trackRelatedStep("pattern-forward-observations", () => savePatternForwardObservations(targetDate, stocks.map((stock) => ({ code: stock.code, price: stock.price, patternObservations: stock.patternLearning?.patternObservations ?? [] })))).catch((error) => {
       console.error("Pattern forward observation save failed:", error);
       return { patternForwardSaved: 0, patternForwardDetectedStocks: 0 };
     });
-    const patternForwardOutcomes = await updatePatternForwardOutcomes(targetDate).catch((error) => {
+    const patternForwardOutcomes = await trackRelatedStep("pattern-forward-outcomes", () => updatePatternForwardOutcomes(targetDate)).catch((error) => {
       console.error("Pattern forward outcome update failed:", error);
       return { patternForwardOutcomesUpdated: 0 };
     });
-    await refreshPatternForwardStats().catch((error) => {
+    await trackRelatedStep("pattern-forward-stats", () => refreshPatternForwardStats()).catch((error) => {
       console.error("Pattern forward stats refresh failed:", error);
     });
-    const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
+    const tpr = await trackRelatedStep("tpr-observations", () => saveTrendPullbackReversalObservations(targetDate)).catch((error) => {
       console.error("TPR observation failed:", error);
       return { tprSaved: 0, tprFlagged: 0 };
     });
-    const tprOutcomes = await updateTrendPullbackReversalOutcomes(targetDate).catch((error) => {
+    const tprOutcomes = await trackRelatedStep("tpr-outcomes", () => updateTrendPullbackReversalOutcomes(targetDate)).catch((error) => {
       console.error("TPR outcome update failed:", error);
       return { tprOutcomesUpdated: 0 };
     });
-    const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
+    const aiReversal = await trackRelatedStep("ai-reversal-observations", () => saveAiReversalObservations(targetDate)).catch((error) => {
       console.error("AI Reversal observation failed:", error);
       return { aiReversalSaved: 0, aiReversalFlagged: 0 };
     });
-    const aiReversalOutcomes = await updateAiReversalOutcomes(targetDate).catch((error) => {
+    const aiReversalOutcomes = await trackRelatedStep("ai-reversal-outcomes", () => updateAiReversalOutcomes(targetDate)).catch((error) => {
       console.error("AI Reversal outcome update failed:", error);
       return { aiReversalOutcomesUpdated: 0 };
     });
-    const highAiPullback = await saveHighAiPullbackObservations(targetDate).catch((error) => {
+    const highAiPullback = await trackRelatedStep("high-ai-pullback-observations", () => saveHighAiPullbackObservations(targetDate)).catch((error) => {
       console.error("High AI Pullback observation failed:", error);
       return { highAiPullbackSaved: 0, highAiPullbackFlagged: 0 };
     });
-    const highAiPullbackOutcomes = await updateHighAiPullbackOutcomes(targetDate).catch((error) => {
+    const highAiPullbackOutcomes = await trackRelatedStep("high-ai-pullback-outcomes", () => updateHighAiPullbackOutcomes(targetDate)).catch((error) => {
       console.error("High AI Pullback outcome update failed:", error);
       return { highAiPullbackOutcomesUpdated: 0 };
     });
-    const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
+    const momentumMemory = await trackRelatedStep("momentum-memory-observations", () => saveMomentumMemoryObservations(targetDate)).catch((error) => {
       console.error("Momentum Memory observation failed:", error);
       return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
     });
-    const momentumMemoryOutcomes = await updateMomentumMemoryOutcomes(targetDate).catch((error) => {
+    const momentumMemoryOutcomes = await trackRelatedStep("momentum-memory-outcomes", () => updateMomentumMemoryOutcomes(targetDate)).catch((error) => {
       console.error("Momentum Memory outcome update failed:", error);
       return { momentumMemoryOutcomesUpdated: 0 };
     });
-    await updateMomentumMemoryBenchmarks(targetDate).catch((error) => {
+    await trackRelatedStep("momentum-memory-benchmarks", () => updateMomentumMemoryBenchmarks(targetDate)).catch((error) => {
         console.error("Momentum Memory benchmark update failed:", error);
         return { momentumMemoryBenchmarksUpdated: 0 };
       });
-      await refreshMomentumMemoryForwardStats().catch((error) => {
+      await trackRelatedStep("momentum-memory-forward-stats", () => refreshMomentumMemoryForwardStats()).catch((error) => {
       console.error("Momentum Memory forward stats refresh failed:", error);
     });
-    await refreshMomentumMemoryNotificationValidation().catch((error) => {
+    await trackRelatedStep("momentum-memory-validation", () => refreshMomentumMemoryNotificationValidation()).catch((error) => {
       console.error("Momentum Memory notification validation refresh failed:", error);
     });
-    await saveExplosiveCandidateDiscoveryPrices(targetDate).catch((error) => {
+    await trackRelatedStep("explosive-discovery-prices", () => saveExplosiveCandidateDiscoveryPrices(targetDate)).catch((error) => {
       console.error("Explosive candidate discovery price snapshot failed:", error);
       return { discoveryPricesSaved: 0 };
     });
-    await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
+    await trackRelatedStep("momentum-memory-notification", () => notifyMomentumMemoryCandidates(targetDate)).catch((error) => {
       console.error("Momentum Memory admin notification failed:", error);
     });
 

@@ -81,6 +81,12 @@ export function classifyLearningSave(input: {
     classification = "CRON_NOT_STARTED";
   } else if (!latestRunTerminal && latestAgeSeconds <= RUNNING_GRACE_SECONDS) {
     classification = "RUNNING";
+  } else if (
+    input.savedCount > 0 &&
+    latestRunLogs.some((log) => log.status === "SAVE_SUCCESS")
+  ) {
+    // The snapshot was committed even if Vercel killed post-save work.
+    classification = "POST_SAVE_FAILED";
   } else {
     classification = "CRON_STALLED";
   }
