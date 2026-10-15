@@ -1,0 +1,29 @@
+name: Bollinger Combined Factors Read-Only Study
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/bollingerCombinedStudy.mjs"
+      - "app/lib/research/bollingerCombinedStudyReader.ts"
+      - "app/api/admin/bollinger-breakout-shadow/combined/**"
+      - "app/admin/bollinger-breakout-shadow/**"
+      - "tests/bollingerCombinedStudy.test.mjs"
+      - ".github/workflows/bollinger-combined-study.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/bollingerBreakoutShadow.test.mjs tests/bollingerBreakoutQuality.test.mjs tests/bollingerBreakoutBatchArchive.test.mjs tests/bollingerVolumeFactors.test.mjs tests/bollingerExpansion100.test.mjs tests/bollingerAsOfFactors.test.mjs tests/bollingerCombinedStudy.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
