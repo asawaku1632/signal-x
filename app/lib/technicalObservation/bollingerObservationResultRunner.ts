@@ -1,4 +1,4 @@
-import { PHASE7_CODES, PHASE7_PENDING_SQL } from "./bollingerShadowQueries.ts";
+import { PHASE7_RESULT_CODES, PHASE7_PENDING_SQL } from "./bollingerShadowQueries.ts";
 import { fetchDailyCandleDatasets } from "./dailyData.ts";
 import { DAILY_DATASET_REQUIREMENTS } from "./datasets.ts";
 import { completedCandlesAsOf } from "./timeframeFoundation.ts";
@@ -116,8 +116,8 @@ async function defaultDatabase(): Promise<BollingerResultRunnerDatabase> {
 
 export async function selectPendingBollingerEvents(database: BollingerResultRunnerDatabase, limit: number, phase7Only = false) {
   const result = await database.query(
-    PHASE7_PENDING_SQL, [limit, phase7Only, phase7Only ? [...PHASE7_CODES] : []]);
-  if (phase7Only && result.rows.some(row => !PHASE7_CODES.includes(String(row.code)))) throw new Error("INVALID_PROVENANCE");
+    PHASE7_PENDING_SQL, [limit, phase7Only, phase7Only ? [...PHASE7_RESULT_CODES] : []]);
+  if (phase7Only && result.rows.some(row => !PHASE7_RESULT_CODES.includes(String(row.code)))) throw new Error("INVALID_PROVENANCE");
   return result.rows.map((row) => ({ eventId: Number(row.event_id), snapshotId: Number(row.snapshot_id), code: String(row.code),
     timeframe: String(row.timeframe) as "1D", side: String(row.side) as "LOWER" | "UPPER",
     sigmaLevel: Number(row.sigma_level) as 2 | 3, eventType: String(row.event_type) as PendingBollingerEvent["eventType"],
