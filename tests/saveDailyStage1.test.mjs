@@ -94,3 +94,30 @@ test("completion and errors are followed within the selected runId", () => {
   });
   assert.equal(failed.classification, "POST_SAVE_FAILED");
 });
+
+
+test("related-learning diagnostics cover all post-save tasks without changing cron schedule", () => {
+  const source = read("app/api/learning/save-daily/route.ts");
+  const schedule = JSON.parse(read("vercel.json"));
+  assert.ok(schedule.crons.some((entry) =>
+    entry.path === "/api/learning/save-daily" && entry.schedule === "35 6 * * 1-5"
+  ));
+  assert.match(source, /RELATED_LEARNING_CORE_STARTED/);
+  assert.match(source, /RELATED_LEARNING_CORE_COMPLETED/);
+  assert.match(source, /RELATED_STEP_STARTED/);
+  assert.match(source, /RELATED_STEP_COMPLETED/);
+  assert.match(source, /RELATED_STEP_FAILED/);
+  const steps = [
+    "pattern-forward-observations", "pattern-forward-outcomes", "pattern-forward-stats",
+    "tpr-observations", "tpr-outcomes", "ai-reversal-observations",
+    "ai-reversal-outcomes", "high-ai-pullback-observations", "high-ai-pullback-outcomes",
+    "momentum-memory-observations", "momentum-memory-outcomes",
+    "momentum-memory-benchmarks", "momentum-memory-forward-stats",
+    "momentum-memory-validation", "explosive-discovery-prices",
+    "momentum-memory-notification",
+  ];
+  for (const step of steps) {
+    assert.ok(source.includes(`trackRelatedStep("${step}"`), `missing checkpoint: ${step}`);
+  }
+  assert.equal((source.match(/trackRelatedStep\("/g) ?? []).length, steps.length);
+});
