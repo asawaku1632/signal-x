@@ -28,7 +28,16 @@ test("seven observation slots are mapped consistently across route, runner and D
     assert.ok(migration.includes(`'${label}'`), label);
     assert.ok(page.includes(`"${label}"`), label);
   }
-  assert.equal(new Set(schedule.map((cron) => cron.path)).size, schedule.length);
+  // One dedicated forward-shadow job intentionally runs twice per day.
+  // Every other notification/observation route must still be unique.
+  const independent = schedule.filter((cron) => cron.path !== "/api/run?job=ema-forward-shadow");
+  assert.equal(new Set(independent.map((cron) => cron.path)).size, independent.length);
+  const forward = schedule.filter((cron) => cron.path === "/api/run?job=ema-forward-shadow");
+  assert.deepEqual(forward.map((cron) => cron.schedule).sort(), [
+    "10 8 * * 1-5",
+    "10 9 * * 1-5",
+  ]);
+  assert.equal(new Set(schedule.map((cron) => cron.path + "|" + cron.schedule)).size, schedule.length);
 });
 
 test("observation remains admin/cron isolated and does not trigger market scan", () => {
