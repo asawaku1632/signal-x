@@ -1,0 +1,33 @@
+name: Daily Save Split Safety
+on:
+  pull_request:
+    paths:
+      - "app/api/learning/save-daily/route.ts"
+      - "app/api/cron/save-post/route.ts"
+      - "app/lib/learning/learningSaveMonitor.ts"
+      - "app/lib/learning/learningSaveStatus.ts"
+      - "tests/saveDailySplit.test.mjs"
+      - "tests/learningSaveMonitor.test.mjs"
+      - "vercel.json"
+      - ".github/workflows/daily-save-split-safety.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Check post-save split contracts
+        run: node --test tests/saveDailySplit.test.mjs
+      - name: Type-check app
+        run: |
+          npx next typegen
+          npx tsc --noEmit
