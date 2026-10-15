@@ -25,6 +25,17 @@ const fixture=(extra=0)=>{
   expectedTradingDates:candles.map(b=>date(b.time)),
   asOfCompletedJstDate:date(candles.at(-1).time)};
 };
+test('future study ships a literal frozen 100-code roster, not an imported mutable basket',()=>{
+ const s=readFileSync('app/lib/research/bollingerForwardUniverse.ts','utf8');
+ const runner=readFileSync('app/lib/research/bollingerForwardRunner.ts','utf8');
+ const stockCodes=Array.from(s.matchAll(/'(\\d{4})'/g),m=>m[1]);
+ assert.equal(stockCodes.length,100);
+ assert.equal(new Set(stockCodes).size,100);
+ assert.equal(stockCodes[0],'9984');
+ assert.equal(stockCodes[99],'6301');
+ assert.match(runner,/import \{BB_FORWARD_FROZEN_CODES\}/);
+ assert.doesNotMatch(runner,/import \{BB_EXPANSION_BATCHES\}/);
+});
 test('frozen prospective cohort contains 100 distinct four-digit codes and 20/day',()=>{
  const codes=Array.from({length:100},(_,i)=>String(1000+i));
  assert.equal(validateFrozenUniverse(codes),true);
