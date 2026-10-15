@@ -695,7 +695,22 @@ export async function GET(req: Request) {
     });
 
     stage = "related-learning-save";
+    // Persist a checkpoint before the first expensive related-learning task.
+    // A platform timeout cannot be caught, so this identifies the last started step.
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning core started",
+      details: { runId, targetDate, stage: "RELATED_LEARNING_CORE_STARTED", timestamp: new Date().toISOString() },
+    });
+    const relatedCoreStartedAt = Date.now();
     const relatedResult = await saveRelatedLearning(targetDate, stocks);
+    await saveCronRunLog({
+      route: "/api/learning/save-daily",
+      status: "PROGRESS",
+      message: "Related learning core completed",
+      details: { runId, targetDate, stage: "RELATED_LEARNING_CORE_COMPLETED", durationMs: Date.now() - relatedCoreStartedAt, timestamp: new Date().toISOString() },
+    });
     const patternForward = await savePatternForwardObservations(targetDate, stocks).catch((error) => {
       console.error("Pattern forward observation save failed:", error);
       return { patternForwardSaved: 0, patternForwardDetectedStocks: 0 };
