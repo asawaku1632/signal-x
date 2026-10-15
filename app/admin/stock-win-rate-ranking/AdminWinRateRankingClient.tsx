@@ -116,7 +116,7 @@ export default function AdminWinRateRankingClient() {
   const shown = filtered.slice(0, visibleCount);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-3 py-5 pb-28 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-slate-50 px-3 py-5 pb-28 text-slate-900">
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between gap-2">
           <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-600">← 学習データ・管理室</Link>
