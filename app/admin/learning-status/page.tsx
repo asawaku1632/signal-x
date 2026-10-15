@@ -154,6 +154,12 @@ export default function LearningStatusPage() {
         </header>
 
         <div className="mt-5">
+          <Link href="/admin/stock-win-rate-ranking" className="block rounded-2xl border border-amber-200 bg-amber-50 p-4 font-black text-amber-900 shadow-sm dark:border-amber-700 dark:bg-slate-900 dark:text-amber-200">
+            🏆 全銘柄・勝敗ランキング（管理者専用） →
+          </Link>
+        </div>
+
+        <div className="mt-5">
           <Link href="/admin/ai-win-rate-audit" className="block rounded-2xl border border-blue-200 bg-blue-50 p-4 font-black text-blue-900 shadow-sm dark:border-blue-700 dark:bg-slate-900 dark:text-blue-200">
             📊 AI勝率の信頼性監査（管理者専用） →
           </Link>
