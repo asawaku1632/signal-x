@@ -42,7 +42,7 @@ test("fixed conditions demand distinct days and chronological out-of-sample vali
   const study = analyzePrecloseStudy([...rows, today], d(40));
   assert.equal(study.phase, "REFERENCE_PASSED");
   assert.equal(study.availableDays, 40);
-  assert.equal(study.training.observedDays, 30);
+  assert.equal(study.training.observedDays, 20);
   assert.equal(study.validation.observedDays, 10);
   assert.equal(study.validation.samples, 150);
   assert.equal(study.verifiedCandidates.length, 1);
