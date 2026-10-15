@@ -14,6 +14,11 @@ const GIT_BLOBS=[
  ["app/lib/technicalObservation/bollingerObservationResultPersistence.ts","4fb74ffe787f040b9dade625747e159fbce5dd7c"],
  ["app/lib/technicalObservation/bollingerObservationResultEvaluator.ts","3811360a505c880f158e114ab38c5eeba62467bf"],
  ["app/lib/technicalObservation/bollingerObservationResultTypes.ts","ce2b714bd31195d57b669f3f359e14775b821544"],
+ ["app/lib/technicalObservation/bollingerShadowAutomation.ts","13858ac7ba92aa112f34bdd7e0fad444298196bc"],
+ ["app/lib/technicalObservation/bollingerShadowQueries.ts","e5951aca5b426d7355c3bef5605a0a14bd47ea57"],
+ ["app/lib/technicalObservation/bollingerShadowLeaseFence.ts","28b43a2c1ed10959f769e7a9d2ec5ecf235d40c3"],
+ ["app/lib/technicalObservation/bollingerObservationRunner.ts","d440df8fc37816f4357fa70f44c97024cbb3288c"],
+ ["app/lib/technicalObservation/bollingerObservationPersistence.ts","0c899b98c0610e8c6bdb04c4c6db58083a12e732"],
  ["app/lib/technicalObservation/tseMarketCalendar.ts","70365a12a26c53f3c0d68c0739884a5489a209bb"]
 ];
 function ensure(ok,code){if(!ok)throw Error("STEP327B_"+code);}
@@ -28,7 +33,7 @@ function preflight(){
  ensure(yaml.includes("vars.SIGNALX_PHASE7_DEV_AUTOTRACK_ENABLED == 'true'"),"KILL_SWITCH_MISSING");
  ensure(yaml.includes("contents: read")&&yaml.includes("signalx-dev-shadow"),"ISOLATION_MISSING");
  ensure(!/DATABASE_URL|secrets\.|--save\b|rejectUnauthorized\s*:\s*false|pull_request:|push:/i.test(yaml),"UNSAFE_WORKFLOW");
- console.log("STEP327B_SOURCE_SECURITY_PINS: VERIFIED 7/7");
+ console.log("STEP327B_SOURCE_SECURITY_PINS: VERIFIED 12/12");
  console.log("STEP327B_SCHEDULE_POLICY: STAGED_DISABLED_BY_DEFAULT");
  console.log("STEP327B_AUTO_SAVE: NOT_IMPLEMENTED");
  console.log("STEP327B_DEV_PROD_DB: UNTOUCHED");
