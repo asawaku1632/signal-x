@@ -1,0 +1,20 @@
+name: EMA Forward Runner Schedule Checks
+on:
+  pull_request:
+    paths:
+      - "signalx-notification-runner/api/run.js"
+      - "signalx-notification-runner/vercel.json"
+      - "tests/emaForwardRunnerSchedule.test.mjs"
+      - ".github/workflows/ema-forward-runner-schedule-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --test tests/emaForwardRunnerSchedule.test.mjs
