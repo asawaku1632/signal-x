@@ -1,11 +1,15 @@
-import { randomUUID } from "node:crypto";
+import { PHASE7_CODES, PHASE7_RESULT_CODES, PHASE7_PARENT_SQL, PHASE7_DUPLICATE_SQL, PHASE7_ORPHAN_SQL } from "./bollingerShadowQueries.ts";
+import { validatePhase7DedicatedDestination, PHASE7_OFFLINE_DESTINATION, assertPhase7Database, Phase7SecurityError,
+  PHASE7_ACQUIRE_LOCK_SQL, PHASE7_RELEASE_LOCK_SQL } from "./bollingerShadowDevSecurity.ts";
+import { randomUUID, randomBytes } from "node:crypto";
+import { PHASE7_CAP_ACQUIRE_SQL, PHASE7_CAP_RELEASE_SQL } from "./bollingerShadowQueries.ts";
 
 import { ACTIVE_STOCKS } from "../activeStockList.ts";
 import { DailyDataFetchError, fetchDailyCandleDatasets } from "./dailyData.ts";
 import { DAILY_DATASET_REQUIREMENTS } from "./datasets.ts";
 import { completedCandlesAsOf, candleCompletedAt } from "./timeframeFoundation.ts";
 import { runBollingerObservationBatch, type BollingerRunnerStock } from "./bollingerObservationRunner.ts";
-import { normalizeDateOnly } from "./bollingerObservationPersistence.ts";
+import { normalizeDateOnly, canonicalNumericEqual, saveBollingerObservation } from "./bollingerObservationPersistence.ts";
 import { evaluateBollingerObservationFuture } from "./bollingerObservationResultEvaluator.ts";
 import { futureCandlesFromDataset, inspectBollingerResultCalendar, runBollingerResultBatch, selectPendingBollingerEvents,
   type BollingerResultRunnerDatabase, type PendingBollingerEvent } from "./bollingerObservationResultRunner.ts";
@@ -14,7 +18,6 @@ import type { CandleDataset } from "./types.ts";
 
 export const BOLLINGER_SHADOW_EXECUTION_SOURCE = "PHASE_7_SHADOW_AUTOMATION" as const;
 export const BOLLINGER_SHADOW_DEV_PROJECT_REF = "jdtqwryiyxeuoraecorw" as const;
-const PRODUCTION_PROJECT_REF = "paygtakajhvatwejygda";
 const OBSERVATION_LOCK_KEY = "signalx-technical-bb-shadow-observation";
 const RESULTS_LOCK_KEY = "signalx-technical-bb-shadow-results";
 
@@ -39,9 +42,9 @@ export type BollingerShadowCommonOptions = {
   database?: BollingerShadowDatabase;
   fetchBatch?: typeof fetchDailyCandleDatasets;
   acquireLock?: (operation: "OBSERVATION" | "RESULTS", ownerId: string, leaseSeconds: number,
-    database: BollingerShadowDatabase) => Promise<boolean>;
+    database: BollingerShadowDatabase, secretHex?: string) => Promise<boolean>;
   releaseLock?: (operation: "OBSERVATION" | "RESULTS", ownerId: string,
-    database: BollingerShadowDatabase) => Promise<void>;
+    database: BollingerShadowDatabase, secretHex?: string) => Promise<void>;
 };
 export type BollingerShadowObservationOptions = BollingerShadowCommonOptions & {
   stocks?: readonly BollingerRunnerStock[];
@@ -77,15 +80,15 @@ function validateConfiguration(options: BollingerShadowCommonOptions) {
   if (environment.TECHNICAL_BB_SHADOW_AUTOMATION_ENABLED !== "true") {
     throw new BollingerShadowAutomationError("KILL_SWITCH_OFF");
   }
+  if (options.mode !== "PREVIEW" && options.mode !== "SAVE") throw new BollingerShadowAutomationError("INVALID_MODE");
   const url = options.databaseUrl ?? environment.DATABASE_URL;
   if (!url) throw new BollingerShadowAutomationError("DEV_DATABASE_UNCONFIRMED");
-  let parsed: URL;
-  try { parsed = new URL(url); } catch { throw new BollingerShadowAutomationError("DEV_DATABASE_UNCONFIRMED"); }
-  const identity = `${parsed.hostname}:${decodeURIComponent(parsed.username)}`;
-  if (identity.includes(PRODUCTION_PROJECT_REF)) throw new BollingerShadowAutomationError("PRODUCTION_DATABASE_REJECTED");
-  if (!identity.includes(BOLLINGER_SHADOW_DEV_PROJECT_REF)) {
-    throw new BollingerShadowAutomationError("DEV_DATABASE_UNCONFIRMED");
+  try {
+    if (url !== PHASE7_OFFLINE_DESTINATION) validatePhase7DedicatedDestination(url);
+    else if (!options.environment || !options.databaseUrl) throw new Phase7SecurityError("OFFLINE_DEPENDENCIES_REQUIRED");
+    assertPhase7Database(options.database, url);
   }
+  catch (error) { throw new BollingerShadowAutomationError(error instanceof Phase7SecurityError ? error.code : "DEV_DATABASE_UNCONFIRMED"); }
   if (normalizeDateOnly(options.targetTradeDate) !== options.targetTradeDate) {
     throw new BollingerShadowAutomationError("INVALID_TARGET_TRADE_DATE");
   }
@@ -99,25 +102,27 @@ function validateConfiguration(options: BollingerShadowCommonOptions) {
   }
 }
 
-async function defaultDatabase() {
-  const { default: pool } = await import("../postgres.ts");
-  return pool as unknown as BollingerShadowDatabase;
-}
-
 function lockKey(operation: "OBSERVATION" | "RESULTS") {
   return operation === "OBSERVATION" ? OBSERVATION_LOCK_KEY : RESULTS_LOCK_KEY;
 }
 async function acquireDefault(operation: "OBSERVATION" | "RESULTS", ownerId: string,
-  leaseSeconds: number, database: BollingerShadowDatabase) {
-  const result = await database.query(`INSERT INTO cron_execution_locks (lock_key,owner_id,acquired_at,expires_at)
-    VALUES ($1,$2,NOW(),NOW()+($3*INTERVAL '1 second')) ON CONFLICT(lock_key) DO UPDATE SET
-    owner_id=EXCLUDED.owner_id,acquired_at=EXCLUDED.acquired_at,expires_at=EXCLUDED.expires_at
-    WHERE cron_execution_locks.expires_at<=NOW() RETURNING lock_key`, [lockKey(operation), ownerId, leaseSeconds]);
+  leaseSeconds: number, database: BollingerShadowDatabase, secretHex?: string) {
+  if (secretHex) {
+    const result = await database.query(PHASE7_CAP_ACQUIRE_SQL, [lockKey(operation), ownerId, secretHex, leaseSeconds]);
+    return result.rows.length === 1 && result.rows[0]?.acquired === true;
+  }
+  // Kept for existing isolated OFFLINE simulations; real adapter rejects legacy lock SQL.
+  const result = await database.query(PHASE7_ACQUIRE_LOCK_SQL, [lockKey(operation), ownerId, leaseSeconds]);
   return Boolean(result.rows[0]);
 }
 async function releaseDefault(operation: "OBSERVATION" | "RESULTS", ownerId: string,
-  database: BollingerShadowDatabase) {
-  await database.query("DELETE FROM cron_execution_locks WHERE lock_key=$1 AND owner_id=$2", [lockKey(operation), ownerId]);
+  database: BollingerShadowDatabase, secretHex?: string) {
+  if (secretHex) {
+    const result = await database.query(PHASE7_CAP_RELEASE_SQL, [lockKey(operation), ownerId, secretHex]);
+    if (result.rows.length !== 1 || result.rows[0]?.released !== true) throw new BollingerShadowAutomationError("CAPABILITY_RELEASE_FAILED");
+    return;
+  }
+  await database.query(PHASE7_RELEASE_LOCK_SQL, [lockKey(operation), ownerId]);
 }
 
 function tradeDate(timestamp: number) {
@@ -192,10 +197,8 @@ function isBroadFailure(total: number, affected: number, threshold: BroadFailure
 }
 
 async function integrity(database: BollingerShadowDatabase) {
-  const duplicate = await database.query(`SELECT count(*)::int count FROM (SELECT event_id,horizon,horizon_unit,result_version
-    FROM technical_bb_observation_results GROUP BY event_id,horizon,horizon_unit,result_version HAVING count(*)>1)x`);
-  const orphan = await database.query(`SELECT count(*)::int count FROM technical_bb_observation_results r
-    LEFT JOIN technical_bb_observation_events e ON e.id=r.event_id WHERE e.id IS NULL`);
+  const duplicate = await database.query(PHASE7_DUPLICATE_SQL);
+  const orphan = await database.query(PHASE7_ORPHAN_SQL);
   return { duplicate: Number(duplicate.rows[0]?.count ?? 0), orphan: Number(orphan.rows[0]?.count ?? 0) };
 }
 
@@ -208,14 +211,19 @@ function baseSummary(operation: "OBSERVATION" | "RESULTS", options: BollingerSha
 }
 
 export async function runBollingerShadowObservation(options: BollingerShadowObservationOptions) {
-  validateConfiguration(options); const database = options.database ?? await defaultDatabase();
-  const ownerId = randomUUID(); const acquire = options.acquireLock ?? acquireDefault;
+  validateConfiguration(options); const database = options.database!;
+  const ownerId = randomUUID();
+  const secretHex = (options.databaseUrl ?? options.environment?.DATABASE_URL) === PHASE7_OFFLINE_DESTINATION
+    ? undefined : randomBytes(32).toString("hex");
+  const acquire = options.acquireLock ?? acquireDefault;
   const release = options.releaseLock ?? releaseDefault; const summary = baseSummary("OBSERVATION", options);
-  if (!await acquire("OBSERVATION", ownerId, options.lockLeaseSeconds, database)) {
+  if (!await acquire("OBSERVATION", ownerId, options.lockLeaseSeconds, database, secretHex)) {
     return { ...summary, status: "LOCKED" as const, reason: "LOCK_NOT_ACQUIRED" };
   }
   try {
     const stocks = (options.stocks ?? ACTIVE_STOCKS).slice(0, options.limit);
+    if (options.databaseUrl === PHASE7_OFFLINE_DESTINATION && !options.fetchBatch)
+      throw new Phase7SecurityError("OFFLINE_DEPENDENCIES_REQUIRED");
     const fetcher = options.fetchBatch ?? fetchDailyCandleDatasets;
     const raw = await fetcher(stocks.map((stock) => stock.code), "LONG_300", DAILY_DATASET_REQUIREMENTS.RECENT_RANGE_20,
       { concurrency: options.concurrency, timeoutMs: options.timeoutMs, nowMs: (options.now ?? new Date()).getTime() });
@@ -237,6 +245,11 @@ export async function runBollingerShadowObservation(options: BollingerShadowObse
         timeoutMs: options.timeoutMs, now: options.now, database,
         metadata: { shadowOnly: true, executionSource: BOLLINGER_SHADOW_EXECUTION_SOURCE, phase: "7" },
         stopOnCanonicalMismatch: true,
+        // Only the Phase 7 SAVE path requires the transactional lease fence.
+        persist: options.mode === "SAVE"
+          ? (candidate) => saveBollingerObservation(candidate, database,
+              { lockKey: OBSERVATION_LOCK_KEY, ownerId, ...(secretHex ? { secretHex } : {}) })
+          : undefined,
         fetchBatch: async () => gated.batch,
       });
     } catch (error) {
@@ -254,14 +267,14 @@ export async function runBollingerShadowObservation(options: BollingerShadowObse
       freshnessMismatch: gated.freshnessMismatch, canonicalMismatch,
       freshnessDiagnostics: gated.freshnessDiagnostics,
       freshnessDiagnosticsTruncated: gated.freshnessDiagnosticsTruncated, ...check,
-      status: canonicalMismatch ? "FAILED" as const : "COMPLETED" as const,
+      status: canonicalMismatch || result.failedSymbols > 0 ? "FAILED" as const : "COMPLETED" as const,
       ...(canonicalMismatch ? { reason: "CANONICAL_MISMATCH" } : {}), runner: result };
-  } finally { await release("OBSERVATION", ownerId, database); }
+  } finally { await release("OBSERVATION", ownerId, database, secretHex); }
 }
 
 function validateResultInputs(inputs: readonly BollingerResultPersistenceInput[], event: PendingBollingerEvent) {
   for (const input of inputs) {
-    if (input.eventId !== event.eventId || input.entryPrice !== event.close || input.windowCandleCount !== input.horizon
+    if (event.phase7Provenance !== true || input.eventId !== event.eventId || input.entryPrice !== event.close || input.windowCandleCount !== input.horizon
       || input.resultQuality !== "COMPLETE" || input.resultVersion !== "BB_OBSERVATION_RESULT_V1"
       || input.horizonUnit !== "TRADING_DAY" || event.timeframe !== "1D") {
       throw new BollingerShadowAutomationError("RESULT_GATE_FAILED");
@@ -270,15 +283,21 @@ function validateResultInputs(inputs: readonly BollingerResultPersistenceInput[]
 }
 
 export async function runBollingerShadowResults(options: BollingerShadowResultsOptions) {
-  validateConfiguration(options); const database = options.database ?? await defaultDatabase();
-  const ownerId = randomUUID(); const acquire = options.acquireLock ?? acquireDefault;
+  validateConfiguration(options); const database = options.database!;
+  const ownerId = randomUUID();
+  const secretHex = (options.databaseUrl ?? options.environment?.DATABASE_URL) === PHASE7_OFFLINE_DESTINATION
+    ? undefined : randomBytes(32).toString("hex");
+  const acquire = options.acquireLock ?? acquireDefault;
   const release = options.releaseLock ?? releaseDefault; const summary = baseSummary("RESULTS", options);
-  if (!await acquire("RESULTS", ownerId, options.lockLeaseSeconds, database)) {
+  if (!await acquire("RESULTS", ownerId, options.lockLeaseSeconds, database, secretHex)) {
     return { ...summary, status: "LOCKED" as const, reason: "LOCK_NOT_ACQUIRED" };
   }
   try {
+    if (options.databaseUrl === PHASE7_OFFLINE_DESTINATION && !options.fetchBatch)
+      throw new Phase7SecurityError("OFFLINE_DEPENDENCIES_REQUIRED");
     const events = await (options.selectEvents
-      ? options.selectEvents(options.limit, database) : selectPendingBollingerEvents(database, options.limit));
+      ? options.selectEvents(options.limit, database) : selectPendingBollingerEvents(database, options.limit, true));
+    if (events.some(event => event.phase7Provenance !== true || !PHASE7_RESULT_CODES.includes(event.code))) throw new BollingerShadowAutomationError("INVALID_PROVENANCE");
     const codes = Array.from(new Set(events.map((event) => event.code)));
     const fetcher = options.fetchBatch ?? fetchDailyCandleDatasets; const now = options.now ?? new Date();
     const raw = await fetcher(codes, "LONG_300", DAILY_DATASET_REQUIREMENTS.RECENT_RANGE_20,
@@ -318,7 +337,24 @@ export async function runBollingerShadowResults(options: BollingerShadowResultsO
           const event = eventById.get(inputs[0]?.eventId);
           if (!event) throw new BollingerShadowAutomationError("RESULT_EVENT_NOT_SELECTED");
           validateResultInputs(inputs, event);
-          return saveBollingerObservationResults(inputs, persistenceOptions);
+          return saveBollingerObservationResults(inputs, { ...persistenceOptions, database,
+            lease: options.mode === "SAVE" ? { lockKey: RESULTS_LOCK_KEY, ownerId, ...(secretHex ? { secretHex } : {}) } : undefined,
+            validateParent: async (client, eventId) => {
+              const parent = await client.query(PHASE7_PARENT_SQL, [eventId]);
+              if (parent.rows.length !== 1) throw new BollingerShadowAutomationError("INVALID_PROVENANCE");
+              const row = parent.rows[0];
+              const timestamp = (value: unknown) => typeof value === "string" || value instanceof Date
+                ? new Date(value).getTime() : NaN;
+              if (!canonicalNumericEqual(row.event_id, event.eventId)
+                || !Number.isSafeInteger(event.snapshotId) || !canonicalNumericEqual(row.snapshot_id, event.snapshotId)
+                || row.code !== event.code || row.timeframe !== event.timeframe
+                || !canonicalNumericEqual(row.close, event.close)
+                || normalizeDateOnly(row.observation_date) !== event.observationDate
+                || !Number.isFinite(timestamp(event.barEndAt)) || timestamp(row.bar_end_at) !== timestamp(event.barEndAt)
+                || row.side !== event.side || !canonicalNumericEqual(row.sigma_level, event.sigmaLevel)
+                || row.event_type !== event.eventType) throw new BollingerShadowAutomationError("INVALID_PROVENANCE");
+            },
+          });
         } });
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith("CANONICAL_RESULT_MISMATCH")) throw error;
@@ -334,7 +370,7 @@ export async function runBollingerShadowResults(options: BollingerShadowResultsO
       timeout: gated.timeout, freshnessMismatch: resultFreshnessMismatch, canonicalMismatch, ...check,
       resultCalendarDiagnostics: result.resultCalendarDiagnostics,
       resultCalendarDiagnosticsTruncated: result.resultCalendarDiagnosticsTruncated,
-      status: canonicalMismatch ? "FAILED" as const : "COMPLETED" as const,
+      status: canonicalMismatch || result.failedEvents > 0 ? "FAILED" as const : "COMPLETED" as const,
       ...(canonicalMismatch ? { reason: "CANONICAL_MISMATCH" } : {}), runner: result };
-  } finally { await release("RESULTS", ownerId, database); }
+  } finally { await release("RESULTS", ownerId, database, secretHex); }
 }
