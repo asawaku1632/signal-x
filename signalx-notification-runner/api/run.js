@@ -11,6 +11,7 @@ const JOBS = {
   "golden-zone-1300": "/api/cron/golden-zone?slot=1300",
   "golden-zone-1430": "/api/cron/golden-zone?slot=1430",
   "golden-zone-1515": "/api/cron/golden-zone?slot=1515",
+  "ema-forward-shadow": "/api/cron/ema-forward-shadow",
 };
 
 export default async function handler(req, res) {
