@@ -50,7 +50,7 @@ function archiveInput(source:Awaited<ReturnType<typeof getForwardCandles>>,day:s
   asOfCompletedJstDate:day};
 }
 export async function prospectiveProgress(){
- const [control,counts,runs,results]=await Promise.all([
+ const [control,counts,runs,results,ruleRows]=await Promise.all([
   pool.query<Control>("SELECT enabled,activation_date::text FROM public.bb_forward_study_control WHERE singleton=true"),
   pool.query<{signals:number;completed:number;halts:number;failed:number}>(`SELECT
    (SELECT COUNT(*)::int FROM public.bb_forward_signals) signals,
@@ -66,12 +66,33 @@ export async function prospectiveProgress(){
    FROM public.bb_forward_signals s JOIN public.bb_forward_outcomes o
     ON o.version=s.version AND o.code=s.code AND o.signal_time=s.signal_time
    WHERE o.status='COMPLETE'
-   GROUP BY s.group_key,o.horizon ORDER BY s.group_key,o.horizon`)
+   GROUP BY s.group_key,o.horizon ORDER BY s.group_key,o.horizon`),
+  pool.query<{group_key:string;horizon:number;rule:string;n:number;wins:number;mean_return:number|null}>(`
+   SELECT s.group_key,o.horizon,rule.id AS rule,COUNT(*)::int n,
+    COUNT(*) FILTER(WHERE o.return_percent>0)::int wins,
+    AVG(o.return_percent)::float mean_return
+   FROM public.bb_forward_signals s JOIN public.bb_forward_outcomes o
+     ON o.version=s.version AND o.code=s.code AND o.signal_time=s.signal_time
+   CROSS JOIN LATERAL (VALUES
+     ('BASELINE'::text,true),
+     ('RSI70_VOLUME_HIGH',s.rsi_group='RSI_70_PLUS' AND s.volume_bucket='HIGH_1_3X'),
+     ('RSI50_70_VOLUME_HIGH',s.rsi_group='RSI_50_TO_70' AND s.volume_bucket='HIGH_1_3X'),
+     ('TREND0_5_VOLUME_LOW',s.trend_group='TREND_FLAT_TO_5' AND s.volume_bucket='BELOW_1_3X'),
+     ('TREND5_VOLUME_HIGH',s.trend_group='TREND_UP_5_PLUS' AND s.volume_bucket='HIGH_1_3X'),
+     ('BREAKOUT2_VOLUME_HIGH',s.breakout_group='BREAKOUT_2_PLUS' AND s.volume_bucket='HIGH_1_3X'),
+     ('RSI70_TREND0_5',s.rsi_group='RSI_70_PLUS' AND s.trend_group='TREND_FLAT_TO_5')
+   ) AS rule(id,eligible)
+   WHERE o.status='COMPLETE' AND rule.eligible
+   GROUP BY s.group_key,o.horizon,rule.id ORDER BY s.group_key,o.horizon,rule.id`)
  ]);
  return {version:FORWARD_VERSION,enabled:control.rows[0]?.enabled===true,
   activationDate:control.rows[0]?.activation_date??null,
   coverage:{...counts.rows[0],sampledStocksPerTradingDay:20,fixedUniverse:100},
   runs:runs.rows,
+  ruleScores:ruleRows.rows.map(r=>{
+   const n=Number(r.n);return {group:r.group_key,horizon:Number(r.horizon),rule:r.rule,n,
+    winRate:n>=30?Number(r.wins)/n:null,meanReturn:n>=30?Number(r.mean_return):null};
+  }),
   results:results.rows.map(r=>{
    const n=Number(r.n);return {group:r.group_key,horizon:Number(r.horizon),n,
     winRate:n>=30?Number(r.wins)/n:null,
