@@ -452,10 +452,6 @@ export async function GET(req: Request) {
         console.error("Momentum Memory benchmark update failed:", error);
         return { momentumMemoryBenchmarksUpdated: 0 };
       });
-    await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
-      console.error("Momentum Memory notification outcome update failed:", error);
-      return { momentumMemoryNotificationOutcomesUpdated: 0 };
-    });
       await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
         console.error("Momentum Memory notification outcome update failed:", error);
         return { momentumMemoryNotificationOutcomesUpdated: 0 };
