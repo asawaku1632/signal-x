@@ -1,4 +1,3 @@
-import { saveExplosiveCandidateDiscoveryPrices } from "@/app/lib/learning/explosiveDiscoveryPrices";
 import { NextResponse } from "next/server";
 
 import pool from "@/app/lib/postgres";
@@ -12,21 +11,7 @@ import { getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
 import { validateDailyScanCoverage } from "@/app/lib/learning/dailyScanGuard";
 import { saveRelatedLearning } from "@/app/lib/relatedLearning";
 import {
-  saveMomentumMemoryObservations,
-  updateMomentumMemoryOutcomes,
-  updateMomentumMemoryBenchmarks,
-  updateMomentumMemoryNotificationOutcomes,
-  refreshMomentumMemoryForwardStats,
-  refreshMomentumMemoryNotificationValidation,
-} from "@/app/lib/learning/momentumMemory";
-import { notifyMomentumMemoryCandidates } from "@/app/lib/learning/momentumMemoryNotification";
-import { saveHighAiPullbackObservations, updateHighAiPullbackOutcomes } from "@/app/lib/learning/highAiPullback";
-import { saveAiReversalObservations, updateAiReversalOutcomes } from "@/app/lib/learning/aiReversal";
-import { saveTrendPullbackReversalObservations, updateTrendPullbackReversalOutcomes } from "@/app/lib/learning/trendPullbackReversal";
-import {
   savePatternForwardObservations,
-  updatePatternForwardOutcomes,
-  refreshPatternForwardStats,
   type PatternForwardObservationInput,
 } from "@/app/lib/learning/patternForwardLearning";
 import {
@@ -416,70 +401,6 @@ export async function GET(req: Request) {
           `existing daily snapshot coverage is insufficient: ${existingCount}/${coverage.expectedCount} (minimum ${coverage.minimumCount})`,
         );
       }
-      const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
-      console.error("TPR observation failed:", error);
-      return { tprSaved: 0, tprFlagged: 0 };
-    });
-    const tprOutcomes = await updateTrendPullbackReversalOutcomes(targetDate).catch((error) => {
-      console.error("TPR outcome update failed:", error);
-      return { tprOutcomesUpdated: 0 };
-    });
-    const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
-      console.error("AI Reversal observation failed:", error);
-      return { aiReversalSaved: 0, aiReversalFlagged: 0 };
-    });
-    const aiReversalOutcomes = await updateAiReversalOutcomes(targetDate).catch((error) => {
-      console.error("AI Reversal outcome update failed:", error);
-      return { aiReversalOutcomesUpdated: 0 };
-    });
-    const highAiPullback = await saveHighAiPullbackObservations(targetDate).catch((error) => {
-      console.error("High AI Pullback observation failed:", error);
-      return { highAiPullbackSaved: 0, highAiPullbackFlagged: 0 };
-    });
-    const highAiPullbackOutcomes = await updateHighAiPullbackOutcomes(targetDate).catch((error) => {
-      console.error("High AI Pullback outcome update failed:", error);
-      return { highAiPullbackOutcomesUpdated: 0 };
-    });
-    const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
-        console.error("Momentum Memory observation failed:", error);
-        return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
-      });
-      const momentumMemoryOutcomes = await updateMomentumMemoryOutcomes(targetDate).catch((error) => {
-        console.error("Momentum Memory outcome update failed:", error);
-        return { momentumMemoryOutcomesUpdated: 0 };
-      });
-      await updateMomentumMemoryBenchmarks(targetDate).catch((error) => {
-        console.error("Momentum Memory benchmark update failed:", error);
-        return { momentumMemoryBenchmarksUpdated: 0 };
-      });
-    await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
-      console.error("Momentum Memory notification outcome update failed:", error);
-      return { momentumMemoryNotificationOutcomesUpdated: 0 };
-    });
-      await updateMomentumMemoryNotificationOutcomes(targetDate).catch((error) => {
-        console.error("Momentum Memory notification outcome update failed:", error);
-        return { momentumMemoryNotificationOutcomesUpdated: 0 };
-      });
-      await refreshMomentumMemoryForwardStats().catch((error) => {
-        console.error("Momentum Memory forward stats refresh failed:", error);
-      });
-      await refreshMomentumMemoryNotificationValidation().catch((error) => {
-        console.error("Momentum Memory notification validation refresh failed:", error);
-      });
-      const patternForwardOutcomes = await updatePatternForwardOutcomes(targetDate).catch((error) => {
-        console.error("Pattern forward outcome update failed:", error);
-        return { patternForwardOutcomesUpdated: 0 };
-      });
-      await refreshPatternForwardStats().catch((error) => {
-        console.error("Pattern forward stats refresh failed:", error);
-      });
-      await saveExplosiveCandidateDiscoveryPrices(targetDate).catch((error) => {
-      console.error("Explosive candidate discovery price snapshot failed:", error);
-      return { discoveryPricesSaved: 0 };
-    });
-    await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
-        console.error("Momentum Memory admin notification failed:", error);
-      });
       stage = "completed";
       await saveCronRunLog({
         route: "/api/learning/save-daily",
@@ -514,9 +435,6 @@ export async function GET(req: Request) {
         alreadySaved: true,
         failureReason: null,
         durationMs: Date.now() - startedAt,
-        ...momentumMemory,
-        ...momentumMemoryOutcomes,
-        ...patternForwardOutcomes,
       });
     }
 
@@ -700,63 +618,6 @@ export async function GET(req: Request) {
       console.error("Pattern forward observation save failed:", error);
       return { patternForwardSaved: 0, patternForwardDetectedStocks: 0 };
     });
-    const patternForwardOutcomes = await updatePatternForwardOutcomes(targetDate).catch((error) => {
-      console.error("Pattern forward outcome update failed:", error);
-      return { patternForwardOutcomesUpdated: 0 };
-    });
-    await refreshPatternForwardStats().catch((error) => {
-      console.error("Pattern forward stats refresh failed:", error);
-    });
-    const tpr = await saveTrendPullbackReversalObservations(targetDate).catch((error) => {
-      console.error("TPR observation failed:", error);
-      return { tprSaved: 0, tprFlagged: 0 };
-    });
-    const tprOutcomes = await updateTrendPullbackReversalOutcomes(targetDate).catch((error) => {
-      console.error("TPR outcome update failed:", error);
-      return { tprOutcomesUpdated: 0 };
-    });
-    const aiReversal = await saveAiReversalObservations(targetDate).catch((error) => {
-      console.error("AI Reversal observation failed:", error);
-      return { aiReversalSaved: 0, aiReversalFlagged: 0 };
-    });
-    const aiReversalOutcomes = await updateAiReversalOutcomes(targetDate).catch((error) => {
-      console.error("AI Reversal outcome update failed:", error);
-      return { aiReversalOutcomesUpdated: 0 };
-    });
-    const highAiPullback = await saveHighAiPullbackObservations(targetDate).catch((error) => {
-      console.error("High AI Pullback observation failed:", error);
-      return { highAiPullbackSaved: 0, highAiPullbackFlagged: 0 };
-    });
-    const highAiPullbackOutcomes = await updateHighAiPullbackOutcomes(targetDate).catch((error) => {
-      console.error("High AI Pullback outcome update failed:", error);
-      return { highAiPullbackOutcomesUpdated: 0 };
-    });
-    const momentumMemory = await saveMomentumMemoryObservations(targetDate).catch((error) => {
-      console.error("Momentum Memory observation failed:", error);
-      return { momentumMemorySaved: 0, momentumMemoryFlagged: 0 };
-    });
-    const momentumMemoryOutcomes = await updateMomentumMemoryOutcomes(targetDate).catch((error) => {
-      console.error("Momentum Memory outcome update failed:", error);
-      return { momentumMemoryOutcomesUpdated: 0 };
-    });
-    await updateMomentumMemoryBenchmarks(targetDate).catch((error) => {
-        console.error("Momentum Memory benchmark update failed:", error);
-        return { momentumMemoryBenchmarksUpdated: 0 };
-      });
-      await refreshMomentumMemoryForwardStats().catch((error) => {
-      console.error("Momentum Memory forward stats refresh failed:", error);
-    });
-    await refreshMomentumMemoryNotificationValidation().catch((error) => {
-      console.error("Momentum Memory notification validation refresh failed:", error);
-    });
-    await saveExplosiveCandidateDiscoveryPrices(targetDate).catch((error) => {
-      console.error("Explosive candidate discovery price snapshot failed:", error);
-      return { discoveryPricesSaved: 0 };
-    });
-    await notifyMomentumMemoryCandidates(targetDate).catch((error) => {
-      console.error("Momentum Memory admin notification failed:", error);
-    });
-
     stage = "RELATED_LEARNING_COMPLETED";
     logSaveDaily(runId, stage, {
       targetDate,
@@ -768,7 +629,6 @@ export async function GET(req: Request) {
       marketAdded: relatedResult.marketAdded,
       patternForwardSaved: patternForward.patternForwardSaved,
       patternForwardDetectedStocks: patternForward.patternForwardDetectedStocks,
-      patternForwardOutcomesUpdated: patternForwardOutcomes.patternForwardOutcomesUpdated,
     });
     await saveCronRunLog({
       route: "/api/learning/save-daily",
@@ -787,7 +647,6 @@ export async function GET(req: Request) {
         marketAdded: relatedResult.marketAdded,
         patternForwardSaved: patternForward.patternForwardSaved,
         patternForwardDetectedStocks: patternForward.patternForwardDetectedStocks,
-        patternForwardOutcomesUpdated: patternForwardOutcomes.patternForwardOutcomesUpdated,
       },
     });
 
@@ -858,9 +717,6 @@ export async function GET(req: Request) {
       ...result,
       ...relatedResult,
       ...patternForward,
-      ...patternForwardOutcomes,
-      ...momentumMemory,
-      ...momentumMemoryOutcomes,
     });
   } catch (error: unknown) {
     const message = errorMessage(error);
