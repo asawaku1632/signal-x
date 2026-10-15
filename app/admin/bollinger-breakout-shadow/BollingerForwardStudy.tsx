@@ -2,18 +2,21 @@
 import {useEffect,useState} from "react";
 type Summary={group:string;horizon:number;n:number;winRate:number|null;
  meanReturn:number|null;meanAdverse:number|null};
+type RuleScore={group:string;horizon:number;rule:string;n:number;winRate:number|null;meanReturn:number|null};
 type Run={trade_date:string;batch_id:number;status:string;observed_count:number;
  failed_count:number;new_signals:number;outcome_rows:number};
 type Report={enabled:boolean;activationDate:string|null;version:string;
  coverage:{signals:number;completed:number;halts:number;failed:number;
   sampledStocksPerTradingDay:number;fixedUniverse:number};
- runs:Run[];results:Summary[]};
+ runs:Run[];results:Summary[];ruleScores:RuleScore[]};
 const percent=(n:number|null,fraction=false)=>n===null?"標本不足":
  (n*(fraction?100:1)).toFixed(2)+"%";
 export default function BollingerForwardStudy(){
  const [report,setReport]=useState<Report|null>(null);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
+ const [group,setGroup]=useState("SQUEEZE_UP_BREAKOUT");
+ const [horizon,setHorizon]=useState(5);
  const load=async()=>{
   const r=await fetch("/api/admin/bollinger-breakout-shadow/forward",{cache:"no-store"});
   const json=await r.json() as {success:boolean;report?:Report};
@@ -73,6 +76,37 @@ export default function BollingerForwardStudy(){
       </p>;
      })}
     </div>)}
+  </details>
+  <details className="mt-4">
+   <summary className="cursor-pointer text-sm font-black">固定した7条件の将来成績（実際に観測したデータだけ）</summary>
+   <div className="mt-2 grid grid-cols-2 gap-2">
+    <select aria-label="将来研究の上抜け種類" value={group} onChange={e=>setGroup(e.target.value)}
+     className="min-w-0 rounded-lg border bg-white p-2 text-xs dark:bg-slate-800">
+     <option value="SQUEEZE_UP_BREAKOUT">スクイーズ後</option>
+     <option value="OTHER_UP_BREAKOUT">通常の上抜け</option>
+    </select>
+    <select aria-label="将来研究の評価期間" value={horizon} onChange={e=>setHorizon(Number(e.target.value))}
+     className="min-w-0 rounded-lg border bg-white p-2 text-xs dark:bg-slate-800">
+     <option value={1}>1営業日後</option><option value={3}>3営業日後</option>
+     <option value={5}>5営業日後</option>
+    </select>
+   </div>
+   {([
+    ["BASELINE","上抜け全件"],
+    ["RSI70_VOLUME_HIGH","RSI70以上 × 出来高1.3倍以上"],
+    ["RSI50_70_VOLUME_HIGH","RSI50〜70 × 出来高1.3倍以上"],
+    ["TREND0_5_VOLUME_LOW","直前10日0〜5%未満 × 出来高1.3倍未満"],
+    ["TREND5_VOLUME_HIGH","直前10日+5%以上 × 出来高1.3倍以上"],
+    ["BREAKOUT2_VOLUME_HIGH","上抜け幅2%以上 × 出来高1.3倍以上"],
+    ["RSI70_TREND0_5","RSI70以上 × 直前10日0〜5%未満"]
+   ] as const).map(([id,title])=>{
+    const s=report?.ruleScores.find(s=>s.group===group&&s.horizon===horizon&&s.rule===id);
+    return <div key={id} className="mt-2 rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">
+     <p className="font-bold">{title}</p>
+     <p className="mt-1">観測済み {s?.n??0}件 ／ プラス割合 {percent(s?.winRate??null,true)} ／ 平均損益 {percent(s?.meanReturn??null)}</p>
+    </div>;
+   })}
+   <p className="mt-2 text-xs text-slate-500">過去から決めていた同じ条件を使っています。30件未満では平均損益や勝率を表示しません。取引の推奨ではありません。</p>
   </details>
   <details className="mt-3">
    <summary className="cursor-pointer text-sm font-bold">直近の自動研究実行履歴</summary>
