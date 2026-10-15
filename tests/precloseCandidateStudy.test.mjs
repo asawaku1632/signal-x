@@ -6,7 +6,7 @@ import {
 } from "../app/lib/research/precloseCandidateStudy.ts";
 
 function d(day) {
-  return new Date(Date.UTC(2026, 0, day + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(2026, 9, day + 16)).toISOString().slice(0, 10);
 }
 function observation(day, index, options = {}) {
   const entryPrice = 1000;
@@ -65,6 +65,20 @@ test("even enough samples cannot pass a losing holdout", () => {
   assert.equal(result.phase, "NOT_PASSED");
   assert.deepEqual(result.verifiedCandidates, []);
   assert.equal(result.validation.winRate, 0);
+});
+
+test("pre-policy snapshots never count toward verified condition", () => {
+  const archival = Array.from({length:40}, (_, day) =>
+    Array.from({length:30}, (_, index) => ({
+      ...observation(day, index),
+      tradeDate: new Date(Date.UTC(2026, 7, day + 1)).toISOString().slice(0, 10),
+      outcomeDate: new Date(Date.UTC(2026, 7, day + 2)).toISOString().slice(0, 10),
+    }))).flat();
+  const result = analyzePrecloseStudy([...archival, observation(40, 0)], d(40));
+  assert.equal(result.availableDays, 0);
+  assert.equal(result.phase, "COLLECTING");
+  assert.equal(result.verifiedCandidates.length, 0);
+  assert.equal(result.history.length, 30);
 });
 
 test("100-share PNL, hold denominator and empty statistics are defined", () => {
