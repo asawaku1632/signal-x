@@ -1,5 +1,9 @@
 import { ACTIVE_STOCKS } from "../activeStockList.ts";
 export const PHASE7_CODES = Object.freeze(ACTIVE_STOCKS.slice(0, 20).map(stock => String(stock.code)));
+// Result follow-up must include previously saved Phase7 shadow observations outside the observation-only 20 stock batch.
+// STEP327E: 3762 was manually observed and must be tracked without widening OBSERVATION writes.
+export const PHASE7_RESULT_CODES = Object.freeze(
+  PHASE7_CODES.includes("3762") ? [...PHASE7_CODES] : [...PHASE7_CODES, "3762"]);
 export const PHASE7_PENDING_SQL = `SELECT e.id event_id,e.snapshot_id,e.side,e.sigma_level,e.event_type,s.code,s.timeframe,s.close,
             s.observation_date,s.bar_end_at,
             COALESCE(s.timeframe='1D' AND s.detector_version='BB_OBSERVATION_V1'
@@ -149,7 +153,7 @@ function register(sql: string, kind: Registration["kind"], command: string, vali
 }
 for (const sql of PHASE7_READ_SQL) register(sql, "READ", "SELECT", sql === PHASE7_PENDING_SQL
   ? v => v.length === 3 && id(v[0]) && Number(v[0]) <= 100 && v[1] === true
-    && Array.isArray(v[2]) && v[2].length === PHASE7_CODES.length && PHASE7_CODES.every((c, i) => (v[2] as unknown[])[i] === c)
+    && Array.isArray(v[2]) && v[2].length === PHASE7_RESULT_CODES.length && PHASE7_RESULT_CODES.every((c, i) => (v[2] as unknown[])[i] === c)
   : sql === PHASE7_OWN_LOCK_PRESENT_SQL ? v => v.length === 2 && lockKey(v[0]) && owner(v[1])
   : sql === PHASE7_READ_SQL[1] ? v => v.length === 1 && lockKey(v[0]) : v => v.length === 0);
 register(PHASE7_PARENT_SQL, "READ", "SELECT", v => v.length === 1 && id(v[0]));
