@@ -54,7 +54,7 @@ export default function PostSaleClient() {
 
   const field = (key: keyof typeof sample, title: string, kind: string = "text") =>
     <label className="block text-sm font-bold text-slate-700" key={key}>{title}
-      <input required type={kind} min={kind === "number" ? "0.01" : undefined}
+      <input required type={kind} min={key === "quantity" ? "1" : kind === "number" ? "0.01" : undefined}
         step={kind === "number" ? (key === "quantity" ? "1" : "0.01") : undefined}
         value={form[key]}
         onChange={e => setForm(old => ({...old, [key]: e.target.value}))}
