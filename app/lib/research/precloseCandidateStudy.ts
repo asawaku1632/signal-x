@@ -5,6 +5,7 @@
  */
 export const PRECLOSE_POLICY = Object.freeze({
   observationSlot: "15:15",
+  prospectiveStartDate: "2026-10-16", // frozen after the initial 10/13–15 exploratory findings
   minAiPower: 90,
   trainingDays: 20,
   holdoutDays: 10,
@@ -68,17 +69,25 @@ export function statsForPreclose(rows: PrecloseObservation[]): PrecloseStats {
 
 export function analyzePrecloseStudy(rows: PrecloseObservation[], todayJst: string) {
   // Never let a current-date result, if prematurely present, certify that date's candidates.
-  const past = rows.filter((row) => row.tradeDate < todayJst && row.tradeDate <= row.outcomeDate
+  const past = rows.filter((row) => row.tradeDate < todayJst
+    && row.tradeDate < row.outcomeDate && row.outcomeDate <= todayJst
     && finitePositive(row.entryPrice));
   const settled = past.filter((row) => finitePositive(row.outcomePrice));
-  const dated = [...new Set(settled.map((row) => row.tradeDate))].sort();
-  const lastHoldout = new Set(dated.slice(-PRECLOSE_POLICY.holdoutDays));
-  const earlier = new Set(dated.slice(0, -PRECLOSE_POLICY.holdoutDays));
+  // Dates before freezing the policy remain visible in the historical audit,
+  // but never contribute to training, holdout, or the qualification gate.
+  const prospective = settled.filter((row) =>
+    row.tradeDate >= PRECLOSE_POLICY.prospectiveStartDate);
+  const dated = [...new Set(prospective.map((row) => row.tradeDate))].sort();
+  const earlier = new Set(dated.slice(0, PRECLOSE_POLICY.trainingDays));
+  // Nonoverlapping later observations. After qualification, roll the
+  // recent ten days forward; deteriorating performance revokes the gate.
+  const lastHoldout = new Set(dated.slice(PRECLOSE_POLICY.trainingDays)
+    .slice(-PRECLOSE_POLICY.holdoutDays));
   const filtered = (source: PrecloseObservation[]) =>
     source.filter((row) => row.aiPower !== null && Number.isFinite(row.aiPower)
       && row.aiPower >= PRECLOSE_POLICY.minAiPower);
-  const training = statsForPreclose(filtered(settled.filter((row) => earlier.has(row.tradeDate))));
-  const holdoutRows = settled.filter((row) => lastHoldout.has(row.tradeDate));
+  const training = statsForPreclose(filtered(prospective.filter((row) => earlier.has(row.tradeDate))));
+  const holdoutRows = prospective.filter((row) => lastHoldout.has(row.tradeDate));
   const validation = statsForPreclose(filtered(holdoutRows));
   const baseline = statsForPreclose(holdoutRows);
   const improvement = validation.meanChangePct === null || baseline.meanChangePct === null
