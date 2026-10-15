@@ -751,7 +751,7 @@ export async function GET(req: Request) {
         throw error;
       }
     }
-    const patternForward = await trackRelatedStep("pattern-forward-observations", () => savePatternForwardObservations(targetDate, stocks)).catch((error) => {
+    const patternForward = await trackRelatedStep("pattern-forward-observations", () => savePatternForwardObservations(targetDate, stocks.map((stock) => ({ code: stock.code, price: stock.price, patternObservations: stock.patternLearning?.patternObservations ?? [] })))).catch((error) => {
       console.error("Pattern forward observation save failed:", error);
       return { patternForwardSaved: 0, patternForwardDetectedStocks: 0 };
     });
