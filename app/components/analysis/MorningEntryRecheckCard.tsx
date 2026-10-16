@@ -60,7 +60,7 @@ export default function MorningEntryRecheckCard(props: Props) {
       setChartStatus(null);
       setFetchError(null);
       try {
-        if (!/^[0-9]{4}$/.test(code)) throw new Error("Invalid code");
+        if (!/^[0-9]{4}$/.test(code)) throw new Error("銘柄コードが不正です");
         const [intradayResponse, dailyResponse] = await Promise.all([
           fetch(`/api/chart/${encodeURIComponent(code)}?tf=5m`,
             { cache: "no-store", signal: controller.signal }),
@@ -68,7 +68,7 @@ export default function MorningEntryRecheckCard(props: Props) {
             { cache: "no-store", signal: controller.signal }),
         ]);
         if (!intradayResponse.ok || !dailyResponse.ok) {
-          throw new Error("Charts unavailable");
+          throw new Error(`チャート取得失敗（5分足 HTTP ${intradayResponse.status} / 日足 HTTP ${dailyResponse.status}）`);
         }
         const [intraday, daily] = await Promise.all([
           intradayResponse.json() as Promise<ChartPayload<IntradayCandle>>,
