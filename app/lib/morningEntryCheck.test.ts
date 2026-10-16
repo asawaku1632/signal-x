@@ -128,3 +128,21 @@ test("fresh five-minute bars cannot override stale AI snapshot", () => {
   assert.equal(result.status, "UNAVAILABLE");
   assert.match(result.summary, /AI分析の更新/);
 });
+
+test("future-dated market bars never pass the freshness check", () => {
+  const result = assessMorningEntry({
+    ...base,
+    candles: [
+      { time: Date.parse("2026-10-13T00:00:00Z") / 1000, open: 3814, close: 3814 },
+      { time: Date.parse("2026-10-13T02:10:00Z") / 1000, open: 3820, close: 3830 },
+    ],
+  });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.match(result.summary, /株価データが古い/);
+});
+
+test("recent candles never override stale chart API status", () => {
+  const result = assessMorningEntry({ ...base, chartStatus: "stale" });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.match(result.summary, /チャートの更新/);
+});
