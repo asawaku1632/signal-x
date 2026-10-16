@@ -20,6 +20,13 @@ type Props = {
   scanUpdatedAt: string | null;
 };
 
+function ageLabel(iso: string | null) {
+  if (!iso) return "更新時刻なし";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "更新時刻が不正";
+  const minutes = Math.floor((Date.now() - ms) / 60000);
+  return minutes < 0 ? "時刻にずれがあります" : `${minutes}分前`;
+}
 function yen(value: number | null) {
   return value !== null && Number.isFinite(value)
     ? `${value.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}円`
@@ -37,12 +44,17 @@ export default function MorningEntryRecheckCard(props: Props) {
   const { code, aiPower, rsi, scanPrice, scanStatus, scanUpdatedAt } = props;
   const [decision, setDecision] = useState<MorningEntryCheck | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
+  const [latestBar, setLatestBar] = useState<string | null>(null);
+  const [chartUpdated, setChartUpdated] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       setLoading(true);
       setDecision(null);
+      setLatestBar(null);
+      setChartUpdated(null);
       try {
         if (!/^[0-9]{4}$/.test(code)) throw new Error("Invalid code");
         const [intradayResponse, dailyResponse] = await Promise.all([
@@ -58,6 +70,11 @@ export default function MorningEntryRecheckCard(props: Props) {
           intradayResponse.json() as Promise<ChartPayload<IntradayCandle>>,
           dailyResponse.json() as Promise<ChartPayload<DailyCandle>>,
         ]);
+        const times = (intraday.candles ?? []).map(c => c.time).filter(Number.isFinite);
+        if (!controller.signal.aborted) {
+          setLatestBar(times.length ? new Date(Math.max(...times) * 1000).toISOString() : null);
+          setChartUpdated(intraday.updatedAt ?? null);
+        }
         const now = new Date();
         const reference =
           daily.success && daily.status === "fresh" && Array.isArray(daily.candles)
@@ -88,7 +105,7 @@ export default function MorningEntryRecheckCard(props: Props) {
     };
     void load();
     return () => controller.abort();
-  }, [code, aiPower, rsi, scanPrice, scanStatus, scanUpdatedAt]);
+  }, [code, aiPower, rsi, scanPrice, scanStatus, scanUpdatedAt, retry]);
 
   const state = decision?.status ?? "UNAVAILABLE";
   const accent = state === "AVOID"
@@ -142,9 +159,19 @@ export default function MorningEntryRecheckCard(props: Props) {
         </ul>
       )}
 
+      {decision?.status === "UNAVAILABLE" && (
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <p className="font-black">データ鮮度診断（買い判断ではありません）</p>
+          <p>5分足API更新：{ageLabel(chartUpdated)}</p>
+          <p>最新5分足：{ageLabel(latestBar)}</p>
+          <p>AI分析更新：{ageLabel(scanUpdatedAt)}</p>
+          <p>古いデータでの判定は引き続き保留します。</p>
+        </div>
+      )}
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        disabled={loading}
+        onClick={() => setRetry(value => value + 1)}
         className="mt-3 min-h-11 w-full rounded-xl border border-sky-500 bg-sky-50 px-3 text-sm font-black text-sky-700 active:scale-[0.99] dark:bg-slate-800 dark:text-sky-300"
       >
         🔄 AI評価と株価を再取得して確認
