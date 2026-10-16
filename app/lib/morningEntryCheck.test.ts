@@ -67,7 +67,8 @@ test("limit exceeded is a no-chase warning", () => {
 test("mismatched scan and chart prices produce unavailable", () => {
   const result = assessMorningEntry({ ...base, scanPrice: 3814 });
   assert.equal(result.status, "UNAVAILABLE");
-  assert.match(result.summary, /食い違い/);
+  assert.equal(result.label, "価格の食い違い");
+  assert.match(result.summary, /価格に差があります/);
 });
 
 test("stale scan or market bars can never return conditional", () => {
