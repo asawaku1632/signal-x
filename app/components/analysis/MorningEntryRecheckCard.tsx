@@ -51,6 +51,8 @@ export default function MorningEntryRecheckCard(props: Props) {
   const [chartStatus, setChartStatus] = useState<string | null>(null);
   const [dailyStatus, setDailyStatus] = useState<string | null>(null);
   const [dailyUpdated, setDailyUpdated] = useState<string | null>(null);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [intradayCount, setIntradayCount] = useState<number | null>(null);
 
   // Keep the read-only chart check current while the Tokyo cash market is open.
   // This never changes AI scores, orders, notifications, or stored trading data.
@@ -83,6 +85,8 @@ export default function MorningEntryRecheckCard(props: Props) {
       setChartStatus(null);
       setDailyStatus(null);
       setDailyUpdated(null);
+      setCheckedAt(null);
+      setIntradayCount(null);
       setFetchError(null);
       try {
         if (!/^[0-9]{4}$/.test(code)) throw new Error("銘柄コードが不正です");
@@ -101,6 +105,8 @@ export default function MorningEntryRecheckCard(props: Props) {
         ]);
         const times = (intraday.candles ?? []).map(c => c.time).filter(Number.isFinite);
         if (!controller.signal.aborted) {
+          setCheckedAt(now.toISOString());
+          setIntradayCount(times.length);
           setLatestBar(times.length ? new Date(Math.max(...times) * 1000).toISOString() : null);
           setChartUpdated(intraday.updatedAt ?? null);
           setChartStatus(intraday.status ?? null);
@@ -124,6 +130,7 @@ export default function MorningEntryRecheckCard(props: Props) {
         if (!controller.signal.aborted) setDecision(result);
       } catch (error) {
         if (!controller.signal.aborted) {
+          setCheckedAt(new Date().toISOString());
           setFetchError(error instanceof Error ? error.message : "取得エラー");
           setDecision({
             status: "UNAVAILABLE", label: "確認待ち",
@@ -195,6 +202,8 @@ export default function MorningEntryRecheckCard(props: Props) {
       {decision?.status === "UNAVAILABLE" && (
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
           <p className="font-black">データ鮮度診断（買い判断ではありません）</p>
+          <p>今回の確認時刻：{observedAtLabel(checkedAt) ?? "未取得"}（日本時間）</p>
+          <p>5分足の取得本数：{intradayCount ?? "未取得"}</p>
           <p>5分足API状態：{chartStatus ?? "未取得"}</p>
           <p>5分足API更新：{ageLabel(chartUpdated)}</p>
           <p>最新5分足：{ageLabel(latestBar)}</p>
