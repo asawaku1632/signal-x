@@ -6,7 +6,11 @@ import { BB_FORWARD_FROZEN_CODES } from "./bollingerForwardUniverse";
 
 /** All identity reads and ledger writes share ONE checked Postgres client. */
 async function withVerifiedDaily100Client<T>(action: (client: import("pg").PoolClient) => Promise<T>): Promise<T> {
-  assertDaily100DevDatabase(process.env);
+  assertDaily100DevDatabase({
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    BB_DAILY100_DB_WRITE_ENABLED: process.env.BB_DAILY100_DB_WRITE_ENABLED,
+    DATABASE_URL: process.env.DATABASE_URL,
+  });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
