@@ -22,4 +22,22 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated read-only morning-entry tests
-        run: npx --yes --package=tsx@4.20.6 tsx --test app/lib/morningEntryCheck.test.ts
+        run: |
+          set -o pipefail
+          npx --yes --package=tsx@4.20.6 tsx --test app/lib/morningEntryCheck.test.ts 2>&1 | tee morning-entry-test.log
+      - name: Show concise failure diagnostics
+        if: failure()
+        run: |
+          echo "### Morning entry safety test failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Review the error excerpt below. No production services were changed." >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 90 morning-entry-test.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: morning-entry-test-log
+          path: morning-entry-test.log
+          if-no-files-found: ignore
+          retention-days: 7
