@@ -52,6 +52,27 @@ export default function MorningEntryRecheckCard(props: Props) {
   const [dailyStatus, setDailyStatus] = useState<string | null>(null);
   const [dailyUpdated, setDailyUpdated] = useState<string | null>(null);
 
+  // Keep the read-only chart check current while the Tokyo cash market is open.
+  // This never changes AI scores, orders, notifications, or stored trading data.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Tokyo", hourCycle: "h23",
+        weekday: "short", hour: "2-digit", minute: "2-digit",
+      }).formatToParts(new Date());
+      const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+      const weekday = part("weekday");
+      const minutes = Number(part("hour")) * 60 + Number(part("minute"));
+      const open = (minutes >= 9 * 60 && minutes <= 11 * 60 + 30) ||
+        (minutes >= 12 * 60 + 30 && minutes <= 15 * 60 + 30);
+      if (weekday !== "Sat" && weekday !== "Sun" && open) {
+        setRetry(value => value + 1);
+      }
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
