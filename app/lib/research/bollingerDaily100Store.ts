@@ -1,5 +1,6 @@
 import "server-only";
 import pool from "@/app/lib/postgres";
+import { assertDaily100DevDatabase } from "./bollingerDaily100DbGuard";
 import { claimDaily100Partition, type Daily100ClaimResult } from "./bollingerDaily100Claim";
 import { BB_FORWARD_FROZEN_CODES } from "./bollingerForwardUniverse";
 
@@ -14,6 +15,7 @@ export async function tryInsertDaily100Claim(args: {
   policyVersion: string;
   codes: string[];
 }): Promise<boolean> {
+  assertDaily100DevDatabase(process.env);
   const result = await pool.query<{ partition_id: number }>(
     `INSERT INTO public.bb_daily100_runs
       (trade_date,partition_id,policy_version,codes)
@@ -29,6 +31,7 @@ export async function claimDaily100FromDatabase(args: {
   tradeDate: string;
   partitionId: number;
 }): Promise<Daily100ClaimResult> {
+  assertDaily100DevDatabase(process.env);
   const control = await pool.query<{
     enabled: boolean;
     activation_date: string | null;
