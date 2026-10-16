@@ -47,6 +47,8 @@ export default function MorningEntryRecheckCard(props: Props) {
   const [retry, setRetry] = useState(0);
   const [latestBar, setLatestBar] = useState<string | null>(null);
   const [chartUpdated, setChartUpdated] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [chartStatus, setChartStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,6 +57,8 @@ export default function MorningEntryRecheckCard(props: Props) {
       setDecision(null);
       setLatestBar(null);
       setChartUpdated(null);
+      setChartStatus(null);
+      setFetchError(null);
       try {
         if (!/^[0-9]{4}$/.test(code)) throw new Error("Invalid code");
         const [intradayResponse, dailyResponse] = await Promise.all([
@@ -74,6 +78,7 @@ export default function MorningEntryRecheckCard(props: Props) {
         if (!controller.signal.aborted) {
           setLatestBar(times.length ? new Date(Math.max(...times) * 1000).toISOString() : null);
           setChartUpdated(intraday.updatedAt ?? null);
+          setChartStatus(intraday.status ?? null);
         }
         const now = new Date();
         const reference =
@@ -90,8 +95,9 @@ export default function MorningEntryRecheckCard(props: Props) {
           aiPower, rsi, scanPrice, now,
         });
         if (!controller.signal.aborted) setDecision(result);
-      } catch {
+      } catch (error) {
         if (!controller.signal.aborted) {
+          setFetchError(error instanceof Error ? error.message : "取得エラー");
           setDecision({
             status: "UNAVAILABLE", label: "確認待ち",
             summary: "最新の価格を取得できません。古い情報で新規購入を判断しないでください。",
@@ -162,9 +168,12 @@ export default function MorningEntryRecheckCard(props: Props) {
       {decision?.status === "UNAVAILABLE" && (
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
           <p className="font-black">データ鮮度診断（買い判断ではありません）</p>
+          <p>5分足API状態：{chartStatus ?? "未取得"}</p>
           <p>5分足API更新：{ageLabel(chartUpdated)}</p>
           <p>最新5分足：{ageLabel(latestBar)}</p>
+          <p>AI分析状態：{scanStatus ?? "未取得"}</p>
           <p>AI分析更新：{ageLabel(scanUpdatedAt)}</p>
+          {fetchError && <p>取得エラー：{fetchError}</p>}
           <p>古いデータでの判定は引き続き保留します。</p>
         </div>
       )}
@@ -174,11 +183,11 @@ export default function MorningEntryRecheckCard(props: Props) {
         onClick={() => setRetry(value => value + 1)}
         className="mt-3 min-h-11 w-full rounded-xl border border-sky-500 bg-sky-50 px-3 text-sm font-black text-sky-700 active:scale-[0.99] dark:bg-slate-800 dark:text-sky-300"
       >
-        🔄 AI評価と株価を再取得して確認
+        🔄 チャートを再取得して判定
       </button>
       <p className="mt-2 text-[11px] font-medium leading-5 text-slate-500 dark:text-slate-400">
         開いた時点のAI分析と当日5分足で、上限超え・急落・過熱・データ不一致を点検する未検証の参考チェックです。
-        時間外・データ不足は「確認待ち」。判定が良くても購入保証ではありません。注文の変更・取消・自動発注は行いません。
+        このボタンはチャートを再取得します。AI評価は画面に渡された値を使用するため、更新には画面の再表示が必要な場合があります。時間外・データ不足は「確認待ち」。判定が良くても購入保証ではありません。注文の変更・取消・自動発注は行いません。
       </p>
     </section>
   );
