@@ -1,0 +1,25 @@
+name: Research morning entry safety tests
+on:
+  push:
+    branches:
+      - research-overnight-exit-shadow-20261016
+    paths:
+      - 'app/lib/morningEntryCheck.ts'
+      - 'app/lib/morningEntryCheck.test.ts'
+      - 'app/lib/overnightBuyLimit.ts'
+      - 'app/lib/tseOrderTick.ts'
+      - '.github/workflows/research-morning-entry-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  morning-entry-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated read-only morning-entry tests
+        run: npx --yes --package=tsx@4.20.6 tsx --test app/lib/morningEntryCheck.test.ts
