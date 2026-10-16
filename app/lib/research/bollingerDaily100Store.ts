@@ -1,8 +1,19 @@
 import "server-only";
 import pool from "@/app/lib/postgres";
-import { assertDaily100DevDatabase } from "./bollingerDaily100DbGuard";
+import { assertDaily100DevDatabase, DAILY100_DEV_PROJECT_REF } from "./bollingerDaily100DbGuard";
 import { claimDaily100Partition, type Daily100ClaimResult } from "./bollingerDaily100Claim";
 import { BB_FORWARD_FROZEN_CODES } from "./bollingerForwardUniverse";
+
+/** Verify database-held marker, not merely connection URL. Fail closed. */
+async function verifyDaily100DatabaseIdentity(): Promise<void> {
+  assertDaily100DevDatabase(process.env);
+  const identity = await pool.query<{ database_project_ref: string | null }>(
+    "SELECT database_project_ref FROM public.bb_daily100_control WHERE singleton=true",
+  );
+  if (identity.rows.length !== 1 || identity.rows[0].database_project_ref !== DAILY100_DEV_PROJECT_REF) {
+    throw Error("DAILY100_DATABASE_IDENTITY_MISMATCH");
+  }
+}
 
 /**
  * Storage-only adapter: never fetches prices or starts a study.
@@ -15,7 +26,7 @@ export async function tryInsertDaily100Claim(args: {
   policyVersion: string;
   codes: string[];
 }): Promise<boolean> {
-  assertDaily100DevDatabase(process.env);
+  await verifyDaily100DatabaseIdentity();
   const result = await pool.query<{ partition_id: number }>(
     `INSERT INTO public.bb_daily100_runs
       (trade_date,partition_id,policy_version,codes)
@@ -31,7 +42,7 @@ export async function claimDaily100FromDatabase(args: {
   tradeDate: string;
   partitionId: number;
 }): Promise<Daily100ClaimResult> {
-  assertDaily100DevDatabase(process.env);
+  await verifyDaily100DatabaseIdentity();
   const control = await pool.query<{
     enabled: boolean;
     activation_date: string | null;
