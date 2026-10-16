@@ -49,6 +49,8 @@ export default function MorningEntryRecheckCard(props: Props) {
   const [chartUpdated, setChartUpdated] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [chartStatus, setChartStatus] = useState<string | null>(null);
+  const [dailyStatus, setDailyStatus] = useState<string | null>(null);
+  const [dailyUpdated, setDailyUpdated] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,6 +60,8 @@ export default function MorningEntryRecheckCard(props: Props) {
       setLatestBar(null);
       setChartUpdated(null);
       setChartStatus(null);
+      setDailyStatus(null);
+      setDailyUpdated(null);
       setFetchError(null);
       try {
         if (!/^[0-9]{4}$/.test(code)) throw new Error("銘柄コードが不正です");
@@ -79,6 +83,8 @@ export default function MorningEntryRecheckCard(props: Props) {
           setLatestBar(times.length ? new Date(Math.max(...times) * 1000).toISOString() : null);
           setChartUpdated(intraday.updatedAt ?? null);
           setChartStatus(intraday.status ?? null);
+          setDailyStatus(daily.status ?? null);
+          setDailyUpdated(daily.updatedAt ?? null);
         }
         const now = new Date();
         const reference =
@@ -171,6 +177,8 @@ export default function MorningEntryRecheckCard(props: Props) {
           <p>5分足API状態：{chartStatus ?? "未取得"}</p>
           <p>5分足API更新：{ageLabel(chartUpdated)}</p>
           <p>最新5分足：{ageLabel(latestBar)}</p>
+          <p>日足API状態：{dailyStatus ?? "未取得"}</p>
+          <p>日足API更新：{ageLabel(dailyUpdated)}</p>
           <p>AI分析状態：{scanStatus ?? "未取得"}</p>
           <p>AI分析更新：{ageLabel(scanUpdatedAt)}</p>
           {fetchError && <p>取得エラー：{fetchError}</p>}
