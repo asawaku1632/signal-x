@@ -103,6 +103,7 @@ export default function MorningEntryRecheckCard(props: Props) {
           intradayResponse.json() as Promise<ChartPayload<IntradayCandle>>,
           dailyResponse.json() as Promise<ChartPayload<DailyCandle>>,
         ]);
+        const now = new Date();
         const times = (intraday.candles ?? []).map(c => c.time).filter(Number.isFinite);
         if (!controller.signal.aborted) {
           setCheckedAt(now.toISOString());
@@ -113,7 +114,6 @@ export default function MorningEntryRecheckCard(props: Props) {
           setDailyStatus(daily.status ?? null);
           setDailyUpdated(daily.updatedAt ?? null);
         }
-        const now = new Date();
         const reference =
           daily.success && daily.status === "fresh" && Array.isArray(daily.candles)
             ? estimateOvernightBuyLimit(daily.candles, now, { forMorningRecheck: true })
