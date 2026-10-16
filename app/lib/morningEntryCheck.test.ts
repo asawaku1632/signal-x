@@ -106,3 +106,25 @@ test("previous reference after daily market opens excludes unfinished bar", () =
     assert.equal(result.referenceClose, 3814);
   }
 });
+
+test("a freshly refreshed API never makes a 16-minute-old candle tradable", () => {
+  const result = assessMorningEntry({
+    ...base,
+    chartUpdatedAt: "2026-10-13T02:09:00Z",
+    candles: [
+      { time: Date.parse("2026-10-13T00:00:00Z") / 1000, open: 3814, close: 3814 },
+      { time: Date.parse("2026-10-13T01:53:00Z") / 1000, open: 3820, close: 3830 },
+    ],
+  });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.match(result.summary, /株価データが古い/);
+});
+
+test("fresh five-minute bars cannot override stale AI snapshot", () => {
+  const result = assessMorningEntry({
+    ...base,
+    scanUpdatedAt: "2026-10-13T02:04:00Z",
+  });
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.match(result.summary, /AI分析の更新/);
+});
