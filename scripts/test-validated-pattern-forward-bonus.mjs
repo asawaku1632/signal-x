@@ -91,6 +91,23 @@ assert.equal(combined.matchedValidatedCount, 2);
 assert.equal(combined.bonus, 5);
 assert.equal(combined.patternId, "pattern050");
 
+// Regression: a validated statistic must never be applied when the
+// observation's direction differs, even when the pattern ID matches.
+const directionMismatch = calculateValidatedPatternForwardBonus(
+  [{ id: "pattern050", name: "赤三兵", direction: "SELL", confidence: 80, score: 20 }],
+  new Map([["pattern050", stat({ direction: "BUY" })]]),
+);
+assert.equal(directionMismatch.applied, false);
+assert.equal(directionMismatch.bonus, 0);
+
+// Neutral and collecting patterns must never affect AI POWER.
+const neutralObservation = calculateValidatedPatternForwardBonus(
+  [{ id: "pattern050", name: "赤三兵", direction: "NEUTRAL", confidence: 80, score: 20 }],
+  new Map([["pattern050", stat({ direction: "NEUTRAL" })]]),
+);
+assert.equal(neutralObservation.applied, false);
+assert.equal(neutralObservation.bonus, 0);
+
 const noValidated = calculateValidatedPatternForwardBonus(
   observations,
   new Map([["pattern050", stat({ validationStatus: "PROMISING" })]]),
