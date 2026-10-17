@@ -1,3 +1,4 @@
+import pool from "@/app/lib/postgres";
 import { getAdminSession } from "@/app/lib/admin";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import {
@@ -37,7 +38,20 @@ export default async function PatternPerformancePage() {
     );
   }
 
-  const stats = await getPatternForwardStats();
+  const [stats, mixedDirections] = await Promise.all([
+    getPatternForwardStats(),
+    pool.query<{ pattern_id: string; directions: string; samples: number }>(`
+      SELECT pattern_id,
+             STRING_AGG(DISTINCT direction, ', ' ORDER BY direction) AS directions,
+             COUNT(*)::int AS samples
+      FROM public.pattern_forward_observations
+      GROUP BY pattern_id
+      HAVING COUNT(DISTINCT direction) > 1
+      ORDER BY COUNT(*) DESC
+      LIMIT 20
+    `),
+  ]);
+  const mixedDirectionIds = new Set(mixedDirections.rows.map((row) => row.pattern_id));
   const byId = new Map(stats.map((item) => [item.patternId, item]));
   const totalSamples = stats.reduce((sum, item) => sum + item.sampleCount, 0);
   const completed5d = stats.reduce((sum, item) => sum + item.completed5dCount, 0);
@@ -58,6 +72,18 @@ export default async function PatternPerformancePage() {
         「発生」と「5日確定」は異なります。追跡率は検出記録のうち5日後まで確定した割合で、的中率ではありません。SELLの「方向補正」は株価下落をプラス評価する研究指標であり、
         実際の買い持ち損益とは異なります。必ず隣の「5日平均(株価)」と併せて確認してください。
       </p>
+
+      {mixedDirections.rows.length > 0 && (
+        <p style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fff7ed", border: "1px solid #fdba74", lineHeight: 1.7 }}>
+          ⚠ 同一パターンIDに複数の売買方向が混在しています。方向別に分けない集計の勝率・平均・AI反映評価は参考値です。
+          {mixedDirections.rows.map((row) => (
+            <span key={row.pattern_id} style={{ display: "block" }}>
+              {row.pattern_id}: {row.directions}（{row.samples}件）
+            </span>
+          ))}
+          既存の売買判定はこの画面から変更しません。
+        </p>
+      )}
 
       <section style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
         {[
@@ -94,14 +120,15 @@ export default async function PatternPerformancePage() {
             {chartPatternCatalog.map((pattern) => {
               const item = byId.get(pattern.id);
               const status = item?.validationStatus ?? "NOT_SEEN";
+              const mixedDirection = mixedDirectionIds.has(pattern.id);
               return (
                 <tr key={pattern.id}>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontFamily: "monospace" }}>{pattern.id}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{pattern.name}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{pattern.direction}</td>
-                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{statusLabel(status)}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{mixedDirection ? "⚠ 方向混在・要分離" : statusLabel(status)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>
-                    {item && calculateValidatedPatternStatBonus(item) !== 0
+                    {!mixedDirection && item && calculateValidatedPatternStatBonus(item) !== 0
                       ? `${calculateValidatedPatternStatBonus(item) > 0 ? "+" : ""}${calculateValidatedPatternStatBonus(item)}`
                       : "—"}
                   </td>
