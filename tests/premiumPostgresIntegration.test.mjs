@@ -10,6 +10,9 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
   const load = async (p) => readFile(new URL("../"+p,import.meta.url),"utf8");
   try {
     await pool.query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      await pool.query("CREATE ROLE " + role + " NOLOGIN");
+    }
     await pool.query(`CREATE TABLE public.signalx_users (id UUID PRIMARY KEY DEFAULT gen_random_uuid())`);
     await pool.query(await load("scripts/migrations/20261018_create_premium_entitlements_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_billing_event_inbox_isolated.sql"));
