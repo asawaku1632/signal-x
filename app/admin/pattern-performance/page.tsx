@@ -68,15 +68,29 @@ export default async function PatternPerformancePage() {
       ORDER BY SUM(detected) DESC
       LIMIT 20
     `),
-    pool.query<{ detection_date: string; detected: number; completed_5d: number; stocks: number }>(`
-      SELECT trade_date::text AS detection_date,
-             COUNT(*)::int AS detected,
-             COUNT(return_5d)::int AS completed_5d,
-             COUNT(DISTINCT code)::int AS stocks
-      FROM public.pattern_forward_observations
-      GROUP BY trade_date
-      ORDER BY trade_date DESC
-      LIMIT 15
+    pool.query<{ detection_date: string; detected: number; completed_5d: number; stocks: number; later_saved_sessions: number }>(`
+      WITH recent_cohorts AS (
+        SELECT trade_date,
+               COUNT(*)::int AS detected,
+               COUNT(return_5d)::int AS completed_5d,
+               COUNT(DISTINCT code)::int AS stocks
+        FROM public.pattern_forward_observations
+        GROUP BY trade_date
+        ORDER BY trade_date DESC
+        LIMIT 15
+      ),
+      available_sessions AS (
+        SELECT DISTINCT date::date AS session_date
+        FROM public.daily_stock_results
+        WHERE date::date > (SELECT MIN(trade_date) FROM recent_cohorts)
+      )
+      SELECT cohort.trade_date::text AS detection_date,
+             cohort.detected, cohort.completed_5d, cohort.stocks,
+             COUNT(session.session_date)::int AS later_saved_sessions
+      FROM recent_cohorts cohort
+      LEFT JOIN available_sessions session ON session.session_date > cohort.trade_date
+      GROUP BY cohort.trade_date, cohort.detected, cohort.completed_5d, cohort.stocks
+      ORDER BY cohort.trade_date DESC
     `),
   ]);
   const mixedDirectionIds = new Set(mixedDirections.rows.map((row) => row.pattern_id));
@@ -143,12 +157,12 @@ export default async function PatternPerformancePage() {
       <section style={{ marginTop: 18, padding: 14, border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900 }}>📅 検出日別・5営業日後の追跡状況</h2>
         <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-          検出日ごとの保存件数と5日後確定件数です。未確定は未到達または追跡処理待ちを含み、失敗件数ではありません。
+          検出日ごとの保存件数と5日後確定件数です。未確定は未到達または追跡処理待ちを含みます。後続の保存営業日が5日以上ある未確定分は、追跡漏れの可能性として要確認です（銘柄別の欠損もあり得ます）。
         </p>
         <div style={{ overflowX: "auto", marginTop: 10 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 690 }}>
             <thead><tr style={{ background: "#f8fafc" }}>
-              {["検出日", "検出件数", "銘柄数", "5日確定", "未確定"].map((heading) => (
+              {["検出日", "検出件数", "銘柄数", "5日確定", "未確定", "後続保存日数", "状態"].map((heading) => (
                 <th key={heading} style={{ padding: 9, textAlign: "left", fontSize: 12 }}>{heading}</th>
               ))}
             </tr></thead>
@@ -159,6 +173,14 @@ export default async function PatternPerformancePage() {
                 <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.stocks}</td>
                 <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.completed_5d}</td>
                 <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detected - cohort.completed_5d}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.later_saved_sessions}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb", fontWeight: 800 }}>
+                  {cohort.later_saved_sessions >= 5 && cohort.completed_5d < cohort.detected
+                    ? "⚠ 追跡要確認"
+                    : cohort.completed_5d === cohort.detected
+                      ? "✅ 全件確定"
+                      : "⏳ 5日未到達"}
+                </td>
               </tr>
             ))}</tbody>
           </table>
