@@ -132,6 +132,18 @@ assert.match(validatedLookup, /NOT EXISTS\s*\(/);
 assert.match(validatedLookup, /observation\.pattern_id\s*=\s*pattern_forward_stats\.pattern_id/);
 assert.match(validatedLookup, /observation\.direction\s+IS DISTINCT FROM\s+pattern_forward_stats\.direction/);
 
+// Validation thresholds must count only completed, directionally scored
+// five-day observations, not pending detections on unrelated dates/stocks.
+const refreshSource = loaderSource.split(
+  "export async function refreshPatternForwardStats(): Promise<void> {",
+)[1]?.split("function numberOrNull(")[0];
+assert.ok(refreshSource, "pattern stats refresh must exist");
+assert.match(refreshSource, /COUNT\(DISTINCT direction\)\s*>\s*1\s+THEN 'COLLECTING'/);
+assert.match(refreshSource, /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 30/);
+assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 15/);
+assert.match(refreshSource, /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 15/);
+assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 8/);
+
 console.log(JSON.stringify({
   status: "PASS",
   validatedBuyBonus: calculateValidatedPatternStatBonus(stat()),
