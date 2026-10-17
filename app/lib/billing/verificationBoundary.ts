@@ -3,7 +3,7 @@
  * The trusted server caller must provide an actual provider verification adapter.
  * Never use browser/client input as a verification result.
  */
-import { validateVerifiedBillingNotice, type VerifiedBillingNotice } from "./billingIngestionContract";
+import { validateVerifiedBillingNotice, type VerifiedBillingNotice } from "./billingIngestionContract.ts";
 export type UntrustedBillingNotification = {
   provider: "stripe" | "google_play";
   rawBody: string;
