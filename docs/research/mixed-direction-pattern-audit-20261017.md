@@ -30,3 +30,11 @@ The validated-bonus lookup in `app/lib/learning/patternForwardLearning.ts` must 
 The admin display in `app/admin/pattern-performance/page.tsx` reports detected, completed and directional hits separately for BUY and SELL, while NEUTRAL is not scored as a directional hit.
 
 Do not merge until the PR's Next.js build and offline checks pass.
+
+## Read-only production check (2026-10-17)
+
+- 41 observed pattern IDs; one mixed-direction ID (`pattern045`).
+- Among patterns with at least 50 completed five-day outcomes, none currently passes the old date-diversity threshold while failing the new completed-date threshold. Likewise, no pattern with at least 20 outcomes meets the old early-diversity thresholds while failing the new completed-diversity thresholds.
+- The largest completed cohorts currently have only **one distinct completed trade date**: `pattern002` 493 completed outcomes, `pattern006` 190, `pattern048` 178. `pattern045` has 337 completed outcomes pooled across three directions, also from one completed trade date.
+- Therefore no five-day pattern should be treated as validated across independent market dates. The new eligibility rule is preventive rather than a retroactive downgrade of currently validated patterns.
+- Queries were SELECT-only against production; no writes, refreshes, or deployments.
