@@ -24,6 +24,9 @@ on:
       - 'tests/playSubscriptionLookup.test.mjs'
       - 'app/lib/billing/playPurchaseRestoration.ts'
       - 'tests/playPurchaseRestoration.test.mjs'
+      - 'scripts/migrations/20261018_create_play_purchase_bindings_isolated.sql'
+      - 'app/lib/billing/playTokenFingerprint.ts'
+      - 'tests/playPurchaseBinding.test.mjs'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
 
@@ -40,7 +43,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated premium policy tests
-        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
