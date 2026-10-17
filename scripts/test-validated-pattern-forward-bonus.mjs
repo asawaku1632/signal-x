@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 
 const module = await import(
   pathToFileURL(resolve(process.cwd(), "app/lib/learning/patternForwardBonus.ts")).href
@@ -114,6 +115,22 @@ const noValidated = calculateValidatedPatternForwardBonus(
 );
 assert.equal(noValidated.applied, false);
 assert.equal(noValidated.bonus, 0);
+
+// Source-level regression: the database loader must exclude pattern IDs whose
+// observed directions disagree with the pooled stats direction.
+// This test is offline: it never connects to Supabase or runs a real trade.
+const loaderSource = readFileSync(
+  resolve(process.cwd(), "app/lib/learning/patternForwardLearning.ts"),
+  "utf8",
+);
+const validatedLookup = loaderSource.split(
+  "export async function getValidatedPatternForwardStatsMap(",
+)[1];
+assert.ok(validatedLookup, "validated stats lookup must exist");
+assert.match(validatedLookup, /validation_status\s*=\s*'VALIDATED'/);
+assert.match(validatedLookup, /NOT EXISTS\s*\(/);
+assert.match(validatedLookup, /observation\.pattern_id\s*=\s*pattern_forward_stats\.pattern_id/);
+assert.match(validatedLookup, /observation\.direction\s+IS DISTINCT FROM\s+pattern_forward_stats\.direction/);
 
 console.log(JSON.stringify({
   status: "PASS",
