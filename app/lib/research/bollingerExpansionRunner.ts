@@ -185,11 +185,12 @@ export async function runBbExpansion(id:number,now=new Date()){
      ON CONFLICT(detector_version,code,signal_time,horizon) DO NOTHING`,[JSON.stringify(rows)]);
    added=ins.rowCount??0;
    const uniqueSignals=new Set(rows.filter(x=>x.horizon===1).map(x=>x.code+":"+x.signal_time)).size;
-   await client.query(`UPDATE public.bb_breakout_expansion_attempts
+   const completed=await client.query(`UPDATE public.bb_breakout_expansion_attempts
      SET status='COMPLETE',saved_outcomes=$3,saved_signals=$4,
          finished_at=now(),note='FULL_QUALITY_SHADOW'
      WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'`,
      [id,target,added,uniqueSignals]);
+   if(completed.rowCount!==1)throw Error("COMPLETE_UPDATE_COUNT_MISMATCH");
    await client.query("COMMIT");
   }catch(e){await client.query("ROLLBACK");throw e;}
   finally{client.release();}
