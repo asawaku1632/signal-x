@@ -42,6 +42,7 @@ export default async function PatternPerformancePage() {
   const totalSamples = stats.reduce((sum, item) => sum + item.sampleCount, 0);
   const completed5d = stats.reduce((sum, item) => sum + item.completed5dCount, 0);
   const validated = stats.filter((item) => item.validationStatus === "VALIDATED").length;
+  const completedRate = totalSamples > 0 ? (completed5d / totalSamples * 100).toFixed(1) : null;
   const promising = stats.filter((item) => item.validationStatus === "PROMISING").length;
 
   return (
@@ -54,7 +55,7 @@ export default async function PatternPerformancePage() {
 
       <p style={{ marginTop: 10, color: "#92400e", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 12, lineHeight: 1.7 }}>
         勝率は観測した全件ではなく、該当営業日まで追跡が完了した方向判定可能な件数を母数とします。
-        「発生」と「5日確定」は異なります。SELLの「方向補正」は株価下落をプラス評価する研究指標であり、
+        「発生」と「5日確定」は異なります。追跡率は検出記録のうち5日後まで確定した割合で、的中率ではありません。SELLの「方向補正」は株価下落をプラス評価する研究指標であり、
         実際の買い持ち損益とは異なります。必ず隣の「5日平均(株価)」と併せて確認してください。
       </p>
 
@@ -63,6 +64,7 @@ export default async function PatternPerformancePage() {
           ["対象パターン", chartPatternCatalog.length],
           ["検出記録", totalSamples],
           ["5日後確定", completed5d],
+          ["5日後追跡率", completedRate === null ? "—" : `${completedRate}%`],
           ["検証済み", validated],
           ["有望", promising],
         ].map(([label, value]) => (
@@ -72,6 +74,12 @@ export default async function PatternPerformancePage() {
           </div>
         ))}
       </section>
+
+      <p style={{ marginTop: 12, color: "#334155", lineHeight: 1.7 }}>
+        {validated === 0
+          ? "現在、検証済みパターンは0件です。検証済みパターン由来のAI POWER加点・減点は発生しません。"
+          : "検証済みパターンがあります。既存のAI POWER自動反映経路の影響を別途監査してください。"}
+      </p>
 
       <section style={{ marginTop: 18, overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
