@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {interpretVerifiedPlaySubscription as decide} from "../app/lib/billing/playSubscriptionState.ts";
+const now=new Date("2026-10-18T00:00:00Z");
+const sample={lineItems:[{productId:"signalx_premium_month",expiryTime:"2026-11-18T00:00:00Z"}]};
+test("verified active purchase has access",()=>assert.equal(decide({...sample,subscriptionState:"SUBSCRIPTION_STATE_ACTIVE"},"signalx_premium_month",now).status,"active"));
+test("cancelled auto-renew retains access until paid-through expiry",()=>assert.equal(decide({...sample,subscriptionState:"SUBSCRIPTION_STATE_CANCELED"},"signalx_premium_month",now).status,"active"));
+test("grace period is recognized",()=>assert.equal(decide({...sample,subscriptionState:"SUBSCRIPTION_STATE_IN_GRACE_PERIOD"},"signalx_premium_month",now).status,"grace_period"));
+test("on hold and paused do not grant premium",()=>{for(const s of ["SUBSCRIPTION_STATE_ON_HOLD","SUBSCRIPTION_STATE_PAUSED","SUBSCRIPTION_STATE_PENDING"]) assert.notEqual(decide({...sample,subscriptionState:s},"signalx_premium_month",now).status,"active")});
+test("expired and missing product fail closed",()=>{assert.equal(decide({...sample,subscriptionState:"SUBSCRIPTION_STATE_ACTIVE"},"unknown",now).status,"expired");assert.equal(decide({...sample,subscriptionState:"SUBSCRIPTION_STATE_EXPIRED"},"signalx_premium_month",now).status,"expired")});
+test("invalid or past expiration denies access",()=>{assert.equal(decide({subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",lineItems:[{productId:"x",expiryTime:"bad"}]},"x",now).status,"expired");assert.equal(decide({subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",lineItems:[{productId:"x",expiryTime:"2026-10-17T00:00:00Z"}]},"x",now).status,"expired")});
+test("unrecognized state fails closed",()=>assert.equal(decide({...sample,subscriptionState:"UNKNOWN"},"signalx_premium_month",now).status,"expired"));
