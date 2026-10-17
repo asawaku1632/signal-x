@@ -144,6 +144,17 @@ assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_
 assert.match(refreshSource, /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 15/);
 assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 8/);
 
+// Dashboard must distinguish a still-maturing cohort from a cohort whose
+// fifth subsequent saved market session has already passed.
+const dashboardSource = readFileSync(
+  resolve(process.cwd(), "app/admin/pattern-performance/page.tsx"),
+  "utf8",
+);
+assert.match(dashboardSource, /available_sessions AS/);
+assert.match(dashboardSource, /COUNT\(session\.session_date\)::int AS later_saved_sessions/);
+assert.match(dashboardSource, /cohort\.later_saved_sessions >= 5 && cohort\.completed_5d < cohort\.detected/);
+assert.match(dashboardSource, /追跡要確認/);
+
 console.log(JSON.stringify({
   status: "PASS",
   validatedBuyBonus: calculateValidatedPatternStatBonus(stat()),
