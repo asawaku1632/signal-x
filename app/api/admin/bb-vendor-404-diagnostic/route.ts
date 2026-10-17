@@ -53,7 +53,7 @@ export async function GET() {
         item.historyBars = Array.isArray(chart?.timestamp) ? chart.timestamp.length : 0;
         const closes = chart?.indicators?.quote?.[0]?.close;
         item.closeCount = Array.isArray(closes) ? closes.filter((v: unknown) => typeof v === "number").length : 0;
-        item.outcome = item.historyBars >= 110 && Array.isArray(closes)
+        item.outcome = (item.historyBars ?? 0) >= 110 && Array.isArray(closes)
           ? "PROVIDER_HISTORY_AVAILABLE" : "PROVIDER_HISTORY_INSUFFICIENT";
       }
     } catch (error) {
