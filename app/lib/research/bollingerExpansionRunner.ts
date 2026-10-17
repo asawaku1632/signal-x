@@ -85,6 +85,7 @@ async function finish(id:number,date:string,status:"REJECTED"|"FAILED",reason:st
  * ANY provider traffic. Exactly 5 stocks, 2 concurrent, no automatic retry.
  */
 export async function runBbExpansion(id:number,now=new Date()){
+ if(process.env.VERCEL_ENV!=="production")throw Error("EXPANSION_NON_PRODUCTION_BLOCKED");
  if(!verifyExpansionBaskets())throw Error("UNIVERSE_NOT_FROZEN");
  const codes=[...getExpansionBatch(id)];
  const target=resolveTargetTradeDate(now).targetTradeDate;
