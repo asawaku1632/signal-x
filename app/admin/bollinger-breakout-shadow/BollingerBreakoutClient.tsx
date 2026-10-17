@@ -83,6 +83,11 @@ export default function BollingerBreakoutClient(){
       <BollingerAsOfFactorResearch/>
       <BollingerCombinedStudy/>
       <BollingerForwardStudy/>
+      <Link href="/admin/bollinger-breakout-shadow/health"
+        className="block rounded-2xl border border-indigo-300 bg-indigo-50 p-4 font-bold text-indigo-800 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-200">
+        STAGE 7 稼働診断を見る →
+        <span className="mt-1 block text-xs font-normal">自動研究の実行履歴・評価待ち・欠測候補を確認（管理者専用／読み取り専用）</span>
+      </Link>
       <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">30件未満では割合や平均成績を出しません。過去データによる再現研究であり、未来の勝率を証明するものではありません。株式分割・営業日欠損・未確定足がある銘柄は、結果を出さず除外します。</p>
     </div>
   </main>;
