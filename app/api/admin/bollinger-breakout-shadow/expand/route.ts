@@ -17,6 +17,8 @@ export async function GET(){
 export async function POST(req:Request){
  if(!(await getLearningOwnerSession()).isOwner)
    return NextResponse.json({success:false,error:"OWNER_ONLY"},{status:403,headers});
+ if(process.env.VERCEL_ENV!=="production")
+   return NextResponse.json({success:false,error:"EXPANSION_PREVIEW_WRITE_BLOCKED"},{status:403,headers});
  let batch:unknown;
  try{
   if(Number(req.headers.get("content-length"))>1000)throw Error("BODY_TOO_LARGE");
