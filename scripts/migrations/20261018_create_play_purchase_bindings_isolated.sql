@@ -12,6 +12,22 @@ CREATE TABLE IF NOT EXISTS public.signalx_play_purchase_bindings (
   last_verified_at TIMESTAMPTZ,
   CONSTRAINT signalx_play_purchase_bindings_fingerprint_unique UNIQUE (purchase_token_fingerprint)
 );
+-- Immutable purchase ownership: do not allow account transfers or token/product re-keying.
+CREATE OR REPLACE FUNCTION public.signalx_prevent_play_binding_reassignment()
+RETURNS TRIGGER LANGUAGE plpgsql AS $
+BEGIN
+  IF NEW.user_id IS DISTINCT FROM OLD.user_id
+     OR NEW.purchase_token_fingerprint IS DISTINCT FROM OLD.purchase_token_fingerprint
+     OR NEW.package_name IS DISTINCT FROM OLD.package_name
+     OR NEW.product_id IS DISTINCT FROM OLD.product_id THEN
+    RAISE EXCEPTION 'Play binding identity fields are immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$;
+CREATE TRIGGER signalx_play_binding_immutable
+  BEFORE UPDATE ON public.signalx_play_purchase_bindings
+  FOR EACH ROW EXECUTE FUNCTION public.signalx_prevent_play_binding_reassignment();
 CREATE INDEX IF NOT EXISTS signalx_play_purchase_bindings_user_idx
   ON public.signalx_play_purchase_bindings (user_id);
 ALTER TABLE public.signalx_play_purchase_bindings ENABLE ROW LEVEL SECURITY;
