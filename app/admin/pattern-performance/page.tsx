@@ -40,14 +40,32 @@ export default async function PatternPerformancePage() {
 
   const [stats, mixedDirections] = await Promise.all([
     getPatternForwardStats(),
-    pool.query<{ pattern_id: string; directions: string; samples: number }>(`
+    pool.query<{
+      pattern_id: string;
+      directions: string;
+      samples: number;
+      breakdown: Array<{ direction: string; detected: number; completed: number; hits: number }>;
+    }>(`
+      WITH per_direction AS (
+        SELECT pattern_id, direction,
+               COUNT(*)::int AS detected,
+               COUNT(return_5d)::int AS completed,
+               COUNT(*) FILTER (WHERE success_5d IS TRUE)::int AS hits
+        FROM public.pattern_forward_observations
+        GROUP BY pattern_id, direction
+      )
       SELECT pattern_id,
-             STRING_AGG(DISTINCT direction, ', ' ORDER BY direction) AS directions,
-             COUNT(*)::int AS samples
-      FROM public.pattern_forward_observations
+             STRING_AGG(direction, ', ' ORDER BY direction) AS directions,
+             SUM(detected)::int AS samples,
+             JSON_AGG(
+               JSON_BUILD_OBJECT('direction', direction, 'detected', detected,
+                                 'completed', completed, 'hits', hits)
+               ORDER BY direction
+             ) AS breakdown
+      FROM per_direction
       GROUP BY pattern_id
-      HAVING COUNT(DISTINCT direction) > 1
-      ORDER BY COUNT(*) DESC
+      HAVING COUNT(*) > 1
+      ORDER BY SUM(detected) DESC
       LIMIT 20
     `),
   ]);
@@ -79,6 +97,11 @@ export default async function PatternPerformancePage() {
           {mixedDirections.rows.map((row) => (
             <span key={row.pattern_id} style={{ display: "block" }}>
               {row.pattern_id}: {row.directions}（{row.samples}件）
+              {row.breakdown.map((part) => (
+                <span key={part.direction} style={{ display: "block", paddingLeft: 14 }}>
+                  {part.direction}: 検出{part.detected}件 / 5日確定{part.completed}件 / {part.direction === "NEUTRAL" ? "的中判定なし" : `的中${part.hits}件${part.completed > 0 ? `（${(part.hits / part.completed * 100).toFixed(1)}%）` : ""}`}
+                </span>
+              ))}
             </span>
           ))}
           既存の売買判定はこの画面から変更しません。
