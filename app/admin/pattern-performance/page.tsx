@@ -52,6 +52,12 @@ export default async function PatternPerformancePage() {
         BUYは上昇、SELLは下落を「的中」として集計し、コマなどNEUTRALは勝敗を付けず値動きだけ記録します。
       </p>
 
+      <p style={{ marginTop: 10, color: "#92400e", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 12, lineHeight: 1.7 }}>
+        勝率は観測した全件ではなく、該当営業日まで追跡が完了した方向判定可能な件数を母数とします。
+        「発生」と「5日確定」は異なります。SELLの「方向補正」は株価下落をプラス評価する研究指標であり、
+        実際の買い持ち損益とは異なります。必ず隣の「5日平均(株価)」と併せて確認してください。
+      </p>
+
       <section style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
         {[
           ["対象パターン", chartPatternCatalog.length],
@@ -71,7 +77,7 @@ export default async function PatternPerformancePage() {
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
           <thead>
             <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-              {["ID", "パターン", "方向", "状態", "AI反映", "発生", "1日勝率", "3日勝率", "5日勝率", "5日平均", "5日中央値", "銘柄数", "日数"].map((heading) => (
+              {["ID", "パターン", "方向", "状態", "AI反映", "発生", "5日確定", "1日勝率", "3日勝率", "5日勝率", "5日平均(方向補正)", "5日平均(株価)", "5日中央値(方向補正)", "銘柄数", "日数"].map((heading) => (
                 <th key={heading} style={{ padding: "12px 10px", borderBottom: "1px solid #e5e7eb", fontSize: 12 }}>{heading}</th>
               ))}
             </tr>
@@ -92,10 +98,12 @@ export default async function PatternPerformancePage() {
                       : "—"}
                   </td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.sampleCount ?? 0}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{item?.completed5dCount ?? 0}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate1d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate3d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{percent(item?.winRate5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.avgDirectionalReturn5d ?? null)}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.avgRawReturn5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.medianDirectionalReturn5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.distinctCodes ?? 0}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.distinctDates ?? 0}</td>
