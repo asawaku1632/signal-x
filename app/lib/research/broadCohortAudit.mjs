@@ -58,7 +58,7 @@ export function auditBroadCohortQuality(archive,expectedDates){
   const days=expectedDates.map(date=>{
     const slots=byDate.get(date)??new Map();
     const observed=Array.from(slots.values()).reduce((n,r)=>n+Math.max(0,Number(r.observed_count)||0),0);
-    const expected=Array.from(slots.values()).reduce((n,r)=>n+Math.max(0,Number(r.expected_count)||0),0);
+    const expected=BROAD_SHADOW_SLOTS.length*BROAD_AUDIT_TARGET;
     const missingSlots=BROAD_SHADOW_SLOTS.filter(s=>!slots.has(s));
     const underTarget=BROAD_SHADOW_SLOTS.filter(s=>slots.has(s)&&Number(slots.get(s).expected_count)!==BROAD_AUDIT_TARGET);
     const invalidCounts=BROAD_SHADOW_SLOTS.filter(s=>{
