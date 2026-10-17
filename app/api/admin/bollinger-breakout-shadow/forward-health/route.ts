@@ -2,7 +2,7 @@ import {NextResponse} from "next/server";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {prospectiveProgress} from "@/app/lib/research/bollingerForwardRunner";
 import pool from "@/app/lib/postgres";
-import {resolveTseTradingDatesAfter,isTseTargetDateReady} from "@/app/lib/technicalObservation/tseMarketCalendar";
+import {resolveTseTradingDatesAfter,isTseTargetDateReady,isTseTradingDate,TSE_MARKET_CALENDAR_COVERAGE} from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -59,8 +59,26 @@ export async function GET(){
         maturity.overdue++;
       }catch{maturity.calendarUnknown++;}
     }
+    // Diagnose only official trading sessions whose 17:30 JST run window has passed.
+    // Use a 60-minute grace period for scheduling/deployment variance.
+    const missingTradingRuns:string[]=[];
+    const activation=report.activationDate;
+    const seen=new Set(runs.map(r=>String(r.trade_date)));
+    if(report.enabled&&activation){
+      const start=Math.max(Date.parse(activation+"T00:00:00Z"),
+        Date.parse(todayJst+"T00:00:00Z")-14*86400000);
+      const end=Date.parse(todayJst+"T00:00:00Z");
+      for(let ts=start;ts<=end;ts+=86400000){
+        const date=new Date(ts).toISOString().slice(0,10);
+        if(date<TSE_MARKET_CALENDAR_COVERAGE.startDate||date>TSE_MARKET_CALENDAR_COVERAGE.endDate)continue;
+        if(!isTseTradingDate(date))continue;
+        if(now.getTime()<Date.parse(date+"T18:30:00+09:00"))continue;
+        if(!seen.has(date))missingTradingRuns.push(date);
+      }
+    }
     const warnings:string[]=[];
     if(!report.enabled)warnings.push("STUDY_DISABLED");
+    if(missingTradingRuns.length>0)warnings.push("TRADING_SESSION_RUN_MISSING");
     if(maturity.overdue>0)warnings.push("MATURE_OUTCOMES_PENDING_REVIEW");
     if(maturity.calendarUnknown>0)warnings.push("CALENDAR_RESOLUTION_REQUIRED");
     if(!latest)warnings.push("NO_RECORDED_RUN");
@@ -71,7 +89,7 @@ export async function GET(){
     return NextResponse.json({
       success:true,mode:"OWNER_STAGE7_READ_ONLY_HEALTH",
       studyEnabled:report.enabled,activationDate:report.activationDate,
-      latestRun:latest,recentRuns,pendingByHorizon,maturity,asOfTradingDateJst:todayJst,
+      latestRun:latest,recentRuns,pendingByHorizon,maturity,missingTradingRuns,asOfTradingDateJst:todayJst,
       totals:{signals:Number(coverage.signals),completedOutcomes:Number(coverage.completed),
         failedChecks:Number(coverage.failed),sourceHalts:Number(coverage.halts),
         sampledStocksPerTradingDay:coverage.sampledStocksPerTradingDay,
