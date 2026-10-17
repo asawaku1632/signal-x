@@ -1,0 +1,32 @@
+name: Pattern Forward Bonus Safety Tests
+
+on:
+  push:
+    branches:
+      - 'research/**'
+    paths:
+      - 'app/lib/learning/patternForwardBonus.ts'
+      - 'app/lib/learning/patternForwardLearning.ts'
+      - 'scripts/test-validated-pattern-forward-bonus.mjs'
+      - '.github/workflows/pattern-forward-bonus-safety.yml'
+  pull_request:
+    paths:
+      - 'app/lib/learning/patternForwardBonus.ts'
+      - 'app/lib/learning/patternForwardLearning.ts'
+      - 'scripts/test-validated-pattern-forward-bonus.mjs'
+      - '.github/workflows/pattern-forward-bonus-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify validated pattern bonus and mixed-direction SQL guard
+        run: node scripts/test-validated-pattern-forward-bonus.mjs
