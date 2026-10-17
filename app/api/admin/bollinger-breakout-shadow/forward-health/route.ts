@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {prospectiveProgress} from "@/app/lib/research/bollingerForwardRunner";
+import pool from "@/app/lib/postgres";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -17,6 +18,20 @@ export async function GET(){
     const runs=Array.isArray(report.runs)?report.runs:[];
     const latest=runs[0]??null;
     const coverage=report.coverage;
+    const pending=await pool.query<{horizon:number;pending_count:number}>(`
+      SELECT h.horizon,COUNT(*)::int AS pending_count
+      FROM public.bb_forward_signals s
+      CROSS JOIN (VALUES (1),(3),(5)) AS h(horizon)
+      LEFT JOIN public.bb_forward_outcomes o
+        ON o.version=s.version AND o.code=s.code
+        AND o.signal_time=s.signal_time AND o.horizon=h.horizon
+      WHERE o.signal_time IS NULL
+      GROUP BY h.horizon ORDER BY h.horizon`);
+    const pendingByHorizon=Object.fromEntries(pending.rows.map(r=>[String(r.horizon),Number(r.pending_count)]));
+    const recentRuns=runs.slice(0,10).map(r=>({
+      tradeDate:r.trade_date,batchId:r.batch_id,status:r.status,
+      observedCount:Number(r.observed_count),failedCount:Number(r.failed_count)
+    }));
     const warnings:string[]=[];
     if(!report.enabled)warnings.push("STUDY_DISABLED");
     if(!latest)warnings.push("NO_RECORDED_RUN");
@@ -27,7 +42,7 @@ export async function GET(){
     return NextResponse.json({
       success:true,mode:"OWNER_STAGE7_READ_ONLY_HEALTH",
       studyEnabled:report.enabled,activationDate:report.activationDate,
-      latestRun:latest,
+      latestRun:latest,recentRuns,pendingByHorizon,
       totals:{signals:Number(coverage.signals),completedOutcomes:Number(coverage.completed),
         failedChecks:Number(coverage.failed),sourceHalts:Number(coverage.halts),
         sampledStocksPerTradingDay:coverage.sampledStocksPerTradingDay,
