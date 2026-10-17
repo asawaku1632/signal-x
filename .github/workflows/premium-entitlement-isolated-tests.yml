@@ -22,6 +22,8 @@ on:
       - 'tests/playSubscriptionState.test.mjs'
       - 'app/lib/billing/playSubscriptionLookup.ts'
       - 'tests/playSubscriptionLookup.test.mjs'
+      - 'app/lib/billing/playPurchaseRestoration.ts'
+      - 'tests/playPurchaseRestoration.test.mjs'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
 
@@ -38,7 +40,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated premium policy tests
-        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
