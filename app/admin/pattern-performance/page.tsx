@@ -38,7 +38,7 @@ export default async function PatternPerformancePage() {
     );
   }
 
-  const [stats, mixedDirections] = await Promise.all([
+  const [stats, mixedDirections, detectionCohorts] = await Promise.all([
     getPatternForwardStats(),
     pool.query<{
       pattern_id: string;
@@ -67,6 +67,16 @@ export default async function PatternPerformancePage() {
       HAVING COUNT(*) > 1
       ORDER BY SUM(detected) DESC
       LIMIT 20
+    `),
+    pool.query<{ detection_date: string; detected: number; completed_5d: number; stocks: number }>(`
+      SELECT trade_date::text AS detection_date,
+             COUNT(*)::int AS detected,
+             COUNT(return_5d)::int AS completed_5d,
+             COUNT(DISTINCT code)::int AS stocks
+      FROM public.pattern_forward_observations
+      GROUP BY trade_date
+      ORDER BY trade_date DESC
+      LIMIT 15
     `),
   ]);
   const mixedDirectionIds = new Set(mixedDirections.rows.map((row) => row.pattern_id));
@@ -129,6 +139,31 @@ export default async function PatternPerformancePage() {
           ? "現在、検証済みパターンは0件です。検証済みパターン由来のAI POWER加点・減点は発生しません。"
           : "検証済みパターンがあります。既存のAI POWER自動反映経路の影響を別途監査してください。"}
       </p>
+
+      <section style={{ marginTop: 18, padding: 14, border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 900 }}>📅 検出日別・5営業日後の追跡状況</h2>
+        <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
+          検出日ごとの保存件数と5日後確定件数です。未確定は未到達または追跡処理待ちを含み、失敗件数ではありません。
+        </p>
+        <div style={{ overflowX: "auto", marginTop: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+            <thead><tr style={{ background: "#f8fafc" }}>
+              {["検出日", "検出件数", "銘柄数", "5日確定", "未確定"].map((heading) => (
+                <th key={heading} style={{ padding: 9, textAlign: "left", fontSize: 12 }}>{heading}</th>
+              ))}
+            </tr></thead>
+            <tbody>{detectionCohorts.rows.map((cohort) => (
+              <tr key={cohort.detection_date}>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detection_date}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detected}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.stocks}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.completed_5d}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detected - cohort.completed_5d}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </section>
 
       <section style={{ marginTop: 18, overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
