@@ -22,7 +22,7 @@ export async function GET(_request: NextRequest) {
   if (!verifyBbVendor950Evidence() || BB_VENDOR_PROBE_950_CODES.length !== 950) {
     return NextResponse.json({ success: false, error: "RESEARCH_EVIDENCE_INVALID" }, { status: 500, headers });
   }
-  const excluded = new Set(Object.values(BB_VENDOR_950_BATCH_EVIDENCE)
+  const excluded: Set<string> = new Set(Object.values(BB_VENDOR_950_BATCH_EVIDENCE)
     .flatMap(item => [...item.http404, ...item.insufficientHistory]));
   const codes = BB_VENDOR_PROBE_950_CODES.filter(code => !excluded.has(code)).slice(0, 5);
   if (codes.length !== 5 || new Set(codes).size !== 5) {
