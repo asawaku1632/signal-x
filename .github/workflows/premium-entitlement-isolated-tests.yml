@@ -1,0 +1,29 @@
+name: Premium Entitlement Isolated Checks
+
+on:
+  pull_request:
+    paths:
+      - 'app/lib/billing/premiumEntitlementCore.ts'
+      - 'scripts/migrations/20261018_create_premium_entitlements_isolated.sql'
+      - 'tests/premiumEntitlementCore.test.mjs'
+      - '.github/workflows/premium-entitlement-isolated-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  premium-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated premium policy tests
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs
+      - name: Verify TypeScript
+        run: |
+          npm ci --ignore-scripts
+          npx tsc --noEmit
