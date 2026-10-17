@@ -21,7 +21,8 @@ test("zero records must never show healthy or empty-day green status",()=>{
  const state=auditBroadCohortQuality([],sessions);
  assert.equal(state.status,"QUALITY_GATE_BLOCKED");
  assert.equal(state.presentSlots,0);
- assert.equal(state.captureRate,null);
+ assert.equal(state.captureRate,0);
+ assert.equal(state.expected,1050);
  assert.equal(state.days[0].missingSlots.length,7);
  assert.equal(state.nextPhaseAutomatic,false);
 });
@@ -67,7 +68,7 @@ test("95pct barrier blocks low-quality observations despite all rows being prese
 test("sparse below-30 previous-night cohort cannot pass readiness by 100% of fewer names",()=>{
  const rows=archive();for(const r of rows){r.expected_count=20;r.observed_count=20;}
  const state=auditBroadCohortQuality(rows,sessions);
- assert.equal(state.captureRate,100);
+ assert.equal(state.captureRate,20/30*100);
  assert.equal(state.status,"QUALITY_GATE_BLOCKED");
  assert.ok(state.days.every(d=>d.underTarget.length===7));
 });
@@ -77,4 +78,16 @@ test("old policy rows and duplicate dates cannot inflate gate samples",()=>{
  const state=auditBroadCohortQuality(rows,sessions);
  assert.equal(state.status,"READY_FOR_REVIEW");
  assert.throws(()=>auditBroadCohortQuality(rows,[...sessions,sessions[0]]),/INVALID_AUDIT_INPUT/);
+});
+
+test("a lone saved slot cannot masquerade as 100 percent coverage",()=>{
+ const onlyOne=archive(sessions.slice(0,1)).slice(0,1);
+ const state=auditBroadCohortQuality(onlyOne,sessions);
+ assert.equal(state.expected,1050);
+ assert.equal(state.observed,30);
+ assert.equal(state.captureRate,30/1050*100);
+ assert.equal(state.status,"QUALITY_GATE_BLOCKED");
+ assert.equal(state.days[0].expected,210);
+ assert.equal(state.days[0].observed,30);
+ assert.equal(state.days[1].coverage,0);
 });
