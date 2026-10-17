@@ -40,10 +40,11 @@ export default async function PatternPerformancePage() {
 
   const [stats, mixedDirections] = await Promise.all([
     getPatternForwardStats(),
-    pool.query<{ pattern_id: string; directions: string; samples: number }>(`
+    pool.query<{ pattern_id: string; directions: string; samples: number; breakdown: string }>(`
       SELECT pattern_id,
              STRING_AGG(DISTINCT direction, ', ' ORDER BY direction) AS directions,
-             COUNT(*)::int AS samples
+             COUNT(*)::int AS samples,
+             STRING_AGG(DISTINCT direction, ', ' ORDER BY direction) AS breakdown
       FROM public.pattern_forward_observations
       GROUP BY pattern_id
       HAVING COUNT(DISTINCT direction) > 1
