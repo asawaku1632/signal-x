@@ -305,10 +305,11 @@ export async function refreshPatternForwardStats(): Promise<void> {
       COUNT(DISTINCT code)::int AS distinct_codes,
       COUNT(DISTINCT trade_date)::int AS distinct_dates,
       CASE
+        WHEN COUNT(DISTINCT direction) > 1 THEN 'COLLECTING'
         WHEN MAX(direction) = 'NEUTRAL' THEN 'OBSERVATION_ONLY'
         WHEN COUNT(return_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
-          AND COUNT(DISTINCT trade_date) >= 15
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 30
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 15
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 60
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) >= 0.5
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (
@@ -316,19 +317,21 @@ export async function refreshPatternForwardStats(): Promise<void> {
           ) > 0
           THEN 'VALIDATED'
         WHEN COUNT(return_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
-          AND COUNT(DISTINCT trade_date) >= 8
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 15
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 8
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 55
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) > 0
           THEN 'PROMISING'
         ELSE 'COLLECTING'
       END AS validation_status,
       CASE
+        WHEN COUNT(DISTINCT direction) > 1
+          THEN 'Mixed BUY/SELL/NEUTRAL directions: validation blocked until direction-separated research'
         WHEN MAX(direction) = 'NEUTRAL'
           THEN 'Direction-neutral pattern: collect follow-up returns without win/loss scoring'
         WHEN COUNT(return_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
-          AND COUNT(DISTINCT trade_date) >= 15
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 30
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 15
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 60
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) >= 0.5
           AND PERCENTILE_CONT(0.5) WITHIN GROUP (
@@ -336,8 +339,8 @@ export async function refreshPatternForwardStats(): Promise<void> {
           ) > 0
           THEN 'Forward 5-day validation criteria passed'
         WHEN COUNT(return_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
-          AND COUNT(DISTINCT trade_date) >= 8
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 15
+          AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL) >= 8
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 55
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) > 0
           THEN 'Early positive forward evidence'
@@ -435,6 +438,14 @@ export async function getValidatedPatternForwardStatsMap(
     WHERE validation_status = 'VALIDATED'
       AND direction IN ('BUY', 'SELL')
       AND pattern_id = ANY($1::text[])
+      -- A single pattern ID with conflicting BUY/SELL/NEUTRAL observations
+      -- cannot safely be scored using a pooled validation statistic.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.pattern_forward_observations AS observation
+        WHERE observation.pattern_id = pattern_forward_stats.pattern_id
+          AND observation.direction IS DISTINCT FROM pattern_forward_stats.direction
+      )
     `,
     [uniqueIds],
   );

@@ -75,7 +75,9 @@ export async function collectWinRateReliabilityAudit(now = new Date()): Promise<
                   OR p.trade_date IS DISTINCT FROM result_row.date::date
                   OR p.source_trade_date IS DISTINCT FROM source_row.date::date
                   OR p.source_price IS DISTINCT FROM source_row.price
-                  OR p.source_price IS DISTINCT FROM result_row.next_price
+                  OR (p.source_price IS NULL) IS DISTINCT FROM (result_row.next_price IS NULL)
+                  OR (p.source_price IS NOT NULL AND result_row.next_price IS NOT NULL
+                      AND ABS(p.source_price - result_row.next_price) > 0.000001)
                   OR p.judged_result IS DISTINCT FROM result_row.result
              )::int AS mismatch_count,
              MAX(p.recorded_at) AS latest_recorded_at

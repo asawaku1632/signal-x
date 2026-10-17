@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 
 const module = await import(
   pathToFileURL(resolve(process.cwd(), "app/lib/learning/patternForwardBonus.ts")).href
@@ -91,12 +92,68 @@ assert.equal(combined.matchedValidatedCount, 2);
 assert.equal(combined.bonus, 5);
 assert.equal(combined.patternId, "pattern050");
 
+// Regression: a validated statistic must never be applied when the
+// observation's direction differs, even when the pattern ID matches.
+const directionMismatch = calculateValidatedPatternForwardBonus(
+  [{ id: "pattern050", name: "赤三兵", direction: "SELL", confidence: 80, score: 20 }],
+  new Map([["pattern050", stat({ direction: "BUY" })]]),
+);
+assert.equal(directionMismatch.applied, false);
+assert.equal(directionMismatch.bonus, 0);
+
+// Neutral and collecting patterns must never affect AI POWER.
+const neutralObservation = calculateValidatedPatternForwardBonus(
+  [{ id: "pattern050", name: "赤三兵", direction: "NEUTRAL", confidence: 80, score: 20 }],
+  new Map([["pattern050", stat({ direction: "NEUTRAL" })]]),
+);
+assert.equal(neutralObservation.applied, false);
+assert.equal(neutralObservation.bonus, 0);
+
 const noValidated = calculateValidatedPatternForwardBonus(
   observations,
   new Map([["pattern050", stat({ validationStatus: "PROMISING" })]]),
 );
 assert.equal(noValidated.applied, false);
 assert.equal(noValidated.bonus, 0);
+
+// Source-level regression: the database loader must exclude pattern IDs whose
+// observed directions disagree with the pooled stats direction.
+// This test is offline: it never connects to Supabase or runs a real trade.
+const loaderSource = readFileSync(
+  resolve(process.cwd(), "app/lib/learning/patternForwardLearning.ts"),
+  "utf8",
+);
+const validatedLookup = loaderSource.split(
+  "export async function getValidatedPatternForwardStatsMap(",
+)[1];
+assert.ok(validatedLookup, "validated stats lookup must exist");
+assert.match(validatedLookup, /validation_status\s*=\s*'VALIDATED'/);
+assert.match(validatedLookup, /NOT EXISTS\s*\(/);
+assert.match(validatedLookup, /observation\.pattern_id\s*=\s*pattern_forward_stats\.pattern_id/);
+assert.match(validatedLookup, /observation\.direction\s+IS DISTINCT FROM\s+pattern_forward_stats\.direction/);
+
+// Validation thresholds must count only completed, directionally scored
+// five-day observations, not pending detections on unrelated dates/stocks.
+const refreshSource = loaderSource.split(
+  "export async function refreshPatternForwardStats(): Promise<void> {",
+)[1]?.split("function numberOrNull(")[0];
+assert.ok(refreshSource, "pattern stats refresh must exist");
+assert.match(refreshSource, /COUNT\(DISTINCT direction\)\s*>\s*1\s+THEN 'COLLECTING'/);
+assert.match(refreshSource, /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 30/);
+assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 15/);
+assert.match(refreshSource, /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 15/);
+assert.match(refreshSource, /COUNT\(DISTINCT trade_date\) FILTER \(WHERE return_5d IS NOT NULL AND success_5d IS NOT NULL\) >= 8/);
+
+// Dashboard must distinguish a still-maturing cohort from a cohort whose
+// fifth subsequent saved market session has already passed.
+const dashboardSource = readFileSync(
+  resolve(process.cwd(), "app/admin/pattern-performance/page.tsx"),
+  "utf8",
+);
+assert.match(dashboardSource, /available_sessions AS/);
+assert.match(dashboardSource, /COUNT\(session\.session_date\)::int AS later_saved_sessions/);
+assert.match(dashboardSource, /cohort\.later_saved_sessions >= 5 && cohort\.completed_5d < cohort\.detected/);
+assert.match(dashboardSource, /追跡要確認/);
 
 console.log(JSON.stringify({
   status: "PASS",
