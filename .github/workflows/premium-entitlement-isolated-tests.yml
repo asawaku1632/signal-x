@@ -15,6 +15,8 @@ on:
       - 'tests/verificationBoundary.test.mjs'
       - 'app/lib/billing/subscriptionOwnershipCore.ts'
       - 'tests/subscriptionOwnershipCore.test.mjs'
+      - 'app/lib/billing/persistVerifiedBillingUpdate.ts'
+      - 'tests/persistVerifiedBillingUpdate.test.mjs'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
 
@@ -31,7 +33,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated premium policy tests
-        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
