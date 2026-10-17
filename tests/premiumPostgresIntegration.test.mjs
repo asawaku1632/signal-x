@@ -16,8 +16,24 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     await pool.query(`CREATE TABLE public.signalx_users (id UUID PRIMARY KEY DEFAULT gen_random_uuid())`);
     await pool.query(await load("scripts/migrations/20261018_create_premium_entitlements_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_billing_event_inbox_isolated.sql"));
+    await pool.query(await load("scripts/migrations/20261018_create_play_purchase_bindings_isolated.sql"));
     const user = await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const id = user.rows[0].id;
+    const otherUser=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
+    const fingerprint="a".repeat(64);
+    await pool.query(
+      "INSERT INTO public.signalx_play_purchase_bindings (user_id,purchase_token_fingerprint,package_name,product_id) VALUES ($1,$2,$3,$4)",
+      [id,fingerprint,"jp.signalx.app","premium_month"]
+    );
+    await assert.rejects(
+      pool.query(
+        "INSERT INTO public.signalx_play_purchase_bindings (user_id,purchase_token_fingerprint,package_name,product_id) VALUES ($1,$2,$3,$4)",
+        [otherUser.rows[0].id,fingerprint,"jp.signalx.app","premium_month"]
+      ),{code:"23505"}
+    );
+    const bound=await pool.query("SELECT user_id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[fingerprint]);
+    assert.equal(bound.rows.length,1);
+    assert.equal(bound.rows[0].user_id,id);
     await pool.query(`INSERT INTO public.signalx_premium_entitlements
        (user_id,provider,external_subscription_id,status,valid_until)
        VALUES ($1,'stripe','sub_test','active','2026-11-18T00:00:00Z')`,[id]);
