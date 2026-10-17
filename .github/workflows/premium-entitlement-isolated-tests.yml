@@ -26,4 +26,5 @@ jobs:
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
+          npx next typegen
           npx tsc --noEmit
