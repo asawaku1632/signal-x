@@ -435,6 +435,14 @@ export async function getValidatedPatternForwardStatsMap(
     WHERE validation_status = 'VALIDATED'
       AND direction IN ('BUY', 'SELL')
       AND pattern_id = ANY($1::text[])
+      -- A single pattern ID with conflicting BUY/SELL/NEUTRAL observations
+      -- cannot safely be scored using a pooled validation statistic.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.pattern_forward_observations AS observation
+        WHERE observation.pattern_id = pattern_forward_stats.pattern_id
+          AND observation.direction IS DISTINCT FROM pattern_forward_stats.direction
+      )
     `,
     [uniqueIds],
   );
