@@ -68,7 +68,7 @@ test("95pct barrier blocks low-quality observations despite all rows being prese
 test("sparse below-30 previous-night cohort cannot pass readiness by 100% of fewer names",()=>{
  const rows=archive();for(const r of rows){r.expected_count=20;r.observed_count=20;}
  const state=auditBroadCohortQuality(rows,sessions);
- assert.equal(state.captureRate,20/30*100);
+ assert.ok(Math.abs(state.captureRate-20/30*100)<1e-9);
  assert.equal(state.status,"QUALITY_GATE_BLOCKED");
  assert.ok(state.days.every(d=>d.underTarget.length===7));
 });
