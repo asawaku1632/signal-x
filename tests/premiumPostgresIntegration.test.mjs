@@ -34,6 +34,17 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     const bound=await pool.query("SELECT user_id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[fingerprint]);
     assert.equal(bound.rows.length,1);
     assert.equal(bound.rows[0].user_id,id);
+    await assert.rejects(
+      pool.query(
+        "UPDATE public.signalx_play_purchase_bindings SET user_id=$1 WHERE purchase_token_fingerprint=$2",
+        [otherUser.rows[0].id,fingerprint]
+      ),{code:"23514"}
+    );
+    const unchanged=await pool.query(
+      "SELECT user_id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",
+      [fingerprint]
+    );
+    assert.equal(unchanged.rows[0].user_id,id);
     await pool.query(`INSERT INTO public.signalx_premium_entitlements
        (user_id,provider,external_subscription_id,status,valid_until)
        VALUES ($1,'stripe','sub_test','active','2026-11-18T00:00:00Z')`,[id]);
