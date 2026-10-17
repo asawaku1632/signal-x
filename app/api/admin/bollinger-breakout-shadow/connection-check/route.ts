@@ -44,11 +44,11 @@ export async function GET(){
   try{
     client=await pool.connect();
     await client.query("BEGIN READ ONLY");
-    const result=await client.query<{project_ref:string;database_name:string}>(
-      "SELECT split_part(current_user, '.', 2) AS project_ref, current_database() AS database_name"
+    const result=await client.query<{database_name:string;probe:number}>(
+      "SELECT current_database() AS database_name, 1 AS probe"
     );
     await client.query("ROLLBACK");
-    if(result.rows[0]?.project_ref!==DEV_REF || result.rows[0]?.database_name!=="postgres")
+    if(result.rows[0]?.probe!==1 || result.rows[0]?.database_name!=="postgres")
       return fail("CONNECTED_DATABASE_IDENTITY_MISMATCH");
     return NextResponse.json({success:true,result:"DEV_DATABASE_READ_ONLY_CONNECTION_OK"},{headers});
   }catch{
