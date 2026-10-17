@@ -17,6 +17,7 @@ on:
       - 'tests/subscriptionOwnershipCore.test.mjs'
       - 'app/lib/billing/persistVerifiedBillingUpdate.ts'
       - 'tests/persistVerifiedBillingUpdate.test.mjs'
+      - 'tests/premiumPostgresIntegration.test.mjs'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
 
@@ -39,3 +40,32 @@ jobs:
           npm ci --ignore-scripts
           npx next typegen
           npx tsc --noEmit
+
+  premium-postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated_test_only
+          POSTGRES_DB: premium_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d premium_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Verify atomic billing persistence against disposable PostgreSQL
+        env:
+          BILLING_TEST_DATABASE_URL: postgresql://postgres:isolated_test_only@localhost:5432/premium_ci
+        run: node --experimental-strip-types --test tests/premiumPostgresIntegration.test.mjs
