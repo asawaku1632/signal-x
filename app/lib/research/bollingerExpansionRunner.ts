@@ -1,6 +1,8 @@
 import "server-only";
 import {createHash} from "node:crypto";
-import pool from "@/app/lib/postgres";
+import type {Pool} from "pg";
+import {createBbExpansionResearchPool} from "./bollingerExpansionResearchDb";
+import {checkBbExpansionDbSafety} from "./bollingerExpansionDbSafety.mjs";
 import {getForwardCandles} from "@/app/lib/emaForwardShadowStore";
 import {resolveTargetTradeDate,isTseTradingDate,
  TSE_MARKET_CALENDAR_COVERAGE,TSE_MARKET_CALENDAR_VERSION} from "@/app/lib/technicalObservation/tseMarketCalendar";
@@ -8,6 +10,12 @@ import {studyCompletedArchiveCohort,studyCompletedArchiveStock} from "./bollinge
 import {BB_EXPANSION_BATCHES,BB_EXPANSION_POLICY,getExpansionBatch,verifyExpansionBaskets} from "./bollingerExpansionUniverse";
 import {VERSION as BB_VERSION} from "./bollingerBreakoutShadow.mjs";
 
+let researchPool:Pool|undefined;
+function getResearchPool(){
+ const safety=checkBbExpansionDbSafety(process.env);
+ if(!safety.ok)throw Error(safety.reason);
+ return researchPool??(researchPool=createBbExpansionResearchPool());
+}
 const FIRST_DATE="2026-01-01";
 const MAX_DATE_ITERATIONS=400;
 const jstDate=(t:number)=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
@@ -25,6 +33,7 @@ function marketDays(first:string,last:string){
  return dates;
 }
 export async function bbExpansionProgress(){
+ const pool=getResearchPool();
  const [attempts,base,more,groups]=await Promise.all([
   pool.query<{batch_id:number;status:string;target_date:string;saved_outcomes:number;saved_signals:number;note:string|null}>(`
     SELECT DISTINCT ON (batch_id) batch_id,status,target_date::text,
@@ -76,6 +85,7 @@ export async function bbExpansionProgress(){
    attempts:attempts.rows,stats:rows};
 }
 async function finish(id:number,date:string,status:"REJECTED"|"FAILED",reason:string){
+ const pool=getResearchPool();
  await pool.query(`UPDATE public.bb_breakout_expansion_attempts
    SET status=$3,note=$4,finished_at=now() WHERE batch_id=$1
      AND target_date=$2::date AND status='CLAIMED'`,
@@ -85,7 +95,7 @@ async function finish(id:number,date:string,status:"REJECTED"|"FAILED",reason:st
  * ANY provider traffic. Exactly 5 stocks, 2 concurrent, no automatic retry.
  */
 export async function runBbExpansion(id:number,now=new Date()){
- if(process.env.VERCEL_ENV!=="production")throw Error("EXPANSION_NON_PRODUCTION_BLOCKED");
+ const pool=getResearchPool();
  if(!verifyExpansionBaskets())throw Error("UNIVERSE_NOT_FROZEN");
  const codes=[...getExpansionBatch(id)];
  const target=resolveTargetTradeDate(now).targetTradeDate;
