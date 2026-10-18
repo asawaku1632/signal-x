@@ -21,11 +21,24 @@ type Event = { date: string; previousDate: string; benchmark: string; indexRetur
   nikkeiReturn: number | null; topixReturn: number | null };
 type Recent = { event: Event; examinedStocks: number; isLatestSavedDate: boolean;
   strong: Stock[]; weak: Stock[] };
+type NextDayEntry = {
+  code: string; name: string; referencePrice: number; cost100: number;
+  latestShockReturn: number; latestRelativeReturn: number;
+  sampleCount: number; upCount: number; downCount: number;
+  positiveRate1: number; average1: number; median1: number;
+  worst1: number; best1: number;
+};
+type NextDayEvidence = {
+  selectedDate: string; settledPastEpisodes: number; cohortCount: number;
+  eligibleCount: number; minSamples: number;
+  leaders: NextDayEntry[]; laggers: NextDayEntry[]; note: string;
+};
 type Report = {
   version: string; asOf: string; eventCount: number; examinedStocks?: number;
   reference: { source: string; nikkeiAvailable: boolean; topixAvailable: boolean;
     referenceAvailable: boolean; note: string };
   recent: Recent | null;
+  nextDayEvidence?: NextDayEvidence | null;
   coverage: { validSavedDays: number; minimumStocksPerDay: number; latestSavedDate: string | null; source: string };
   event: Event | null;
   strong: Stock[]; weak: Stock[];
@@ -76,6 +89,69 @@ function Ranking({title, side, rows, context="crash"}: {
     <p className="mt-3 text-xs text-slate-500">{context==="crash"
       ? (side==="strong" ? "急落日の相対強度 +0.5ポイント以上を上位20件" : "急落日の相対強度 −0.5ポイント以下を下位20件")
       : (side==="strong" ? "市場比上位20件" : "市場比下位20件")}</p>
+  </section>;
+}
+
+function NextDayEvidenceList({title,rows,isUp}: {
+  title: string; rows: NextDayEntry[]; isUp: boolean;
+}) {
+  return <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <h3 className="px-1 pb-2 text-lg font-black">{title}</h3>
+    <p className="px-1 pb-2 text-xs leading-5 text-slate-500">
+      {isUp ? "過去の上昇割合が高い順" : "過去の上昇割合が低い順"}。勝率が同じ場合は平均騰落率で並び替え。</p>
+    <div className="space-y-2">{rows.map((stock,index)=><article key={stock.code}
+      className="rounded-xl border border-slate-200 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-black">{index+1}. {stock.name} <span className="text-sm font-normal text-slate-500">({stock.code})</span></p>
+          <p className="mt-1 text-xs text-slate-500">100株参考額 {yen(stock.cost100)}</p>
+        </div>
+        <Link href={`/chart/${stock.code}`} className="shrink-0 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">CHART →</Link>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-2">
+        <div><p className="text-xs text-slate-500">過去の翌日上昇率</p>
+          <p className="text-lg font-black">{stock.positiveRate1.toFixed(1)}%</p>
+          <p className="text-xs text-slate-500">{stock.upCount}勝 / {stock.sampleCount}件</p></div>
+        <div><p className="text-xs text-slate-500">翌日平均騰落率</p>
+          <p className="text-lg font-black"><PriceChange value={stock.average1}/></p>
+          <p className="text-xs text-slate-500">最悪 <PriceChange value={stock.worst1}/></p></div>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        最新急落日の市場比 <PriceChange value={stock.latestRelativeReturn}/>
+        {" ｜ "}過去中央値 <PriceChange value={stock.median1}/>
+      </p>
+    </article>)}</div>
+  </div>;
+}
+
+function NextDayEvidencePanel({data}: {data: NextDayEvidence | null | undefined}) {
+  if (!data) return null;
+  return <section className="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50/30 p-3">
+    <div className="rounded-xl bg-white p-4">
+      <p className="text-xs font-black tracking-wide text-indigo-700">PRIVATE / HISTORICAL EVIDENCE</p>
+      <h2 className="mt-2 text-xl font-black">🏅 暴落翌日・上昇実績ランキング</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        {data.selectedDate}の急落日に記録された{data.cohortCount}銘柄を対象に、
+        その日より前の急落後実績だけで集計します。翌日に上がりやすかった銘柄と
+        下がりやすかった銘柄を分けて比較します。</p>
+      <p className="mt-2 text-xs text-slate-600">
+        過去の集計対象 {data.settledPastEpisodes}急落日 ／ 同一銘柄で{data.minSamples}件以上確認できた銘柄
+        <b className="ml-1">{data.eligibleCount}件</b>
+      </p>
+      <p className="mt-2 text-xs font-bold text-amber-700">
+        暫定研究：少数回の勝率は偶然でも高くなります。過去の実績であり、明日の上昇予測・買い推奨ではありません。
+      </p>
+    </div>
+    {data.eligibleCount > 0 ?
+      <div className="grid gap-3 lg:grid-cols-2">
+        <NextDayEvidenceList title="🟢 過去の翌日上昇率・上位20" rows={data.leaders} isUp={true}/>
+        <NextDayEvidenceList title="🔴 過去の翌日上昇率・下位20" rows={data.laggers} isUp={false}/>
+      </div> :
+      <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+        まだ5件以上の過去の急落後実績がある銘柄を確認できません。
+        銘柄別の勝率は推測せず、追加のデータを待ちます。
+      </p>}
+    <p className="px-2 pb-1 text-xs leading-6 text-slate-600">{data.note}</p>
   </section>;
 }
 
@@ -149,6 +225,7 @@ export default async function CrashStrengthShadowPage() {
             ? "直近の保存データと参考指数を照合しましたが、判定条件（−2％以下・800銘柄以上）に合う急落日を確認できません。未検出は安全の保証ではありません。"
             : "日経平均・TOPIXの参考指数を取得できず、暴落判定を保留しています。これは『暴落がない』という意味ではありません。"}</p>}
         </section>
+        <NextDayEvidencePanel data={report.nextDayEvidence}/>
         {report.event && <>
           <div className="grid gap-4 lg:grid-cols-2">
             <Ranking title="🟢 暴落日に相対的に強かった銘柄" side="strong" rows={report.strong}/>
