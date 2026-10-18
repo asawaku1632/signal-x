@@ -18,7 +18,7 @@ type TrustedConfig = {
   fingerprintSecret: string;
 };
 export type RestorePreflightResult =
-  | { kind: "verified_existing"; signalxUserId: string; validUntil: string }
+  | { kind: "verified_existing"; signalxUserId: string; validUntil: string; status: "active" | "trialing" | "grace_period" }
   | { kind: "invalid_input" | "provider_rejected" | "inactive" | "unbound" |
           "owner_mismatch" | "product_mismatch" | "unavailable" };
 
@@ -43,7 +43,7 @@ export async function preflightExistingPlayRestoration(
     now,
   },httpGet);
   if (!verification.ok) return { kind: "provider_rejected" };
-  if (!["active", "trialing", "grace_period"].includes(verification.state.status) ||
+  if ((verification.state.status !== "active" && verification.state.status !== "trialing" && verification.state.status !== "grace_period") ||
       !verification.state.validUntil ||
       Date.parse(verification.state.validUntil) <= now.getTime())
     return { kind: "inactive" };
@@ -72,5 +72,6 @@ export async function preflightExistingPlayRestoration(
     kind: "verified_existing",
     signalxUserId: owner.user_id,
     validUntil: verification.state.validUntil,
+    status: verification.state.status,
   };
 }
