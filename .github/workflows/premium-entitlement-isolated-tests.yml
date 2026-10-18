@@ -56,6 +56,8 @@ on:
       - 'scripts/verify-play-signing-dal.mjs'
       - 'tests/playSigningDalGate.test.mjs'
       - 'tests/playConsoleSigningMatch.test.mjs'
+      - 'scripts/audit-live-play-dal.mjs'
+      - 'tests/livePlayDalAudit.test.mjs'
       - 'docs/research/android-play-billing-readiness-20261018.md'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
@@ -73,7 +75,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated premium policy tests
-        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs tests/playRestorationPreflight.test.mjs tests/playInitialPurchaseApproval.test.mjs tests/androidBillingReadiness.test.mjs tests/playAcknowledgementPolicy.test.mjs tests/playCheckoutTicketResearch.test.mjs tests/googlePlayIntegrityDecoder.test.mjs tests/playCheckoutSessionGate.test.mjs tests/twaPostMessageBridgeResearch.test.mjs tests/twaWebPortReceiverResearch.test.mjs tests/twaPostMessageDalReadiness.test.mjs tests/playSigningDalGate.test.mjs tests/playConsoleSigningMatch.test.mjs
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs tests/playRestorationPreflight.test.mjs tests/playInitialPurchaseApproval.test.mjs tests/androidBillingReadiness.test.mjs tests/playAcknowledgementPolicy.test.mjs tests/playCheckoutTicketResearch.test.mjs tests/googlePlayIntegrityDecoder.test.mjs tests/playCheckoutSessionGate.test.mjs tests/twaPostMessageBridgeResearch.test.mjs tests/twaWebPortReceiverResearch.test.mjs tests/twaPostMessageDalReadiness.test.mjs tests/playSigningDalGate.test.mjs tests/playConsoleSigningMatch.test.mjs tests/livePlayDalAudit.test.mjs
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
@@ -166,3 +168,16 @@ jobs:
           for cls in PlayCheckoutParamsFactory TwaAndroidXPostMessageResearch TwaCheckoutMessagePolicy; do
             test -n "$(find build -type f -name "$cls.class" -print -quit)"
           done
+
+  live-dal-observation:
+    # Read-only diagnostic, never treats an inaccessible website as verified.
+    # Does NOT deploy DAL, inspect private keys, build a release or enable billing.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Observe public Digital Asset Links status (not proof of Play device trust)
+        run: node scripts/audit-live-play-dal.mjs
