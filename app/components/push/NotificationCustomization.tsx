@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PriceTargetControls from "./PriceTargetControls";
 import NotificationResearchProgress from "./NotificationResearchProgress";
 import {
@@ -18,6 +18,65 @@ export default function NotificationCustomization() {
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"settings" | "research">("settings");
+  const notificationListRef = useRef<HTMLDivElement>(null);
+  const [remainingHidden, setRemainingHidden] = useState(0);
+
+  // Show a scroll hint only while some of the nine choices are below the
+  // visible viewport. This is visual guidance, not a push setting.
+  useEffect(() => {
+    if (activeTab !== "settings") {
+      setRemainingHidden(0);
+      return;
+    }
+
+    let animationFrame: number | null = null;
+    const update = () => {
+      const list = notificationListRef.current;
+      if (!list) {
+        setRemainingHidden(0);
+        return;
+      }
+      const visibleBottom = window.innerHeight - 106;
+      const bounds = list.getBoundingClientRect();
+      if (bounds.top >= visibleBottom || bounds.bottom <= visibleBottom + 24) {
+        setRemainingHidden(0);
+        return;
+      }
+      const rows = list.querySelectorAll<HTMLElement>("[data-notification-row]");
+      let hidden = 0;
+      rows.forEach((row) => {
+        if (row.getBoundingClientRect().bottom > visibleBottom) hidden += 1;
+      });
+      setRemainingHidden(hidden);
+    };
+    const scheduleUpdate = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        update();
+      });
+    };
+    scheduleUpdate();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [activeTab]);
+
+  function scrollToNextNotification() {
+    const list = notificationListRef.current;
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll<HTMLElement>("[data-notification-row]"));
+    const next = rows.find((row) => row.getBoundingClientRect().top >= window.innerHeight - 170)
+      ?? rows[rows.length - 1];
+    next?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "center",
+    });
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,9 +147,14 @@ export default function NotificationCustomization() {
         <p className="mt-4 text-xs font-bold leading-5 text-slate-500">
           スマホのプッシュ通知だけを変更できます。現在届いているLINE通知はこれまでどおりです。
         </p>
-      <div className="mt-4 divide-y divide-slate-100">
+        <button type="button" onClick={scrollToNextNotification}
+          className="mt-3 flex w-full items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-left text-xs font-black text-blue-700">
+          <span>全9種類の通知があります・下にも続きます</span>
+          <span aria-hidden="true" className="text-base">↓</span>
+        </button>
+      <div ref={notificationListRef} className="mt-2 divide-y divide-slate-100">
         {NOTIFICATION_CATEGORIES.map((category) => (
-          <label key={category.key} className="flex cursor-pointer items-center gap-3 py-3">
+          <label key={category.key} data-notification-row className="flex cursor-pointer items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <span className="block text-sm font-black text-slate-800">{category.title}</span>
               <span className="mt-1 block text-xs leading-5 text-slate-500">{category.description}</span>
@@ -130,6 +194,13 @@ export default function NotificationCustomization() {
           </p>}
           <NotificationResearchProgress />
         </div>
+      )}
+      {activeTab === "settings" && remainingHidden > 0 && (
+        <button type="button" onClick={scrollToNextNotification}
+          className="fixed bottom-20 left-1/2 z-40 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full border border-blue-200 bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-xl shadow-blue-200/50"
+          aria-label={`下にまだ${remainingHidden}種類の通知があります。続きを表示する`}>
+          ↓ 下にも通知があります（あと{remainingHidden}種類）
+        </button>
       )}
     </section>
   );
