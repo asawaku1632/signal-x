@@ -10,6 +10,7 @@ on:
       - "research/crash-benchmark-oos-*"
       - "feature/crash-strength-tabs-dashboard-*"
       - "fix/crash-dashboard-match-concept-*"
+      - "research/crash-resilience-rebound-forward-*"
     paths:
       - "app/lib/research/crashStrengthShadow.mjs"
       - "app/lib/research/crashStrengthMarketReference.mjs"
@@ -24,6 +25,13 @@ on:
       - "tests/crashNextDayEvidence.test.mjs"
       - "tests/crashTrueSessionAudit.test.mjs"
       - "tests/crashNikkeiOutperformance.test.mjs"
+      - "app/lib/research/crashForwardCore.mjs"
+      - "app/lib/research/crashForwardRunner.ts"
+      - "app/api/cron/crash-forward-research/route.ts"
+      - "app/admin/crash-strength/forward/page.tsx"
+      - "tests/crashForwardFreeze.test.mjs"
+      - "supabase/migrations/20261018_crash_forward_immutable_research.sql"
+      - "vercel.json"
       - ".github/workflows/crash-strength-shadow-ci.yml"
   pull_request:
     branches:
@@ -42,6 +50,13 @@ on:
       - "tests/crashTrueSessionAudit.test.mjs"
       - "tests/crashNikkeiOutperformance.test.mjs"
       - "tests/crashStrengthMarketReference.test.mjs"
+      - "app/lib/research/crashForwardCore.mjs"
+      - "app/lib/research/crashForwardRunner.ts"
+      - "app/api/cron/crash-forward-research/route.ts"
+      - "app/admin/crash-strength/forward/page.tsx"
+      - "tests/crashForwardFreeze.test.mjs"
+      - "supabase/migrations/20261018_crash_forward_immutable_research.sql"
+      - "vercel.json"
       - ".github/workflows/crash-strength-shadow-ci.yml"
   workflow_dispatch:
 
@@ -58,4 +73,4 @@ jobs:
         with:
           node-version: "24"
       - name: Run isolated crash strength tests
-        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs tests/crashTrueSessionAudit.test.mjs tests/crashNikkeiOutperformance.test.mjs tests/crashStrengthDashboardTabs.test.mjs tests/crashStrengthConceptLayout.test.mjs
+        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs tests/crashTrueSessionAudit.test.mjs tests/crashNikkeiOutperformance.test.mjs tests/crashStrengthDashboardTabs.test.mjs tests/crashStrengthConceptLayout.test.mjs tests/crashForwardFreeze.test.mjs
