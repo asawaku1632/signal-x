@@ -17,6 +17,8 @@ type HistoricalRow = {
   signal_date: string;
   target_date: string;
   return5: string;
+  entryPrice: string;
+  aiPower: string;
   benchmark5: string | null;
   coverage: string;
   worst_closing_drop: string | null;
@@ -34,6 +36,7 @@ WITH full_sessions AS (
   SELECT o.code, o.trade_date::text AS signal_date,
     o.outcome_5d_date::text AS target_date,
     o.entry_price::numeric AS entry_price,
+    o.ai_power::numeric AS ai_power,
     o.return_5d::numeric AS return5,
     d0.session_number AS seq0, d5.session_number AS seq5
   FROM public.swing_universe_observations o
@@ -65,6 +68,8 @@ WITH full_sessions AS (
 )
 SELECT c.code,c.signal_date,c.target_date,
   c.return5::text AS return5,
+  c.entry_price::text AS "entryPrice",
+  c.ai_power::text AS "aiPower",
   CASE WHEN b.coverage >= 800 THEN b.average_return::text ELSE NULL END AS benchmark5,
   b.coverage::text AS coverage,
   CASE WHEN w.prices_count = 5
@@ -105,7 +110,7 @@ function isoWeekStart(date: string) {
   return d.toISOString().slice(0,10);
 }
 
-type Evidence = { date: string; value: number; benchmark: number | null; drawdown: number | null };
+type Evidence = { date: string; value: number; benchmark: number | null; drawdown: number | null; aiPower: number; entryPrice: number };
 
 export function summarizeSwingComparison(input: Evidence[]) {
   const settled = input.length;
@@ -117,7 +122,9 @@ export function summarizeSwingComparison(input: Evidence[]) {
   const weeks = new Map<string,Evidence[]>();
   for(const row of input){
     const monday=isoWeekStart(row.date);
-    weeks.set(monday,[...(weeks.get(monday)??[]),row]);
+    const existing=weeks.get(monday)??[];
+    existing.push(row);
+    weeks.set(monday,existing);
   }
   const weekly = [...weeks.entries()].sort(([a],[b])=>b.localeCompare(a)).slice(0,12).map(([weekStart,cohort])=>{
     const validBenchmarks = cohort.filter(x=>x.benchmark!==null);
@@ -135,12 +142,49 @@ export function summarizeSwingComparison(input: Evidence[]) {
     };
   });
   const highOutliers = input.filter(x=>Math.abs(x.value)>=OUTLIER_REVIEW_ABSOLUTE_PERCENT).length;
+  // Provisional research checkpoints. These are NOT a proof of predictive skill.
+  const completeWeeks = [...weeks.values()].filter(group =>
+    new Set(group.map(item => item.date)).size >= 2 &&
+    group.filter(item => item.benchmark !== null).length >= 10);
+  const positiveWeeks = completeWeeks.filter(group => {
+    const values = group.filter(item => item.benchmark !== null)
+      .map(item => item.value - item.benchmark!);
+    const weeklyMean = average(values);
+    return weeklyMean !== null && weeklyMean > 0;
+  }).length;
+  const weekBeatRate = percent(positiveWeeks, completeWeeks.length);
+  const robustExcess = trimmedMean(excesses);
+  const medianExcess = median(excesses);
+  const drawdownHitRate = percent(risk.filter(item => item.drawdown! <= -3).length, risk.length);
+  const riskGroups = [
+    {key:"power_below90", label:"AI POWER 90未満", rows:input.filter(item => item.aiPower < 90)},
+    {key:"power_90plus", label:"AI POWER 90以上", rows:input.filter(item => item.aiPower >= 90)},
+    {key:"price_below1000", label:"予測時1000円未満", rows:input.filter(item => item.entryPrice < 1000)},
+    {key:"price_1000plus", label:"予測時1000円以上", rows:input.filter(item => item.entryPrice >= 1000)},
+  ].map(({key,label,rows}) => {
+    const fullyObserved = rows.filter(item => item.drawdown !== null);
+    return {
+      key,label,count:rows.length,observed:fullyObserved.length,
+      lossAfter5Rate:round(percent(rows.filter(item => item.value < 0).length,rows.length),1),
+      closingDrop3Rate:round(percent(fullyObserved.filter(item => item.drawdown! <= -3).length,fullyObserved.length),1),
+      // Never publish a probability claim for small slices.
+      sufficientForDescription:fullyObserved.length >= 30 && new Set(rows.map(item=>item.date)).size >= 5,
+    };
+  });
   const gates = [
     {key:"settled",label:"5日後の検証件数",current:settled,required:MIN_SETTLED_SIGNALS,passed:settled>=MIN_SETTLED_SIGNALS},
     {key:"days",label:"異なる予測日",current:days.size,required:MIN_DISTINCT_PREDICTION_DAYS,passed:days.size>=MIN_DISTINCT_PREDICTION_DAYS},
     {key:"weeks",label:"独立した週",current:weeks.size,required:MIN_DISTINCT_WEEKS,passed:weeks.size>=MIN_DISTINCT_WEEKS},
     {key:"benchmark",label:"市場平均との比較可能率",current:round(percent(benchmarks.length,settled),1)??0,required:MIN_COMPARISON_COVERAGE*100,passed:settled>0&&benchmarks.length/settled>=MIN_COMPARISON_COVERAGE,unit:"%"},
     {key:"risk",label:"途中5日分の株価取得率",current:round(percent(risk.length,settled),1)??0,required:MIN_COMPARISON_COVERAGE*100,passed:settled>0&&risk.length/settled>=MIN_COMPARISON_COVERAGE,unit:"%"},
+    {key:"positive_weeks",label:"市場平均超えの週（週2予測日・10件以上）",current:positiveWeeks,required:5,
+      passed:completeWeeks.length >= 6 && positiveWeeks >= 5},
+    {key:"median_excess",label:"市場超過の中央値がプラス",current:round(medianExcess)??0,required:0,
+      passed:benchmarks.length>=MIN_SETTLED_SIGNALS && medianExcess !== null && medianExcess > 0,unit:"pt"},
+    {key:"robust_excess",label:"外れ値を抑えた市場超過平均がプラス",current:round(robustExcess)??0,required:0,
+      passed:benchmarks.length>=MIN_SETTLED_SIGNALS && robustExcess !== null && robustExcess > 0,unit:"pt"},
+    {key:"risk_drawdown",label:"途中−3%以上の下落が25%以下",current:round(drawdownHitRate,1)??0,required:25,
+      passed:risk.length>=MIN_SETTLED_SIGNALS && drawdownHitRate !== null && drawdownHitRate<=25,unit:"%"},
   ];
   return {
     version:VERIFIED_RULE_VERSION,
@@ -154,7 +198,12 @@ export function summarizeSwingComparison(input: Evidence[]) {
     trimmedMeanReturn:round(trimmedMean(returns)),
     marketAverage:round(average(benchmarks.map(x=>x.benchmark!))),
     meanExcess:round(average(excesses)),
-    medianExcess:round(median(excesses)),
+    medianExcess:round(medianExcess),
+    robustMeanExcess:round(robustExcess),
+    comparableWeeks:completeWeeks.length,
+    positiveExcessWeeks:positiveWeeks,
+    positiveExcessWeekRate:round(weekBeatRate,1),
+    riskGroups,
     marketComparable:benchmarks.length,
     worstFiveDayReturn:round(returns.length?Math.min(...returns):null),
     largestSavedCloseDrop:round(risk.length?Math.min(...risk.map(x=>x.drawdown!)):null),
@@ -163,6 +212,8 @@ export function summarizeSwingComparison(input: Evidence[]) {
     outliersOverFiftyPercent:highOutliers,
     gates,
     gatesPassed:gates.every(x=>x.passed),
+    trustReviewStatus:gates.every(x=>x.passed) ? "MANUAL_REVIEW_REQUIRED" : "EVIDENCE_COLLECTING",
+    // Explicit human review and independent out-of-sample verification remain mandatory.
     automaticNotificationRelease:false,
     deliveryEnabled:false,
     weekly,
@@ -171,6 +222,8 @@ export function summarizeSwingComparison(input: Evidence[]) {
       "途中下落率は予測時の保存価格から、続く5営業日の保存終値の最安値まで。日中安値・売買約定価格は含みません。",
       "中央値と上下10%を除いた平均も併記し、極端な値動きによる平均の偏りを確認します。元データは除外・変更しません。",
       "件数・週数が達成されても、独立期間での再現性と異常値を人が確認するまで配信は解禁しません。",
+      "AI POWER・価格帯別のリスクは参考集計。少数サンプルから安全・危険と断定しません。",
+      "市場平均超えの週・外れ値を抑えた成績・途中下落率は、研究用の暫定審査基準です。",
     ],
   };
 }
@@ -190,9 +243,12 @@ export async function getSwingBenchmarkEvidence(){
   const cohort:Evidence[]=validRows.map(row=>({
     date:row.signal_date,
     value:Number(row.return5),
+    aiPower:Number(row.aiPower),
+    entryPrice:Number(row.entryPrice),
     benchmark:row.benchmark5==null?null:Number(row.benchmark5),
     drawdown:row.worst_closing_drop==null?null:Number(row.worst_closing_drop),
-  })).filter(row=>Number.isFinite(row.value) && (row.benchmark==null||Number.isFinite(row.benchmark))
+  })).filter(row=>Number.isFinite(row.value) && Number.isFinite(row.aiPower) && Number.isFinite(row.entryPrice)
+    && (row.benchmark==null||Number.isFinite(row.benchmark))
     && (row.drawdown==null||Number.isFinite(row.drawdown)));
   return {checkedAt:new Date().toISOString(),...summarizeSwingComparison(cohort)};
 }
