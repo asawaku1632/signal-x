@@ -20,12 +20,6 @@ const publicNavItems: NavItem[] = [
     matchPaths: ["/dashboard"],
   },
   {
-    href: "/scan-mobile",
-    icon: "🔍",
-    label: "スキャン",
-    matchPaths: ["/scan-mobile", "/scan"],
-  },
-  {
     href: "/favorites",
     icon: "⭐",
     label: "お気に入り",
@@ -33,6 +27,12 @@ const publicNavItems: NavItem[] = [
       "/favorites",
       "/favorites-alerts",
     ],
+  },
+  {
+    href: "/scan-mobile",
+    icon: "🔍",
+    label: "スキャン",
+    matchPaths: ["/scan-mobile", "/scan"],
   },
   {
     href: "/ai-analysis",
