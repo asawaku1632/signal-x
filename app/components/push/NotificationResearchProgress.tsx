@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SwingBenchmarkPanel from "./SwingBenchmarkPanel";
 
 type ResearchItem = {
@@ -24,13 +24,13 @@ function percent(value: number | null) {
   return value === null ? "データ不足" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-export default function NotificationResearchProgress() {
-  const [expanded, setExpanded] = useState(false);
+export default function NotificationResearchProgress({ defaultExpanded = false }: { defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<ResearchReport | null>(null);
   const [error, setError] = useState("");
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -48,7 +48,11 @@ export default function NotificationResearchProgress() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (defaultExpanded) void refresh();
+  }, [defaultExpanded, refresh]);
 
   function toggle() {
     if (!expanded && !report && !loading) void refresh();
