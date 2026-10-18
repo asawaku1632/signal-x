@@ -534,14 +534,15 @@ export default function ChartPage() {
               </div>
             </div>
 
-            <button
+            <div className="flex shrink-0 items-center gap-1">
+              <button
               type="button"
               onClick={() => void toggleFavorite()}
               disabled={favoriteLoading || favoriteSaving}
               aria-pressed={isFavorite}
               aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
               title={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
-              className={`flex h-11 min-w-[74px] flex-col items-center justify-center rounded-xl border px-1 shadow-sm transition active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
+              className={`flex h-11 min-w-[58px] flex-col items-center justify-center rounded-xl border px-1 shadow-sm transition active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
                 isFavorite
                   ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
                   : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -553,7 +554,14 @@ export default function ChartPage() {
               <span className="text-[9px] font-black leading-3">
                 {favoriteLoading ? "確認中" : favoriteSaving ? "保存中" : isFavorite ? "登録済み" : "お気に入り"}
               </span>
-            </button>
+              </button>
+              <div
+                className="grid h-11 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-lg shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                aria-hidden="true"
+              >
+                📈
+              </div>
+            </div>
           </div>
         </header>
         {favoriteError ? (
