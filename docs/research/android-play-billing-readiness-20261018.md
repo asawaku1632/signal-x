@@ -173,3 +173,21 @@ Official references:
 - [Android App Links/Digital Asset Links](https://developer.android.com/training/app-links/verify-android-applinks)
 
 **Next gated steps:** real AndroidX & Chrome session integration, strict native JSON parsing, DAL with actual signing SHA-256, Play-licensed-device cross-browser testing, OAuth/setup checks, and a complete purchase/grant/ack/refund/recovery flow. None are implemented or authorized to ship by these research files.
+
+## 2026-10-18: research adapter using actual AndroidX CustomTabsSession API signatures
+
+- `android-twa/research/TwaAndroidXPostMessageResearch.java` now imports AndroidX `CustomTabsSession`, `CustomTabsCallback`, `CustomTabsService`, `android.net.Uri`, and `android.os.Bundle`. It is a **non-production** callback adapter: after the host has bound the browser service, called `CustomTabsClient.warmup(0)`, and created/attached the same launched session with this adapter's callback, it calls `session.validateRelationship(RELATION_USE_AS_ORIGIN, expectedOrigin, null)`. Merely submitting the call does not count as verification.
+- On the browser's **successful** relationship callback for the exact SIGNALX origin and a matching navigation-finished event, the adapter calls `requestPostMessageChannel(sourceOrigin, targetOrigin, new Bundle())`. A positive return does not count as channel readiness; `onMessageChannelReady` must arrive before the adapter sends the per-channel HELLO.
+- Incoming `onPostMessage` frames are accepted only in strict serialized JSON format. The adapter requires the matching HELLO ACK before sending READY, then accepts exactly one unexpired ticket and closes. Navigation, hidden tab, invalid relationship, malformed frame, wrong nonce, or AndroidX API failure all close without checkout.
+- `android-twa/research/ci-stubs/` contains fake AndroidX and platform classes to run `TwaAndroidXPostMessageResearchTest.java` in Java 17 GitHub Actions. **Passing CI is a stubbed contract test, not evidence that this compiles against the real AndroidX artifact or works inside a signed TWA.** No production `LauncherActivity`, manifest, browser binding, signing or released Android artifact was changed.
+- Chrome's TWA guide requires `androidx.browser.customtabs.PostMessageService` in the manifest, and a matching website Digital Asset Links entry with `delegate_permission/common.use_as_origin` for `com.signalx.app`, signed with the **actual Google Play App Signing certificate**.
+- Inspected `public/.well-known/assetlinks.json`: it currently has a valid-format SHA-256 fingerprint and `delegate_permission/common.handle_all_urls`, but **no** `delegate_permission/common.use_as_origin`. The checked-in fingerprint is **not independently verified** against the Play signing certificate, and whether the site currently serves the checked-in contents was not verified. `scripts/audit-twa-postmessage-dal.mjs` reports these as blockers. This is a source audit only.
+- Research-only templates `android-twa/research/postmessage-assetlinks.proposal.json` and `android-twa/research/postmessage-service.proposal.xml` show the prospective change without modifying any production manifest or `assetlinks.json`. The fingerprint placeholder **must not** be deployed. Only apply after reading Google Play Console's actual Play App Signing SHA-256, confirming the website host and exact distributed package.
+
+Still missing: real Browser Helper LauncherActivity integration with the **same** launched CustomTabsSession, AndroidX browser dependency compatibility, UI lifecycle/service binding, Google Play signing-certificate confirmation, Digital Asset Links deployment, physical Play-installed Chrome 115+ testing, production OAuth credentials and verified Play Integrity, a consented purchase flow, backend acknowledgement/retry/RTDN, and owner approval for billing activation. A research adapter does not authorize a real paid purchase.
+
+Official API references:
+- https://developer.chrome.com/docs/android/post-message-twa
+- https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsSession
+- https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsService
+- https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsCallback
