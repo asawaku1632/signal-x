@@ -35,4 +35,8 @@ android {
 }
 dependencies {
     implementation 'androidx.browser:browser:1.9.0'
+    // AndroidX transitive graph mixes old jdk7/jdk8 Kotlin wrappers with
+    // Kotlin stdlib 1.8.22. Keep the wrappers at the same merged version.
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
 }
