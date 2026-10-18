@@ -66,7 +66,8 @@ public final class InternalBridgeProbeActivity extends Activity {
             + "研究用の別アプリです。課金や会員登録は行いません。\n\n"
             + "重要：このアプリのパッケージと署名はGoogle Play配布版とは異なります。"
             + "よって、サイトの安全な通信許可（DAL）は失敗するのが正常です。\n"
-            + "接続拒否を確認するためのテストです。\n");
+            + "接続拒否を確認するためのテストです。\n"
+            + "Chromeが起動したら端末の『戻る』操作で診断画面に戻り、結果を確認してください。\n");
         warning.setTextSize(15);
         root.addView(warning);
 
@@ -120,13 +121,17 @@ public final class InternalBridgeProbeActivity extends Activity {
             @Override
             public void onRelationshipValidationResult(
                 int relation, Uri origin, boolean accepted, Bundle extras) {
-                secure.onRelationshipValidationResult(relation,origin,accepted,extras);
-                if (accepted && relation == CustomTabsService.RELATION_USE_AS_ORIGIN
-                    && origin != null && "https://signal-x-ppjg.vercel.app".equals(origin.toString())) {
-                    report("DAL通信元チェック：成功。ただしPlay配布版かは別途確認。");
-                } else {
-                    report("DAL通信元チェック：拒否（このデバッグアプリでは想定どおり）。");
+                // This separate DEBUG-signed package is not authorized in
+                // the production site's DAL. If Chrome ever reports success,
+                // abort BEFORE forwarding the callback: a negative probe must
+                // never start a privileged channel.
+                if (accepted) {
+                    report("異常：未登録の検証アプリが通信許可されました。安全のため停止。");
+                    if (bridge != null) bridge.close();
+                    return;
                 }
+                secure.onRelationshipValidationResult(relation,origin,false,extras);
+                report("DAL通信元チェック：拒否（このデバッグアプリでは想定どおり）。");
             }
             @Override
             public void onNavigationEvent(int event, Bundle extras) {
