@@ -224,3 +224,21 @@ Its Gradle source set compiles `PlayCheckoutParamsFactory.java` alongside the re
 `PlayCheckoutParamsFactory.forSubscription` now requires its offer token to exactly match `ProductDetails.getSubscriptionOfferDetails().getOfferToken()` for the same fresh subscription product; missing, in-app-only, cross-product and unknown offers fail closed. Google Play remains the authority on eligibility and plan price at launch. This helper only builds native `BillingFlowParams` with a server-issued obfuscated user identifier. It **does not** connect to a live BillingClient, query products, launch checkout, accept a payment, grant PREMIUM or acknowledge/restore any subscription.
 
 **Outstanding blockers before a real device checkout:** Play Console signing SHA-256 confirmation, matching production `use_as_origin` DAL relation and Android `PostMessageService` in a separately built signed app, installed TWA session verification, trusted handoff/Google Play Integrity actual API call, ProductDetails query from connected Play Store, secure session ownership, callback handling and backend acknowledgment/refunds. No APK/AAB is built and no production asset or payment switch is modified by this CI.
+
+## 2026-10-18: owner-provided Play Console Digital Asset Links comparison
+
+The owner supplied the **Play Console Digital Asset Links JSON** for `com.signalx.app`, which contains the public Play-distribution app signing SHA-256:
+
+`C0:DF:8C:E9:18:EA:73:FA:A1:25:5A:0D:E4:7E:14:55:F8:8D:2B:8E:59:3A:56:4B:E0:34:B6:AE:56:4B:2E:D4`
+
+The same Play Console screen separately listed the upload-key SHA-256:
+
+`17:66:A9:A1:58:B0:FF:9A:1E:A0:AA:FE:22:12:0A:E9:60:DD:BF:4F:81:B4:0B:A4:A2:D9:26:93:E3:53:9D:79`
+
+**Result:** The Google-generated Digital Asset Links app-signing fingerprint exactly matches the current repository source `public/.well-known/assetlinks.json`. The upload-key fingerprint does not match and must **not** replace it. Android package `com.signalx.app` and TWA origin `https://signal-x-ppjg.vercel.app` also agree with `android-twa/twa-manifest.json`.
+
+**Next change prepared, but NOT applied to production:** The checked-in source currently declares only `delegate_permission/common.handle_all_urls`. The research proposal at `android-twa/research/postmessage-assetlinks.proposal.json` adds `delegate_permission/common.use_as_origin` to that same already matching statement, preserving package, certificate and existing relation unchanged. `tests/playConsoleSigningMatch.test.mjs` asserts exact fingerprint match, refuses upload-key substitution, and checks that the research proposal differs only by the added relation. No published `public/.well-known/assetlinks.json` change was made.
+
+**Important remaining distinctions:** The evidence is a Play Console copy/paste plus local repository source; the live `https://signal-x-ppjg.vercel.app/.well-known/assetlinks.json` HTTPS response, Content-Type, Google Play-installed Android binary and Chrome `RELATION_USE_AS_ORIGIN` callback have NOT been verified by these tests. A source match is not equivalent to successful device trust verification. If Play Console has additional active signing certificates for key upgrades, verify all relevant identities before updating deployed DAL.
+
+Production deployment of the new DAL relationship, a signed Android app with PostMessageService, Play Integrity access and purchases must remain gated behind explicit owner approval and end-to-end test checks.
