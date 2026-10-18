@@ -122,7 +122,7 @@ public final class InternalBridgeProbeActivity extends Activity {
                 int relation, Uri origin, boolean accepted, Bundle extras) {
                 secure.onRelationshipValidationResult(relation,origin,accepted,extras);
                 if (accepted && relation == CustomTabsService.RELATION_USE_AS_ORIGIN
-                    && SIGNALX.toString().startsWith(origin==null?"?":origin.toString())) {
+                    && origin != null && "https://signal-x-ppjg.vercel.app".equals(origin.toString())) {
                     report("DAL通信元チェック：成功。ただしPlay配布版かは別途確認。");
                 } else {
                     report("DAL通信元チェック：拒否（このデバッグアプリでは想定どおり）。");
