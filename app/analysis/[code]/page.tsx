@@ -895,41 +895,32 @@ export default function AnalysisPage() {
           </div>
         </details>
 
-        <Link href={`/chart/${signal.code}`} className="mt-3 block rounded-2xl border border-blue-600 bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
+        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-base font-black min-[380px]:text-lg">値動きと買い時をチャートで確認</p><p className="mt-1 text-xs font-medium text-blue-100">ローソク足、支持線・抵抗線、出来高を確認できます</p></div>
+            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
             <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
           </div>
         </Link>
 
-        <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
 
-        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm dark:border-orange-800 dark:bg-slate-900">
+
+        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
           <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">今の価格で取る行動</p>
-          <p className="mt-3 text-base font-black leading-7 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
-          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-300">売買前に、下の利益・損失目安とチャートをご確認ください。</p>
+
+          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
         </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-sm font-black">重要指標</h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
-            <Info label="必要資金" value={yen(requiredMoney)} />
-            <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
-            <Info label="出来高" value={`${volumeRatio}倍`} />
-          </div>
-        </section>
+          <h2 className="text-sm font-black">利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の参考試算）</span></h2>
 
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-base font-black">利益とリスク</h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">利益だけでなく、損失の目安も同じように確認してください。</p>
-          <div className="mt-2 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-slate-800">
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">利益確定目安</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
               <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">期待利益 +{yen(profitYen)}（+{profitRate.toFixed(2)}%）</p>
             </div>
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-slate-800">
+            <div className="min-w-0 rounded-xl border border-red-200 bg-red-50 p-2.5 dark:border-red-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-red-700 dark:text-red-300">損失を抑える目安</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(stopLoss)}</p>
               <p className="mt-1 text-sm font-bold text-red-700 dark:text-red-300">想定損失 -{yen(lossYen)}（-{lossRate.toFixed(2)}%）</p>
@@ -940,6 +931,34 @@ export default function AnalysisPage() {
             <Info label="損益比" value={riskReward} valueClass="text-blue-600 dark:text-blue-400" />
           </div>
         </section>
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-sm font-black">重要指標</h2>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <Info label="必要資金" value={yen(requiredMoney)} />
+            <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
+            <Info label="出来高" value={`${volumeRatio}倍`} />
+          </div>
+        </section>
+
+        <details className="mt-2 rounded-xl border border-blue-100 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">📅 スイング判定・買い時の詳細を見る</summary>
+          <SwingEntryCard decision={swingEntryDecision} />
+          <MorningEntryRecheckCard
+            code={signal.code}
+            aiPower={Number.isFinite(power) ? power : null}
+            rsi={signal.rsi ?? null}
+            scanPrice={price > 0 ? price : null}
+            scanStatus={scanFreshness.status}
+            scanUpdatedAt={scanFreshness.updatedAt}
+          />
+          <OvernightBuyLimitCard code={signal.code} />
+        </details>
+
+        <details className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">📊 ボリンジャーバンド・補助評価を表示</summary>
+          <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
+        </details>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
@@ -958,15 +977,15 @@ export default function AnalysisPage() {
           )}
         </section>
 
-        <section className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
-          <h2 className="text-base font-black">AIコメント</h2>
+        <details className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">AIコメント・詳しい解説を見る</summary>
           <ul className="mt-2 space-y-1.5">
             {aiCommentLines.map((line, index) => (
               <li key={`${line}-${index}`} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300"><span className="text-blue-600 dark:text-blue-400">・</span><span>{line}</span></li>
             ))}
           </ul>
           <p className="mt-3 border-t border-blue-100 pt-3 text-xs font-medium leading-5 text-slate-600 dark:border-slate-700 dark:text-slate-300">{aiComment.point}</p>
-        </section>
+        </details>
 
         <section className="mt-3 rounded-2xl border-2 border-red-300 bg-red-50 p-3 shadow-sm dark:border-red-800 dark:bg-red-950/20">
           <div className="flex items-start gap-2">
