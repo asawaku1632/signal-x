@@ -128,3 +128,26 @@ Official API references:
 - [Play Integrity response verdict interpretation](https://developer.android.com/google/play/integrity/verdicts)
 
 **Still blocked:** no real Google Cloud service account, Play Integrity API activation, trusted authenticated NextAuth route, Android-to-web handoff, actual Java SDK, AAB build, physical device test, production database migration, or Google Play billing activation. The injected fake HTTP implementation in CI is **not** a real Google verification call.
+
+## 2026-10-18 server-authenticated checkout issuance seam
+
+Audited existing identity implementation:
+- `app/lib/auth.ts` stores the stable `signalxUserId` in the signed NextAuth JWT after verified Google OAuth provider-subject resolution; `session.user.id` is populated from this server-side identity. E-mail alone is NOT an owner key.
+- Special Google Play reviewer credentials deliberately remove `signalxUserId`. Such review sessions, and anonymous sessions, must never issue checkout tickets.
+- `app/lib/push/requestSecurity.ts` shows the existing pattern for origin / host / Fetch Metadata / custom header browser request restrictions.
+
+Added `app/lib/billing/playCheckoutSessionGate.ts`: accepts ONLY same-origin `POST` with explicit `Origin`, matching `Host`, `sec-fetch-site: same-origin`, JSON `{}` body and `x-signalx-request: play-checkout-issue-v1`. It rejects query parameters, cross-site requests, bearer tokens in lieu of the session, malformed payloads and caller-supplied `userId`, `productId`, price, callback, or redirect. The only identity is the server-issued NextAuth `session.user.id` UUID, and the ticket issuer checks the account's disabled state in PostgreSQL. A missing/malformed session is denied.
+
+Added `app/lib/billing/playCheckoutNextAuthResearch.ts`: **server-only, explicitly disabled by default**, binds that guard to `getServerSession(authOptions)` and PostgreSQL. It creates NO public route, no checkout UI, no payments, and no production env settings. It requires `SIGNALX_RESEARCH_PLAY_CHECKOUT_ISSUE_ENABLED=true` plus a matching `NEXTAUTH_URL`; all products and HMAC keys come only from server env. Do not set this flag without a complete end-to-end threat review, browser/native channel, rate limits, CSRF review, credential management and approved database migration.
+
+`tests/playCheckoutSessionGate.test.mjs` covers Google-session owner binding, unsigned fake/Play review sessions, site/host mismatch, CSRF barriers, rogue body fields, disabled feature, storage downtime and malformed requests. Disposable PostgreSQL tests also issue through this gate, ensuring stored ownership comes from the trusted session.
+
+### TWA postMessage path: official option, NOT implemented
+
+Chrome documents a bidirectional `postMessage` channel for Trusted Web Activities (supported starting Chrome 115). The Android app must establish its source-origin equivalence via Digital Asset Links `delegate_permission/common.use_as_origin` using the **actual Play App Signing SHA-256 certificate**, and the sender/receiver must validate the origin and channel. Signalx's currently checked-in TWA is only an Android Browser Helper launcher; it has no postMessage channel, no source-origin registration, and no native Play Billing integration. Browser fallback and unsupported Chrome versions need a safe **billing-unavailable** state, not an insecure alternate token handoff.
+
+A proposed dedicated bridge would carry the raw single-use checkout ticket **only inside an origin-verified authenticated message channel**, never via App Link query, intent URI, analytics, logs, web URL/referrer, or persistent storage. The native receiver must pass it with a fresh integrity token whose request hash matches the server-issued ticket challenge; only the isolated server redeemer can consume it and return an opaque account identifier. PostMessage channel establishment is a separate engineering/Android signing task and cannot be represented as validated just because a message schema exists.
+
+Official Chrome postMessage guidance: https://developer.chrome.com/docs/android/post-message-twa
+
+**Production blockers remain:** No publicly reachable ticket issuance/redemption API route; no verified native postMessage bridge, Google Play service-account OAuth, actual Play Integrity API call or Play Billing purchase, updated signed APK, deployed DB migration, billing acknowledgment and renewal/cancellation pipeline, safe rate limiting, or Play Console activation.
