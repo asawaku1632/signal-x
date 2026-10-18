@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         (direction !== "ABOVE" && direction !== "BELOW") ||
         typeof threshold !== "number" || !Number.isFinite(threshold) ||
         threshold < 0.01 || threshold > 1_000_000_000 ||
-        Math.round(threshold * 100) !== threshold * 100) {
+        Math.abs(Math.round(threshold * 100) - threshold * 100) > 0.0000001) {
       return NextResponse.json({ success: false, error: "Invalid code, direction or price" }, { status: 400 });
     }
     const result = await pool.query(
