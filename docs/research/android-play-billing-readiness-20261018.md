@@ -61,3 +61,32 @@ Official references:
 - https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2
 - https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions/acknowledge
 - https://developer.android.com/google/play/billing/integrate
+
+## 2026-10-18 isolated Android account-attribution prototype (not wired)
+
+**Implementation choice for research:** test a Native BillingClient purchase flow that calls `BillingFlowParams.Builder.setObfuscatedAccountId()`. Google documents that field as a privacy-preserving account identifier (max 64 characters); purchases.subscriptionsv2.get can return it as `externalAccountIdentifiers.obfuscatedExternalAccountId` if specified at purchase time.
+
+The following Java file is **deliberately outside** `android-twa/app/src/main/`: `android-twa/research/PlayCheckoutParamsFactory.java`. It requires a server-issued 64-hex account HMAC, the expected subscription product ID and a currently eligible offer token from Play's own ProductDetails query. It rejects absent/wrong data, then builds native BillingFlowParams. This file neither launches billing nor exposes a JS bridge.
+
+A separate CI job named `native-play-contract` compiles this prototype with **local test stubs**, not the real Google Play Billing SDK. It only checks syntax and mocked parameter propagation. This is not an Android APK build, not a Play Billing integration test, and not proof of a real purchase.
+
+### Proposed secure origin-to-native handoff (not yet implemented)
+
+1. Browser-side logged-in SIGNALX member selects a paid subscription on the verified SIGNALX origin. Server authenticates the NextAuth session; browser-supplied user IDs are ignored.
+2. Server issues a short-lived **single-use** checkout handoff ticket tied to the authenticated SIGNALX UUID, intended Android package `com.signalx.app`, product and server-side nonce; it never supplies an HMAC key, Google OAuth token or raw email.
+3. Android receives the ticket through a **separately reviewed, origin-verified native handoff**. TWA does not automatically give its web content the power to call arbitrary Java methods. HTTPS/App Links origin validation, authenticated redemption, one-time consumption, replay rejection and cross-account checks are required. A loose `intent://` or exported unverified URL handler is unsafe.
+4. Native app redeems the ticket with the backend and receives only the opaque 64-character `obfuscatedAccountId` bound to that checkout. The server must reject expired/reused tickets, revoked sessions and package/product mismatches. **The native app never generates a new account HMAC from a client-provided UUID.**
+5. Native BillingClient uses queried Play ProductDetails and an eligible subscription offer token; the isolated `PlayCheckoutParamsFactory` demonstrates setting the verified account ID on the purchase parameters. The actual Android BillingClient initialization, product query, UI, callbacks, purchase restoration and activity wiring are **not implemented**.
+6. Following a purchase callback, Android sends only a purchase token to a protected backend request. Server calls Google Play Developer API, checks actual `com.signalx.app`, subscribed product, state, expiry and the `obfuscatedExternalAccountId` corresponding to the authenticated user, then atomically inserts binding and entitlement and acknowledges via a durable retry mechanism. Client-side `PURCHASED` flags alone never grant access.
+7. For web-only and unsupported TWA browsers, keep billing disabled and offer a non-transactional informational state. Never fall back to accepting possession of a raw token as sufficient to claim an account.
+
+### Blockers before any real payments
+
+- Confirm that an origin-verified user-to-native handoff actually works on a signed TWA installed from the Google Play track. No supported handoff has been implemented or verified yet.
+- Compile against the current **real** Play Billing Library (the Java stubs are not that SDK), safely initialize client, and test on physical Play license-tester devices.
+- Confirm merchant setup, product IDs, base plans, offer tokens, digital asset links and Android Publisher OAuth access from Play Console. Do not assume any of these exist.
+- Complete authenticated session routes, single-use nonce storage, entitlement synchronization, acknowledgement retries, RTDN, refunds/holds/cancellations, and account recovery.
+- Review Play policy and business requirements for both the Play-distributed app and the open-web site before offering payment UI.
+- Only after owner approval: Android rebuild, Play test deployment, migration, merging or billing activation.
+
+References: [Google BillingFlowParams.Builder](https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder), [ProductDetailsParams.Builder](https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProductDetailsParams.Builder), [Google Play purchase V2 externalAccountIdentifiers](https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2), [Google Play Billing integration](https://developer.android.com/google/play/billing/integrate).
