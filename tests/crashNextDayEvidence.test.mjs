@@ -36,16 +36,16 @@ test("minimum independent completed historical crashes produce meaningful per-st
   assert.equal(result.eventCount,8);
   const evidence=result.nextDayEvidence;
   assert.equal(evidence.selectedDate,data.dates.at(-1));
-  assert.equal(evidence.settledPastEpisodes,6,
-    "the immediately prior crash does not leak its result observed on latest crash day");
+  assert.equal(evidence.settledPastEpisodes,7,
+    "all seven preceding episodes close before the selected latest crash");
   const top=evidence.leaders.find(r=>r.code==="1001");
   const bad=evidence.laggers.find(r=>r.code==="1002");
   assert.ok(top);
   assert.ok(bad);
-  assert.equal(top.sampleCount,6);
+  assert.equal(top.sampleCount,7);
   assert.equal(top.positiveRate1,100);
   assert.equal(top.average1,2);
-  assert.equal(bad.sampleCount,6);
+  assert.equal(bad.sampleCount,7);
   assert.equal(bad.positiveRate1,0);
   assert.equal(bad.average1,-5);
   assert.ok(evidence.eligibleCount>0);
