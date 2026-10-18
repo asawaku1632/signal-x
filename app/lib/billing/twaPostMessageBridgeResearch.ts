@@ -47,7 +47,12 @@ function parseSmallNativeJson(raw:unknown):unknown {
 /** Pure holder of an origin-checked port; sends no ticket until READY. */
 export class TwaWebCheckoutChannel {
   private phase:"waiting_ready"|"ready"|"sent"|"closed"="waiting_ready";
-  constructor(private readonly port:PortLike,private readonly nonce:string) {}
+  private readonly port:PortLike;
+  private readonly nonce:string;
+  constructor(port:PortLike,nonce:string) {
+    this.port=port;
+    this.nonce=nonce;
+  }
 
   get ready():boolean {return this.phase==="ready";}
 
