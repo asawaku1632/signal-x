@@ -8,12 +8,15 @@ on:
       - "research/crash-nextday-evidence-*"
       - "research/crash-true-session-audit-*"
       - "research/crash-benchmark-oos-*"
+      - "feature/crash-strength-tabs-dashboard-*"
     paths:
       - "app/lib/research/crashStrengthShadow.mjs"
       - "app/lib/research/crashStrengthMarketReference.mjs"
       - "app/lib/research/crashStrengthMarketReferenceRunner.ts"
       - "tests/crashStrengthMarketReference.test.mjs"
       - "app/admin/crash-strength/page.tsx"
+      - "app/admin/crash-strength/CrashStrengthDashboardTabs.tsx"
+      - "tests/crashStrengthDashboardTabs.test.mjs"
       - "tests/crashStrengthShadow.test.mjs"
       - "tests/crashNextDayEvidence.test.mjs"
       - "tests/crashTrueSessionAudit.test.mjs"
@@ -27,6 +30,8 @@ on:
       - "app/lib/research/crashStrengthMarketReference.mjs"
       - "app/lib/research/crashStrengthMarketReferenceRunner.ts"
       - "app/admin/crash-strength/page.tsx"
+      - "app/admin/crash-strength/CrashStrengthDashboardTabs.tsx"
+      - "tests/crashStrengthDashboardTabs.test.mjs"
       - "tests/crashStrengthShadow.test.mjs"
       - "tests/crashNextDayEvidence.test.mjs"
       - "tests/crashTrueSessionAudit.test.mjs"
@@ -48,4 +53,4 @@ jobs:
         with:
           node-version: "24"
       - name: Run isolated crash strength tests
-        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs tests/crashTrueSessionAudit.test.mjs tests/crashNikkeiOutperformance.test.mjs
+        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs tests/crashTrueSessionAudit.test.mjs tests/crashNikkeiOutperformance.test.mjs tests/crashStrengthDashboardTabs.test.mjs
