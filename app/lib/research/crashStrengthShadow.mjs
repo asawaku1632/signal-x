@@ -124,6 +124,13 @@ function historyByCode(events, priceDays, latestDate) {
   };
 }
 
+/**
+ * @param {{
+ *   marketRows?: Array<{ date: string, nikkei?: number|string|null, topix?: number|string|null }>,
+ *   priceRows?: Array<{ date: string, code: string, name?: string, price: number|string|null }>,
+ *   asOf: string
+ * }} input
+ */
 export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) {
   if (!validDate(asOf)) throw new Error("INVALID_AS_OF_DATE");
   const priceDays = makePriceDays(priceRows, asOf);
