@@ -9,7 +9,7 @@ const userId = "123e4567-e89b-42d3-a456-426614174000";
 const otherUser = "123e4567-e89b-42d3-a456-426614174001";
 const now = new Date("2026-10-18T00:00:00Z");
 const config = {
-  packageName: "jp.signalx.app",
+  packageName: "com.signalx.app",
   productId: "premium_month",
   oauthAccessToken: "only-injected-server-test",
   purchaseFingerprintKey: "purchase-only-test-key-12345678901234567890",
