@@ -393,6 +393,7 @@ export default async function CrashStrengthShadowPage() {
             </div>:<p className="rounded-xl bg-amber-50 p-4 text-sm">過去の急落日データが不足しています。</p>}
           </div>}
           market={<div className="space-y-2">
+            <h2 className="sr-only">日経平均に勝った銘柄ランキング</h2>
             {report.nextDayEvidence&&report.nextDayEvidence.benchmarkEligibleCount>0?
               <CrashBenchmarkCards
                 strong={report.nextDayEvidence.benchmarkLeaders}
