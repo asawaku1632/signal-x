@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ISOLATED INTERNAL DEBUG PROBE ONLY.
+  Not the Play-signed com.signalx.app, does not replace its manifest.
+  Never ask for a subscription or start a purchase.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <queries>
+    <package android:name="com.android.chrome"/>
+  </queries>
+  <application
+    android:label="SIGNALX Bridge Probe"
+    android:allowBackup="false"
+    android:usesCleartextTraffic="false"
+    android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <activity
+      android:name=".InternalBridgeProbeActivity"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+    <service
+      android:name="androidx.browser.customtabs.PostMessageService"
+      android:exported="true"/>
+  </application>
+</manifest>
