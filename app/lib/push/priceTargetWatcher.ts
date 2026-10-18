@@ -40,6 +40,7 @@ export async function checkUserPriceTargets(
   let notified = 0;
   let attempted = 0;
   for (const target of pending.rows) {
+    if (attempted >= 5) break; // bound network and Cron duration
     const stock = prices.get(target.code);
     if (!stock) continue;
     const hit = target.direction === "ABOVE"
