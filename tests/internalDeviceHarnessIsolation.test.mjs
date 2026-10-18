@@ -43,3 +43,16 @@ test("published TWA remains separate, with no PostMessageService or BillingClien
  const probeManifest=await read(root+"src/main/AndroidManifest.xml");
  assert.match(probeManifest,/androidx\.browser\.customtabs\.PostMessageService/);
 });
+
+test("negative-only probe aborts on unexpected accepted DAL relationship BEFORE native callback",async()=>{
+ const source=await read(root+"src/main/java/com/signalx/bridgeprobe/InternalBridgeProbeActivity.java");
+ const validation=source.slice(source.indexOf("public void onRelationshipValidationResult("));
+ const gate=validation.indexOf("if (accepted) {");
+ const close=validation.indexOf("bridge.close();",gate);
+ const returnAfterClose=validation.indexOf("return;",close);
+ const forwarded=validation.indexOf("secure.onRelationshipValidationResult(",gate);
+ assert.ok(gate>=0 && close>gate && returnAfterClose>close && forwarded>returnAfterClose,
+   "Must reject any accepted relationship before forwarding to bridge");
+ assert.match(validation,/secure\.onRelationshipValidationResult\(relation,origin,false,extras\)/);
+ assert.doesNotMatch(source,/report\(.*opaqueTicket/);
+});
