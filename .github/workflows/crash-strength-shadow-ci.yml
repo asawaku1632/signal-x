@@ -5,6 +5,7 @@ on:
     branches:
       - "research/crash-strength-shadow-*"
       - "research/crash-strength-market-reference-*"
+      - "research/crash-nextday-evidence-*"
     paths:
       - "app/lib/research/crashStrengthShadow.mjs"
       - "app/lib/research/crashStrengthMarketReference.mjs"
@@ -12,6 +13,7 @@ on:
       - "tests/crashStrengthMarketReference.test.mjs"
       - "app/admin/crash-strength/page.tsx"
       - "tests/crashStrengthShadow.test.mjs"
+      - "tests/crashNextDayEvidence.test.mjs"
       - ".github/workflows/crash-strength-shadow-ci.yml"
   pull_request:
     branches:
@@ -22,6 +24,7 @@ on:
       - "app/lib/research/crashStrengthMarketReferenceRunner.ts"
       - "app/admin/crash-strength/page.tsx"
       - "tests/crashStrengthShadow.test.mjs"
+      - "tests/crashNextDayEvidence.test.mjs"
       - "tests/crashStrengthMarketReference.test.mjs"
       - ".github/workflows/crash-strength-shadow-ci.yml"
   workflow_dispatch:
@@ -39,4 +42,4 @@ jobs:
         with:
           node-version: "24"
       - name: Run isolated crash strength tests
-        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs
+        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs
