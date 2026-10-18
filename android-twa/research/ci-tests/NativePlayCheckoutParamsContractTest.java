@@ -13,7 +13,7 @@ public final class NativePlayCheckoutParamsContractTest {
         if (!"com.signalx.app".equals(PlayCheckoutParamsFactory.EXPECTED_PACKAGE_ID)) {
             throw new AssertionError("Wrong package");
         }
-        ProductDetails subscription = new ProductDetails("premium_month", BillingClient.ProductType.SUBS);
+        ProductDetails subscription = new ProductDetails("premium_month", BillingClient.ProductType.SUBS, "eligible-offer");
         BillingFlowParams params=PlayCheckoutParamsFactory.forSubscription(
             subscription, "premium_month", "eligible-offer", ACCOUNT_HASH);
         if (!ACCOUNT_HASH.equals(params.obfuscatedAccountId) || params.products.size()!=1 ||
@@ -23,6 +23,13 @@ public final class NativePlayCheckoutParamsContractTest {
         }
         bad(()->PlayCheckoutParamsFactory.forSubscription(subscription, "wrong", "eligible", ACCOUNT_HASH));
         bad(()->PlayCheckoutParamsFactory.forSubscription(subscription, "premium_month", "", ACCOUNT_HASH));
+        bad(()->PlayCheckoutParamsFactory.forSubscription(subscription, "premium_month", "not-in-play-details", ACCOUNT_HASH));
+        bad(()->PlayCheckoutParamsFactory.forSubscription(
+            new ProductDetails("premium_month",BillingClient.ProductType.SUBS),
+            "premium_month","eligible-offer",ACCOUNT_HASH));
+        bad(()->PlayCheckoutParamsFactory.forSubscription(
+            new ProductDetails("premium_month",BillingClient.ProductType.SUBS,"offer-from-different-plan"),
+            "premium_month","eligible-offer",ACCOUNT_HASH));
         bad(()->PlayCheckoutParamsFactory.forSubscription(subscription, "premium_month", "eligible", "user@email.com"));
         bad(()->PlayCheckoutParamsFactory.forSubscription(subscription, "premium_month", "eligible", ""));
         bad(()->PlayCheckoutParamsFactory.forSubscription(
