@@ -17,6 +17,7 @@ const analysisItems: MenuItem[] = [
 ];
 
 const supportItems: MenuItem[] = [
+  { title: "市場", description: "今日の市場情報を確認", href: "/today-market", icon: "🤖", accent: "bg-blue-50 text-blue-600" },
   { title: "疑似投資", description: "実際のお金を使わず100株単位で投資を体験", href: "/simulation", icon: "💹", accent: "bg-blue-50 text-blue-600" },
   { title: "ランキング", description: "AI上位銘柄を確認", href: "/ranking", icon: "🏆", accent: "bg-amber-50 text-amber-600" },
   { title: "ウォッチリスト", description: "登録銘柄を管理", href: "/favorites", icon: "◉", accent: "bg-teal-50 text-teal-600" },
