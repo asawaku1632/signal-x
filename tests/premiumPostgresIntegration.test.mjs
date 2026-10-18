@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { persistVerifiedBillingUpdate } from "../app/lib/billing/persistVerifiedBillingUpdate.ts";
+import { registerFirstPlayPurchase } from "../app/lib/billing/registerFirstPlayPurchase.ts";
+import { obfuscatedSignalxPlayAccountId } from "../app/lib/billing/playInitialPurchaseApproval.ts";
+import { fingerprintPlayPurchaseToken } from "../app/lib/billing/playTokenFingerprint.ts";
 const { Pool } = pg;
 const url = process.env.BILLING_TEST_DATABASE_URL;
 test("real isolated PostgreSQL enforces atomic updates and replay safety", { skip: !url }, async () => {
@@ -13,7 +16,7 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     for (const role of ["anon", "authenticated", "service_role"]) {
       await pool.query("CREATE ROLE " + role + " NOLOGIN");
     }
-    await pool.query(`CREATE TABLE public.signalx_users (id UUID PRIMARY KEY DEFAULT gen_random_uuid())`);
+    await pool.query(`CREATE TABLE public.signalx_users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), disabled_at TIMESTAMPTZ)`);
     await pool.query(await load("scripts/migrations/20261018_create_premium_entitlements_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_billing_event_inbox_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_play_purchase_bindings_isolated.sql"));
@@ -71,5 +74,59 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     assert.equal(await persistVerifiedBillingUpdate(pool,unknown),"unknown_owner");
     const absent=await pool.query("SELECT count(*)::int AS n FROM public.signalx_billing_event_inbox WHERE provider_event_id='evt_unknown'");
     assert.equal(absent.rows[0].n,0);
+
+    // First Play purchase: only a fresh provider response bound to this exact
+    // authenticated SIGNALX user can create ownership + entitlement atomically.
+    const playNow=new Date("2026-10-18T02:00:00Z");
+    const playConfig={
+      packageName:"jp.signalx.app",productId:"premium_month",
+      oauthAccessToken:"fake-ci-oauth-token",
+      accountBindingKey:"play-account-ci-isolation-key-12345678901234",
+      purchaseFingerprintKey:"play-purchase-ci-isolation-key-1234567890123"
+    };
+    const request={authenticatedSignalxUserId:id,purchaseToken:"ci-new-play-token"};
+    const playResponse={
+      subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",
+      lineItems:[{productId:"premium_month",expiryTime:"2026-11-18T00:00:00Z"}],
+      externalAccountIdentifiers:{
+        obfuscatedExternalAccountId:obfuscatedSignalxPlayAccountId(id,playConfig.accountBindingKey)
+      }
+    };
+    const googleMock=async (_url,init)=>{
+      assert.equal(init.headers.Authorization,"Bearer fake-ci-oauth-token");
+      return {ok:true,status:200,json:async()=>playResponse};
+    };
+    const registration=await registerFirstPlayPurchase(request,playConfig,pool,googleMock,playNow);
+    assert.equal(registration.kind,"registered");
+    const playFingerprint=fingerprintPlayPurchaseToken(request.purchaseToken,playConfig.purchaseFingerprintKey);
+    const playOwner=await pool.query("SELECT user_id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[playFingerprint]);
+    assert.equal(playOwner.rows[0].user_id,id);
+    const playEntitlement=await pool.query(
+      "SELECT user_id,status,valid_until FROM public.signalx_premium_entitlements WHERE provider='google_play' AND external_subscription_id=$1",
+      [playFingerprint]
+    );
+    assert.equal(playEntitlement.rowCount,1);
+    assert.equal(playEntitlement.rows[0].user_id,id);
+    assert.equal(playEntitlement.rows[0].status,"active");
+    assert.equal((await registerFirstPlayPurchase(request,playConfig,pool,googleMock,playNow)).kind,"refreshed");
+    const otherAccountReq={...request,authenticatedSignalxUserId:otherUser.rows[0].id};
+    assert.equal((await registerFirstPlayPurchase(otherAccountReq,playConfig,pool,googleMock,playNow)).kind,"account_mismatch");
+    const boundCount=await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[playFingerprint]);
+    assert.equal(boundCount.rows[0].n,1);
+    // Disabled accounts must be denied even when the provider's account hash matches.
+    await pool.query("UPDATE public.signalx_users SET disabled_at=NOW() WHERE id=$1",[otherUser.rows[0].id]);
+    const secondToken="ci-disabled-account-token";
+    const disabledResponse={
+      ...playResponse,
+      externalAccountIdentifiers:{
+        obfuscatedExternalAccountId:obfuscatedSignalxPlayAccountId(otherUser.rows[0].id,playConfig.accountBindingKey)
+      }
+    };
+    const disabledHttp=async()=>({ok:true,status:200,json:async()=>disabledResponse});
+    assert.equal((await registerFirstPlayPurchase(
+      {authenticatedSignalxUserId:otherUser.rows[0].id,purchaseToken:secondToken},
+      playConfig,pool,disabledHttp,playNow)).kind,"disabled_user");
+    const disabledFingerprint=fingerprintPlayPurchaseToken(secondToken,playConfig.purchaseFingerprintKey);
+    assert.equal((await pool.query("SELECT id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[disabledFingerprint])).rowCount,0);
   } finally { await pool.end(); }
 });
