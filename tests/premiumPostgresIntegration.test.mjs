@@ -27,12 +27,12 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     const fingerprint="a".repeat(64);
     await pool.query(
       "INSERT INTO public.signalx_play_purchase_bindings (user_id,purchase_token_fingerprint,package_name,product_id) VALUES ($1,$2,$3,$4)",
-      [id,fingerprint,"jp.signalx.app","premium_month"]
+      [id,fingerprint,"com.signalx.app","premium_month"]
     );
     await assert.rejects(
       pool.query(
         "INSERT INTO public.signalx_play_purchase_bindings (user_id,purchase_token_fingerprint,package_name,product_id) VALUES ($1,$2,$3,$4)",
-        [otherUser.rows[0].id,fingerprint,"jp.signalx.app","premium_month"]
+        [otherUser.rows[0].id,fingerprint,"com.signalx.app","premium_month"]
       ),{code:"23505"}
     );
     const bound=await pool.query("SELECT user_id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[fingerprint]);
@@ -80,7 +80,7 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     // authenticated SIGNALX user can create ownership + entitlement atomically.
     const playNow=new Date("2026-10-18T02:00:00Z");
     const playConfig={
-      packageName:"jp.signalx.app",productId:"premium_month",
+      packageName:"com.signalx.app",productId:"premium_month",
       oauthAccessToken:"fake-ci-oauth-token",
       accountBindingKey:"play-account-ci-isolation-key-12345678901234",
       purchaseFingerprintKey:"play-purchase-ci-isolation-key-1234567890123"
