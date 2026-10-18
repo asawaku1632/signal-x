@@ -4,6 +4,7 @@
  */
 export type PlaySubscriptionView = {
   subscriptionState?: string;
+  acknowledgementState?: string;
   // Server-authenticated fields from Google Play subscriptionsv2.get.
   // The client must never be allowed to invent these values.
   externalAccountIdentifiers?: { obfuscatedExternalAccountId?: string };
