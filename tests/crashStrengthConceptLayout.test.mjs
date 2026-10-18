@@ -31,7 +31,7 @@ test("approved mockup: market cards show two rows each with top-right full expan
   assert.match(cards,/市場に弱い・下位20/);
   assert.match(cards,/市場勝率/);
   assert.match(cards,/超過平均/);
-  assert.match(cards,/href=\{"\\/chart\\/"/);
+  assert.ok(cards.includes('href={"/chart/"+item.code}'));
   assert.doesNotMatch(cards,/INSERT INTO|UPDATE public\.|DELETE FROM|sendLine|createOrder/);
 });
 
