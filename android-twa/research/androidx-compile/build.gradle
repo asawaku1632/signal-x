@@ -2,7 +2,7 @@
  * RESEARCH COMPILATION ONLY. A separate, unsigned Android LIBRARY project.
  * It does not produce an APK/AAB, include production LauncherActivity, alter
  * the application's Gradle project, or enable Google Play Billing.
- * Unlike Java CI stubs, this resolves the real androidx.browser AAR.
+ * Unlike Java CI stubs, this resolves REAL AndroidX Browser and Google Play Billing AARs.
  */
 plugins {
     id 'com.android.library' version '8.9.1'
@@ -24,6 +24,7 @@ android {
                 srcDirs = ['../']
                 include 'TwaCheckoutMessagePolicy.java'
                 include 'TwaAndroidXPostMessageResearch.java'
+                include 'PlayCheckoutParamsFactory.java'
             }
         }
     }
@@ -31,4 +32,5 @@ android {
 
 dependencies {
     implementation 'androidx.browser:browser:1.9.0'
+    implementation 'com.android.billingclient:billing:9.1.0'
 }
