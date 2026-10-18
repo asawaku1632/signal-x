@@ -4,6 +4,10 @@
  */
 export type PlaySubscriptionView = {
   subscriptionState?: string;
+  // Server-authenticated fields from Google Play subscriptionsv2.get.
+  // The client must never be allowed to invent these values.
+  externalAccountIdentifiers?: { obfuscatedExternalAccountId?: string };
+  linkedPurchaseToken?: string;
   lineItems?: Array<{productId?: string; expiryTime?: string}>;
 };
 export type PlayAccessDecision = { status: "active"|"trialing"|"grace_period"|"paused"|"past_due"|"expired"|"canceled"|"revoked"; validUntil: string|null };
