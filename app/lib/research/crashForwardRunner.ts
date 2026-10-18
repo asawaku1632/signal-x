@@ -115,7 +115,7 @@ async function evaluateEarlierEvents(marketRows:unknown[],today:string){
     marketRows,
     priceRows:await readSaved([next.date]),asOfDate:today,
   });
-  if(result.status!=="READY"){
+  if(result.status!=="READY" || !result.outcomes){
     statuses.push({date:event.date,status:result.status,reason:result.reason});continue;
   }
   const data=result.outcomes.map(x=>({
