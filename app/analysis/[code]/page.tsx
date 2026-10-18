@@ -912,6 +912,24 @@ export default function AnalysisPage() {
         </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">AI学習データ</h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
+          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">判定済み勝率</p>
+            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
+            {winRate !== null && (
+              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
+            勝率はWIN ÷（WIN＋LOSE）で計算し、HOLDは勝率の母数に含みません。
+          </p>
+          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
+        </section>
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の参考試算）</span></h2>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -1032,23 +1050,7 @@ export default function AnalysisPage() {
           <Link href={`/analysis/${signal.code}/performance`} className="mt-3 flex min-h-12 items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 font-bold text-blue-700 transition active:scale-[0.99] dark:border-blue-800 dark:bg-slate-800 dark:text-blue-300"><span>詳しいAI実績を見る</span><span aria-hidden="true">→</span></Link>
         </section>
 
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-base font-black">AI学習データ</h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
-          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">判定済み勝率</p>
-            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
-            {winRate !== null && (
-              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
-                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
-              </p>
-            )}
-          </div>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
-            勝率はWIN ÷（WIN＋LOSE）で計算し、HOLDは勝率の母数に含みません。
-          </p>
-          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
-        </section>
+
 
         <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-slate-900">
           <h2 className="text-sm font-black text-amber-800 dark:text-amber-300">投資上の注意</h2>
