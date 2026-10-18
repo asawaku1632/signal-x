@@ -63,12 +63,12 @@ self.addEventListener("fetch", (event) => {
 const DEFAULT_PUSH_PAYLOAD = {
   title: "SIGNALX",
   body: "新しいお知らせがあります",
-  url: "/",
+  url: "/mypage",
   tag: "signalx-notification",
 };
 const ALLOWED_NOTIFICATION_PATHS = new Set(["/", "/mypage"]);
 const ALLOWED_NOTIFICATION_PREFIXES = ["/analysis/", "/alerts/result/"];
-const CANONICAL_ORIGIN = "https://signal-x-ppjg.vercel.app";
+const CANONICAL_ORIGIN = self.location.origin;
 
 function safeNotificationText(value, fallback, maxLength) {
   return typeof value === "string" && value.trim()
