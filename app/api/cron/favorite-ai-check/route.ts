@@ -127,7 +127,7 @@ export async function GET(req: Request) {
       body: `${monitor.code} ${monitor.name}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 現在 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
       url: resultAlertUrl(monitor),
       tag: `signalx-result-${monitor.id}`,
-    });
+    }, result === "WIN" ? "take_profit" : "stop_loss");
 
     const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
     let line = { ok: false, status: 0, text: "LINE delivery disabled or not linked" };
