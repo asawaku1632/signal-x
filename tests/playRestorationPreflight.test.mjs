@@ -5,7 +5,7 @@ import {preflightExistingPlayRestoration} from "../app/lib/billing/playRestorati
 const secret="isolation-test-secret-not-for-production-123456";
 const now=new Date("2026-10-18T00:00:00Z");
 const req={authenticatedSignalxUserId:"user-1",purchaseToken:"opaque-token"};
-const cfg={packageName:"jp.signalx.app",productId:"premium_month",oauthAccessToken:"server-oauth",fingerprintSecret:secret};
+const cfg={packageName:"com.signalx.app",productId:"premium_month",oauthAccessToken:"server-oauth",fingerprintSecret:secret};
 const verified={subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",lineItems:[{productId:"premium_month",expiryTime:"2026-11-18T00:00:00Z"}]};
 function fixture({owner="user-1", rows, response=verified, networkError=false, dbError=false}={}){
  const seen={http:0,db:0};
