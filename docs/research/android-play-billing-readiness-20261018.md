@@ -44,3 +44,20 @@ The isolated server helpers are neither wired to authenticated production sessio
 Run `node scripts/audit-android-play-billing.mjs` to inspect the repository's known Android manifest, Gradle, TWA origin and fixture IDs. It reports `not_ready` by design while billing is disabled. No network or credentials are used.
 
 Run `node --test tests/androidBillingReadiness.test.mjs` to protect package/origin identity and ensure an audit cannot accidentally be mistaken for active billing support. These tests are intentionally not evidence of a successful Google Play checkout.
+
+## 2026-10-18 additional official API review: acknowledgement and attribution
+
+The TWA Digital Goods + Payment Request example sends a SKU and returns a purchase token, but Google's guide expressly says these web APIs do not know the app's user identity. Nothing in that guide demonstrates client-provided `setObfuscatedAccountId` for TWA checkout. By contrast, **native BillingClient** supports `BillingFlowParams.Builder.setObfuscatedAccountId`, and the Play `subscriptionsv2.get` response can carry `externalAccountIdentifiers.obfuscatedExternalAccountId`.
+
+The Google Play Developer API `purchases.subscriptions.acknowledge` also accepts optional `externalAccountIds.obfuscatedAccountId` in its **server-side acknowledgment request**. However, placing a user-provided ID there *after* payment does **not** prove who initiated a purchase, and the purchase token alone is a bearer credential. Do not reinterpret that field as independent ownership proof. We still need a validated, safe transaction-specific attribution mechanism before enabling a TWA-only checkout or claiming first-purchase identity verification.
+
+Initial subscription purchases, plan changes and re-signups that create new purchase tokens need acknowledgement. The `subscriptionsv2.get` response includes `acknowledgementState` (PENDING / ACKNOWLEDGED); the actual acknowledgement endpoint is `purchases.subscriptions.acknowledge`. Unknown state, pending payment, mismatched owner, invalid product, revoked or uncommitted entitlement must **not** be acknowledged. Google recommends acknowledging after verifying and granting entitlements; failure to acknowledge in the allowed window can lead to refund and revocation. A durable, retryable acknowledgement workflow and handling for failure/revocation are required **before production**.
+
+Added isolated policy `app/lib/billing/playAcknowledgementPolicy.ts` and unit tests to encode these restrictions. This is a pure decision helper, **not a live acknowledgment API call** and not a retrying queue.
+
+Official references:
+- https://developer.chrome.com/docs/android/trusted-web-activity/receive-payments-play-billing
+- https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder
+- https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2
+- https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions/acknowledge
+- https://developer.android.com/google/play/billing/integrate
