@@ -90,3 +90,26 @@ A separate CI job named `native-play-contract` compiles this prototype with **lo
 - Only after owner approval: Android rebuild, Play test deployment, migration, merging or billing activation.
 
 References: [Google BillingFlowParams.Builder](https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.Builder), [ProductDetailsParams.Builder](https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProductDetailsParams.Builder), [Google Play purchase V2 externalAccountIdentifiers](https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2), [Google Play Billing integration](https://developer.android.com/google/play/billing/integrate).
+
+## 2026-10-18 isolated, single-use Web-to-native checkout ticket
+
+New research-only files:
+- `scripts/migrations/20261018_create_play_checkout_tickets_isolated.sql` (proposal, **not applied**).
+- `app/lib/billing/playCheckoutTicketResearch.ts` (server-side policy and atomic storage, **not an API route**).
+- `tests/playCheckoutTicketResearch.test.mjs` and disposable PostgreSQL integration tests.
+
+The trusted website/backend issues a cryptographically random 32-byte URL-safe ticket **only after the server has authenticated the logged-in member**. Only a keyed HMAC digest is stored in a locked-down PostgreSQL table with that user's stable UUID, the hard-coded Android package `com.signalx.app`, the server-allowed subscription SKU, issue time, and a maximum 120-second expiry. The raw ticket must never be placed in an ordinary query string, analytics event, HTTP access log, error log, referrer or push notification. The code deliberately does not implement a deep-link transport: **a safe TWA-to-native handoff is still unresolved**.
+
+Before the ticket may be redeemed, the backend must decode a **fresh Google Play Integrity token using Google's server-side decode API** (not a JSON object supplied by the client) and check all of: standard request hash bound to the ticket digest, expected package, timestamp freshness, `PLAY_RECOGNIZED`, and a certificate digest in a server-configured allowlist based on the **Play signing certificate**. The function accepts an injected trusted decoder for unit tests only; there is **no production Google API decoder** yet, and an untrusted caller must never choose this decoder.
+
+A single conditional SQL `UPDATE ... RETURNING` atomically consumes the ticket only if unexpired, unconsumed, matching SKU/package and with a currently enabled SIGNALX user. On success, the server returns only the HMAC-derived obfuscated account ID and SKU for the native `BillingFlowParams` prototype. This **does not grant premium access, start a purchase or acknowledge payment**. Explicit checks for attestation failure, expired/replayed tickets, account disablement, certificate mismatch, and two concurrent redeemers are in CI. No secrets are committed.
+
+Remaining mandatory safety gates:
+- Confirm the installed, Play-distributed TWA can receive an authenticated ticket via an origin-verified secure native bridge without exposing it to untrusted apps. Android App Links verification is useful but not sufficient as a backend caller attestation.
+- Provision and test actual Google Play Integrity decode credentials, signed app package/certificate allowlist, token freshness, and operational failure handling. Fail closed on API downtime.
+- Wire issuance exclusively to a NextAuth-authenticated server route with CSRF protection and strict authorization, throttling, and abuse logging that never records raw tickets. The current function trusts its server-side caller to provide the verified UUID.
+- Link the native purchase callback to server-side Developer API verification and atomic enrollment **after** purchase; finish durable acknowledgment/RTDN and refund handling.
+- Define ticket storage retention, HMAC key rotation, product allowlisting, and identity-switch recovery before production.
+- No migration, merging, Play Console activation, APK rebuild or real purchase without owner approval.
+
+Official security references: [Play Integrity verdicts](https://developer.android.com/google/play/integrity/verdicts), [Android App Links](https://developer.android.com/training/app-links/about), [Android Play Billing](https://developer.android.com/google/play/billing/integrate).
