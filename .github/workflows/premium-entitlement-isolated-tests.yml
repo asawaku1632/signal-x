@@ -163,6 +163,10 @@ jobs:
       - name: Compile checkout and TWA bridge against REAL AndroidX 1.9.0 and Play Billing 9.1.0
         working-directory: android-twa/research/androidx-compile
         run: |
+          # Stage research-only Java in a clean Gradle source root on this
+          # disposable runner, never inside the published Bubblewrap app.
+          mkdir -p src/main/java/com/signalx/app/research
+          cp ../PlayCheckoutParamsFactory.java ../TwaCheckoutMessagePolicy.java ../TwaAndroidXPostMessageResearch.java src/main/java/com/signalx/app/research/
           bash ../../gradlew --no-daemon --stacktrace processDebugManifest compileDebugJavaWithJavac
           # Avoid false positives if a sourceSet accidentally excludes our
           # research Java classes while Gradle still reports BUILD SUCCESSFUL.
