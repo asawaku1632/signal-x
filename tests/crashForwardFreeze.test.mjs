@@ -41,7 +41,7 @@ test("only a crash's same-day settled post-close timestamp freezes immutable coh
  const premature=captureFrozenCrash({marketRows:session,priceRows:rows(),now:new Date("2026-10-15T05:00:00Z")});
  assert.equal(premature.reason,"OUTSIDE_SETTLED_SESSION_WINDOW");
  const late=captureFrozenCrash({marketRows:session,priceRows:rows(),now:new Date("2026-10-16T07:55:00Z")});
- assert.equal(late.reason,"NO_TODAY_SETTLED_INDEX_BAR");
+ assert.equal(late.reason,"NOT_MARKET_CRASH"); // 16th has a real index bar, without a crash
 });
 test("calm markets and incomplete snapshots cannot create forward signals",()=>{
  assert.equal(captureFrozenCrash({
