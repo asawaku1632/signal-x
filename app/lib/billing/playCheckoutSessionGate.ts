@@ -28,6 +28,34 @@ type IssueGateResult =
 const SIGNALX_ORIGIN = "https://signal-x-ppjg.vercel.app";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
+async function readTinyJsonBody(request:Request):Promise<string|null>{
+  // Enforce the limit while streaming, not after collecting attacker input.
+  const declared=request.headers.get("content-length");
+  if(declared!==null && (!/^[0-9]+$/.test(declared) || Number(declared)>256))
+    return null;
+  if(!request.body) return null;
+  const reader=request.body.getReader();
+  const chunks:Uint8Array[]=[];
+  let total=0;
+  try {
+    for (;;) {
+      const part=await reader.read();
+      if(part.done) break;
+      total+=part.value.byteLength;
+      if(total>256){
+        await reader.cancel().catch(()=>undefined);
+        return null;
+      }
+      chunks.push(part.value);
+    }
+    const bytes=new Uint8Array(total);
+    let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+    return new TextDecoder("utf-8",{fatal:true}).decode(bytes);
+  } catch{return null;}
+  finally {reader.releaseLock();}
+}
+
 export async function issueAuthenticatedPlayCheckoutResearch(
   request: Request,
   options:{
@@ -60,10 +88,8 @@ export async function issueAuthenticatedPlayCheckoutResearch(
     )
   ) return {kind:"request_rejected"};
 
-  let body:string;
-  try {body=await request.text();}
-  catch {return {kind:"request_rejected"};}
-  if(Buffer.byteLength(body,"utf8")>256) return {kind:"request_rejected"};
+  const body=await readTinyJsonBody(request);
+  if(body===null) return {kind:"request_rejected"};
   // No client-chosen user ID, product, plan, amount, ticket or redirect.
   // A valid checkout request has exactly an empty JSON object as its body.
   try {
