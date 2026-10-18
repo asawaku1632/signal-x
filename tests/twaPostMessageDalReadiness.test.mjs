@@ -8,9 +8,9 @@ test("checked-in Android package and origin remain SIGNALX",async()=>{
  assert.equal(a.origin,"https://signal-x-ppjg.vercel.app");
  assert.equal(a.staticAssetLinksHasValidShaFormat,true);
 });
-test("existing handle_all_urls DAL is NOT the required postMessage use_as_origin relation",async()=>{
+test("post-release checked-in DAL declares use_as_origin but cannot authorize real checkout",async()=>{
  const a=await auditTwaPostMessageDal();
- assert.equal(a.staticAssetLinksAllowsTwaPostMessage,false);
+ assert.equal(a.staticAssetLinksAllowsTwaPostMessage,true);
  assert.equal(a.readyForLiveNativeCheckout,false);
 });
 test("repo alone cannot certify actual Play signing SHA or live website deployment",async()=>{
