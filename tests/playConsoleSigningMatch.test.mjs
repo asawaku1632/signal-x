@@ -19,8 +19,11 @@ test("Google Play Console distribution certificate exactly matches SIGNALX sourc
  const statement=source.find(x=>x.target?.package_name==="com.signalx.app");
  assert.ok(statement);
  assert.deepEqual(statement.target.sha256_cert_fingerprints,[PLAY_APP_SIGNING_SHA256]);
- assert.deepEqual(statement.relation,["delegate_permission/common.handle_all_urls"]);
- assert.equal(assessPlaySigningDal(source,PLAY_APP_SIGNING_SHA256).kind,"proposed_change_only");
+ assert.deepEqual(statement.relation,[
+  "delegate_permission/common.handle_all_urls",
+  "delegate_permission/common.use_as_origin"
+ ]);
+ assert.equal(assessPlaySigningDal(source,PLAY_APP_SIGNING_SHA256).kind,"source_relations_present");
 });
 
 test("upload signing certificate must NEVER be substituted for Play signing certificate",async()=>{
@@ -31,13 +34,16 @@ test("upload signing certificate must NEVER be substituted for Play signing cert
  assert.notEqual(PLAY_APP_SIGNING_SHA256,UPLOAD_KEY_SHA256);
 });
 
-test("research proposal retains public package and certificate, adds only missing relation",async()=>{
+test("research DAL proposal matches published source without modifying package or certificate",async()=>{
  const source=await load(sourcePath);
  const proposal=await load(proposedPath);
  const expected=JSON.parse(JSON.stringify(source));
- expected[0].relation.push("delegate_permission/common.use_as_origin");
  assert.deepEqual(proposal,expected);
  assert.equal(assessPlaySigningDal(proposal,PLAY_APP_SIGNING_SHA256).kind,"source_relations_present");
- // Intentionally no production file edit, deployment check, or installed-app validation.
- assert.deepEqual(source[0].relation,["delegate_permission/common.handle_all_urls"]);
+ // Checked-in source must now contain the relation after DAL-only PR #162.
+ // The source comparison alone cannot certify an installed Android device.
+ assert.deepEqual(source[0].relation,[
+  "delegate_permission/common.handle_all_urls",
+  "delegate_permission/common.use_as_origin"
+ ]);
 });
