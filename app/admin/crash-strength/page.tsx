@@ -39,7 +39,8 @@ type Report = {
     referenceAvailable: boolean; note: string };
   recent: Recent | null;
   nextDayEvidence?: NextDayEvidence | null;
-  coverage: { validSavedDays: number; minimumStocksPerDay: number; latestSavedDate: string | null; source: string };
+  coverage: { validSavedDays: number; minimumStocksPerDay: number; latestSavedDate: string | null; source: string;
+    marketSessions: number; excludedSavedNonTradingDays: number; excludedSavedDates: string[] };
   event: Event | null;
   strong: Stock[]; weak: Stock[];
   historical: { strong: GroupStats; weak: GroupStats } | null; note: string;
@@ -76,9 +77,9 @@ function Ranking({title, side, rows, context="crash"}: {
         <div><p className="text-xs text-slate-500">市場比（相対強弱）</p><b><PriceChange value={r.excessReturn}/></b></div>
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <div>翌営業日相当 <b className="block"><PriceChange value={r.after1}/></b></div>
-        <div>3保存日後 <b className="block"><PriceChange value={r.after3}/></b></div>
-        <div>5保存日後 <b className="block"><PriceChange value={r.after5}/></b></div>
+        <div>翌取引日 <b className="block"><PriceChange value={r.after1}/></b></div>
+        <div>3取引日後 <b className="block"><PriceChange value={r.after3}/></b></div>
+        <div>5取引日後 <b className="block"><PriceChange value={r.after5}/></b></div>
       </div>
       {context==="crash" && r.historical1 && <p className="mt-2 text-xs text-slate-500">
         過去の同銘柄・同分類 {r.historical1.sampleCount}件：
@@ -139,7 +140,8 @@ function NextDayEvidencePanel({data}: {data: NextDayEvidence | null | undefined}
         <b className="ml-1">{data.eligibleCount}件</b>
       </p>
       <p className="mt-2 text-xs font-bold text-amber-700">
-        暫定研究：少数回の勝率は偶然でも高くなります。過去の実績であり、明日の上昇予測・買い推奨ではありません。
+        暫定研究：勝率100％でも少数回なら不確実です。計算には指数の実取引日だけを使用。
+        過去の実績であり、明日の上昇予測・買い推奨ではありません。
       </p>
     </div>
     {data.eligibleCount > 0 ?
@@ -215,6 +217,15 @@ export default async function CrashStrengthShadowPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-lg font-black">市場の暴落判定</h2>
           <p className="mt-2 text-xs text-slate-500">参考指数：日経平均 {report.reference.nikkeiAvailable?"取得済み":"未取得"} ／ TOPIX {report.reference.topixAvailable?"取得済み":"未取得"}</p>
+          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-6 text-slate-700">
+            <p className="font-bold">📅 取引日照合：参考指数の実在日足に一致する日だけを利用</p>
+            <p>有効な価格保存日 {report.coverage.validSavedDays}日 ／ 休場日等の保存日除外
+              <b className="ml-1">{report.coverage.excludedSavedNonTradingDays}日</b></p>
+            {report.coverage.excludedSavedDates.length > 0 && <p className="break-all">
+              除外例：{report.coverage.excludedSavedDates.join("・")}</p>}
+            <p>過去の上昇率と翌日・3日・5日後の成績は、参照指数の日付に従って再計算。
+              株価保存の欠損は無理に補完しません。保存元データ自体は変更していません。</p>
+          </div>
           {report.event ? <>
             <p className="mt-2 text-2xl font-black text-red-700">{report.event.date} ｜ {report.event.benchmark} {percent(report.event.indexReturn)}</p>
             <p className="mt-2 text-sm">日経平均 <PriceChange value={report.event.nikkeiReturn}/> ／ TOPIX <PriceChange value={report.event.topixReturn}/></p>

@@ -33,20 +33,52 @@ function makePriceDays(priceRows, asOf) {
   return { days, dates, position: new Map(dates.map((date, index) => [date, index])) };
 }
 
-function comparableMarketDays(marketRows, priceDays, asOf) {
+/**
+ * Only dates confirmed by an actual market daily bar count as Japanese stock
+ * sessions. When Nikkei is available it is the calendar authority; otherwise
+ * TOPIX is the fallback. A saved holiday/duplicated reference price is not an
+ * extra trading session. Do not edit or delete those original observations.
+ */
+function tradingReferenceDates(marketRows, asOf) {
+  const rows = new Map();
+  for (const row of marketRows) {
+    const date = String(row.date ?? "").slice(0, 10);
+    if (!validDate(date) || date >= asOf) continue;
+    const weekday = new Date(date + "T00:00:00Z").getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    if (!rows.has(date)) rows.set(date, {nikkei: false, topix: false});
+    const item = rows.get(date);
+    item.nikkei ||= validPrice(row.nikkei);
+    item.topix ||= validPrice(row.topix);
+  }
+  const preferNikkei = [...rows.values()].some(x => x.nikkei);
+  return [...rows].filter(([, data])=>preferNikkei ? data.nikkei : data.topix)
+    .map(([date])=>date).sort();
+}
+
+function tradingPriceDays(saved, referenceDates) {
+  const allowed = new Set(referenceDates);
+  const dates = saved.dates.filter(date=>allowed.has(date));
+  const days = new Map(dates.map(date=>[date,saved.days.get(date)]));
+  return {days,dates,position:new Map(dates.map((date,i)=>[date,i])),
+    excludedSavedDates: saved.dates.filter(date=>!allowed.has(date))};
+}
+
+function comparableMarketDays(marketRows, priceDays, referenceDates, asOf) {
   const marketsByDate = new Map();
   for (const r of marketRows) {
     const date = String(r.date ?? "").slice(0, 10);
     if (validDate(date) && date < asOf && !marketsByDate.has(date)) marketsByDate.set(date, r);
   }
-  const markets = [...marketsByDate].sort(([a], [b]) => a.localeCompare(b));
+  const markets = referenceDates.filter(date=>marketsByDate.has(date))
+    .map(date=>[date, marketsByDate.get(date)]);
   const events = [];
   for (let i = 1; i < markets.length; i++) {
     const [previousDate, previous] = markets[i - 1];
     const [date, current] = markets[i];
-    const indexOf = priceDays.position.get(date);
-    // Explicitly reject missing/incomplete daily stock snapshots.
-    if (indexOf === undefined || indexOf < 1 || priceDays.dates[indexOf - 1] !== previousDate) continue;
+    // Require actual full saved snapshots for both consecutive index trading
+    // sessions; holiday snapshots never create an extra adjacency gap.
+    if (!priceDays.days.has(previousDate) || !priceDays.days.has(date)) continue;
     // Reject abnormally long market gaps, which can represent stale data.
     if ((Date.parse(date) - Date.parse(previousDate)) / 86400000 > 6) continue;
     const nikkei = validPrice(previous.nikkei) && validPrice(current.nikkei)
@@ -64,8 +96,8 @@ function comparableMarketDays(marketRows, priceDays, asOf) {
   return events;
 }
 
-function buildEventStocks(event, priceDays) {
-  const index = priceDays.position.get(event.date);
+function buildEventStocks(event, priceDays, referenceDates) {
+  const index = referenceDates.indexOf(event.date);
   if (index === undefined) return [];
   const today = priceDays.days.get(event.date);
   const previous = priceDays.days.get(event.previousDate);
@@ -76,7 +108,9 @@ function buildEventStocks(event, priceDays) {
     if (!before) continue;
     const dailyReturn = change(before.price, stock.price);
     const forwardReturn = (horizon) => {
-      const futureDate = priceDays.dates[index + horizon];
+      // The Nth trading session comes from the market reference calendar,
+      // not from saved stock dates (which may include holiday carry-forwards).
+      const futureDate = referenceDates[index + horizon];
       const future = futureDate ? priceDays.days.get(futureDate)?.get(stock.code) : null;
       return future && future.price > 0 ? change(stock.price, future.price) : null;
     };
@@ -88,15 +122,16 @@ function buildEventStocks(event, priceDays) {
   return output;
 }
 
-function historyByCode(events, priceDays, latestDate) {
+function historyByCode(events, priceDays, referenceDates, latestDate) {
   const histories = new Map();
   const bucket = { strong: { returns: [], dates: new Set() }, weak: { returns: [], dates: new Set() } };
   for (const event of events) {
     if (event.date >= latestDate) continue;
-    const idx = priceDays.position.get(event.date);
+    const idx = referenceDates.indexOf(event.date);
     // Prevent using results that were not yet knowable when latest signal fired.
-    if (idx === undefined || !priceDays.dates[idx + 1] || priceDays.dates[idx + 1] >= latestDate) continue;
-    for (const item of buildEventStocks(event, priceDays)) {
+    const nextDate = idx < 0 ? null : referenceDates[idx + 1];
+    if (!nextDate || nextDate >= latestDate || !priceDays.days.has(nextDate)) continue;
+    for (const item of buildEventStocks(event, priceDays, referenceDates)) {
       const side = item.excessReturn >= 1.5 ? "strong" : item.excessReturn <= -1.5 ? "weak" : null;
       if (side === null || item.after1 === null) continue;
       bucket[side].returns.push(item.after1);
@@ -144,17 +179,11 @@ function median(values) {
  * The selected crash day's forward result is NEVER included in training, even
  * if the next stock snapshot has since been saved.
  */
-function historicalNextDayEvidence(events, priceDays, marketRows, asOf) {
+function historicalNextDayEvidence(events, priceDays, referenceDates) {
   const selected = events.at(-1);
   if (!selected) return null;
-  const currentCohort = buildEventStocks(selected, priceDays);
+  const currentCohort = buildEventStocks(selected, priceDays, referenceDates);
   const histories = new Map();
-  const referenceDates = [...new Set(marketRows
-    .filter(r => {
-      const date = String(r.date ?? "").slice(0, 10);
-      return validDate(date) && date < asOf && (validPrice(r.nikkei) || validPrice(r.topix));
-    })
-    .map(r => String(r.date).slice(0, 10)))].sort();
   const following = new Map(referenceDates.map((date,i)=>[date,referenceDates[i+1] ?? null]));
   let settledEpisodes = 0;
   for (const event of events) {
@@ -165,7 +194,7 @@ function historicalNextDayEvidence(events, priceDays, marketRows, asOf) {
     const next = priceDays.days.get(nextDate);
     if (!next) continue; // partial / missing stock-day snapshots are not substituted.
     settledEpisodes++;
-    for (const stock of buildEventStocks(event, priceDays)) {
+    for (const stock of buildEventStocks(event, priceDays, referenceDates)) {
       const endPrice = next.get(stock.code)?.price;
       if (!validPrice(endPrice)) continue;
       if (!histories.has(stock.code)) histories.set(stock.code, []);
@@ -213,20 +242,26 @@ function historicalNextDayEvidence(events, priceDays, marketRows, asOf) {
  */
 export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) {
   if (!validDate(asOf)) throw new Error("INVALID_AS_OF_DATE");
-  const priceDays = makePriceDays(priceRows, asOf);
-  const comparable = comparableMarketDays(marketRows, priceDays, asOf);
+  const saved = makePriceDays(priceRows, asOf);
+  const referenceDates = tradingReferenceDates(marketRows, asOf);
+  const priceDays = tradingPriceDays(saved, referenceDates);
+  const comparable = comparableMarketDays(marketRows, priceDays, referenceDates, asOf);
   const events = comparable.filter(e =>
     (e.nikkeiReturn !== null && e.nikkeiReturn <= CRASH_DROP_THRESHOLD) ||
     (e.topixReturn !== null && e.topixReturn <= CRASH_DROP_THRESHOLD)
   );
   const coverage = { validSavedDays: priceDays.dates.length, minimumStocksPerDay: MIN_STOCK_COVERAGE,
-    latestSavedDate: priceDays.dates.at(-1) ?? null,
+    latestSavedDate: saved.dates.at(-1) ?? null,
+    latestTradingPriceDate: priceDays.dates.at(-1) ?? null,
     source: "daily_stock_results.price / Yahoo日足参考指数",
-    comparableDays: comparable.length };
+    comparableDays: comparable.length,
+    marketSessions: referenceDates.length,
+    excludedSavedNonTradingDays: priceDays.excludedSavedDates.length,
+    excludedSavedDates: priceDays.excludedSavedDates.slice(-8) };
   // Routine ranking is not a crash prediction; it makes the research page useful
   // even if no qualifying -2% crash is inside the saved history.
   const recentEvent = comparable.at(-1) ?? null;
-  const recentStocks = recentEvent ? buildEventStocks(recentEvent, priceDays) : [];
+  const recentStocks = recentEvent ? buildEventStocks(recentEvent, priceDays, referenceDates) : [];
   const recent = recentEvent ? {
     event: recentEvent,
     examinedStocks: recentStocks.length,
@@ -240,9 +275,9 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     note: "保存済み価格と参考指数の両方がそろった急落日はありません。通常日の市場比ランキングは別表示です。"
   };
   const event = events.at(-1);
-  const nextDayEvidence = historicalNextDayEvidence(events, priceDays, marketRows, asOf);
-  const histories = historyByCode(events, priceDays, event.date);
-  const candidates = buildEventStocks(event, priceDays);
+  const nextDayEvidence = historicalNextDayEvidence(events, priceDays, referenceDates);
+  const histories = historyByCode(events, priceDays, referenceDates, event.date);
+  const candidates = buildEventStocks(event, priceDays, referenceDates);
   const withHistory = (stock, side) => ({
     ...stock, historical1: histories.stats(histories.individual.get(side + ":" + stock.code) ?? [])
   });
@@ -255,6 +290,6 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
   return {
     version: CRASH_STRENGTH_VERSION, asOf, coverage, event, eventCount: events.length,
     examinedStocks: candidates.length, strong, weak, recent, nextDayEvidence, historical: histories.groups,
-    note: "強弱は急落当日の市場相対騰落率です。翌日予測・売買推奨ではありません。翌日/3日/5日の成績は保存済み株価の事後観測です。"
+    note: "強弱は急落当日の市場相対騰落率です。翌日予測・売買推奨ではありません。翌日・3日・5日後は指数の日足に対応する取引日で計測し、休場日の保存価格は除外しています。"
   };
 }
