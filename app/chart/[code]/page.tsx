@@ -272,6 +272,10 @@ export default function ChartPage() {
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
   const [chartLoading, setChartLoading] = useState(true);
   const [showScrollCue, setShowScrollCue] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(true);
+  const [favoriteSaving, setFavoriteSaving] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
 
   useEffect(() => {
     const updateScrollCue = () => setShowScrollCue(window.scrollY <= 12);
@@ -350,6 +354,71 @@ export default function ChartPage() {
 
     return () => controller.abort();
   }, [code, timeframe]);
+
+  useEffect(() => {
+    let active = true;
+    setFavoriteLoading(true);
+    setFavoriteError("");
+
+    async function loadFavorite() {
+      try {
+        const response = await fetch("/api/favorites", { cache: "no-store" });
+        const data: { success?: boolean; favorites?: Array<{ code?: string }>; error?: string } | null =
+          await response.json().catch(() => null);
+
+        if (!response.ok || data?.success === false) {
+          throw new Error(data?.error || "お気に入りを確認できませんでした");
+        }
+        if (active) {
+          setIsFavorite(
+            Array.isArray(data?.favorites) &&
+              data.favorites.some((item) => String(item?.code ?? "") === code),
+          );
+        }
+      } catch (error) {
+        if (active) {
+          setFavoriteError(error instanceof Error ? error.message : "お気に入りを取得できませんでした");
+        }
+      } finally {
+        if (active) setFavoriteLoading(false);
+      }
+    }
+
+    void loadFavorite();
+    return () => {
+      active = false;
+    };
+  }, [code]);
+
+  const toggleFavorite = async () => {
+    if (favoriteLoading || favoriteSaving) return;
+    setFavoriteSaving(true);
+    setFavoriteError("");
+
+    try {
+      const response = isFavorite
+        ? await fetch(`/api/favorites?code=${encodeURIComponent(code)}`, {
+            method: "DELETE",
+            cache: "no-store",
+          })
+        : await fetch("/api/favorites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, name: stock?.name || code }),
+          });
+      const data: { success?: boolean; error?: string } | null =
+        await response.json().catch(() => null);
+
+      if (!response.ok || data?.success !== true) {
+        throw new Error(data?.error || "お気に入りの更新に失敗しました");
+      }
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      setFavoriteError(error instanceof Error ? error.message : "お気に入りの更新に失敗しました");
+    } finally {
+      setFavoriteSaving(false);
+    }
+  };
 
   if (chartLoading && !chart) {
     return (
@@ -465,11 +534,33 @@ export default function ChartPage() {
               </div>
             </div>
 
-            <div className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-xl shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-hidden>
-              📈
-            </div>
+            <button
+              type="button"
+              onClick={() => void toggleFavorite()}
+              disabled={favoriteLoading || favoriteSaving}
+              aria-pressed={isFavorite}
+              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+              title={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+              className={`flex h-11 min-w-[74px] flex-col items-center justify-center rounded-xl border px-1 shadow-sm transition active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
+                isFavorite
+                  ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              }`}
+            >
+              <span className="text-xl leading-5" aria-hidden="true">
+                {favoriteLoading || favoriteSaving ? "…" : isFavorite ? "★" : "☆"}
+              </span>
+              <span className="text-[9px] font-black leading-3">
+                {favoriteLoading ? "確認中" : favoriteSaving ? "保存中" : isFavorite ? "登録済み" : "お気に入り"}
+              </span>
+            </button>
           </div>
         </header>
+        {favoriteError ? (
+          <p role="alert" className="mt-1 text-right text-[11px] font-bold text-red-600 dark:text-red-400">
+            {favoriteError}
+          </p>
+        ) : null}
 
         <div className="mt-2 space-y-2">
           <ChartHeader
