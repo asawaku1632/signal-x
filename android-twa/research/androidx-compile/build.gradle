@@ -1,0 +1,34 @@
+/*
+ * RESEARCH COMPILATION ONLY. A separate, unsigned Android LIBRARY project.
+ * It does not produce an APK/AAB, include production LauncherActivity, alter
+ * the application's Gradle project, or enable Google Play Billing.
+ * Unlike Java CI stubs, this resolves the real androidx.browser AAR.
+ */
+plugins {
+    id 'com.android.library' version '8.9.1'
+}
+
+android {
+    namespace 'com.signalx.app.research.compile'
+    compileSdk 36
+    defaultConfig {
+        minSdk 21
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets {
+        main {
+            java {
+                srcDirs = ['../']
+                include 'TwaCheckoutMessagePolicy.java'
+                include 'TwaAndroidXPostMessageResearch.java'
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.browser:browser:1.9.0'
+}
