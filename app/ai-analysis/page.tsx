@@ -345,7 +345,39 @@ function AiAnalysisContent() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto w-full max-w-2xl px-3 py-3 min-[380px]:px-4">
-        <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        {topStock && aiRank && (
+            <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
+              <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">銘柄を選ぶと、下の詳しいAI分析が表示されます</p>
+              <ol className="mt-3 space-y-2">
+                {topFive.map((stock, index) => {
+                  const isCurrent = stock.code === topStock.code;
+                  const rank = getAiRank(stock.score);
+                  const change = stock.changePercent ?? 0;
+                  return (
+                    <li key={stock.code}>
+                      <Link href={`/ai-analysis?symbol=${encodeURIComponent(stock.code)}#analysis-detail`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${topFiveMedalStyle(index)}`} aria-label={`${index + 1}位`}>{index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
+                          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1.5"><p className="break-words text-sm font-black text-slate-950 dark:text-slate-100">{stock.code} {stock.name}</p>{isCurrent && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black text-white">✓ 表示中</span>}</div><p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">{rank.rank}ランク・{rank.comment}</p></div>
+                          <div className="shrink-0 text-right"><p className="text-[9px] font-black text-blue-600 dark:text-blue-400">AI POWER</p><p className="text-2xl font-black leading-none text-blue-600 dark:text-blue-400">{Math.round(stock.score)}</p></div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2 dark:border-slate-700"><CompactMetric label="変化率" value={`${change > 0 ? "+" : ""}${change}%`} valueClass={change > 0 ? "text-emerald-600 dark:text-emerald-400" : change < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} /><CompactMetric label="必要資金" value={yen(stock.price * 100)} /><CompactMetric label="候補" value={getAction(stock.score).replace(/^[^ ]+ /, "")} /></div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <div className="mt-4 grid gap-2 min-[420px]:grid-cols-3">
+                <Link href="/top-signals" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">今日の注目銘柄を見る</Link>
+                <Link href="/scan-mobile" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Scanで候補を探す</Link>
+                <Link href="/ranking" className="flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 text-center text-xs font-black text-blue-700 dark:border-blue-800 dark:bg-slate-800 dark:text-blue-300">AIランキングをもっと見る</Link>
+              </div>
+            </section>
+        )}
+
+        <header id="analysis-detail" className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <Link href="/dashboard" className="text-sm font-bold text-blue-600 dark:text-blue-400">
             ← ホームへ戻る
           </Link>
@@ -497,35 +529,7 @@ function AiAnalysisContent() {
 
             <BollingerSignalCard signal={topStock.bollinger} className="mt-3" />
 
-            <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
-              <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">銘柄を選ぶと、上部のAI分析が切り替わります</p>
-              <ol className="mt-3 space-y-2">
-                {topFive.map((stock, index) => {
-                  const isCurrent = stock.code === topStock.code;
-                  const rank = getAiRank(stock.score);
-                  const change = stock.changePercent ?? 0;
-                  return (
-                    <li key={stock.code}>
-                      <Link href={`/ai-analysis?symbol=${encodeURIComponent(stock.code)}`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
-                        <div className="flex min-w-0 items-start gap-3">
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${topFiveMedalStyle(index)}`} aria-label={`${index + 1}位`}>{index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
-                          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1.5"><p className="break-words text-sm font-black text-slate-950 dark:text-slate-100">{stock.code} {stock.name}</p>{isCurrent && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black text-white">✓ 表示中</span>}</div><p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">{rank.rank}ランク・{rank.comment}</p></div>
-                          <div className="shrink-0 text-right"><p className="text-[9px] font-black text-blue-600 dark:text-blue-400">AI POWER</p><p className="text-2xl font-black leading-none text-blue-600 dark:text-blue-400">{Math.round(stock.score)}</p></div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2 dark:border-slate-700"><CompactMetric label="変化率" value={`${change > 0 ? "+" : ""}${change}%`} valueClass={change > 0 ? "text-emerald-600 dark:text-emerald-400" : change < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} /><CompactMetric label="必要資金" value={yen(stock.price * 100)} /><CompactMetric label="候補" value={getAction(stock.score).replace(/^[^ ]+ /, "")} /></div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ol>
 
-              <div className="mt-4 grid gap-2 min-[420px]:grid-cols-3">
-                <Link href="/top-signals" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">今日の注目銘柄を見る</Link>
-                <Link href="/scan-mobile" className="flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-center text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Scanで候補を探す</Link>
-                <Link href="/ranking" className="flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 text-center text-xs font-black text-blue-700 dark:border-blue-800 dark:bg-slate-800 dark:text-blue-300">AIランキングをもっと見る</Link>
-              </div>
-            </section>
           </>
         )}
       </div>
