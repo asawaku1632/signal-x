@@ -34,7 +34,7 @@ export async function GET(){
 
   const pool=new Pool({
     connectionString:process.env.BB_EXPANSION_RESEARCH_DATABASE_URL,
-    ssl:{rejectUnauthorized:false},
+    ssl:{rejectUnauthorized:true},
     max:1,
     connectionTimeoutMillis:5000,
     idleTimeoutMillis:1000,
