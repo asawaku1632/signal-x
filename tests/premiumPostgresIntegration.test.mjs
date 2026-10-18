@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { persistVerifiedBillingUpdate } from "../app/lib/billing/persistVerifiedBillingUpdate.ts";
 import { registerFirstPlayPurchase } from "../app/lib/billing/registerFirstPlayPurchase.ts";
+import { refreshRestoredPlayEntitlement } from "../app/lib/billing/refreshRestoredPlayEntitlement.ts";
 import { obfuscatedSignalxPlayAccountId } from "../app/lib/billing/playInitialPurchaseApproval.ts";
 import { fingerprintPlayPurchaseToken } from "../app/lib/billing/playTokenFingerprint.ts";
 const { Pool } = pg;
@@ -128,5 +129,60 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
       playConfig,pool,disabledHttp,playNow)).kind,"disabled_user");
     const disabledFingerprint=fingerprintPlayPurchaseToken(secondToken,playConfig.purchaseFingerprintKey);
     assert.equal((await pool.query("SELECT id FROM public.signalx_play_purchase_bindings WHERE purchase_token_fingerprint=$1",[disabledFingerprint])).rowCount,0);
+
+    // Existing-owner restoration must refresh rights, never create a new owner.
+    const restoreCfg={
+      packageName:playConfig.packageName,
+      productId:playConfig.productId,
+      oauthAccessToken:playConfig.oauthAccessToken,
+      fingerprintSecret:playConfig.purchaseFingerprintKey,
+    };
+    const graceHttp=async()=>({
+      ok:true,status:200,json:async()=>({
+        ...playResponse,subscriptionState:"SUBSCRIPTION_STATE_IN_GRACE_PERIOD"
+      }),
+    });
+    const restored=await refreshRestoredPlayEntitlement(
+      request,restoreCfg,pool,graceHttp,new Date("2026-10-19T02:00:00Z")
+    );
+    assert.equal(restored.kind,"refreshed");
+    const grace=await pool.query(
+      "SELECT status FROM public.signalx_premium_entitlements WHERE provider='google_play' AND external_subscription_id=$1",
+      [playFingerprint]
+    );
+    assert.equal(grace.rows[0].status,"grace_period");
+    const wrongOwner=await refreshRestoredPlayEntitlement(
+      otherAccountReq,restoreCfg,pool,graceHttp,new Date("2026-10-20T02:00:00Z")
+    );
+    assert.equal(wrongOwner.kind,"owner_mismatch");
+    const afterWrongOwner=await pool.query(
+      "SELECT user_id FROM public.signalx_premium_entitlements WHERE provider='google_play' AND external_subscription_id=$1",
+      [playFingerprint]
+    );
+    assert.equal(afterWrongOwner.rows[0].user_id,id);
+    // A binding record alone cannot manufacture an entitlement.
+    const orphanToken="ci-orphan-play-token";
+    const orphanFingerprint=fingerprintPlayPurchaseToken(orphanToken,playConfig.purchaseFingerprintKey);
+    await pool.query(
+      `INSERT INTO public.signalx_play_purchase_bindings
+       (user_id,purchase_token_fingerprint,package_name,product_id)
+       VALUES ($1,$2,$3,$4)`,
+      [id,orphanFingerprint,playConfig.packageName,playConfig.productId]
+    );
+    const notGranted=await refreshRestoredPlayEntitlement(
+      {...request,purchaseToken:orphanToken},restoreCfg,pool,googleMock,new Date("2026-10-20T02:00:00Z")
+    );
+    assert.equal(notGranted.kind,"missing_entitlement");
+    assert.equal((await pool.query(
+      "SELECT id FROM public.signalx_premium_entitlements WHERE provider='google_play' AND external_subscription_id=$1",
+      [orphanFingerprint]
+    )).rowCount,0);
+    await pool.query(
+      "UPDATE public.signalx_premium_entitlements SET revoked_at=NOW() WHERE provider='google_play' AND external_subscription_id=$1",
+      [playFingerprint]
+    );
+    assert.equal((await refreshRestoredPlayEntitlement(
+      request,restoreCfg,pool,googleMock,new Date("2026-10-21T02:00:00Z")
+    )).kind,"revoked_requires_review");
   } finally { await pool.end(); }
 });
