@@ -362,6 +362,11 @@ export default async function CrashStrengthShadowPage() {
         </section>
         <CrashStrengthDashboardTabs
           overview={<div className="space-y-3">
+            <Link href="/admin/crash-strength/forward"
+              className="block rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-black text-emerald-900">
+              🟢🔄 暴落耐性・急反発候補の事前固定検証を見る →
+              <span className="mt-1 block text-xs font-normal text-slate-600">次の急落日に自動で候補を固定。翌取引日以降に実績を照合します。</span>
+            </Link>
             <section className="rounded-2xl border border-slate-200 bg-white p-4">
               <h2 className="text-xl font-black">📊 市場の暴落判定</h2>
               <p className="mt-1 text-xs text-slate-600">参考指数：日経平均 {report.reference.nikkeiAvailable?"取得済み":"未取得"} ／ TOPIX {report.reference.topixAvailable?"取得済み":"未取得"}</p>
