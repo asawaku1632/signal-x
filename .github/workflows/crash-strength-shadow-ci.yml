@@ -75,6 +75,6 @@ jobs:
       - name: Install dependencies for TypeScript safety check
         run: npm ci --no-audit --no-fund
       - name: Type-check full project without deploying
-        run: npx tsc --noEmit
+        run: npx next typegen && npx tsc --noEmit
       - name: Run isolated crash strength tests
         run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs tests/crashNextDayEvidence.test.mjs tests/crashTrueSessionAudit.test.mjs tests/crashNikkeiOutperformance.test.mjs tests/crashStrengthDashboardTabs.test.mjs tests/crashStrengthConceptLayout.test.mjs tests/crashForwardFreeze.test.mjs
