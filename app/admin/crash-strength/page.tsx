@@ -102,8 +102,9 @@ export default async function CrashStrengthShadowPage() {
         <h1 className="mt-3 text-2xl font-black">📉 暴落後・強弱ランキング</h1>
         <p className="mt-4 text-sm leading-7 text-slate-700">このページは本人専用です。現在のURLではログインを確認できませんでした。</p>
         <p className="mt-2 text-sm leading-7 text-slate-700">Vercel Previewと通常のSIGNALXではログイン状態が共有されません。Preview側でログインしてください。Previewの認証環境が未設定の場合は、通常のSIGNALXへの安全な公開後に確認できます。</p>
-        <Link href="/login?callbackUrl=%2Fadmin%2Fcrash-strength"
+        <Link href="/login"
           className="mt-5 block rounded-xl bg-indigo-700 px-4 py-3 text-center text-sm font-bold text-white">Previewでログインする →</Link>
+        <p className="mt-3 text-xs leading-6 text-slate-600">ログイン後はダッシュボードに移動します。その後、このPreviewのランキングURLをもう一度開いてください。</p>
         <p className="mt-4 text-xs text-slate-500">ログインしても指定された本人アカウント以外はランキングデータにアクセスできません。既存AI・注文・通知は変更しません。</p>
       </section>
     </main>;
