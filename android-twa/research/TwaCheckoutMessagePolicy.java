@@ -22,6 +22,8 @@ import java.util.Base64;
 public final class TwaCheckoutMessagePolicy {
     public static final String ORIGIN = "https://signal-x-ppjg.vercel.app";
     private static final String PREFIX = "signalx.play.bridge.v1";
+    // AndroidX CustomTabsService.RELATION_USE_AS_ORIGIN == 1, NOT HANDLE_ALL_URLS (2).
+    private static final int USE_AS_ORIGIN_RELATION = 1;
     private static final long MAX_TTL_MILLIS = 120_000L;
 
     private enum Phase { NEW, VERIFIED, CHANNEL_READY, HELLO_SENT, ACTIVE, CLAIMED, CLOSED }
@@ -55,9 +57,9 @@ public final class TwaCheckoutMessagePolicy {
     }
 
     public boolean acceptRelationshipResult(
-            int relation, int useAsOriginRelation, String browserValidatedSourceOrigin,
+            int relation, String browserValidatedSourceOrigin,
             boolean validationSucceeded) {
-        if (phase != Phase.NEW || relation != useAsOriginRelation ||
+        if (phase != Phase.NEW || relation != USE_AS_ORIGIN_RELATION ||
                 !validationSucceeded || !trustedOrigin(browserValidatedSourceOrigin)) {
             close();
             return false;
