@@ -66,7 +66,7 @@ export async function GET(req: Request) {
       body: `${stock.code} ${stock.name ?? ""}｜AI ${score}${price > 0 ? `｜現在 ${Math.round(price).toLocaleString()}円` : ""}`,
       url: `/analysis/${stock.code}`,
       tag: `signalx-prime-${stock.code}`,
-    });
+    }, "prime");
 
     if (push.ok) {
       await markPrimeSignalNotified(stock.code, score);
