@@ -151,50 +151,37 @@ export default function MyPage() {
           </Link>
         </header>
 
-        <section className="overflow-hidden rounded-[34px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-white p-5 shadow-sm">
-          <div className="flex items-center gap-4">
+        <section className="overflow-hidden rounded-[24px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-white px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
             {accountImage ? (
-              // Googleアカウント画像は外部URLのため、ここでは通常のimgを使用します。
+              // Googleプロフィール画像をそのまま表示し、再生成しません。
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={accountImage}
-                alt="user"
-                className="h-[76px] w-[76px] rounded-[26px] border-4 border-white object-cover shadow-sm"
-              />
+              <img src={accountImage} alt="Googleアカウント画像"
+                className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white object-cover shadow-sm" />
             ) : (
-              <div className="flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border-4 border-white bg-slate-100 text-4xl shadow-sm">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
                 👤
               </div>
             )}
-
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-black tracking-[0.18em] text-blue-600">
-                GOOGLE ACCOUNT
-              </p>
-              <h1 className="mt-1 truncate text-2xl font-black">
-                {accountName}
-              </h1>
-              <p className="mt-1 truncate text-xs font-bold text-slate-500">
-                {accountEmail}
-              </p>
+              <p className="text-[10px] font-black tracking-[0.14em] text-blue-600">GOOGLE ACCOUNT</p>
+              <h1 className="truncate text-lg font-black text-slate-900">{accountName}</h1>
+              <p className="truncate text-xs font-bold text-slate-500">{accountEmail}</p>
             </div>
+            <Link href="#notification-customization"
+              className="shrink-0 rounded-full border border-blue-200 bg-white px-3 py-2 text-[11px] font-black text-blue-700"
+              aria-label="通知カスタマイズへ移動">
+              設定 ↓
+            </Link>
           </div>
-
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <div className="rounded-[22px] bg-white/80 p-3 text-center shadow-sm">
-              <p className="text-xs font-black text-slate-500">ログイン</p>
-              <p className="mt-1 text-lg font-black text-green-600">ON</p>
-            </div>
-            <div className="rounded-[22px] bg-white/80 p-3 text-center shadow-sm">
-              <p className="text-xs font-black text-slate-500">お気に入り</p>
-              <p className="mt-1 text-lg font-black text-yellow-600">
-                {favoriteCount}
-              </p>
-            </div>
-            <div className="rounded-[22px] bg-white/80 p-3 text-center shadow-sm">
-              <p className="text-xs font-black text-slate-500">通知</p>
-              <p className="mt-1 text-lg font-black text-orange-600">ON</p>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black">
+            <span className="rounded-full bg-white px-3 py-1.5 text-emerald-700 shadow-sm">✓ ログイン中</span>
+            <Link href="/favorites" className="rounded-full bg-white px-3 py-1.5 text-amber-700 shadow-sm">
+              ⭐ お気に入り {favoriteCount}件
+            </Link>
+            <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
+              🔔 通知設定は下から
+            </span>
           </div>
         </section>
 
