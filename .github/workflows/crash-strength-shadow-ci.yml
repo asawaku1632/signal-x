@@ -4,8 +4,12 @@ on:
   push:
     branches:
       - "research/crash-strength-shadow-*"
+      - "research/crash-strength-market-reference-*"
     paths:
       - "app/lib/research/crashStrengthShadow.mjs"
+      - "app/lib/research/crashStrengthMarketReference.mjs"
+      - "app/lib/research/crashStrengthMarketReferenceRunner.ts"
+      - "tests/crashStrengthMarketReference.test.mjs"
       - "app/admin/crash-strength/page.tsx"
       - "tests/crashStrengthShadow.test.mjs"
       - ".github/workflows/crash-strength-shadow-ci.yml"
@@ -24,4 +28,4 @@ jobs:
         with:
           node-version: "24"
       - name: Run isolated crash strength tests
-        run: node --test tests/crashStrengthShadow.test.mjs
+        run: node --test tests/crashStrengthShadow.test.mjs tests/crashStrengthMarketReference.test.mjs
