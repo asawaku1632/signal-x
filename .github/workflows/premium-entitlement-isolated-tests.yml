@@ -158,4 +158,10 @@ jobs:
           "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
       - name: Compile checkout and TWA bridge against REAL AndroidX 1.9.0 and Play Billing 9.1.0
         working-directory: android-twa/research/androidx-compile
-        run: bash ../../gradlew --no-daemon --stacktrace compileDebugJavaWithJavac
+        run: |
+          bash ../../gradlew --no-daemon --stacktrace compileDebugJavaWithJavac
+          # Avoid false positives if a sourceSet accidentally excludes our
+          # research Java classes while Gradle still reports BUILD SUCCESSFUL.
+          for cls in PlayCheckoutParamsFactory TwaAndroidXPostMessageResearch TwaCheckoutMessagePolicy; do
+            test -n "$(find build -type f -name "$cls.class" -print -quit)"
+          done
