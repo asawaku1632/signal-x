@@ -79,6 +79,22 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
       [ticketClock.toISOString()]
     );
     assert.equal(stillOpen.rows[0].n,2);
+    const disabledForCheckout=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
+    const disabledCheckoutUser=disabledForCheckout.rows[0].id;
+    const issuedBeforeDisable=await issuePlayCheckoutTicketResearch(
+      disabledCheckoutUser,ticketConfig,pool,ticketClock
+    );
+    assert.equal(issuedBeforeDisable.kind,"issued");
+    await pool.query("UPDATE public.signalx_users SET disabled_at=NOW() WHERE id=$1",[disabledCheckoutUser]);
+    assert.equal((await redeemPlayCheckoutTicketResearch(
+      {ticket:issuedBeforeDisable.ticket,opaqueIntegrityToken:"ci-attestation-token"},
+      ticketConfig,pool,decoderFor(issuedBeforeDisable.integrityRequestHash),ticketClock
+    )).kind,"not_available");
+    const disabledTicketClaim=await pool.query(
+      "SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE user_id=$1 AND consumed_at IS NOT NULL",
+      [disabledCheckoutUser]
+    );
+    assert.equal(disabledTicketClaim.rows[0].n,0);
     const otherUser=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const fingerprint="a".repeat(64);
     await pool.query(
