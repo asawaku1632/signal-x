@@ -1,4 +1,6 @@
 import Link from "next/link";
+import BottomNav from "@/app/components/BottomNav";
+import CrashStrengthDashboardTabs from "./CrashStrengthDashboardTabs";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
@@ -219,21 +221,71 @@ function NextDayEvidencePanel({data}: {data: NextDayEvidence | null | undefined}
         まだ5件以上の過去の急落後実績がある銘柄を確認できません。
         銘柄別の勝率は推測せず、追加のデータを待ちます。
       </p>}
-    <section className="space-y-3">
-      <div className="rounded-xl bg-white p-4">
-        <h3 className="text-xl font-black">⚖️ 日経平均に勝った銘柄ランキング</h3>
-        <p className="mt-2 text-sm text-slate-600">
-          過去の翌日上昇率とは別に、同じ日の日経平均を上回ったかを分析します。
-          指数の確定終値が欠けた日は集計から除外。比較可能な銘柄 {data.benchmarkEligibleCount}件。</p>
-        <p className="mt-2 text-xs text-amber-700">5回以上の独立した急落日で照合できた銘柄だけを表示。市場に勝ったからといって利益が出たとは限りません。</p>
-      </div>
-      {data.benchmarkEligibleCount ? <div className="grid gap-3 lg:grid-cols-2">
-        <BenchmarkEvidenceList title="🟢 市場に強い・上位20" rows={data.benchmarkLeaders}/>
-        <BenchmarkEvidenceList title="🔴 市場に弱い・下位20" rows={data.benchmarkLaggers}/>
-      </div> : <p className="rounded-xl bg-amber-50 p-4 text-sm">日経平均との比較に必要な実績が5件未満です。勝率は表示しません。</p>}
-    </section>
-    <ReplayStatus data={data.retrospectiveReplay}/>
+
     <p className="px-2 pb-1 text-xs leading-6 text-slate-600">{data.note}</p>
+  </section>;
+}
+
+
+function CompactBenchmark({title,rows}: {title:string;rows:NextDayEntry[]}) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <h3 className="text-lg font-black">{title}</h3>
+    <p className="mt-1 text-xs text-slate-500">日経平均を上回った回数と翌日の平均超過率で比較。過去実績であり予測ではありません。</p>
+    {rows.length===0?<p className="mt-3 text-sm text-slate-500">検証件数不足・表示対象なし</p>:
+    <div className="mt-2 divide-y divide-slate-100">
+      {rows.slice(0,3).map((s,i)=><div key={s.code} className="grid grid-cols-[minmax(0,1fr)_80px_78px] items-center gap-1.5 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black">{i+1}. {s.name}</p>
+          <Link href={"/chart/"+s.code} className="text-xs font-bold text-blue-700">{s.code}・CHART →</Link>
+        </div>
+        <div className="text-right text-sm font-black">{s.benchmarkBeatRate?.toFixed(1)}%<p className="text-[10px] font-normal text-slate-500">{s.outperformedCount}/{s.benchmarkSampleCount}件</p></div>
+        <p className="text-right text-sm font-black"><PriceChange value={s.averageExcess1}/></p>
+      </div>)}
+    </div>}
+    {rows.length>3&&<details className="mt-3 rounded-lg border border-blue-100 p-2">
+      <summary className="cursor-pointer text-center text-sm font-black text-blue-700">もっと見る（全{rows.length}銘柄）</summary>
+      <div className="mt-3"><BenchmarkEvidenceList title={title} rows={rows}/></div>
+    </details>}
+  </section>;
+}
+function CompactNextDay({title,rows,isUp}: {title:string;rows:NextDayEntry[];isUp:boolean}) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-3">
+    <h3 className="text-lg font-black">{title}</h3>
+    <div className="mt-2 divide-y divide-slate-100">
+      {rows.slice(0,3).map((s,i)=><div key={s.code} className="grid grid-cols-[minmax(0,1fr)_75px_80px] items-center gap-2 py-3">
+        <div className="min-w-0"><p className="text-sm font-black">{i+1}. {s.name}</p>
+          <Link href={"/chart/"+s.code} className="text-xs text-blue-700">{s.code}・CHART →</Link></div>
+        <p className="text-right text-sm font-black">{s.positiveRate1.toFixed(1)}%<span className="block text-[10px] font-normal text-slate-500">{s.sampleCount}件</span></p>
+        <p className="text-right text-sm font-black"><PriceChange value={s.average1}/></p>
+      </div>)}
+    </div>
+    {rows.length>3&&<details className="mt-3 rounded-lg border border-blue-100 p-2">
+      <summary className="cursor-pointer text-center text-sm font-black text-blue-700">もっと見る（全{rows.length}銘柄）</summary>
+      <div className="mt-3"><NextDayEvidenceList title={title} rows={rows} isUp={isUp}/></div>
+    </details>}
+  </section>;
+}
+function CompactStock({title,rows,side,context}:{
+  title:string;rows:Stock[];side:"strong"|"weak";context:"crash"|"routine"
+}) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-3">
+    <h3 className="text-lg font-black">{title}</h3>
+    <p className="mt-1 text-xs text-slate-500">市場比の相対騰落率。翌日の予測順位ではありません。</p>
+    <div className="mt-2 divide-y divide-slate-100">
+      {rows.slice(0,3).map((s,i)=><div key={s.code} className="flex items-center justify-between gap-2 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black">{i+1}. {s.name} <span className="font-normal text-slate-500">({s.code})</span></p>
+          <p className="text-xs text-slate-500">100株 {yen(s.cost100)}</p>
+        </div>
+        <span className="shrink-0 text-sm font-black"><PriceChange value={s.excessReturn}/></span>
+        <Link href={"/chart/"+s.code} className="shrink-0 text-xs font-black text-blue-700">CHART →</Link>
+      </div>)}
+      {!rows.length&&<p className="py-3 text-sm text-slate-500">対象データなし</p>}
+    </div>
+    {rows.length>3&&<details className="mt-3 rounded-lg border border-blue-100 p-2">
+      <summary className="cursor-pointer text-center text-sm font-black text-blue-700">もっと見る（全{rows.length}銘柄）</summary>
+      <div className="mt-3"><Ranking title={title} rows={rows} side={side} context={context}/></div>
+    </details>}
   </section>;
 }
 
@@ -283,83 +335,122 @@ export default async function CrashStrengthShadowPage() {
   let report: Report | null = null;
   try { report = await getReport(); }
   catch (error) { console.error("[crash-strength-shadow] read-only report unavailable", error); }
-  return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-950">
-    <div className="mx-auto max-w-6xl space-y-4">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5">
-        <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-700">← 学習管理室</Link>
-        <p className="mt-4 text-xs font-black tracking-widest text-indigo-700">SIGNALX PRIVATE / SHADOW RESEARCH</p>
-        <h1 className="mt-2 text-2xl font-black">📉 暴落後・強弱ランキング</h1>
-        <p className="mt-2 text-sm text-slate-600">Yahoo Financeの日経平均・TOPIX参考日足と、約1,000銘柄の保存済み日次参考価格を照合。
-        急落日のランキングと通常日の市場比ランキングを分けて研究します。</p>
-        <p className="mt-2 text-xs font-bold text-amber-700">🔒 本人専用・読み取り専用・既存AI判定/LINE通知/注文は変更しません</p>
+  return <main className="min-h-screen bg-slate-50 px-3 pb-28 pt-4 text-slate-950">
+    <div className="mx-auto max-w-6xl space-y-3">
+      <header className="rounded-2xl border border-slate-200 bg-white p-4">
+        <Link href="/admin/learning-hub" className="text-sm font-black text-blue-700">← 学習管理室</Link>
+        <p className="mt-3 text-[11px] font-black tracking-widest text-indigo-700">SIGNALX PRIVATE / SHADOW RESEARCH</p>
+        <h1 className="mt-1 text-2xl font-black">📉 暴落後・強弱ランキング</h1>
+        <p className="mt-1 text-xs leading-5 text-slate-600">日経平均・TOPIX参考日足と保存済み株価を比較。本人専用・読み取り専用の研究画面です。</p>
       </header>
-      {!report ? <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">研究用データを取得できませんでした。既存データは変更していません。</p> : <>
-        <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-black">市場の暴落判定</h2>
-          <p className="mt-2 text-xs text-slate-500">参考指数：日経平均 {report.reference.nikkeiAvailable?"取得済み":"未取得"} ／ TOPIX {report.reference.topixAvailable?"取得済み":"未取得"}</p>
-          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-6 text-slate-700">
-            <p className="font-bold">📅 取引日照合：参考指数の実在日足に一致する日だけを利用</p>
-            <p>有効な価格保存日 {report.coverage.validSavedDays}日 ／ 休場日等の保存日除外
-              <b className="ml-1">{report.coverage.excludedSavedNonTradingDays}日</b></p>
-            {report.coverage.excludedSavedDates.length > 0 && <p className="break-all">
-              除外例：{report.coverage.excludedSavedDates.join("・")}</p>}
-            <p>過去の上昇率と翌日・3日・5日後の成績は、参照指数の日付に従って再計算。
-              株価保存の欠損は無理に補完しません。保存元データ自体は変更していません。</p>
-          </div>
-          {report.event ? <>
-            <p className="mt-2 text-2xl font-black text-red-700">{report.event.date} ｜ {report.event.benchmark} {percent(report.event.indexReturn)}</p>
-            <p className="mt-2 text-sm">日経平均 <PriceChange value={report.event.nikkeiReturn}/> ／ TOPIX <PriceChange value={report.event.topixReturn}/></p>
-            <p className="mt-2 text-sm text-slate-600">条件：日経平均またはTOPIXが前保存日比−2％以下。
-              {report.coverage.latestSavedDate !== report.event.date ? " 最新の保存日とは異なる過去の急落記録です。" : " 直近の有効保存日に該当しています。"}</p>
-            <p className="mt-2 text-xs text-slate-500">判定対象 {report.examinedStocks}銘柄 ／ 有効保存日 {report.coverage.validSavedDays}日 ／ 急落記録 {report.eventCount}日</p>
-          </> : <p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{report.reference.referenceAvailable
-            ? "直近の保存データと参考指数を照合しましたが、判定条件（−2％以下・800銘柄以上）に合う急落日を確認できません。未検出は安全の保証ではありません。"
-            : "日経平均・TOPIXの参考指数を取得できず、暴落判定を保留しています。これは『暴落がない』という意味ではありません。"}</p>}
+      {!report ? <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">研究データを取得できませんでした。既存のデータは変更していません。</p> : <>
+        <section aria-label="研究サマリー" className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {[
+            {label:"急落日",value:report.event?.date??"未検出",tone:"text-blue-700"},
+            {label:"日経平均",value:report.event?percent(report.event.nikkeiReturn):"未観測",tone:"text-rose-700"},
+            {label:"判定対象",value:(report.examinedStocks??0)+"銘柄",tone:"text-blue-700"},
+            {label:"有効保存日",value:report.coverage.validSavedDays+"日",tone:"text-blue-700"},
+            {label:"除外",value:report.coverage.excludedSavedNonTradingDays+"日",tone:"text-slate-700"}
+          ].map(x=><div key={x.label} className="min-w-0 rounded-xl border border-blue-100 bg-white p-2.5 shadow-sm">
+            <p className="text-[10px] font-black text-slate-500">{x.label}</p>
+            <p className={"mt-1 break-words text-sm font-black sm:text-lg "+x.tone}>{x.value}</p>
+          </div>)}
         </section>
-        <NextDayEvidencePanel data={report.nextDayEvidence}/>
-        {report.event && <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Ranking title="🟢 暴落日に相対的に強かった銘柄" side="strong" rows={report.strong}/>
-            <Ranking title="🔴 暴落日に相対的に弱かった銘柄" side="weak" rows={report.weak}/>
-          </div>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-lg font-black">過去の急落後・翌日結果</h2>
-            <p className="mt-2 text-xs text-slate-500">最新の急落日より前に確定したデータだけを集計。5日以上の独立した急落日かつ30件以上の観測まで成績非表示。</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {(["strong","weak"] as const).map(key => {
-                const s = report?.historical?.[key];
-                return <div key={key} className="rounded-xl bg-slate-50 p-3">
-                  <b>{key === "strong" ? "相対強度 +1.5pt以上" : "相対強度 −1.5pt以下"}</b>
-                  <p className="mt-2 text-xs">急落日 {s?.eventCount ?? 0}日 ／ 観測 {s?.sampleCount ?? 0}件</p>
-                  <p className="mt-2 text-sm">翌日平均：<b>{s?.average1 == null ? "検証中" : percent(s.average1)}</b></p>
-                  <p className="text-sm">翌日上昇率：<b>{s?.positiveRate1 == null ? "検証中" : s.positiveRate1 + "%"}</b></p>
-                </div>;
-              })}
+        <CrashStrengthDashboardTabs
+          overview={<div className="space-y-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h2 className="text-xl font-black">📊 市場の暴落判定</h2>
+              <p className="mt-1 text-xs text-slate-600">参考指数：日経平均 {report.reference.nikkeiAvailable?"取得済み":"未取得"} ／ TOPIX {report.reference.topixAvailable?"取得済み":"未取得"}</p>
+              {report.event ? <>
+                <p className="mt-3 text-2xl font-black text-rose-700">{report.event.date} ｜ {report.event.benchmark} {percent(report.event.indexReturn)}</p>
+                <p className="mt-2 text-sm">日経平均 <PriceChange value={report.event.nikkeiReturn}/> ／ TOPIX <PriceChange value={report.event.topixReturn}/></p>
+                <p className="mt-2 text-xs text-slate-600">過去の急落 {report.eventCount}日 ／ 判定対象 {report.examinedStocks}銘柄。直近の保存日と同じ日とは限りません。</p>
+              </> : <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                {report.reference.referenceAvailable?"条件に合う急落日が確認できません。未検出は安全の保証ではありません。":"指数を取得できず判定保留です。"}
+              </p>}
+            </section>
+            <section className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-slate-700">
+              <h2 className="text-base font-black">📅 取引日照合</h2>
+              <p>有効保存日 {report.coverage.validSavedDays}日 ／ 休場日等の保存日除外 {report.coverage.excludedSavedNonTradingDays}日</p>
+              {!!report.coverage.excludedSavedDates.length&&<p>除外例：{report.coverage.excludedSavedDates.join("・")}</p>}
+              <p>日経平均等の実取引日に合わせて照合し、株価の欠損は補完しません。保存元は変更しません。</p>
+            </section>
+            {report.nextDayEvidence&&<ReplayStatus data={report.nextDayEvidence.retrospectiveReplay}/>}
+          </div>}
+          nextday={<div className="space-y-3">
+            <div className="rounded-2xl border border-indigo-100 bg-white p-4">
+              <h2 className="text-xl font-black">🏅 暴落翌日・上昇実績</h2>
+              <p className="mt-1 text-xs text-slate-600">過去の独立した急落日の実績。上昇率100％でも将来の上昇は保証されません。</p>
+              {report.nextDayEvidence&&<p className="mt-2 text-xs">比較対象 {report.nextDayEvidence.cohortCount}銘柄 ／ 過去 {report.nextDayEvidence.settledPastEpisodes}急落日 ／ 検証可能 {report.nextDayEvidence.eligibleCount}銘柄</p>}
             </div>
-          </section>
-        </>}
-        {report.recent && <section className="space-y-4">
-          <div className="rounded-2xl border border-blue-200 bg-white p-4">
-            <h2 className="text-xl font-black">📊 直近の相対強弱（通常日も表示）</h2>
-            <p className="mt-2 text-sm font-bold">{report.recent.event.date} ／ {report.recent.event.benchmark}
-              <span className="ml-2"><PriceChange value={report.recent.event.indexReturn}/></span>
-            </p>
-            <p className="mt-2 text-xs text-slate-600">比較 {report.recent.examinedStocks}銘柄。
-              {report.recent.isLatestSavedDate ? "最新の有効保存日" : "保存データと指数の両方がそろった直近の日"}を使用。
-              暴落専用の統計・翌日予測とは区別しています。</p>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Ranking title="🟢 直近・市場より強かった上位" side="strong" rows={report.recent.strong} context="routine"/>
-            <Ranking title="🔴 直近・市場より弱かった下位" side="weak" rows={report.recent.weak} context="routine"/>
-          </div>
-        </section>}
-        {!report.recent && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">直近の市場比ランキングは、参考指数と保存株価が連続する2営業日分そろうまで保留します。</p>}
-        <section className="rounded-xl bg-slate-100 p-4 text-xs leading-6 text-slate-600">
-          <p>研究版 {report.version} ／ 最終利用可能な保存日 {report.coverage.latestSavedDate ?? "なし"} ／ 当日未確定データは除外</p>
-          <p>参考指数は外部の確定日足から読み取り専用で取得し、DBへの保存はしません。この表示は事後の相対比較で、リアルタイム株価・売買可能価格・翌日の上昇予測ではありません。保存欠損日や取得元の価格差、寄り付きのギャップ、約定可否は別途検証が必要です。</p>
-          <p>{report.note}</p>
-        </section>
+            {report.nextDayEvidence ? <div className="grid gap-3 lg:grid-cols-2">
+              <CompactNextDay title="🟢 翌日上昇率・上位20" rows={report.nextDayEvidence.leaders} isUp={true}/>
+              <CompactNextDay title="🔴 翌日上昇率・下位20" rows={report.nextDayEvidence.laggers} isUp={false}/>
+            </div>:<p className="rounded-xl bg-amber-50 p-4 text-sm">過去の急落日データが不足しています。</p>}
+          </div>}
+          market={<div className="space-y-3">
+            <section className="rounded-2xl border border-blue-100 bg-white p-4">
+              <h2 className="text-xl font-black">⚖️ 日経平均に勝った銘柄ランキング</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-600">暴落翌日の同じ取引日で日経平均を上回った割合と市場超過平均を比較します。</p>
+              <p className="mt-2 text-xs text-amber-800">5件以上の独立した急落日で照合できた銘柄のみ表示。過去実績であり、買い推奨ではありません。</p>
+            </section>
+            {report.nextDayEvidence&&report.nextDayEvidence.benchmarkEligibleCount>0?
+              <div className="grid gap-3 lg:grid-cols-2">
+                <CompactBenchmark title="🟢 市場に強い・上位20" rows={report.nextDayEvidence.benchmarkLeaders}/>
+                <CompactBenchmark title="🔴 市場に弱い・下位20" rows={report.nextDayEvidence.benchmarkLaggers}/>
+              </div>:<p className="rounded-xl bg-amber-50 p-4 text-sm">日経平均と照合できた急落後データが不足しています。</p>}
+            {report.nextDayEvidence&&<details className="rounded-xl border border-blue-100 bg-white p-3">
+              <summary className="cursor-pointer text-sm font-black text-blue-700">🧪 最新急落日の事後再現チェックを見る</summary>
+              <div className="mt-3"><ReplayStatus data={report.nextDayEvidence.retrospectiveReplay}/></div>
+            </details>}
+          </div>}
+          intraday={<div className="space-y-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h2 className="text-xl font-black">📉 暴落当日・直近の相対強弱</h2>
+              <p className="mt-1 text-xs text-slate-600">市場平均との差を比較。翌日の予測とは異なります。</p>
+            </section>
+            {report.event&&<div className="grid gap-3 lg:grid-cols-2">
+              <CompactStock title="🟢 暴落日に強かった銘柄" rows={report.strong} side="strong" context="crash"/>
+              <CompactStock title="🔴 暴落日に弱かった銘柄" rows={report.weak} side="weak" context="crash"/>
+            </div>}
+            {report.recent?<section className="space-y-3">
+              <div className="rounded-xl border border-blue-100 bg-white p-3">
+                <h3 className="font-black">📊 直近の比較：{report.recent.event.date}</h3>
+                <p className="mt-1 text-xs">市場 {report.recent.event.benchmark} <PriceChange value={report.recent.event.indexReturn}/> ／ 比較 {report.recent.examinedStocks}銘柄</p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <CompactStock title="🟢 直近・市場より強い上位" rows={report.recent.strong} side="strong" context="routine"/>
+                <CompactStock title="🔴 直近・市場より弱い下位" rows={report.recent.weak} side="weak" context="routine"/>
+              </div>
+            </section>:<p className="rounded-xl bg-amber-50 p-3 text-sm">直近の相対強弱データはまだありません。</p>}
+          </div>}
+          notes={<div className="space-y-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7">
+              <h2 className="text-xl font-black">📋 研究上の注意点</h2>
+              <p className="mt-2">🔒 本人専用・読み取り専用。AI判定、LINE通知、売買注文や元の保存データは変更していません。</p>
+              <p>過去6勝6敗など少数回の結果だけでは、次の上昇・下落は予測できません。多数の銘柄から成績の良い銘柄を選ぶ偏りにも注意してください。</p>
+              <p>参考指数と株価は保存済みの参考終値であり、実際の注文価格や約定可否を保証しません。休場日を除外し、欠損日は補完しません。</p>
+              <p>最新急落日の事後再現は、当時の候補を事前保存した検証ではありません。</p>
+              <p className="mt-3 text-xs text-slate-500">研究版 {report.version} ／ 最終保存日 {report.coverage.latestSavedDate??"不明"} ／ {report.reference.source}</p>
+              <p className="text-xs text-slate-500">{report.note}</p>
+              <p className="mt-2 text-xs font-bold text-amber-700">投資判断はご自身で。ランキングは買い推奨・利益保証ではありません。</p>
+            </section>
+            {report.event&&<section className="rounded-2xl border bg-white p-4">
+              <h3 className="font-black">過去の急落後・翌日結果（全体統計）</h3>
+              {(["strong","weak"] as const).map(key=>{
+                const s=report.historical?.[key];
+                return <p key={key} className="mt-2 text-xs">
+                  {key==="strong"?"相対的に強い群":"相対的に弱い群"}：
+                  {s?.eventCount??0}急落日／{s?.sampleCount??0}件 ／
+                  翌日平均 {s?.average1==null?"検証中":percent(s.average1)} ／
+                  上昇率 {s?.positiveRate1==null?"検証中":s.positiveRate1+"%"}
+                </p>;
+              })}
+            </section>}
+          </div>}
+        />
       </>}
     </div>
+    <BottomNav/>
   </main>;
 }
