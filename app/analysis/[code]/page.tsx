@@ -224,16 +224,21 @@ function SwingEntryCard({ decision }: { decision: SwingEntryDecision }) {
         </span>
       </div>
       <p className="mt-3 text-sm font-black leading-6">{decision.summary}</p>
-      <div className="mt-2 space-y-1">
-        {decision.reasons.slice(0, 3).map((reason, index) => (
-          <p key={`${reason}-${index}`} className="text-xs font-medium leading-5">
-            ・{reason}
-          </p>
-        ))}
-      </div>
-      <p className="mt-3 border-t border-current/10 pt-2 text-[11px] font-medium leading-5 opacity-75">
-        ここでは「今から新規で見るなら」の判定です。疑似購入後は購入価格も含めて再判定します。
-      </p>
+      <details className="mt-2 border-t border-current/10 pt-2">
+        <summary className="cursor-pointer text-xs font-black">
+          判定理由・詳しい説明を見る
+        </summary>
+        <div className="mt-2 space-y-1">
+          {decision.reasons.slice(0, 3).map((reason, index) => (
+            <p key={`${reason}-${index}`} className="text-xs font-medium leading-5">
+              ・{reason}
+            </p>
+          ))}
+        </div>
+        <p className="mt-3 border-t border-current/10 pt-2 text-[11px] font-medium leading-5 opacity-75">
+          ここでは「今から新規で見るなら」の判定です。疑似購入後は購入価格も含めて再判定します。
+        </p>
+      </details>
     </section>
   );
 }
@@ -911,6 +916,8 @@ export default function AnalysisPage() {
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
         </section>
 
+        <SwingEntryCard decision={swingEntryDecision} />
+
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">AI学習データ</h2>
           <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
@@ -960,8 +967,7 @@ export default function AnalysisPage() {
         </section>
 
         <details className="mt-2 rounded-xl border border-blue-100 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-black">📅 スイング判定・買い時の詳細を見る</summary>
-          <SwingEntryCard decision={swingEntryDecision} />
+          <summary className="cursor-pointer text-sm font-black">🌅 買い時の追加チェックを見る</summary>
           <MorningEntryRecheckCard
             code={signal.code}
             aiPower={Number.isFinite(power) ? power : null}
