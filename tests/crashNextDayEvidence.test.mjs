@@ -94,6 +94,8 @@ test("no historical crash means no evidence; no DB write or public disclosure",(
   assert.equal(empty.nextDayEvidence,undefined);
   const page=readFileSync(new URL("../app/admin/crash-strength/page.tsx",import.meta.url),"utf8");
   assert.ok(page.indexOf("if (!isOwner) notFound()")<page.indexOf("await getReport()"));
-  assert.match(page,/NextDayEvidencePanel data=\{report\.nextDayEvidence\}/);
+  assert.match(page,/CompactNextDay/);
+  assert.match(page,/CrashStrengthDashboardTabs/);
+  assert.match(page,/nextday=\{/);
   assert.doesNotMatch(page,/INSERT INTO|DELETE FROM|UPDATE public\.|sendLine|createOrder/);
 });
