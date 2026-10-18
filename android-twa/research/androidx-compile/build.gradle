@@ -18,16 +18,8 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    sourceSets {
-        main {
-            java {
-                srcDirs = ['../']
-                include 'TwaCheckoutMessagePolicy.java'
-                include 'TwaAndroidXPostMessageResearch.java'
-                include 'PlayCheckoutParamsFactory.java'
-            }
-        }
-    }
+    // Research Java files are copied into the default source root in CI.
+    // Do not use '../' as a source root: it also contains this project's build/ outputs.
 }
 
 dependencies {
