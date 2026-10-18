@@ -156,6 +156,6 @@ jobs:
           test -n "$SDKMANAGER"
           (yes | "$SDKMANAGER" --licenses >/dev/null) || true
           "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
-      - name: Compile research TWA bridge against REAL AndroidX Browser 1.9.0
+      - name: Compile checkout and TWA bridge against REAL AndroidX 1.9.0 and Play Billing 9.1.0
         working-directory: android-twa/research/androidx-compile
         run: bash ../../gradlew --no-daemon --stacktrace compileDebugJavaWithJavac
