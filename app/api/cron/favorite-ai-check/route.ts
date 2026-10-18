@@ -14,6 +14,7 @@ import {
 import { favoriteBuyMessage, favoriteResultMessage } from "@/app/lib/line/favoriteAlerts";
 import { getLineUserIdByEmail, pushLineToUser } from "@/app/lib/line/userPush";
 import { pushWebToUser } from "@/app/lib/push/userPush";
+import { checkUserPriceTargets } from "@/app/lib/push/priceTargetWatcher";
 import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type Stock = { code: string; price?: number };
@@ -156,8 +157,21 @@ export async function GET(req: Request) {
     }
   }
 
+  // Isolated optional feature: price target failures never interrupt LINE or existing alerts.
+  let priceTargets: unknown = { skipped: "UNAVAILABLE" };
+  try {
+    priceTargets = await checkUserPriceTargets(stocks, {
+      status: scanJson.status,
+      updatedAt: scanJson.updatedAt,
+      marketClosed: scanJson.marketClosed,
+    });
+  } catch (error) {
+    console.error("Price target notification check failed", error);
+  }
+
   return NextResponse.json({
     success: true,
+    priceTargets,
     checkedCount: monitors.length,
     completedCount: completed.length,
     activeCount: active.length,
