@@ -27,11 +27,21 @@ type NextDayEntry = {
   sampleCount: number; upCount: number; downCount: number;
   positiveRate1: number; average1: number; median1: number;
   worst1: number; best1: number;
+  benchmarkSampleCount: number; outperformedCount: number;
+  benchmarkBeatRate: number | null; benchmarkAverage1: number | null; benchmarkStockAverage1: number | null;
+  averageExcess1: number | null; worstExcess1: number | null;
 };
 type NextDayEvidence = {
   selectedDate: string; settledPastEpisodes: number; cohortCount: number;
   eligibleCount: number; minSamples: number;
   leaders: NextDayEntry[]; laggers: NextDayEntry[]; note: string;
+  benchmarkEligibleCount: number;
+  benchmarkLeaders: NextDayEntry[]; benchmarkLaggers: NextDayEntry[];
+  retrospectiveReplay: {
+    status: string; nextSessionDate: string | null; indexReturn1: number | null;
+    leaders: {eligibleShown:number;observedCount:number;beatCount:number;beatRate:number;averageExcess:number}|null;
+    laggers: {eligibleShown:number;observedCount:number;beatCount:number;beatRate:number;averageExcess:number}|null;
+  };
 };
 type Report = {
   version: string; asOf: string; eventCount: number; examinedStocks?: number;
@@ -125,6 +135,62 @@ function NextDayEvidenceList({title,rows,isUp}: {
   </div>;
 }
 
+function BenchmarkEvidenceList({title,rows}: {title:string;rows:NextDayEntry[]}) {
+  return <div className="rounded-2xl border border-indigo-200 bg-white p-3">
+    <h3 className="text-lg font-black">{title}</h3>
+    <p className="mt-1 text-xs leading-5 text-slate-500">
+      同じ翌取引日の日経平均を上回った割合で順位付け。勝率同点なら市場超過平均で比較。</p>
+    <div className="mt-3 space-y-2">{rows.map((stock,i)=><div key={stock.code}
+      className="rounded-xl border border-slate-200 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-black">{i+1}. {stock.name} <span className="text-sm font-normal text-slate-500">({stock.code})</span></p>
+        <Link href={`/chart/${stock.code}`}
+          className="shrink-0 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">CHART →</Link>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">100株参考額 {yen(stock.cost100)}</p>
+      <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2">
+        <div><p className="text-xs text-slate-600">日経平均を上回った割合</p>
+          <p className="text-lg font-black">{stock.benchmarkBeatRate?.toFixed(1)}%</p>
+          <p className="text-xs">{stock.outperformedCount}回 / {stock.benchmarkSampleCount}件</p></div>
+        <div><p className="text-xs text-slate-600">市場超過・翌日平均</p>
+          <p className="text-lg font-black"><PriceChange value={stock.averageExcess1}/></p>
+          <p className="text-xs">最悪 <PriceChange value={stock.worstExcess1}/></p></div>
+      </div>
+      <p className="mt-2 text-xs text-slate-600">同じ日の株の平均 <PriceChange value={stock.benchmarkStockAverage1}/> ／
+        日経平均の同日平均 <PriceChange value={stock.benchmarkAverage1}/></p>
+    </div>)}</div>
+  </div>;
+}
+
+function ReplayStatus({data}: {data: NextDayEvidence["retrospectiveReplay"]}) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <h3 className="text-lg font-black">🧪 最新急落日の事後再現チェック</h3>
+    <p className="mt-2 text-xs leading-6 text-slate-600">
+      最新急落日までの情報だけで計算した過去の順位を、判明済みの翌取引日と照合します。
+      これは過去のデータを用いた事後再計算であり、当時候補を事前保存した実証ではありません。</p>
+    {data.status!=="RETROSPECTIVE_ONLY" ?
+      <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm">翌取引日の日経平均または保存株価が未確定のため、検証待ちです。</p> :
+      <>
+        <p className="mt-2 text-sm">照合日：{data.nextSessionDate} ／ 日経平均 <PriceChange value={data.indexReturn1}/></p>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          {(["leaders","laggers"] as const).map(side=>{
+            const x=data[side];
+            return <div key={side} className="rounded-xl bg-slate-50 p-3">
+              <p className="font-black">{side==="leaders"?"過去優勢グループ":"過去劣勢グループ"}</p>
+              {!x?<p className="mt-2 text-xs">照合不可（未保存）</p>:<>
+                <p className="mt-2 text-xs">上回った {x.beatCount}/{x.observedCount}件
+                  （対象表示数{x.eligibleShown}）</p>
+                <p className="text-sm">市場超過率 <b>{x.beatRate.toFixed(1)}%</b></p>
+                <p className="text-sm">市場超過平均 <b><PriceChange value={x.averageExcess}/></b></p>
+              </>}
+            </div>;
+          })}
+        </div>
+      </>}
+    <p className="mt-3 text-xs text-amber-700">今後の真の事前固定検証には、選定日時と候補・算出元を独立保存する機能が必要です。ここではまだ実施していません。</p>
+  </section>;
+}
+
 function NextDayEvidencePanel({data}: {data: NextDayEvidence | null | undefined}) {
   if (!data) return null;
   return <section className="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50/30 p-3">
@@ -153,6 +219,20 @@ function NextDayEvidencePanel({data}: {data: NextDayEvidence | null | undefined}
         まだ5件以上の過去の急落後実績がある銘柄を確認できません。
         銘柄別の勝率は推測せず、追加のデータを待ちます。
       </p>}
+    <section className="space-y-3">
+      <div className="rounded-xl bg-white p-4">
+        <h3 className="text-xl font-black">⚖️ 日経平均に勝った銘柄ランキング</h3>
+        <p className="mt-2 text-sm text-slate-600">
+          過去の翌日上昇率とは別に、同じ日の日経平均を上回ったかを分析します。
+          指数の確定終値が欠けた日は集計から除外。比較可能な銘柄 {data.benchmarkEligibleCount}件。</p>
+        <p className="mt-2 text-xs text-amber-700">5回以上の独立した急落日で照合できた銘柄だけを表示。市場に勝ったからといって利益が出たとは限りません。</p>
+      </div>
+      {data.benchmarkEligibleCount ? <div className="grid gap-3 lg:grid-cols-2">
+        <BenchmarkEvidenceList title="🟢 市場に強い・上位20" rows={data.benchmarkLeaders}/>
+        <BenchmarkEvidenceList title="🔴 市場に弱い・下位20" rows={data.benchmarkLaggers}/>
+      </div> : <p className="rounded-xl bg-amber-50 p-4 text-sm">日経平均との比較に必要な実績が5件未満です。勝率は表示しません。</p>}
+    </section>
+    <ReplayStatus data={data.retrospectiveReplay}/>
     <p className="px-2 pb-1 text-xs leading-6 text-slate-600">{data.note}</p>
   </section>;
 }

@@ -179,11 +179,15 @@ function median(values) {
  * The selected crash day's forward result is NEVER included in training, even
  * if the next stock snapshot has since been saved.
  */
-function historicalNextDayEvidence(events, priceDays, referenceDates) {
+function historicalNextDayEvidence(events, priceDays, referenceDates, marketRows) {
   const selected = events.at(-1);
   if (!selected) return null;
   const currentCohort = buildEventStocks(selected, priceDays, referenceDates);
   const histories = new Map();
+  const relativeHistories = new Map();
+  const nikkeiByDate = new Map(marketRows
+    .filter(r=>validDate(String(r.date ?? "").slice(0,10)) && validPrice(r.nikkei))
+    .map(r=>[String(r.date).slice(0,10), Number(r.nikkei)]));
   const following = new Map(referenceDates.map((date,i)=>[date,referenceDates[i+1] ?? null]));
   let settledEpisodes = 0;
   for (const event of events) {
@@ -194,15 +198,35 @@ function historicalNextDayEvidence(events, priceDays, referenceDates) {
     const next = priceDays.days.get(nextDate);
     if (!next) continue; // partial / missing stock-day snapshots are not substituted.
     settledEpisodes++;
+    // Nikkei-only reference for apples-to-apples next-session excess return.
+    // When either close is absent, retain absolute results but withhold
+    // benchmark outperformance rather than replacing it with TOPIX.
+    const nStart = nikkeiByDate.get(event.date);
+    const nEnd = nikkeiByDate.get(nextDate);
+    const nikkeiNext = validPrice(nStart) && validPrice(nEnd)
+      ? change(nStart, nEnd) : null;
     for (const stock of buildEventStocks(event, priceDays, referenceDates)) {
       const endPrice = next.get(stock.code)?.price;
       if (!validPrice(endPrice)) continue;
+      const return1 = change(stock.price, endPrice);
       if (!histories.has(stock.code)) histories.set(stock.code, []);
-      histories.get(stock.code).push(change(stock.price, endPrice));
+      histories.get(stock.code).push(return1);
+      if (nikkeiNext !== null) {
+        if (!relativeHistories.has(stock.code)) relativeHistories.set(stock.code, []);
+        relativeHistories.get(stock.code).push({
+          excess: round(return1 - nikkeiNext),
+          outperformed: return1 > nikkeiNext,
+          nikkeiReturn: nikkeiNext,
+          stockReturn: return1,
+        });
+      }
     }
   }
   const analyzed = currentCohort.map(stock => {
     const returns = histories.get(stock.code) ?? [];
+    const relative = relativeHistories.get(stock.code) ?? [];
+    const outperformedCount = relative.filter(x=>x.outperformed).length;
+    const benchmarkReady = relative.length >= MIN_NEXT_DAY_EPISODES;
     if (returns.length < MIN_NEXT_DAY_EPISODES) return null;
     const up = returns.filter(v => v > 0).length;
     const down = returns.filter(v => v < 0).length;
@@ -213,7 +237,14 @@ function historicalNextDayEvidence(events, priceDays, referenceDates) {
       sampleCount: returns.length, upCount: up, downCount: down,
       positiveRate1: round(up / returns.length * 100),
       average1: round(average(returns)), median1: round(median(returns)),
-      worst1: Math.min(...returns), best1: Math.max(...returns)
+      worst1: Math.min(...returns), best1: Math.max(...returns),
+      benchmarkSampleCount: relative.length,
+      outperformedCount,
+      benchmarkBeatRate: benchmarkReady ? round(outperformedCount/relative.length*100) : null,
+      benchmarkAverage1: benchmarkReady ? round(average(relative.map(x=>x.nikkeiReturn))) : null,
+      benchmarkStockAverage1: benchmarkReady ? round(average(relative.map(x=>x.stockReturn))) : null,
+      averageExcess1: benchmarkReady ? round(average(relative.map(x=>x.excess))) : null,
+      worstExcess1: benchmarkReady ? Math.min(...relative.map(x=>x.excess)) : null,
     };
   }).filter(Boolean);
   const ascCode = (a,b) => a.code.localeCompare(b.code);
@@ -223,13 +254,65 @@ function historicalNextDayEvidence(events, priceDays, referenceDates) {
   const sortedWeak = [...analyzed].sort((a,b)=> a.positiveRate1-b.positiveRate1
     || a.average1-b.average1 || a.median1-b.median1
     || b.sampleCount-a.sampleCount || ascCode(a,b));
+  const benchEligible = analyzed.filter(x=>x.benchmarkBeatRate !== null);
+  const benchmarkLeaders = [...benchEligible].sort((a,b)=>
+    b.benchmarkBeatRate-a.benchmarkBeatRate ||
+    b.averageExcess1-a.averageExcess1 ||
+    b.benchmarkSampleCount-a.benchmarkSampleCount || ascCode(a,b));
+  const benchmarkLaggers = [...benchEligible].sort((a,b)=>
+    a.benchmarkBeatRate-b.benchmarkBeatRate ||
+    a.averageExcess1-b.averageExcess1 ||
+    b.benchmarkSampleCount-a.benchmarkSampleCount || ascCode(a,b));
+
+  // The most recent crash is NOT included in the historical rates above.
+  // Replay its already-known next-day result separately, using only ranks
+  // calculated as-of the crash date. These ranks are reconstructed now, NOT
+  // contemporaneously stored predictions: do not call this live OOS proof.
+  const selectedNextDate = following.get(selected.date);
+  const selectedNext = selectedNextDate ? priceDays.days.get(selectedNextDate) : null;
+  const selectedNStart = nikkeiByDate.get(selected.date);
+  const selectedNEnd = selectedNextDate ? nikkeiByDate.get(selectedNextDate) : null;
+  const replayIndexReturn = validPrice(selectedNStart) && validPrice(selectedNEnd)
+    ? change(selectedNStart, selectedNEnd) : null;
+  const replay = (entries) => {
+    if (!selectedNext || replayIndexReturn === null) return null;
+    const observed = entries.map(entry=>{
+      const stock = currentCohort.find(x=>x.code===entry.code);
+      const nextPrice = selectedNext.get(entry.code)?.price;
+      if (!stock || !validPrice(nextPrice)) return null;
+      const stockReturn = change(stock.price, nextPrice);
+      return {
+        code: entry.code, return1: stockReturn,
+        excess1: round(stockReturn - replayIndexReturn),
+        outperformed: stockReturn > replayIndexReturn,
+      };
+    }).filter(Boolean);
+    if (!observed.length) return null;
+    return {
+      eligibleShown: entries.length, observedCount: observed.length,
+      beatCount: observed.filter(x=>x.outperformed).length,
+      beatRate: round(observed.filter(x=>x.outperformed).length/observed.length*100),
+      averageExcess: round(average(observed.map(x=>x.excess1))),
+    };
+  };
   return {
     selectedDate: selected.date, settledPastEpisodes: settledEpisodes,
     cohortCount: currentCohort.length, eligibleCount: analyzed.length,
     minSamples: MIN_NEXT_DAY_EPISODES,
     leaders: sortedStrong.slice(0,MAX_DISPLAY),
     laggers: sortedWeak.slice(0,MAX_DISPLAY),
-    note: "過去の独立した急落日だけを集計。最新の急落日の翌日実績はランキング計算に使いません。保存参考価格ベースであり将来予測や約定可能価格ではありません。"
+    benchmarkEligibleCount: benchEligible.length,
+    benchmarkLeaders: benchmarkLeaders.slice(0,MAX_DISPLAY),
+    benchmarkLaggers: benchmarkLaggers.slice(0,MAX_DISPLAY),
+    retrospectiveReplay: {
+      status: !selectedNextDate || !selectedNext || replayIndexReturn === null
+        ? "PENDING_REFERENCE_OR_PRICES" : "RETROSPECTIVE_ONLY",
+      nextSessionDate: selectedNextDate ?? null,
+      indexReturn1: replayIndexReturn,
+      leaders: replay(benchmarkLeaders.slice(0,MAX_DISPLAY)),
+      laggers: replay(benchmarkLaggers.slice(0,MAX_DISPLAY)),
+    },
+    note: "過去の独立した急落日だけを集計。日経平均を上回った割合は、株と日経平均の両方が確定している回のみ計算。最新急落日の結果は過去勝率に混ぜません。事後再現は実際に事前保存された予測ではありません。"
   };
 }
 
@@ -275,7 +358,7 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     note: "保存済み価格と参考指数の両方がそろった急落日はありません。通常日の市場比ランキングは別表示です。"
   };
   const event = events.at(-1);
-  const nextDayEvidence = historicalNextDayEvidence(events, priceDays, referenceDates);
+  const nextDayEvidence = historicalNextDayEvidence(events, priceDays, referenceDates, marketRows);
   const histories = historyByCode(events, priceDays, referenceDates, event.date);
   const candidates = buildEventStocks(event, priceDays, referenceDates);
   const withHistory = (stock, side) => ({
