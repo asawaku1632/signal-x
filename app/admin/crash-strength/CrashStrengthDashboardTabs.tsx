@@ -68,7 +68,7 @@ export default function CrashStrengthDashboardTabs({ overview, nextday, market, 
             {shortcuts.map((item,i)=> (
               <button type="button" key={item.title+"-"+i} onClick={()=>{
                 setActive(item.id);
-                window.scrollTo({top:0,behavior:"smooth"});
+                document.getElementById("crash-tab-"+item.id)?.scrollIntoView({behavior:"smooth",block:"start"});
               }} className={"flex min-h-[84px] items-center gap-2 rounded-xl border p-2 text-left transition hover:brightness-95 "+item.colors}>
                 <span aria-hidden="true" className={"flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl font-black text-white "+item.iconColors}>{item.icon}</span>
                 <span className="min-w-0 flex-1">
