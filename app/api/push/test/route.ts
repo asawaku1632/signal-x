@@ -20,7 +20,7 @@ export const maxDuration = 30;
 const TEST_PAYLOAD: PushPayload = {
   title: "SIGNALX",
   body: "プッシュ通知のテストに成功しました",
-  url: "/",
+  url: "/mypage",
   tag: "signalx-push-test",
 };
 
