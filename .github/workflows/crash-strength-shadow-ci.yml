@@ -1,0 +1,27 @@
+name: Crash Strength Shadow CI
+
+on:
+  push:
+    branches:
+      - "research/crash-strength-shadow-*"
+    paths:
+      - "app/lib/research/crashStrengthShadow.mjs"
+      - "app/admin/crash-strength/page.tsx"
+      - "tests/crashStrengthShadow.test.mjs"
+      - ".github/workflows/crash-strength-shadow-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-research-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run isolated crash strength tests
+        run: node --test tests/crashStrengthShadow.test.mjs
