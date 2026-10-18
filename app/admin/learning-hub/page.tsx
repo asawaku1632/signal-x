@@ -49,6 +49,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
     subtitle: "どんな条件のときに上がりやすいか探す",
     items: [
       {
+        href: "/admin/crash-strength", icon: "📉",
+        title: "暴落後・強弱ランキング", tag: "本人専用・読み取り研究",
+        detail: "急落時の市場比ランキングと翌日・3日・5保存日後の事後検証",
+      },
+      {
         href: "/admin/explosive-watch", icon: "🚀",
         title: "爆上げ候補ウォッチ",
         detail: "候補銘柄の前兆と未来追跡をまとめて確認",
