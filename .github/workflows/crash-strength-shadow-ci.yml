@@ -13,6 +13,17 @@ on:
       - "app/admin/crash-strength/page.tsx"
       - "tests/crashStrengthShadow.test.mjs"
       - ".github/workflows/crash-strength-shadow-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/lib/research/crashStrengthShadow.mjs"
+      - "app/lib/research/crashStrengthMarketReference.mjs"
+      - "app/lib/research/crashStrengthMarketReferenceRunner.ts"
+      - "app/admin/crash-strength/page.tsx"
+      - "tests/crashStrengthShadow.test.mjs"
+      - "tests/crashStrengthMarketReference.test.mjs"
+      - ".github/workflows/crash-strength-shadow-ci.yml"
   workflow_dispatch:
 
 permissions:
