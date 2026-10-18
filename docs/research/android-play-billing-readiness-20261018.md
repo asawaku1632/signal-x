@@ -191,3 +191,22 @@ Official API references:
 - https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsSession
 - https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsService
 - https://developer.android.com/reference/androidx/browser/customtabs/CustomTabsCallback
+
+## 2026-10-18: Play signing SHA-256 match gate and REAL AndroidX compile
+
+**Google Play App Signing certificate**, not a locally held upload-key certificate, must be used to identify the APK installed from Play. In the current Play Console UI, open the app, navigate **Protected with Play → Play Store distribution → Go to Play app signing**, then in the **App signing key** section copy the **SHA-256 certificate fingerprint**. Google may show multiple signing certificates for signing-key upgrades or quantum-ready delivery: verify every signing identity that may be delivered to users, rather than guessing from a local keystore. Official documentation: https://support.google.com/googleplay/android-developer/answer/9842756
+
+Added `scripts/verify-play-signing-dal.mjs` and `tests/playSigningDalGate.test.mjs`. The script reads only `android-twa/twa-manifest.json` and the checked-in `public/.well-known/assetlinks.json`, verifies exact Android package/origin, validates fingerprint format and compares the **operator-supplied Play certificate SHA-256** to the existing site's app association. It only proposes adding `delegate_permission/common.use_as_origin` to an already-matching `handle_all_urls` declaration; it **never edits a file or deploys a website**, and it refuses to offer a proposal when the certificate does not match. Even a match is **not proof** that the live website serves the file or that the signed Play-installed app is trusted.
+
+To check (manual, research only; fingerprint is public certificate information, not a private signing key):
+
+```sh
+SIGNALX_PLAY_APP_SIGNING_SHA256='PASTE_PLAY_CONSOLE_APP_SIGNING_SHA256' \
+  node scripts/verify-play-signing-dal.mjs
+```
+
+Possible read-only results: `missing_or_invalid_play_signing_fingerprint`, `certificate_mismatch`, `missing_handle_all_urls_for_play_certificate`, `proposed_change_only`, or `source_relations_present`. None enables billing or TWA messaging. Do not commit or display passwords, keystore files, private keys, Google OAuth tokens or app signing secrets.
+
+Also added a **separate unsigned Android library** at `android-twa/research/androidx-compile/`, compiled only by the `native-androidx-real-compile` GitHub Actions job using the real `androidx.browser:browser:1.9.0` library, Android 36 SDK and Gradle. This is intentionally distinct from the mock `native-play-contract` Java tests. It validates AndroidX method/type compatibility without including the current production `LauncherActivity`, generating a release APK/AAB, installing on a phone, publishing to Play, or enabling billing. A compile success alone does not verify session continuity with the Bubblewrap launcher or device runtime behavior.
+
+**Go-live gates remain:** read the *actual* Play App Signing SHA-256; inspect website's **deployed** DAL and its HTTP content-type/HTTPS; verify the selected Play-installed Chrome/TWA session; add and test the origin relationship and PostMessageService only with an authorized, signed internal build; implement actual authenticated native ticket handoff, Play Integrity and purchase verification with release observability and rollback; obtain explicit owner approval before modifying published Android assets, production migrations, or paid access.
