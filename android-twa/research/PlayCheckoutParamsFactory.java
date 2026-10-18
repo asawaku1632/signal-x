@@ -16,6 +16,7 @@ import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.ProductDetails;
 import java.util.Collections;
+import java.util.List;
 
 public final class PlayCheckoutParamsFactory {
     public static final String EXPECTED_PACKAGE_ID = "com.signalx.app";
@@ -35,6 +36,24 @@ public final class PlayCheckoutParamsFactory {
         }
         if (eligibleOfferToken == null || eligibleOfferToken.trim().isEmpty()) {
             throw new IllegalArgumentException("Eligible Play subscription offer token required");
+        }
+        // Only use an offer token returned for THIS freshly queried product.
+        // Never accept a token freely chosen in JavaScript or retained from
+        // another product / stale purchase page. Eligibility can later change,
+        // and Google Play remains the final authority at launchBillingFlow.
+        List<ProductDetails.SubscriptionOfferDetails> offers =
+                productDetails.getSubscriptionOfferDetails();
+        boolean presentInQueriedProduct = false;
+        if (offers != null) {
+            for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+                if (offer != null && eligibleOfferToken.equals(offer.getOfferToken())) {
+                    presentInQueriedProduct = true;
+                    break;
+                }
+            }
+        }
+        if (!presentInQueriedProduct) {
+            throw new IllegalArgumentException("Offer is absent from queried subscription details");
         }
         // Hex HMAC digest of SIGNALX's stable user UUID, issued ONLY by the server.
         // Raw email, stable subject, purchase token and OAuth credentials NEVER enter here.
