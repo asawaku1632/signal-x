@@ -91,7 +91,23 @@ async function getReport(): Promise<Report> {
 }
 
 export default async function CrashStrengthShadowPage() {
-  const { isOwner } = await getLearningOwnerSession();
+  const { isOwner, email } = await getLearningOwnerSession();
+  // Preview deployments use a different cookie origin than production. Do not
+  // turn a missing session into an unexplained 404. This branch performs no DB
+  // read until the configured single owner has authenticated successfully.
+  if (!email) {
+    return <main className="min-h-screen bg-slate-50 px-4 py-16 text-slate-950">
+      <section className="mx-auto max-w-lg rounded-2xl border bg-white p-6 shadow-sm">
+        <p className="text-xs font-black text-indigo-700">SIGNALX PRIVATE RESEARCH</p>
+        <h1 className="mt-3 text-2xl font-black">📉 暴落後・強弱ランキング</h1>
+        <p className="mt-4 text-sm leading-7 text-slate-700">このページは本人専用です。現在のURLではログインを確認できませんでした。</p>
+        <p className="mt-2 text-sm leading-7 text-slate-700">Vercel Previewと通常のSIGNALXではログイン状態が共有されません。Preview側でログインしてください。Previewの認証環境が未設定の場合は、通常のSIGNALXへの安全な公開後に確認できます。</p>
+        <Link href="/login?callbackUrl=%2Fadmin%2Fcrash-strength"
+          className="mt-5 block rounded-xl bg-indigo-700 px-4 py-3 text-center text-sm font-bold text-white">Previewでログインする →</Link>
+        <p className="mt-4 text-xs text-slate-500">ログインしても指定された本人アカウント以外はランキングデータにアクセスできません。既存AI・注文・通知は変更しません。</p>
+      </section>
+    </main>;
+  }
   if (!isOwner) notFound();
   let report: Report | null = null;
   try { report = await getReport(); }
