@@ -8,6 +8,7 @@ import { refreshRestoredPlayEntitlement } from "../app/lib/billing/refreshRestor
 import { obfuscatedSignalxPlayAccountId } from "../app/lib/billing/playInitialPurchaseApproval.ts";
 import { fingerprintPlayPurchaseToken } from "../app/lib/billing/playTokenFingerprint.ts";
 import { issuePlayCheckoutTicketResearch, redeemPlayCheckoutTicketResearch } from "../app/lib/billing/playCheckoutTicketResearch.ts";
+import { createGooglePlayIntegrityDecoder } from "../app/lib/billing/googlePlayIntegrityDecoder.ts";
 const { Pool } = pg;
 const url = process.env.BILLING_TEST_DATABASE_URL;
 test("real isolated PostgreSQL enforces atomic updates and replay safety", { skip: !url }, async () => {
@@ -95,6 +96,64 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
       [disabledCheckoutUser]
     );
     assert.equal(disabledTicketClaim.rows[0].n,0);
+    // Join the isolated decoder's Google REST response contract to the REAL
+    // PostgreSQL ticket operation, using a fake HTTP client: no Google calls.
+    const issuedForRest=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
+    assert.equal(issuedForRest.kind,"issued");
+    let googleDecodeCalls=0;
+    const restDecoder=createGooglePlayIntegrityDecoder("ci-only-playintegrity-bearer",async(url,init)=>{
+      googleDecodeCalls++;
+      assert.equal(url,"https://playintegrity.googleapis.com/v1/com.signalx.app:decodeIntegrityToken");
+      assert.equal(init.headers.Authorization,"Bearer ci-only-playintegrity-bearer");
+      assert.deepEqual(JSON.parse(init.body),{integrityToken:"opaque-integration-token"});
+      return {ok:true,status:200,json:async()=>({
+        tokenPayloadExternal:{
+          requestDetails:{
+            requestPackageName:"com.signalx.app",
+            requestHash:issuedForRest.integrityRequestHash,
+            timestampMillis:String(ticketClock.getTime())
+          },
+          appIntegrity:{
+            appRecognitionVerdict:"PLAY_RECOGNIZED",
+            packageName:"com.signalx.app",
+            certificateSha256Digest:["ci-only-play-signing-certificate"]
+          }
+        }
+      })};
+    });
+    const restCheckout=await redeemPlayCheckoutTicketResearch(
+      {ticket:issuedForRest.ticket,opaqueIntegrityToken:"opaque-integration-token"},
+      ticketConfig,pool,restDecoder,ticketClock
+    );
+    assert.equal(restCheckout.kind,"redeemed");
+    assert.equal(googleDecodeCalls,1);
+    assert.equal((await redeemPlayCheckoutTicketResearch(
+      {ticket:issuedForRest.ticket,opaqueIntegrityToken:"opaque-integration-token"},
+      ticketConfig,pool,restDecoder,ticketClock
+    )).kind,"not_available");
+    assert.equal(googleDecodeCalls,1);
+    // Even a successful mocked Google decoding does not excuse a mismatched
+    // request hash. The SQL ticket must remain unconsumed.
+    const mismatchedTicket=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
+    assert.equal(mismatchedTicket.kind,"issued");
+    const wrongRestDecoder=createGooglePlayIntegrityDecoder("ci-only-playintegrity-bearer",
+      async()=>({ok:true,status:200,json:async()=>({
+        tokenPayloadExternal:{
+          requestDetails:{
+            requestPackageName:"com.signalx.app",requestHash:"A".repeat(43),
+            timestampMillis:String(ticketClock.getTime())
+          },
+          appIntegrity:{
+            appRecognitionVerdict:"PLAY_RECOGNIZED",packageName:"com.signalx.app",
+            certificateSha256Digest:["ci-only-play-signing-certificate"]
+          }
+        }
+      })})
+    );
+    assert.equal((await redeemPlayCheckoutTicketResearch(
+      {ticket:mismatchedTicket.ticket,opaqueIntegrityToken:"opaque-integration-token"},
+      ticketConfig,pool,wrongRestDecoder,ticketClock
+    )).kind,"untrusted_android");
     const otherUser=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const fingerprint="a".repeat(64);
     await pool.query(
