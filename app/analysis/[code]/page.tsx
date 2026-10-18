@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
 import OvernightBuyLimitCard from "@/app/components/analysis/OvernightBuyLimitCard";
 import MorningEntryRecheckCard from "@/app/components/analysis/MorningEntryRecheckCard";
-import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
+import { formatStars, getEvidenceConfidenceStars } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
