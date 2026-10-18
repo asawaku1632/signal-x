@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import PatternList from "@/app/components/analysis/PatternList";
 import OvernightBuyLimitCard from "@/app/components/analysis/OvernightBuyLimitCard";
 import MorningEntryRecheckCard from "@/app/components/analysis/MorningEntryRecheckCard";
-import { formatStars, getEvidenceConfidenceStars, getRankPercentile } from "@/app/lib/displayMetrics";
+import { formatStars, getEvidenceConfidenceStars } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
@@ -834,95 +834,93 @@ export default function AnalysisPage() {
           </div>
         </header>
 
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="shrink-0 text-sm font-bold text-slate-500 dark:text-slate-300">{signal.code}</span>
-            <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100 min-[380px]:text-2xl">{signal.name}</h1>
+        {/* Main summary: preserve the scores and calculations, remove duplicated tall cards. */}
+        <section className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+            <span className="text-sm font-black text-slate-500 dark:text-slate-300">{signal.code}</span>
+            <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100">{signal.name}</h1>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-medium text-slate-600 dark:text-slate-300">参考株価 <strong className="text-slate-950 dark:text-slate-100">{yen(price)}</strong></span>
-            <span className={`font-black ${changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"}`}>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5 text-sm">
+            <span className="font-bold">参考株価 <strong className="text-lg">{yen(price)}</strong></span>
+            <span className={`font-black ${changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500"}`}>
               スキャン変化率 {changePercent > 0 ? "+" : ""}{changePercent}%
             </span>
           </div>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
-          <p>Yahoo Finance参考価格・株価データ: {quoteAsOf(signal.latestBarTimestamp)}（日本時間）。注文の約定価格ではありません。</p>
-          {scanFreshness.updatedAt ? <p>分析データ保存: {new Date(scanFreshness.updatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p> : null}
-          {scanFreshness.status === "stale" ? <p className="mt-1 text-red-700 dark:text-red-300">⚠ 分析の保存データを表示しています。</p> : null}
-          {quoteMayBeDelayed(signal.latestBarTimestamp) ? <p className="mt-1 text-red-700 dark:text-red-300">⚠ 株価データは10分以上前、または取得時刻が不明です。売買には証券会社の最新価格を確認してください。</p> : null}
-          <button type="button" onClick={() => window.location.reload()} className="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-black">データを再読み込み</button>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-blue-200 bg-white p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black text-blue-600 dark:text-blue-400">総合評価</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">銘柄の有望度</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+            <div className="shrink-0">
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-300">AI POWER</p>
+              <p className={`text-4xl font-black leading-tight ${getPowerColor(power)}`}>{power}</p>
             </div>
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${getJudgeColor(power)}`}>{judgeIcon} {judge}</span>
+            <span className={`rounded-full border px-2 py-1 text-xs font-black ${getJudgeColor(power)}`}>
+              {judgeIcon} {judge}
+            </span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-800 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
+              {swingEntryDecision.icon} {swingEntryDecision.label}
+            </span>
           </div>
-          <div className="mt-2 flex items-end gap-2">
-            <div>
-              <p className="text-xs font-black tracking-wide text-slate-500 dark:text-slate-300">AI POWER</p>
-              <p className={`mt-1 text-5xl font-black leading-none ${getPowerColor(power)}`}>{power}</p>
+          <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+            <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">AI順位</p>
+              <p className="text-xs font-black">{getRankLabel(aiRank)} / {totalRank || "-"}</p>
             </div>
-            <div className="mb-1 min-w-0 border-l border-slate-200 pl-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-300">
-              <p className="font-bold">補助評価</p>
-              <p className="mt-1">AI順位 {getRankLabel(aiRank)} / {totalRank || "-"}銘柄</p>
-              <p className="mt-1">信頼度 {aiTrust}% {getRankPercentile(aiRank, totalRank) && `・${getRankPercentile(aiRank, totalRank)}`}</p>
+            <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">信頼度目安</p>
+              <p className="text-xs font-black">{aiTrust}%</p>
+            </div>
+            <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">出来高</p>
+              <p className="text-xs font-black">{volumeRatio}倍</p>
             </div>
           </div>
-          <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-medium leading-5 text-slate-500 dark:border-slate-700 dark:text-slate-300">候補評価です。評価が高くても今すぐの購入を意味しません。</p>
+          <p className="mt-2 text-[11px] font-medium leading-4 text-slate-500 dark:text-slate-300">
+            参考データに基づく候補評価です。AI POWERが高くても購入を推奨・保証するものではありません。
+          </p>
         </section>
 
-        <SwingEntryCard decision={swingEntryDecision} />
-        <MorningEntryRecheckCard
-          code={signal.code}
-          aiPower={Number.isFinite(power) ? power : null}
-          rsi={signal.rsi ?? null}
-          scanPrice={price > 0 ? price : null}
-          scanStatus={scanFreshness.status}
-          scanUpdatedAt={scanFreshness.updatedAt}
-        />
-        <OvernightBuyLimitCard code={signal.code} />
+        <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+          <summary className="cursor-pointer text-xs font-black">
+            ⚠ {scanFreshness.status === "stale" || quoteMayBeDelayed(signal.latestBarTimestamp)
+              ? "保存データを表示中・株価が古い可能性あり"
+              : "参考株価・保存時刻を確認"} <span className="font-medium">（詳細を開く）</span>
+          </summary>
+          <div className="mt-2 space-y-1 border-t border-amber-200 pt-2 dark:border-amber-800">
+            <p>Yahoo Finance参考価格・株価データ: {quoteAsOf(signal.latestBarTimestamp)}（日本時間）。注文の約定価格ではありません。</p>
+            {scanFreshness.updatedAt && <p>分析データ保存: {new Date(scanFreshness.updatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p>}
+            {scanFreshness.status === "stale" && <p className="text-red-700 dark:text-red-300">⚠ 分析の保存データを表示しています。</p>}
+            {quoteMayBeDelayed(signal.latestBarTimestamp) && <p className="text-red-700 dark:text-red-300">⚠ 株価データは10分以上前、または取得時刻が不明です。売買には証券会社の最新価格を確認してください。</p>}
+            <button type="button" onClick={() => window.location.reload()}
+              className="mt-1 rounded-lg border border-amber-400 px-3 py-1.5 font-black">
+              データを再読み込み
+            </button>
+          </div>
+        </details>
 
-        <Link href={`/chart/${signal.code}`} className="mt-3 block rounded-2xl border border-blue-600 bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
+        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-base font-black min-[380px]:text-lg">値動きと買い時をチャートで確認</p><p className="mt-1 text-xs font-medium text-blue-100">ローソク足、支持線・抵抗線、出来高を確認できます</p></div>
+            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
             <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
           </div>
         </Link>
 
-        <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
 
-        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 shadow-sm dark:border-orange-800 dark:bg-slate-900">
+
+        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
           <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">今の価格で取る行動</p>
-          <p className="mt-3 text-base font-black leading-7 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
-          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-300">売買前に、下の利益・損失目安とチャートをご確認ください。</p>
+
+          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
         </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-sm font-black">重要指標</h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
-            <Info label="必要資金" value={yen(requiredMoney)} />
-            <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
-            <Info label="出来高" value={`${volumeRatio}倍`} />
-          </div>
-        </section>
+          <h2 className="text-sm font-black">利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の参考試算）</span></h2>
 
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-base font-black">利益とリスク</h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">利益だけでなく、損失の目安も同じように確認してください。</p>
-          <div className="mt-2 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-slate-800">
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">利益確定目安</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
               <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">期待利益 +{yen(profitYen)}（+{profitRate.toFixed(2)}%）</p>
             </div>
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-slate-800">
+            <div className="min-w-0 rounded-xl border border-red-200 bg-red-50 p-2.5 dark:border-red-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-red-700 dark:text-red-300">損失を抑える目安</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(stopLoss)}</p>
               <p className="mt-1 text-sm font-bold text-red-700 dark:text-red-300">想定損失 -{yen(lossYen)}（-{lossRate.toFixed(2)}%）</p>
@@ -933,6 +931,34 @@ export default function AnalysisPage() {
             <Info label="損益比" value={riskReward} valueClass="text-blue-600 dark:text-blue-400" />
           </div>
         </section>
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-sm font-black">重要指標</h2>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <Info label="必要資金" value={yen(requiredMoney)} />
+            <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
+            <Info label="出来高" value={`${volumeRatio}倍`} />
+          </div>
+        </section>
+
+        <details className="mt-2 rounded-xl border border-blue-100 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">📅 スイング判定・買い時の詳細を見る</summary>
+          <SwingEntryCard decision={swingEntryDecision} />
+          <MorningEntryRecheckCard
+            code={signal.code}
+            aiPower={Number.isFinite(power) ? power : null}
+            rsi={signal.rsi ?? null}
+            scanPrice={price > 0 ? price : null}
+            scanStatus={scanFreshness.status}
+            scanUpdatedAt={scanFreshness.updatedAt}
+          />
+          <OvernightBuyLimitCard code={signal.code} />
+        </details>
+
+        <details className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">📊 ボリンジャーバンド・補助評価を表示</summary>
+          <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
+        </details>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
@@ -951,15 +977,15 @@ export default function AnalysisPage() {
           )}
         </section>
 
-        <section className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
-          <h2 className="text-base font-black">AIコメント</h2>
+        <details className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm dark:border-blue-800 dark:bg-slate-900">
+          <summary className="cursor-pointer text-sm font-black">AIコメント・詳しい解説を見る</summary>
           <ul className="mt-2 space-y-1.5">
             {aiCommentLines.map((line, index) => (
               <li key={`${line}-${index}`} className="flex items-start gap-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300"><span className="text-blue-600 dark:text-blue-400">・</span><span>{line}</span></li>
             ))}
           </ul>
           <p className="mt-3 border-t border-blue-100 pt-3 text-xs font-medium leading-5 text-slate-600 dark:border-slate-700 dark:text-slate-300">{aiComment.point}</p>
-        </section>
+        </details>
 
         <section className="mt-3 rounded-2xl border-2 border-red-300 bg-red-50 p-3 shadow-sm dark:border-red-800 dark:bg-red-950/20">
           <div className="flex items-start gap-2">
