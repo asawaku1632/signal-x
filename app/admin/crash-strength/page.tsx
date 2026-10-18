@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BottomNav from "@/app/components/BottomNav";
 import CrashStrengthDashboardTabs from "./CrashStrengthDashboardTabs";
+import CrashBenchmarkCards from "./CrashBenchmarkCards";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
@@ -335,25 +336,28 @@ export default async function CrashStrengthShadowPage() {
   let report: Report | null = null;
   try { report = await getReport(); }
   catch (error) { console.error("[crash-strength-shadow] read-only report unavailable", error); }
-  return <main className="min-h-screen bg-slate-50 px-3 pb-28 pt-4 text-slate-950">
-    <div className="mx-auto max-w-6xl space-y-3">
-      <header className="rounded-2xl border border-slate-200 bg-white p-4">
+  return <main className="min-h-screen bg-slate-50 px-2 pb-28 pt-3 text-slate-950">
+    <div className="mx-auto max-w-6xl space-y-2">
+      <header className="px-1 pb-1">
         <Link href="/admin/learning-hub" className="text-sm font-black text-blue-700">← 学習管理室</Link>
-        <p className="mt-3 text-[11px] font-black tracking-widest text-indigo-700">SIGNALX PRIVATE / SHADOW RESEARCH</p>
-        <h1 className="mt-1 text-2xl font-black">📉 暴落後・強弱ランキング</h1>
-        <p className="mt-1 text-xs leading-5 text-slate-600">日経平均・TOPIX参考日足と保存済み株価を比較。本人専用・読み取り専用の研究画面です。</p>
+        <p className="mt-2 text-[10px] font-black tracking-widest text-slate-500">SIGNALX PRIVATE / SHADOW RESEARCH</p>
+        <h1 className="mt-1 text-[22px] font-black leading-tight tracking-tight sm:text-3xl">暴落後・強弱ランキング</h1>
+        <p className="mt-1 text-[11px] leading-5 text-slate-600">
+          保存済み株価と日経平均・TOPIXの参考日足を比較。暴落後の強さ・弱さを分析する本人専用研究画面です。
+        </p>
       </header>
       {!report ? <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">研究データを取得できませんでした。既存のデータは変更していません。</p> : <>
-        <section aria-label="研究サマリー" className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        <section aria-label="研究サマリー"
+          className="grid grid-cols-4 gap-1.5 rounded-2xl border border-blue-200 bg-blue-50/60 p-1.5">
           {[
-            {label:"急落日",value:report.event?.date??"未検出",tone:"text-blue-700"},
-            {label:"日経平均",value:report.event?percent(report.event.nikkeiReturn):"未観測",tone:"text-rose-700"},
-            {label:"判定対象",value:(report.examinedStocks??0)+"銘柄",tone:"text-blue-700"},
-            {label:"有効保存日",value:report.coverage.validSavedDays+"日",tone:"text-blue-700"},
-            {label:"除外",value:report.coverage.excludedSavedNonTradingDays+"日",tone:"text-slate-700"}
-          ].map(x=><div key={x.label} className="min-w-0 rounded-xl border border-blue-100 bg-white p-2.5 shadow-sm">
-            <p className="text-[10px] font-black text-slate-500">{x.label}</p>
-            <p className={"mt-1 break-words text-sm font-black sm:text-lg "+x.tone}>{x.value}</p>
+            {icon:"▦",label:"急落日",value:report.event?.date??"未検出",tone:"text-blue-700"},
+            {icon:"↘",label:"日経平均",value:report.event?percent(report.event.nikkeiReturn):"未観測",tone:"text-rose-700"},
+            {icon:"♙",label:"判定対象",value:(report.examinedStocks??0)+"銘柄",tone:"text-blue-700"},
+            {icon:"▤",label:"有効保存日",value:report.coverage.validSavedDays+"日",tone:"text-blue-700"}
+          ].map(x=><div key={x.label} className="min-w-0 rounded-xl bg-white px-1 py-2 text-center">
+            <p aria-hidden="true" className="text-sm font-black leading-4 text-blue-600">{x.icon}</p>
+            <p className="mt-1 whitespace-nowrap text-[9px] font-black text-slate-500 sm:text-xs">{x.label}</p>
+            <p className={"mt-1 whitespace-nowrap text-[11px] font-black sm:text-base "+x.tone}>{x.value}</p>
           </div>)}
         </section>
         <CrashStrengthDashboardTabs
@@ -388,20 +392,15 @@ export default async function CrashStrengthShadowPage() {
               <CompactNextDay title="🔴 翌日上昇率・下位20" rows={report.nextDayEvidence.laggers} isUp={false}/>
             </div>:<p className="rounded-xl bg-amber-50 p-4 text-sm">過去の急落日データが不足しています。</p>}
           </div>}
-          market={<div className="space-y-3">
-            <section className="rounded-2xl border border-blue-100 bg-white p-4">
-              <h2 className="text-xl font-black">⚖️ 日経平均に勝った銘柄ランキング</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-600">暴落翌日の同じ取引日で日経平均を上回った割合と市場超過平均を比較します。</p>
-              <p className="mt-2 text-xs text-amber-800">5件以上の独立した急落日で照合できた銘柄のみ表示。過去実績であり、買い推奨ではありません。</p>
-            </section>
+          market={<div className="space-y-2">
             {report.nextDayEvidence&&report.nextDayEvidence.benchmarkEligibleCount>0?
-              <div className="grid gap-3 lg:grid-cols-2">
-                <CompactBenchmark title="🟢 市場に強い・上位20" rows={report.nextDayEvidence.benchmarkLeaders}/>
-                <CompactBenchmark title="🔴 市場に弱い・下位20" rows={report.nextDayEvidence.benchmarkLaggers}/>
-              </div>:<p className="rounded-xl bg-amber-50 p-4 text-sm">日経平均と照合できた急落後データが不足しています。</p>}
+              <CrashBenchmarkCards
+                strong={report.nextDayEvidence.benchmarkLeaders}
+                weak={report.nextDayEvidence.benchmarkLaggers}
+              />:<p className="rounded-xl bg-amber-50 p-3 text-sm">日経平均と照合できた急落後データが不足しています。</p>}
             {report.nextDayEvidence&&<details className="rounded-xl border border-blue-100 bg-white p-3">
-              <summary className="cursor-pointer text-sm font-black text-blue-700">🧪 最新急落日の事後再現チェックを見る</summary>
-              <div className="mt-3"><ReplayStatus data={report.nextDayEvidence.retrospectiveReplay}/></div>
+              <summary className="cursor-pointer text-xs font-black text-blue-700">🧪 最新急落日の事後再現チェック</summary>
+              <div className="mt-2"><ReplayStatus data={report.nextDayEvidence.retrospectiveReplay}/></div>
             </details>}
           </div>}
           intraday={<div className="space-y-3">
