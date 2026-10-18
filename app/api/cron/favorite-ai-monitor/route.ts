@@ -120,7 +120,7 @@ export async function GET(req: Request) {
             body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
             url: `/analysis/${monitor.code}`,
             tag: `signalx-buy-${monitor.id}`,
-          });
+          }, "buy");
       started.push({ ...monitor, lineSent, lineLinked: Boolean(lineUserId), webPush });
     }
   }
