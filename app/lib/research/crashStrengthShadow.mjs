@@ -251,7 +251,8 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     (e.topixReturn !== null && e.topixReturn <= CRASH_DROP_THRESHOLD)
   );
   const coverage = { validSavedDays: priceDays.dates.length, minimumStocksPerDay: MIN_STOCK_COVERAGE,
-    latestSavedDate: priceDays.dates.at(-1) ?? null,
+    latestSavedDate: saved.dates.at(-1) ?? null,
+    latestTradingPriceDate: priceDays.dates.at(-1) ?? null,
     source: "daily_stock_results.price / Yahoo日足参考指数",
     comparableDays: comparable.length,
     marketSessions: referenceDates.length,
