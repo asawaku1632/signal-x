@@ -234,9 +234,19 @@ export default function AiAnalysisPage() {
   );
 }
 
+const BUDGET_OPTIONS = [
+  { amount: 100000, label: "10万円以内", gradient: "from-emerald-500 to-teal-400" },
+  { amount: 300000, label: "30万円以内", gradient: "from-blue-600 to-sky-400" },
+  { amount: 500000, label: "50万円以内", gradient: "from-orange-500 to-amber-400" },
+  { amount: 1000000, label: "100万円以内", gradient: "from-fuchsia-500 to-purple-500" },
+] as const;
+
 function AiAnalysisContent() {
   const searchParams = useSearchParams();
   const requestedSymbol = searchParams.get("symbol");
+  const selectedBudget = BUDGET_OPTIONS.find(
+    (option) => String(option.amount) === searchParams.get("budget")
+  )?.amount ?? null;
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [totalStockList, setTotalStockList] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -278,7 +288,16 @@ function AiAnalysisContent() {
     void fetchAiAnalysis();
   }, []);
 
-  const topFive = useMemo(() => stocks.slice(0, 5), [stocks]);
+  // Preserve the daily ranking. Budget filtering affects this page only.
+  const budgetStocks = useMemo(
+    () => selectedBudget === null
+      ? stocks
+      : stocks.filter(
+          (stock) => Number.isFinite(stock.price) && stock.price > 0 && stock.price * 100 <= selectedBudget,
+        ),
+    [stocks, selectedBudget],
+  );
+  const topFive = useMemo(() => budgetStocks.slice(0, 5), [budgetStocks]);
   const topStock = useMemo(() => {
     if (requestedSymbol) {
       const requestedStock = topFive.find(
@@ -287,11 +306,11 @@ function AiAnalysisContent() {
       if (requestedStock) return requestedStock;
     }
 
-    return stocks[0];
-  }, [requestedSymbol, stocks, topFive]);
+    return budgetStocks[0];
+  }, [requestedSymbol, budgetStocks, topFive]);
   const topRank = useMemo(
-    () => stocks.findIndex((stock) => stock.code === topStock?.code) + 1,
-    [stocks, topStock],
+    () => budgetStocks.findIndex((stock) => stock.code === topStock?.code) + 1,
+    [budgetStocks, topStock],
   );
   const breakdown = topStock?.scoreBreakdown ?? null;
   const aiRank = topStock ? getAiRank(topStock.score) : null;
@@ -339,12 +358,45 @@ function AiAnalysisContent() {
       : topStock && topStock.score >= 75
       ? "3〜5営業日"
       : "様子見";
-  const selectedCount = totalStockList ?? stocks.length;
+  const selectedCount = selectedBudget === null ? (totalStockList ?? stocks.length) : budgetStocks.length;
+  const selectionDescription = selectedBudget === null
+    ? (selectedCount > 0 ? `${selectedCount.toLocaleString("ja-JP")}銘柄から選出` : "監視銘柄から選出")
+    : `予算内${selectedCount.toLocaleString("ja-JP")}銘柄から選出`;
   const strongestReason = reasonItems[0] ?? getPatternText(topStock?.patternSignal);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto w-full max-w-2xl px-3 py-3 min-[380px]:px-4">
+        <section className="mb-2 mt-1" aria-label="予算から銘柄を探す">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-xs font-black text-slate-700 dark:text-slate-200">予算から銘柄を探す</h2>
+            {selectedBudget !== null && (
+              <Link href="/ai-analysis" className="text-xs font-bold text-blue-600 underline dark:text-blue-400">
+                すべて表示
+              </Link>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {BUDGET_OPTIONS.map((option) => {
+              const active = selectedBudget === option.amount;
+              return (
+                <Link
+                  key={option.amount}
+                  href={`/ai-analysis?budget=${option.amount}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-xl bg-gradient-to-r ${option.gradient} px-1 py-2.5 text-center text-[10px] font-black text-white shadow-sm transition active:scale-[.98] ${active ? "ring-2 ring-blue-600 ring-offset-2 dark:ring-blue-400 dark:ring-offset-slate-950" : ""}`}
+                >
+                  💴 {option.label}
+                </Link>
+              );
+            })}
+          </div>
+          {selectedBudget !== null && !loading && !error && (
+            <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300" role="status">
+              100株購入で{selectedBudget.toLocaleString("ja-JP")}円以内：該当{budgetStocks.length}銘柄
+            </p>
+          )}
+        </section>
         {topStock && aiRank && (
             <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
               <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>
@@ -356,7 +408,7 @@ function AiAnalysisContent() {
                   const change = stock.changePercent ?? 0;
                   return (
                     <li key={stock.code}>
-                      <Link href={`/ai-analysis?symbol=${encodeURIComponent(stock.code)}#analysis-detail`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
+                      <Link href={`/ai-analysis?${selectedBudget === null ? "" : `budget=${selectedBudget}&`}symbol=${encodeURIComponent(stock.code)}#analysis-detail`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
                         <div className="flex min-w-0 items-start gap-3">
                           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${topFiveMedalStyle(index)}`} aria-label={`${index + 1}位`}>{index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
                           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1.5"><p className="break-words text-sm font-black text-slate-950 dark:text-slate-100">{stock.code} {stock.name}</p>{isCurrent && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black text-white">✓ 表示中</span>}</div><p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">{rank.rank}ランク・{rank.comment}</p></div>
@@ -386,7 +438,7 @@ function AiAnalysisContent() {
             AIが本日の上位候補を比較し、注目すべき銘柄を分かりやすく表示します
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-            {selectedCount > 0 ? `${selectedCount.toLocaleString("ja-JP")}銘柄から選出` : "監視銘柄から選出"}
+            {selectionDescription}
           </p>
         </header>
 
@@ -412,8 +464,10 @@ function AiAnalysisContent() {
 
         {!loading && !error && !topStock && (
           <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p className="font-black">本日の候補が見つかりません</p>
-            <Link href="/scan-mobile" className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-blue-600 px-5 font-black text-white">Scanで条件を変更</Link>
+            <p className="font-black">{selectedBudget !== null && stocks.length > 0 ? "この予算内の候補はありません" : "本日の候補が見つかりません"}</p>
+            <Link href={selectedBudget !== null ? "/ai-analysis" : "/scan-mobile"} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-blue-600 px-5 font-black text-white">
+              {selectedBudget !== null ? "すべての候補を見る" : "Scanで条件を変更"}
+            </Link>
           </section>
         )}
 
@@ -425,12 +479,12 @@ function AiAnalysisContent() {
                   {topRank === 1 ? "本日のAIランキング1位" : `選択中：AIランキング${topRank}位`}
                 </p>
                 <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-                  {selectedCount > 0 ? `${selectedCount.toLocaleString("ja-JP")}銘柄から選出` : "AIの監視銘柄から選出"}
+                  {selectionDescription}
                 </p>
               </div>
               {topRank > 1 && (
                 <Link
-                  href="/ai-analysis"
+                  href={selectedBudget === null ? "/ai-analysis" : `/ai-analysis?budget=${selectedBudget}`}
                   className="mt-2 flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-black text-blue-700 transition hover:bg-blue-50 active:scale-[0.99] dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300"
                 >
                   ← 今日のAIランキング1位へ戻る
