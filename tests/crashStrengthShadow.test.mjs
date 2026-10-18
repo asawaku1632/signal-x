@@ -74,6 +74,35 @@ test("private page has owner gate and read-only data path, no orders or automate
     "owner gate must run before query");
   assert.match(page,/if \(!isOwner\) notFound\(\)/);
   assert.match(page,/SELECT DISTINCT ON/);
-  assert.match(page,/market_learning_logs/);
+  assert.match(page,/getCrashMarketReferences/);
+  assert.match(page,/report\.recent/);
+  assert.match(page,/if \(!isOwner\) notFound\(\)/);
   assert.doesNotMatch(page,/INSERT INTO|UPDATE public\.|DELETE FROM|sendLine|createOrder/);
+});
+
+test("normal sessions show latest market-relative rankings without pretending a crash", () => {
+  const data=fixture();
+  const quiet=data.marketRows.map((r,i)=>({...r,nikkei:100+i,topix:200+i*2}));
+  const r=run({marketRows:quiet});
+  assert.equal(r.event,null);
+  assert.equal(r.eventCount,0);
+  assert.equal(r.recent.event.date,"2026-10-19");
+  assert.equal(r.recent.examinedStocks,800);
+  assert.ok(r.recent.strong.length>0);
+  assert.ok(r.recent.weak.length>0);
+  assert.equal(r.recent.isLatestSavedDate,true);
+});
+
+test("a saved day without matching index stays explicitly out of routine ranking",()=>{
+  const data=fixture();
+  const markets=data.marketRows.filter(x=>x.date!=="2026-10-19");
+  const r=run({marketRows:markets});
+  assert.equal(r.recent.event.date,"2026-10-16");
+  assert.equal(r.recent.isLatestSavedDate,false);
+});
+
+test("missing market observations never fabricate routine market-relative results",()=>{
+  const r=run({marketRows:[]});
+  assert.equal(r.recent,null);
+  assert.equal(r.coverage.comparableDays,0);
 });

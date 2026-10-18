@@ -33,7 +33,7 @@ function makePriceDays(priceRows, asOf) {
   return { days, dates, position: new Map(dates.map((date, index) => [date, index])) };
 }
 
-function shockEvents(marketRows, priceDays, asOf) {
+function comparableMarketDays(marketRows, priceDays, asOf) {
   const marketsByDate = new Map();
   for (const r of marketRows) {
     const date = String(r.date ?? "").slice(0, 10);
@@ -53,8 +53,9 @@ function shockEvents(marketRows, priceDays, asOf) {
       ? change(Number(previous.nikkei), Number(current.nikkei)) : null;
     const topix = validPrice(previous.topix) && validPrice(current.topix)
       ? change(Number(previous.topix), Number(current.topix)) : null;
-    if (!((nikkei !== null && nikkei <= CRASH_DROP_THRESHOLD) ||
-          (topix !== null && topix <= CRASH_DROP_THRESHOLD))) continue;
+    // Return aligned comparable days, not only crashes. The caller decides whether
+    // the day belongs in the genuine crash history or routine relative-strength view.
+    if (nikkei === null && topix === null) continue;
     // TOPIX represents more of the full equity market; use it if present.
     const benchmark = topix !== null ? "TOPIX" : "日経平均";
     events.push({ date, previousDate, benchmark, indexReturn: topix ?? nikkei,
@@ -134,12 +135,30 @@ function historyByCode(events, priceDays, latestDate) {
 export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) {
   if (!validDate(asOf)) throw new Error("INVALID_AS_OF_DATE");
   const priceDays = makePriceDays(priceRows, asOf);
-  const events = shockEvents(marketRows, priceDays, asOf);
+  const comparable = comparableMarketDays(marketRows, priceDays, asOf);
+  const events = comparable.filter(e =>
+    (e.nikkeiReturn !== null && e.nikkeiReturn <= CRASH_DROP_THRESHOLD) ||
+    (e.topixReturn !== null && e.topixReturn <= CRASH_DROP_THRESHOLD)
+  );
   const coverage = { validSavedDays: priceDays.dates.length, minimumStocksPerDay: MIN_STOCK_COVERAGE,
-    latestSavedDate: priceDays.dates.at(-1) ?? null, source: "daily_stock_results.price / market_learning_logs" };
+    latestSavedDate: priceDays.dates.at(-1) ?? null,
+    source: "daily_stock_results.price / Yahoo日足参考指数",
+    comparableDays: comparable.length };
+  // Routine ranking is not a crash prediction; it makes the research page useful
+  // even if no qualifying -2% crash is inside the saved history.
+  const recentEvent = comparable.at(-1) ?? null;
+  const recentStocks = recentEvent ? buildEventStocks(recentEvent, priceDays) : [];
+  const recent = recentEvent ? {
+    event: recentEvent,
+    examinedStocks: recentStocks.length,
+    isLatestSavedDate: recentEvent.date === coverage.latestSavedDate,
+    strong: [...recentStocks].sort((a,b)=>b.excessReturn-a.excessReturn || a.code.localeCompare(b.code)).slice(0,MAX_DISPLAY),
+    weak: [...recentStocks].sort((a,b)=>a.excessReturn-b.excessReturn || a.code.localeCompare(b.code)).slice(0,MAX_DISPLAY),
+  } : null;
   if (events.length === 0) return {
     version: CRASH_STRENGTH_VERSION, asOf, coverage, event: null, eventCount: 0,
-    strong: [], weak: [], historical: null, note: "条件を満たす保存済み急落日はありません。"
+    strong: [], weak: [], recent, historical: null,
+    note: "保存済み価格と参考指数の両方がそろった急落日はありません。通常日の市場比ランキングは別表示です。"
   };
   const event = events.at(-1);
   const histories = historyByCode(events, priceDays, event.date);
@@ -155,7 +174,7 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     .slice(0, MAX_DISPLAY).map(r => withHistory(r, "weak"));
   return {
     version: CRASH_STRENGTH_VERSION, asOf, coverage, event, eventCount: events.length,
-    examinedStocks: candidates.length, strong, weak, historical: histories.groups,
+    examinedStocks: candidates.length, strong, weak, recent, historical: histories.groups,
     note: "強弱は急落当日の市場相対騰落率です。翌日予測・売買推奨ではありません。翌日/3日/5日の成績は保存済み株価の事後観測です。"
   };
 }
