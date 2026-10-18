@@ -882,6 +882,8 @@ export default function AnalysisPage() {
           </p>
         </section>
 
+        <SwingEntryCard decision={swingEntryDecision} />
+
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
           <summary className="cursor-pointer text-xs font-black">
             ⚠ {scanFreshness.status === "stale" || quoteMayBeDelayed(signal.latestBarTimestamp)
@@ -978,8 +980,6 @@ export default function AnalysisPage() {
           <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
         </section>
-
-        <SwingEntryCard decision={swingEntryDecision} />
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
