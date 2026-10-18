@@ -51,7 +51,8 @@ export function captureFrozenCrash({marketRows,priceRows,now}) {
   const clock=jstClock(now);
   if(clock.minutes<16*60+45||clock.minutes>=21*60)
     return {status:"SKIPPED",reason:"OUTSIDE_SETTLED_SESSION_WINDOW"};
-  const sessions=selectSessions(marketRows);
+  // Ignore any bars dated AFTER the actual invocation day: strict no-lookahead.
+  const sessions=selectSessions(marketRows).filter(x=>x.date<=clock.date);
   const latest=sessions.at(-1);
   if(!latest||latest.date!==clock.date)
     return {status:"SKIPPED",reason:"NO_TODAY_SETTLED_INDEX_BAR"};
