@@ -113,3 +113,18 @@ Remaining mandatory safety gates:
 - No migration, merging, Play Console activation, APK rebuild or real purchase without owner approval.
 
 Official security references: [Play Integrity verdicts](https://developer.android.com/google/play/integrity/verdicts), [Android App Links](https://developer.android.com/training/app-links/about), [Android Play Billing](https://developer.android.com/google/play/billing/integrate).
+
+## 2026-10-18 Play Integrity server decoder contract (isolated)
+
+Created `app/lib/billing/googlePlayIntegrityDecoder.ts` and `tests/googlePlayIntegrityDecoder.test.mjs`. The adapter implements the official Google server-side REST call `POST https://playintegrity.googleapis.com/v1/com.signalx.app:decodeIntegrityToken`, submitting `{"integrityToken":"..."}` and a **server-held** bearer token with `https://www.googleapis.com/auth/playintegrity` scope. Credentials and HTTP transport are injected **server side**; this adapter does not generate service-account OAuth tokens, configure Google Cloud, or expose an endpoint.
+
+Only an HTTP 200 with the Google wrapper `tokenPayloadExternal` and parseable `requestDetails` / `appIntegrity` becomes a decoder result. Missing payload, malformed timestamp/hash, invalid cert arrays, 403s, 5xx, network error and malformed JSON all fail closed with `null`; neither bearer nor integrity token is logged. This intentionally rejects classic `nonce`-only payloads because SIGNALX prototypes use Play Integrity **standard** `requestHash` request binding.
+
+Decoded data is **not** independently a proof of a SIGNALX user's entitlement. `redeemPlayCheckoutTicketResearch` must still verify the request-specific hash (bound to the stored ticket digest, package, and product), freshness, `PLAY_RECOGNIZED`, Play signing-certificate digest allowlist, and the ticket's DB-level atomic one-time claim. A disposable PostgreSQL test exercises this composition with **mocked Google HTTP only**, including replay and wrong-hash denial.
+
+Official API references:
+- [Standard Play Integrity server-side decoding](https://developer.android.com/google/play/integrity/standard)
+- [Play Integrity v1 API discovery schema](https://developers.google.com/android-publisher/api-ref/rest/v3) (distinct from Android Publisher; use Play Integrity REST endpoint noted above)
+- [Play Integrity response verdict interpretation](https://developer.android.com/google/play/integrity/verdicts)
+
+**Still blocked:** no real Google Cloud service account, Play Integrity API activation, trusted authenticated NextAuth route, Android-to-web handoff, actual Java SDK, AAB build, physical device test, production database migration, or Google Play billing activation. The injected fake HTTP implementation in CI is **not** a real Google verification call.
