@@ -8,6 +8,7 @@ import { refreshRestoredPlayEntitlement } from "../app/lib/billing/refreshRestor
 import { obfuscatedSignalxPlayAccountId } from "../app/lib/billing/playInitialPurchaseApproval.ts";
 import { fingerprintPlayPurchaseToken } from "../app/lib/billing/playTokenFingerprint.ts";
 import { issuePlayCheckoutTicketResearch, redeemPlayCheckoutTicketResearch } from "../app/lib/billing/playCheckoutTicketResearch.ts";
+import { issueAuthenticatedPlayCheckoutResearch } from "../app/lib/billing/playCheckoutSessionGate.ts";
 import { createGooglePlayIntegrityDecoder } from "../app/lib/billing/googlePlayIntegrityDecoder.ts";
 const { Pool } = pg;
 const url = process.env.BILLING_TEST_DATABASE_URL;
@@ -29,6 +30,17 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     // One-use Android checkout ticket: only a trusted decoded Play Integrity
     // response can consume the persisted digest; concurrent redemption is atomic.
     const ticketClock=new Date("2026-10-18T02:00:00Z");
+    const authenticatedRequest=new Request("https://signal-x-ppjg.vercel.app/api/research-play-issue",{
+      method:"POST",
+      headers:{
+        host:"signal-x-ppjg.vercel.app",
+        origin:"https://signal-x-ppjg.vercel.app",
+        "content-type":"application/json",
+        "sec-fetch-site":"same-origin",
+        "x-signalx-request":"play-checkout-issue-v1"
+      },
+      body:"{}"
+    });
     const ticketConfig={
       packageName:"com.signalx.app",allowedProductId:"premium_month",
       ticketDigestKey:"ci-only-checkout-ticket-key-12345678901234567",
@@ -46,9 +58,21 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
         certificateSha256Digest:["ci-only-play-signing-certificate"]
       }
     });
+    // The exact internal UUID from the trusted NextAuth server session must
+    // control the owner; the browser payload cannot specify another user.
+    const sessionIssued=await issueAuthenticatedPlayCheckoutResearch(
+      authenticatedRequest,
+      {enabled:true,expectedOrigin:"https://signal-x-ppjg.vercel.app",ticket:ticketConfig},
+      pool,async()=>({user:{id}}),ticketClock
+    );
+    assert.equal(sessionIssued.kind,"issued");
+    const ticketOwner=await pool.query(
+      "SELECT user_id FROM public.signalx_play_checkout_tickets WHERE consumed_at IS NULL ORDER BY issued_at DESC LIMIT 1"
+    );
+    assert.equal(ticketOwner.rows[0].user_id,id);
     const issuedTicket=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
     assert.equal(issuedTicket.kind,"issued");
-    assert.equal((await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets")).rows[0].n,1);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets")).rows[0].n,2);
     const rawTokenLeak=await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE ticket_digest=$1",[issuedTicket.ticket]);
     assert.equal(rawTokenLeak.rows[0].n,0);
     const checkoutRequest={ticket:issuedTicket.ticket,opaqueIntegrityToken:"ci-attestation-token"};
@@ -79,7 +103,7 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
       "SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE consumed_at IS NULL AND expires_at>$1",
       [ticketClock.toISOString()]
     );
-    assert.equal(stillOpen.rows[0].n,2);
+    assert.equal(stillOpen.rows[0].n,3);
     const disabledForCheckout=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const disabledCheckoutUser=disabledForCheckout.rows[0].id;
     const issuedBeforeDisable=await issuePlayCheckoutTicketResearch(
