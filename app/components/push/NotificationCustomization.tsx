@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PriceTargetControls from "./PriceTargetControls";
+import NotificationResearchProgress from "./NotificationResearchProgress";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   NOTIFICATION_CATEGORIES,
@@ -101,6 +102,7 @@ export default function NotificationCustomization() {
         研究中の4種類はONにしても検証条件を満たすまで通知しません。
         対象の予測が検証済みになり、配信機能が有効化された場合のみ通知対象となります。
       </p>
+      <NotificationResearchProgress />
       <PriceTargetControls enabled={preferences.price_target && !dirty} />
     </section>
   );
