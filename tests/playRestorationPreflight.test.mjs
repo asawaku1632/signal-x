@@ -16,7 +16,7 @@ function fixture({owner="user-1", rows, response=verified, networkError=false, d
 }
 test("same-account device restoration verifies Play before selecting binding",async()=>{
  const f=fixture();const r=await preflightExistingPlayRestoration(req,cfg,f.db,f.http,now);
- assert.deepEqual(r,{kind:"verified_existing",signalxUserId:"user-1",validUntil:"2026-11-18T00:00:00Z"});
+ assert.deepEqual(r,{kind:"verified_existing",signalxUserId:"user-1",validUntil:"2026-11-18T00:00:00Z",status:"active"});
  assert.equal(f.seen.http,1);assert.equal(f.seen.db,1);
 });
 test("different SIGNALX account cannot claim purchase",async()=>{
