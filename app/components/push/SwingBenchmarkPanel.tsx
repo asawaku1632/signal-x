@@ -3,6 +3,11 @@
 import { useState } from "react";
 
 type Gate = {key:string;label:string;current:number;required:number;passed:boolean;unit?:"%"};
+type RiskGroup = {
+ key:string;label:string;count:number;observed:number;
+ lossAfter5Rate:number|null;closingDrop3Rate:number|null;
+ sufficientForDescription:boolean;
+};
 type Week = {
  weekStart:string;count:number;predictionDays:number;
  meanReturn:number|null;medianReturn:number|null;
@@ -13,6 +18,9 @@ type Report = {
  settled:number;predictionDays:number;predictionWeeks:number;
  riseRate:number|null;meanReturn:number|null;medianReturn:number|null;trimmedMeanReturn:number|null;
  marketAverage:number|null;meanExcess:number|null;medianExcess:number|null;
+ robustMeanExcess:number|null; comparableWeeks:number;positiveExcessWeeks:number;
+ positiveExcessWeekRate:number|null; riskGroups:RiskGroup[];
+ trustReviewStatus:"EVIDENCE_COLLECTING"|"MANUAL_REVIEW_REQUIRED";
  marketComparable:number;worstFiveDayReturn:number|null;largestSavedCloseDrop:number|null;
  touchedMinusThreeRate:number|null;riskComparable:number;outliersOverFiftyPercent:number;
  gates:Gate[];gatesPassed:boolean;deliveryEnabled:false;automaticNotificationRelease:false;
@@ -60,6 +68,29 @@ export default function SwingBenchmarkPanel(){
       {error&&<p className="text-xs font-bold text-amber-800" role="status">{error}</p>}
       {data&&<>
        <div className="rounded-xl border border-slate-200 bg-white p-3">
+         <div className="flex items-center justify-between gap-2">
+           <h4 className="text-sm font-black text-slate-900">🔎 信頼性の自動評価</h4>
+           <span className="rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800">
+             {data.trustReviewStatus === "MANUAL_REVIEW_REQUIRED" ? "定量条件クリア・人の審査待ち" : "実績を蓄積中"}
+           </span>
+         </div>
+         <p className="mt-2 text-xs leading-5 text-slate-600">
+           検証基準 {data.gates.filter(g=>g.passed).length}/{data.gates.length}項目達成。
+           値動きの偏りや予測の独立性も確認するため、基準を満たしても通知は自動解禁しません。
+         </p>
+         <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-700">
+           <div>市場平均を超えた週
+             <p className="mt-1 text-base font-black">{data.positiveExcessWeeks}/{data.comparableWeeks}週</p>
+           </div>
+           <div>外れ値を抑えた市場超過平均
+             <p className="mt-1 text-base font-black">{pct(data.robustMeanExcess)}</p>
+           </div>
+         </div>
+         {data.outliersOverFiftyPercent>0 && <p className="mt-2 text-xs leading-5 font-bold text-amber-800">
+           50%以上の極端な値動きが{data.outliersOverFiftyPercent}件あります。株式分割や価格補正も含め、人による確認が必要です。
+         </p>}
+       </div>
+       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <div className="grid grid-cols-2 gap-3 text-xs text-slate-700">
           <div>候補5日後の平均 <p className="mt-1 text-lg font-black">{pct(data.meanReturn)}</p></div>
           <div>同期間の全銘柄平均 <p className="mt-1 text-lg font-black">{pct(data.marketAverage)}</p></div>
@@ -93,6 +124,18 @@ export default function SwingBenchmarkPanel(){
             </b>
           </div>)}
         </div>
+       </div>
+       <div className="rounded-xl border border-slate-200 bg-white p-3">
+         <h4 className="text-sm font-black text-slate-900">⚠️ AI評価・予測時株価別の下落リスク</h4>
+         <p className="mt-1 text-xs text-slate-500">5日後の下落率と途中−3%以上下落した割合。十分な予測日が集まるまで目安として表示します。</p>
+         <div className="mt-3 space-y-2">
+           {data.riskGroups.map(g=><div key={g.key} className="rounded-lg bg-slate-50 p-2 text-xs text-slate-700">
+             <p className="font-black">{g.label}（{g.count}件）</p>
+             <p className="mt-1">5日後に下落：{g.lossAfter5Rate===null?"—":g.lossAfter5Rate.toFixed(1)+"%"} ／
+               途中−3%：{g.closingDrop3Rate===null?"—":g.closingDrop3Rate.toFixed(1)+"%"}</p>
+             {!g.sufficientForDescription&&<p className="mt-1 text-amber-800">検証日または件数が不足・結論は保留</p>}
+           </div>)}
+         </div>
        </div>
        <div className="rounded-xl border border-slate-200 bg-white p-3">
         <h4 className="text-sm font-black text-slate-900">予測週ごとの5日後成績</h4>

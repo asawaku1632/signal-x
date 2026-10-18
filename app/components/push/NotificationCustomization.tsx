@@ -17,6 +17,7 @@ export default function NotificationCustomization() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<"settings" | "research">("settings");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,9 +67,27 @@ export default function NotificationCustomization() {
         <h2 className="text-xl font-black">通知カスタマイズ</h2>
         <span className="text-xs font-bold text-slate-500">{selected}/9 選択</span>
       </div>
-      <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-        スマホのプッシュ通知だけを変更できます。現在届いているLINE通知はこれまでどおりです。
-      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="通知と研究の切り替え">
+        <button type="button" id="push-settings-tab" role="tab"
+          aria-selected={activeTab === "settings"} aria-controls="push-settings-panel"
+          onClick={() => setActiveTab("settings")}
+          className={`rounded-xl px-3 py-3 text-sm font-black transition-colors ${activeTab === "settings"
+            ? "bg-blue-600 text-white shadow-sm" : "text-slate-600"}`}>
+          🔔 通知設定
+        </button>
+        <button type="button" id="push-research-tab" role="tab"
+          aria-selected={activeTab === "research"} aria-controls="push-research-panel"
+          onClick={() => setActiveTab("research")}
+          className={`rounded-xl px-3 py-3 text-sm font-black transition-colors ${activeTab === "research"
+            ? "bg-blue-600 text-white shadow-sm" : "text-slate-600"}`}>
+          📊 研究成績
+        </button>
+      </div>
+      {activeTab === "settings" ? (
+      <div id="push-settings-panel" role="tabpanel" aria-labelledby="push-settings-tab">
+        <p className="mt-4 text-xs font-bold leading-5 text-slate-500">
+          スマホのプッシュ通知だけを変更できます。現在届いているLINE通知はこれまでどおりです。
+        </p>
       <div className="mt-4 divide-y divide-slate-100">
         {NOTIFICATION_CATEGORIES.map((category) => (
           <label key={category.key} className="flex cursor-pointer items-center gap-3 py-3">
@@ -102,8 +121,16 @@ export default function NotificationCustomization() {
         研究中の4種類はONにしても検証条件を満たすまで通知しません。
         対象の予測が検証済みになり、配信機能が有効化された場合のみ通知対象となります。
       </p>
-      <NotificationResearchProgress />
       <PriceTargetControls enabled={preferences.price_target && !dirty} />
+      </div>
+      ) : (
+        <div id="push-research-panel" role="tabpanel" aria-labelledby="push-research-tab">
+          {dirty && <p className="mt-3 text-xs font-bold text-amber-700">
+            通知設定に未保存の変更があります。通知設定タブで保存してね。
+          </p>}
+          <NotificationResearchProgress defaultExpanded />
+        </div>
+      )}
     </section>
   );
 }
