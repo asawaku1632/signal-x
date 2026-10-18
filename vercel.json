@@ -115,6 +115,14 @@
     {
       "path": "/api/cron/save-post?phase=finalize",
       "schedule": "5 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/crash-forward-research",
+      "schedule": "55 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/crash-forward-research",
+      "schedule": "20 8 * * 1-5"
     }
   ]
 }
