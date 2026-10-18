@@ -67,6 +67,11 @@ test("invalid as-of date fails closed", () => {
 test("private page has owner gate and read-only data path, no orders or automated hooks", () => {
   const page=readFileSync(new URL("../app/admin/crash-strength/page.tsx",import.meta.url),"utf8");
   assert.match(page,/getLearningOwnerSession/);
+  assert.match(page,/if \(!email\)/);
+  assert.match(page,/Previewでログインする/);
+  assert.match(page,/\/login\?callbackUrl=/);
+  assert.ok(page.indexOf("if (!isOwner) notFound()") < page.indexOf("await getReport()"),
+    "owner gate must run before query");
   assert.match(page,/if \(!isOwner\) notFound\(\)/);
   assert.match(page,/SELECT DISTINCT ON/);
   assert.match(page,/market_learning_logs/);
