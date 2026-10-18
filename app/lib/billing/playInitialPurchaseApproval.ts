@@ -50,7 +50,8 @@ export async function assessVerifiedFirstPlayPurchase(
       typeof request.purchaseToken !== "string" || !request.purchaseToken.trim() ||
       !config.packageName?.trim() || !config.productId?.trim() ||
       !config.oauthAccessToken?.trim() || !Number.isFinite(now.getTime()) ||
-      config.accountBindingKey?.length < 32 || config.purchaseFingerprintKey?.length < 32 ||
+      typeof config.accountBindingKey !== "string" || config.accountBindingKey.length < 32 ||
+      typeof config.purchaseFingerprintKey !== "string" || config.purchaseFingerprintKey.length < 32 ||
       config.accountBindingKey === config.purchaseFingerprintKey) return { kind: "invalid_input" };
 
   const verified = await lookupVerifiedPlaySubscription({
