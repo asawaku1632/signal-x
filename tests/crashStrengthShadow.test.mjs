@@ -69,7 +69,7 @@ test("private page has owner gate and read-only data path, no orders or automate
   assert.match(page,/getLearningOwnerSession/);
   assert.match(page,/if \(!email\)/);
   assert.match(page,/Previewでログインする/);
-  assert.match(page,/\/login\?callbackUrl=/);
+  assert.match(page,/href="\/login"/);
   assert.ok(page.indexOf("if (!isOwner) notFound()") < page.indexOf("await getReport()"),
     "owner gate must run before query");
   assert.match(page,/if \(!isOwner\) notFound\(\)/);
