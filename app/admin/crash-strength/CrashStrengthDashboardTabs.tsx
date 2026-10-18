@@ -20,11 +20,18 @@ type Props = {
   notes: ReactNode;
 };
 
-const shortcuts: { id: CrashDashboardTab; title: string; description: string; icon: string }[] = [
-  { id: "nextday", title: "過去の翌日上昇率", description: "暴落後の翌日実績を確認", icon: "📊" },
-  { id: "market", title: "日経平均との比較", description: "市場に強い・弱いを比較", icon: "⚖️" },
-  { id: "intraday", title: "暴落当日と直近の強弱", description: "相対強弱とその後を確認", icon: "📈" },
-  { id: "notes", title: "研究上の注意点", description: "母数・取引日・価格の限界", icon: "📋" },
+const shortcuts: {
+  id: CrashDashboardTab; title: string; subtitle: string; icon: string;
+  colors: string; iconColors: string;
+}[] = [
+  { id: "nextday", title: "過去の翌日上昇率", subtitle: "過去データから傾向を確認",
+    icon: "▥", colors: "border-blue-200 bg-blue-50/70", iconColors: "bg-gradient-to-br from-sky-400 to-blue-700" },
+  { id: "intraday", title: "暴落日に相対的に強かった銘柄", subtitle: "当日の強さを分析",
+    icon: "↗", colors: "border-rose-200 bg-rose-50/70", iconColors: "bg-gradient-to-br from-red-400 to-rose-700" },
+  { id: "intraday", title: "直近・市場より強かった上位", subtitle: "最新データで確認",
+    icon: "↗", colors: "border-emerald-200 bg-emerald-50/70", iconColors: "bg-gradient-to-br from-emerald-400 to-green-700" },
+  { id: "notes", title: "研究上の注意点", subtitle: "必ずご確認ください",
+    icon: "▤", colors: "border-violet-200 bg-violet-50/70", iconColors: "bg-gradient-to-br from-fuchsia-400 to-violet-700" },
 ];
 
 export default function CrashStrengthDashboardTabs({ overview, nextday, market, intraday, notes }: Props) {
@@ -33,18 +40,18 @@ export default function CrashStrengthDashboardTabs({ overview, nextday, market, 
     overview, nextday, market, intraday, notes,
   };
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <nav aria-label="暴落後研究の表示切り替え"
-        className="sticky top-0 z-30 -mx-3 border-y border-blue-100 bg-slate-50/95 px-3 py-2 shadow-sm backdrop-blur">
+        className="sticky top-0 z-30 -mx-2 border-b border-blue-100 bg-slate-50/95 px-2 py-1.5 shadow-sm backdrop-blur">
         <div role="tablist" aria-label="研究ダッシュボード"
-          className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          className="grid grid-cols-5 gap-1">
           {CRASH_DASHBOARD_TABS.map(tab=> (
             <button type="button" role="tab" key={tab.id}
               id={"crash-tab-" + tab.id}
               aria-controls={"crash-panel-" + tab.id}
               aria-selected={active===tab.id}
               onClick={()=>setActive(tab.id)}
-              className={"min-w-[82px] flex-1 shrink-0 rounded-xl border px-3 py-3 text-center text-xs font-black transition-colors sm:text-sm "+
+              className={"min-w-0 whitespace-nowrap rounded-lg border px-0.5 py-2 text-center text-[11px] font-black transition-colors sm:text-sm "+
                 (active===tab.id
                   ? "border-blue-600 bg-blue-600 text-white shadow-sm"
                   : "border-slate-200 bg-white text-slate-700 hover:border-blue-300")}
@@ -54,18 +61,29 @@ export default function CrashStrengthDashboardTabs({ overview, nextday, market, 
       </nav>
       <section role="tabpanel" id={"crash-panel-" + active}
         aria-labelledby={"crash-tab-" + active} key={active}
-        className="space-y-3 pb-4" tabIndex={0}>
+        className="space-y-2 pb-4" tabIndex={0}>
         {panels[active]}
-        {active==="overview" && <div className="grid grid-cols-2 gap-2">
-          {shortcuts.map(item=> (
-            <button type="button" key={item.id} onClick={()=>setActive(item.id)}
-              className="rounded-xl border border-blue-100 bg-white p-3 text-left shadow-sm transition hover:border-blue-400">
-              <span className="text-xl" aria-hidden="true">{item.icon}</span>
-              <span className="mt-1 block text-sm font-black text-slate-900">{item.title} →</span>
-              <span className="mt-1 block text-xs leading-5 text-slate-500">{item.description}</span>
-            </button>
-          ))}
-        </div>}
+        {(active==="market" || active==="overview") && <>
+          <div aria-label="研究画面のショートカット" className="grid grid-cols-2 gap-2">
+            {shortcuts.map((item,i)=> (
+              <button type="button" key={item.title+"-"+i} onClick={()=>{
+                setActive(item.id);
+                document.getElementById("crash-tab-"+item.id)?.scrollIntoView({behavior:"smooth",block:"start"});
+              }} className={"flex min-h-[84px] items-center gap-2 rounded-xl border p-2 text-left transition hover:brightness-95 "+item.colors}>
+                <span aria-hidden="true" className={"flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl font-black text-white "+item.iconColors}>{item.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-black leading-4 text-slate-900">{item.title}</span>
+                  <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{item.subtitle}</span>
+                </span>
+                <span aria-hidden="true" className="text-sm font-black text-slate-800">›</span>
+              </button>
+            ))}
+          </div>
+          <p className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-[11px] leading-5 text-slate-600">
+            <b className="text-slate-800">ⓘ このコンテンツについて</b>
+            <span className="mt-1 block">本人専用の研究データです。特定銘柄の購入を推奨するものではありません。</span>
+          </p>
+        </>}
       </section>
     </div>
   );
