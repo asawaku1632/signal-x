@@ -59,6 +59,7 @@ on:
       - 'scripts/audit-live-play-dal.mjs'
       - 'tests/livePlayDalAudit.test.mjs'
       - 'tests/twaResearchManifest.test.mjs'
+      - 'tests/internalDeviceHarnessIsolation.test.mjs'
       - 'docs/research/android-play-billing-readiness-20261018.md'
       - '.github/workflows/premium-entitlement-isolated-tests.yml'
   workflow_dispatch:
@@ -76,7 +77,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated premium policy tests
-        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs tests/playRestorationPreflight.test.mjs tests/playInitialPurchaseApproval.test.mjs tests/androidBillingReadiness.test.mjs tests/playAcknowledgementPolicy.test.mjs tests/playCheckoutTicketResearch.test.mjs tests/googlePlayIntegrityDecoder.test.mjs tests/playCheckoutSessionGate.test.mjs tests/twaPostMessageBridgeResearch.test.mjs tests/twaWebPortReceiverResearch.test.mjs tests/twaPostMessageDalReadiness.test.mjs tests/playSigningDalGate.test.mjs tests/playConsoleSigningMatch.test.mjs tests/livePlayDalAudit.test.mjs tests/twaResearchManifest.test.mjs
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs tests/playRestorationPreflight.test.mjs tests/playInitialPurchaseApproval.test.mjs tests/androidBillingReadiness.test.mjs tests/playAcknowledgementPolicy.test.mjs tests/playCheckoutTicketResearch.test.mjs tests/googlePlayIntegrityDecoder.test.mjs tests/playCheckoutSessionGate.test.mjs tests/twaPostMessageBridgeResearch.test.mjs tests/twaWebPortReceiverResearch.test.mjs tests/twaPostMessageDalReadiness.test.mjs tests/playSigningDalGate.test.mjs tests/playConsoleSigningMatch.test.mjs tests/livePlayDalAudit.test.mjs tests/twaResearchManifest.test.mjs tests/internalDeviceHarnessIsolation.test.mjs
       - name: Verify TypeScript
         run: |
           npm ci --ignore-scripts
@@ -207,3 +208,41 @@ jobs:
           node-version: '22'
       - name: Observe public Digital Asset Links status (not proof of Play device trust)
         run: node scripts/audit-live-play-dal.mjs
+
+  internal-device-debug-probe:
+    # Builds a SEPARATE test app with com.signalx.bridgeprobe, NEVER com.signalx.app.
+    # Its disposable debug signature intentionally does not match the site's DAL.
+    # It can demonstrate failure-closed behavior only, not prove real TWA trust.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Provision Android SDK for internal probe
+        run: |
+          test -n "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --licenses >/dev/null) || true
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Assemble disconnected, non-billing, debug-signed probe APK
+        working-directory: android-twa/research/internal-device-harness
+        run: |
+          mkdir -p src/main/java/com/signalx/app/research
+          cp ../TwaCheckoutMessagePolicy.java ../TwaAndroidXPostMessageResearch.java src/main/java/com/signalx/app/research/
+          bash ../../gradlew --no-daemon --stacktrace assembleDebug
+          APK=build/outputs/apk/debug/internal-device-harness-debug.apk
+          test -s "$APK"
+          # A distinct application ID must never replace Google Play SIGNALX.
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.signalx.bridgeprobe'"
+          # An APK is useful for negative-test only. Do not attest website trust.
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signalx-origin-probe-debug-unsafe-for-play
+          path: android-twa/research/internal-device-harness/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 3
