@@ -125,6 +125,85 @@ function historyByCode(events, priceDays, latestDate) {
   };
 }
 
+// Five separate and *completed* earlier crash episodes are the minimum required
+// to publish per-stock historical rates. It is not a statistical guarantee.
+export const MIN_NEXT_DAY_EPISODES = 5;
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Strictly historical, as-of-the-selected-crash ranking.
+ * Cohort: stocks actually present on the most recent saved shock day.
+ * Features: ONLY distinct earlier completed shock episodes for that stock.
+ * A "next day" is the immediately following dated market index bar, not
+ * merely the next usable saved stock day (which could skip missing sessions).
+ * The selected crash day's forward result is NEVER included in training, even
+ * if the next stock snapshot has since been saved.
+ */
+function historicalNextDayEvidence(events, priceDays, marketRows, asOf) {
+  const selected = events.at(-1);
+  if (!selected) return null;
+  const currentCohort = buildEventStocks(selected, priceDays);
+  const histories = new Map();
+  const referenceDates = [...new Set(marketRows
+    .filter(r => {
+      const date = String(r.date ?? "").slice(0, 10);
+      return validDate(date) && date < asOf && (validPrice(r.nikkei) || validPrice(r.topix));
+    })
+    .map(r => String(r.date).slice(0, 10)))].sort();
+  const following = new Map(referenceDates.map((date,i)=>[date,referenceDates[i+1] ?? null]));
+  let settledEpisodes = 0;
+  for (const event of events) {
+    if (event.date >= selected.date) continue;
+    const nextDate = following.get(event.date);
+    // No future knowledge relative to the selected crash event.
+    if (!nextDate || nextDate >= selected.date) continue;
+    const next = priceDays.days.get(nextDate);
+    if (!next) continue; // partial / missing stock-day snapshots are not substituted.
+    settledEpisodes++;
+    for (const stock of buildEventStocks(event, priceDays)) {
+      const endPrice = next.get(stock.code)?.price;
+      if (!validPrice(endPrice)) continue;
+      if (!histories.has(stock.code)) histories.set(stock.code, []);
+      histories.get(stock.code).push(change(stock.price, endPrice));
+    }
+  }
+  const analyzed = currentCohort.map(stock => {
+    const returns = histories.get(stock.code) ?? [];
+    if (returns.length < MIN_NEXT_DAY_EPISODES) return null;
+    const up = returns.filter(v => v > 0).length;
+    const down = returns.filter(v => v < 0).length;
+    return {
+      code: stock.code, name: stock.name, referencePrice: stock.price,
+      cost100: stock.cost100, latestShockReturn: stock.dailyReturn,
+      latestRelativeReturn: stock.excessReturn,
+      sampleCount: returns.length, upCount: up, downCount: down,
+      positiveRate1: round(up / returns.length * 100),
+      average1: round(average(returns)), median1: round(median(returns)),
+      worst1: Math.min(...returns), best1: Math.max(...returns)
+    };
+  }).filter(Boolean);
+  const ascCode = (a,b) => a.code.localeCompare(b.code);
+  const sortedStrong = [...analyzed].sort((a,b)=> b.positiveRate1-a.positiveRate1
+    || b.average1-a.average1 || b.median1-a.median1
+    || b.sampleCount-a.sampleCount || ascCode(a,b));
+  const sortedWeak = [...analyzed].sort((a,b)=> a.positiveRate1-b.positiveRate1
+    || a.average1-b.average1 || a.median1-b.median1
+    || b.sampleCount-a.sampleCount || ascCode(a,b));
+  return {
+    selectedDate: selected.date, settledPastEpisodes: settledEpisodes,
+    cohortCount: currentCohort.length, eligibleCount: analyzed.length,
+    minSamples: MIN_NEXT_DAY_EPISODES,
+    leaders: sortedStrong.slice(0,MAX_DISPLAY),
+    laggers: sortedWeak.slice(0,MAX_DISPLAY),
+    note: "過去の独立した急落日だけを集計。最新の急落日の翌日実績はランキング計算に使いません。保存参考価格ベースであり将来予測や約定可能価格ではありません。"
+  };
+}
+
 /**
  * @param {{
  *   marketRows?: Array<{ date: string, nikkei?: number|string|null, topix?: number|string|null }>,
@@ -161,6 +240,7 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     note: "保存済み価格と参考指数の両方がそろった急落日はありません。通常日の市場比ランキングは別表示です。"
   };
   const event = events.at(-1);
+  const nextDayEvidence = historicalNextDayEvidence(events, priceDays, marketRows, asOf);
   const histories = historyByCode(events, priceDays, event.date);
   const candidates = buildEventStocks(event, priceDays);
   const withHistory = (stock, side) => ({
@@ -174,7 +254,7 @@ export function analyzeCrashStrength({ marketRows = [], priceRows = [], asOf }) 
     .slice(0, MAX_DISPLAY).map(r => withHistory(r, "weak"));
   return {
     version: CRASH_STRENGTH_VERSION, asOf, coverage, event, eventCount: events.length,
-    examinedStocks: candidates.length, strong, weak, recent, historical: histories.groups,
+    examinedStocks: candidates.length, strong, weak, recent, nextDayEvidence, historical: histories.groups,
     note: "強弱は急落当日の市場相対騰落率です。翌日予測・売買推奨ではありません。翌日/3日/5日の成績は保存済み株価の事後観測です。"
   };
 }
