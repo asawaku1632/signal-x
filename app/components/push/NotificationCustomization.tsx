@@ -61,7 +61,7 @@ export default function NotificationCustomization() {
   const selected = Object.values(preferences).filter(Boolean).length;
 
   return (
-    <section className="mt-5 rounded-[30px] border border-blue-100 bg-white p-5 shadow-sm">
+    <section id="notification-customization" className="mt-3 scroll-mt-4 rounded-[24px] border border-blue-100 bg-white p-4 shadow-sm">
       <p className="text-xs font-black tracking-[0.18em] text-blue-600">NOTIFICATION SETTINGS</p>
       <div className="mt-1 flex items-end justify-between gap-3">
         <h2 className="text-xl font-black">通知カスタマイズ</h2>
@@ -128,7 +128,7 @@ export default function NotificationCustomization() {
           {dirty && <p className="mt-3 text-xs font-bold text-amber-700">
             通知設定に未保存の変更があります。通知設定タブで保存してね。
           </p>}
-          <NotificationResearchProgress defaultExpanded />
+          <NotificationResearchProgress />
         </div>
       )}
     </section>
