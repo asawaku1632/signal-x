@@ -21,7 +21,6 @@ type EventLike = {
 };
 type Hello = {type:"signalx.play.bridge.v1/hello";nonce:string};
 type Ack = {type:"signalx.play.bridge.v1/hello-ack";nonce:string};
-type Ready = {type:"signalx.play.bridge.v1/ready";nonce:string};
 type Ticket = {
   type:"signalx.play.bridge.v1/checkout-ticket";
   nonce:string;
@@ -29,7 +28,7 @@ type Ticket = {
   expiresAtMillis:number;
 };
 export type BridgeAccept =
-  | {kind:"accepted";channel:TwaWebCheckoutChannel;ack:Ack}
+  | {kind:"accepted";channel:TwaWebCheckoutChannel;ackJson:string}
   | {kind:"rejected"};
 const NONCE_RE=/^[A-Za-z0-9_-]{22}$/; // 128-bit random nonce
 const TICKET_RE=/^[A-Za-z0-9_-]{43}$/; // 256-bit random ticket
@@ -38,6 +37,12 @@ const isRecord=(v:unknown):v is Record<string,unknown> =>
 const isExact=(v:unknown,keys:readonly string[]):v is Record<string,unknown> =>
   isRecord(v) && Object.keys(v).length===keys.length &&
   Object.keys(v).every(k=>keys.includes(k));
+/** Native CustomTabsSession.postMessage and onPostMessage transport text JSON. */
+function parseSmallNativeJson(raw:unknown):unknown {
+  if(typeof raw!=="string" || raw.length===0 || raw.length>512) return null;
+  try {return JSON.parse(raw) as unknown;}
+  catch {return null;}
+}
 
 /** Pure holder of an origin-checked port; sends no ticket until READY. */
 export class TwaWebCheckoutChannel {
@@ -47,10 +52,11 @@ export class TwaWebCheckoutChannel {
   get ready():boolean {return this.phase==="ready";}
 
   acceptReady(message:unknown):boolean {
+    const parsed=parseSmallNativeJson(message);
     if(this.phase!=="waiting_ready" ||
-       !isExact(message,["type","nonce"]) ||
-       message.type!==TWA_PLAY_PROTOCOL+"/ready" ||
-       message.nonce!==this.nonce) return false;
+       !isExact(parsed,["type","nonce"]) ||
+       parsed.type!==TWA_PLAY_PROTOCOL+"/ready" ||
+       parsed.nonce!==this.nonce) return false;
     this.phase="ready";
     return true;
   }
@@ -70,7 +76,7 @@ export class TwaWebCheckoutChannel {
       type:"signalx.play.bridge.v1/checkout-ticket",
       nonce:this.nonce,ticket,expiresAtMillis
     };
-    try {this.port.postMessage(packet);return true;}
+    try {this.port.postMessage(JSON.stringify(packet));return true;}
     catch {this.close();return false;}
   }
 
@@ -83,18 +89,19 @@ export class TwaWebCheckoutChannel {
 export function acceptTwaNativeHello(
   event:EventLike,expectedOrigin:string=TWA_PLAY_ORIGIN
 ):BridgeAccept {
+  const incoming=parseSmallNativeJson(event?.data);
   if(expectedOrigin!==TWA_PLAY_ORIGIN || !event ||
      event.origin!==TWA_PLAY_ORIGIN || !Array.isArray(event.ports) ||
      event.ports.length!==1 || !event.ports[0] ||
      typeof event.ports[0].postMessage!=="function" ||
-     !isExact(event.data,["type","nonce"]) ||
-     event.data.type!==TWA_PLAY_PROTOCOL+"/hello" ||
-     typeof event.data.nonce!=="string" ||
-     !NONCE_RE.test(event.data.nonce)) return {kind:"rejected"};
-  const nonce=event.data.nonce;
+     !isExact(incoming,["type","nonce"]) ||
+     incoming.type!==TWA_PLAY_PROTOCOL+"/hello" ||
+     typeof incoming.nonce!=="string" ||
+     !NONCE_RE.test(incoming.nonce)) return {kind:"rejected"};
+  const nonce=incoming.nonce;
   return {
     kind:"accepted",
     channel:new TwaWebCheckoutChannel(event.ports[0],nonce),
-    ack:{type:"signalx.play.bridge.v1/hello-ack",nonce}
+    ackJson:JSON.stringify({type:"signalx.play.bridge.v1/hello-ack",nonce} satisfies Ack)
   };
 }
