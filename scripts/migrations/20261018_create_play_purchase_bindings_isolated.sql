@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.signalx_play_purchase_bindings (
 );
 -- Immutable purchase ownership: do not allow account transfers or token/product re-keying.
 CREATE OR REPLACE FUNCTION public.signalx_prevent_play_binding_reassignment()
-RETURNS TRIGGER LANGUAGE plpgsql AS $
+RETURNS TRIGGER LANGUAGE plpgsql AS $play_binding_guard$
 BEGIN
   IF NEW.user_id IS DISTINCT FROM OLD.user_id
      OR NEW.purchase_token_fingerprint IS DISTINCT FROM OLD.purchase_token_fingerprint
@@ -24,7 +24,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$play_binding_guard$;
 CREATE TRIGGER signalx_play_binding_immutable
   BEFORE UPDATE ON public.signalx_play_purchase_bindings
   FOR EACH ROW EXECUTE FUNCTION public.signalx_prevent_play_binding_reassignment();
