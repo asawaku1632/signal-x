@@ -217,6 +217,7 @@ function historicalNextDayEvidence(events, priceDays, referenceDates, marketRows
           excess: round(return1 - nikkeiNext),
           outperformed: return1 > nikkeiNext,
           nikkeiReturn: nikkeiNext,
+          stockReturn: return1,
         });
       }
     }
@@ -241,6 +242,7 @@ function historicalNextDayEvidence(events, priceDays, referenceDates, marketRows
       outperformedCount,
       benchmarkBeatRate: benchmarkReady ? round(outperformedCount/relative.length*100) : null,
       benchmarkAverage1: benchmarkReady ? round(average(relative.map(x=>x.nikkeiReturn))) : null,
+      benchmarkStockAverage1: benchmarkReady ? round(average(relative.map(x=>x.stockReturn))) : null,
       averageExcess1: benchmarkReady ? round(average(relative.map(x=>x.excess))) : null,
       worstExcess1: benchmarkReady ? Math.min(...relative.map(x=>x.excess)) : null,
     };
