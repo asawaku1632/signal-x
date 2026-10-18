@@ -210,3 +210,17 @@ Possible read-only results: `missing_or_invalid_play_signing_fingerprint`, `cert
 Also added a **separate unsigned Android library** at `android-twa/research/androidx-compile/`, compiled only by the `native-androidx-real-compile` GitHub Actions job using the real `androidx.browser:browser:1.9.0` library, Android 36 SDK and Gradle. This is intentionally distinct from the mock `native-play-contract` Java tests. It validates AndroidX method/type compatibility without including the current production `LauncherActivity`, generating a release APK/AAB, installing on a phone, publishing to Play, or enabling billing. A compile success alone does not verify session continuity with the Bubblewrap launcher or device runtime behavior.
 
 **Go-live gates remain:** read the *actual* Play App Signing SHA-256; inspect website's **deployed** DAL and its HTTP content-type/HTTPS; verify the selected Play-installed Chrome/TWA session; add and test the origin relationship and PostMessageService only with an authorized, signed internal build; implement actual authenticated native ticket handoff, Play Integrity and purchase verification with release observability and rollback; obtain explicit owner approval before modifying published Android assets, production migrations, or paid access.
+
+## 2026-10-18: real Google Play Billing Library 9.1.0 compile (isolated)
+
+Official Google Play Billing Library release notes list **9.1.0 (2026-06-18)**: https://developer.android.com/google/play/billing/release-notes . This is the version selected for research compilation; future integration must recheck available releases and policy deadlines.
+
+The isolated unsigned Android library at `android-twa/research/androidx-compile/` now resolves **both** real dependencies:
+- `androidx.browser:browser:1.9.0`
+- `com.android.billingclient:billing:9.1.0`
+
+Its Gradle source set compiles `PlayCheckoutParamsFactory.java` alongside the research TWA postMessage classes using the real SDK, while the separate `native-play-contract` job continues to exercise deterministic Java stub behavior. CI now asserts the target `.class` files actually exist to detect an accidentally empty compile.
+
+`PlayCheckoutParamsFactory.forSubscription` now requires its offer token to exactly match `ProductDetails.getSubscriptionOfferDetails().getOfferToken()` for the same fresh subscription product; missing, in-app-only, cross-product and unknown offers fail closed. Google Play remains the authority on eligibility and plan price at launch. This helper only builds native `BillingFlowParams` with a server-issued obfuscated user identifier. It **does not** connect to a live BillingClient, query products, launch checkout, accept a payment, grant PREMIUM or acknowledge/restore any subscription.
+
+**Outstanding blockers before a real device checkout:** Play Console signing SHA-256 confirmation, matching production `use_as_origin` DAL relation and Android `PostMessageService` in a separately built signed app, installed TWA session verification, trusted handoff/Google Play Integrity actual API call, ProductDetails query from connected Play Store, secure session ownership, callback handling and backend acknowledgment/refunds. No APK/AAB is built and no production asset or payment switch is modified by this CI.
