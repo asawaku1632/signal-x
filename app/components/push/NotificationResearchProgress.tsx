@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SwingBenchmarkPanel from "./SwingBenchmarkPanel";
 
 type ResearchItem = {
   key: "swing" | "surge" | "ai_rise" | "sharp_drop";
@@ -87,6 +88,7 @@ export default function NotificationResearchProgress() {
               <p className="mt-2 text-xs leading-5 text-slate-600">
                 次の検証：{item.reasons[0] ?? "独立期間での再検証"}
               </p>
+              {item.key === "swing" && <SwingBenchmarkPanel />}
             </div>
           ))}
           {report && (
