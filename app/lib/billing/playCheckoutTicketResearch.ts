@@ -137,7 +137,8 @@ export async function redeemPlayCheckoutTicketResearch(
      now.getTime()>=new Date(row.expires_at).getTime())
     return {kind:"not_available"};
 
-  // Verified Google decoder is a deliberate UNIMPLEMENTED production boundary.
+  // A server-side Google REST decoder adapter now exists as isolated code,
+  // but production OAuth, routes and Android handoff are NOT connected.
   // App Links alone do not prove the origin or integrity of an API caller.
   let decoded:DecodedIntegrity|null;
   try { decoded=await decodeWithTrustedGooglePlayIntegrity(request.opaqueIntegrityToken); }
