@@ -7,6 +7,7 @@ import { registerFirstPlayPurchase } from "../app/lib/billing/registerFirstPlayP
 import { refreshRestoredPlayEntitlement } from "../app/lib/billing/refreshRestoredPlayEntitlement.ts";
 import { obfuscatedSignalxPlayAccountId } from "../app/lib/billing/playInitialPurchaseApproval.ts";
 import { fingerprintPlayPurchaseToken } from "../app/lib/billing/playTokenFingerprint.ts";
+import { issuePlayCheckoutTicketResearch, redeemPlayCheckoutTicketResearch } from "../app/lib/billing/playCheckoutTicketResearch.ts";
 const { Pool } = pg;
 const url = process.env.BILLING_TEST_DATABASE_URL;
 test("real isolated PostgreSQL enforces atomic updates and replay safety", { skip: !url }, async () => {
@@ -21,8 +22,63 @@ test("real isolated PostgreSQL enforces atomic updates and replay safety", { ski
     await pool.query(await load("scripts/migrations/20261018_create_premium_entitlements_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_billing_event_inbox_isolated.sql"));
     await pool.query(await load("scripts/migrations/20261018_create_play_purchase_bindings_isolated.sql"));
+    await pool.query(await load("scripts/migrations/20261018_create_play_checkout_tickets_isolated.sql"));
     const user = await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const id = user.rows[0].id;
+    // One-use Android checkout ticket: only a trusted decoded Play Integrity
+    // response can consume the persisted digest; concurrent redemption is atomic.
+    const ticketClock=new Date("2026-10-18T02:00:00Z");
+    const ticketConfig={
+      packageName:"com.signalx.app",allowedProductId:"premium_month",
+      ticketDigestKey:"ci-only-checkout-ticket-key-12345678901234567",
+      accountBindingKey:"ci-only-checkout-account-key-123456789012345",
+      allowedPlaySigningCertificateDigests:["ci-only-play-signing-certificate"]
+    };
+    const decoderFor=(hash, timestamp=ticketClock)=>async()=>({
+      requestDetails:{
+        requestPackageName:"com.signalx.app",requestHash:hash,
+        timestampMillis:String(timestamp.getTime())
+      },
+      appIntegrity:{
+        appRecognitionVerdict:"PLAY_RECOGNIZED",
+        packageName:"com.signalx.app",
+        certificateSha256Digest:["ci-only-play-signing-certificate"]
+      }
+    });
+    const issuedTicket=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
+    assert.equal(issuedTicket.kind,"issued");
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets")).rows[0].n,1);
+    const rawTokenLeak=await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE ticket_digest=$1",[issuedTicket.ticket]);
+    assert.equal(rawTokenLeak.rows[0].n,0);
+    const checkoutRequest={ticket:issuedTicket.ticket,opaqueIntegrityToken:"ci-attestation-token"};
+    const legitimateDecoder=decoderFor(issuedTicket.integrityRequestHash);
+    const attempts=await Promise.all([
+      redeemPlayCheckoutTicketResearch(checkoutRequest,ticketConfig,pool,legitimateDecoder,ticketClock),
+      redeemPlayCheckoutTicketResearch(checkoutRequest,ticketConfig,pool,legitimateDecoder,ticketClock)
+    ]);
+    assert.deepEqual(attempts.map(x=>x.kind).sort(),["not_available","redeemed"]);
+    const expectedAccount=obfuscatedSignalxPlayAccountId(id,ticketConfig.accountBindingKey);
+    assert.equal(attempts.find(x=>x.kind==="redeemed").obfuscatedAccountId,expectedAccount);
+    const consumed=await pool.query("SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE consumed_at IS NOT NULL");
+    assert.equal(consumed.rows[0].n,1);
+    const replay=await redeemPlayCheckoutTicketResearch(checkoutRequest,ticketConfig,pool,legitimateDecoder,ticketClock);
+    assert.equal(replay.kind,"not_available");
+    const ticketExpired=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
+    const afterDeadline=new Date(ticketClock.getTime()+120000);
+    assert.equal((await redeemPlayCheckoutTicketResearch(
+      {ticket:ticketExpired.ticket,opaqueIntegrityToken:"ci-attestation-token"},
+      ticketConfig,pool,decoderFor(ticketExpired.integrityRequestHash,afterDeadline),afterDeadline
+    )).kind,"not_available");
+    const ticketNoProof=await issuePlayCheckoutTicketResearch(id,ticketConfig,pool,ticketClock);
+    assert.equal((await redeemPlayCheckoutTicketResearch(
+      {ticket:ticketNoProof.ticket,opaqueIntegrityToken:"ci-attestation-token"},
+      ticketConfig,pool,async()=>null,ticketClock
+    )).kind,"untrusted_android");
+    const stillOpen=await pool.query(
+      "SELECT count(*)::int AS n FROM public.signalx_play_checkout_tickets WHERE consumed_at IS NULL AND expires_at>$1",
+      [ticketClock.toISOString()]
+    );
+    assert.equal(stillOpen.rows[0].n,2);
     const otherUser=await pool.query("INSERT INTO public.signalx_users DEFAULT VALUES RETURNING id");
     const fingerprint="a".repeat(64);
     await pool.query(
