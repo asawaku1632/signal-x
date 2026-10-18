@@ -6,7 +6,7 @@ import java.security.SecureRandom;
 public final class TwaCheckoutMessagePolicyTest {
     private static final String ORIGIN=TwaCheckoutMessagePolicy.ORIGIN;
     private static final String PREFIX="signalx.play.bridge.v1";
-    private static final int USE_AS_ORIGIN=2; // CI-only placeholder for AndroidX RELATION_USE_AS_ORIGIN
+    private static final int USE_AS_ORIGIN=1; // AndroidX RELATION_USE_AS_ORIGIN
     private static final long NOW=1792288800000L;
     private static final String TICKET="T".repeat(43);
 
@@ -17,7 +17,7 @@ public final class TwaCheckoutMessagePolicyTest {
     }
     private static TwaCheckoutMessagePolicy verified(){
         TwaCheckoutMessagePolicy p=new TwaCheckoutMessagePolicy(new SecureRandom());
-        yes(p.acceptRelationshipResult(USE_AS_ORIGIN,USE_AS_ORIGIN,ORIGIN,true));
+        yes(p.acceptRelationshipResult(USE_AS_ORIGIN,ORIGIN,true));
         yes(p.acceptChannelReady(ORIGIN,ORIGIN));
         return p;
     }
@@ -60,20 +60,20 @@ public final class TwaCheckoutMessagePolicyTest {
             throw new AssertionError("Ticket replay");
 
         TwaCheckoutMessagePolicy wrongOrigin=new TwaCheckoutMessagePolicy(new SecureRandom());
-        no(wrongOrigin.acceptRelationshipResult(USE_AS_ORIGIN,USE_AS_ORIGIN,
+        no(wrongOrigin.acceptRelationshipResult(USE_AS_ORIGIN,
             "https://attacker.example",true));
         no(wrongOrigin.acceptChannelReady(ORIGIN,ORIGIN));
         if(wrongOrigin.beginHello()!=null)throw new AssertionError("Should stay closed");
 
         TwaCheckoutMessagePolicy unverified=new TwaCheckoutMessagePolicy(new SecureRandom());
-        no(unverified.acceptRelationshipResult(USE_AS_ORIGIN,USE_AS_ORIGIN,ORIGIN,false));
+        no(unverified.acceptRelationshipResult(USE_AS_ORIGIN,ORIGIN,false));
         if(unverified.beginHello()!=null)throw new AssertionError("No DAL");
 
         TwaCheckoutMessagePolicy wrongRelation=new TwaCheckoutMessagePolicy(new SecureRandom());
-        no(wrongRelation.acceptRelationshipResult(1,USE_AS_ORIGIN,ORIGIN,true));
+        no(wrongRelation.acceptRelationshipResult(2,ORIGIN,true));
 
         TwaCheckoutMessagePolicy wrongTarget=new TwaCheckoutMessagePolicy(new SecureRandom());
-        yes(wrongTarget.acceptRelationshipResult(USE_AS_ORIGIN,USE_AS_ORIGIN,ORIGIN,true));
+        yes(wrongTarget.acceptRelationshipResult(USE_AS_ORIGIN,ORIGIN,true));
         no(wrongTarget.acceptChannelReady(ORIGIN,"https://evil.example"));
 
         TwaCheckoutMessagePolicy disconnect=verified();
