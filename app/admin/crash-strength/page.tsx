@@ -28,7 +28,7 @@ type NextDayEntry = {
   positiveRate1: number; average1: number; median1: number;
   worst1: number; best1: number;
   benchmarkSampleCount: number; outperformedCount: number;
-  benchmarkBeatRate: number | null; benchmarkAverage1: number | null;
+  benchmarkBeatRate: number | null; benchmarkAverage1: number | null; benchmarkStockAverage1: number | null;
   averageExcess1: number | null; worstExcess1: number | null;
 };
 type NextDayEvidence = {
@@ -156,7 +156,7 @@ function BenchmarkEvidenceList({title,rows}: {title:string;rows:NextDayEntry[]})
           <p className="text-lg font-black"><PriceChange value={stock.averageExcess1}/></p>
           <p className="text-xs">最悪 <PriceChange value={stock.worstExcess1}/></p></div>
       </div>
-      <p className="mt-2 text-xs text-slate-600">株の平均 <PriceChange value={stock.average1}/> ／
+      <p className="mt-2 text-xs text-slate-600">同じ日の株の平均 <PriceChange value={stock.benchmarkStockAverage1}/> ／
         日経平均の同日平均 <PriceChange value={stock.benchmarkAverage1}/></p>
     </div>)}</div>
   </div>;
