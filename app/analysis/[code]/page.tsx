@@ -909,15 +909,6 @@ export default function AnalysisPage() {
 
 
 
-        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
-          <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
-
-          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
-          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
-        </section>
-
-        <SwingEntryCard decision={swingEntryDecision} />
-
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">AI学習データ</h2>
           <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
@@ -966,23 +957,29 @@ export default function AnalysisPage() {
           </div>
         </section>
 
-        <details className="mt-2 rounded-xl border border-blue-100 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-black">🌅 買い時の追加チェックを見る</summary>
-          <MorningEntryRecheckCard
-            code={signal.code}
-            aiPower={Number.isFinite(power) ? power : null}
-            rsi={signal.rsi ?? null}
-            scanPrice={price > 0 ? price : null}
-            scanStatus={scanFreshness.status}
-            scanUpdatedAt={scanFreshness.updatedAt}
-          />
-          <OvernightBuyLimitCard code={signal.code} />
-        </details>
+        <MorningEntryRecheckCard
+          code={signal.code}
+          aiPower={Number.isFinite(power) ? power : null}
+          rsi={signal.rsi ?? null}
+          scanPrice={price > 0 ? price : null}
+          scanStatus={scanFreshness.status}
+          scanUpdatedAt={scanFreshness.updatedAt}
+        />
+        <OvernightBuyLimitCard code={signal.code} />
 
         <details className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <summary className="cursor-pointer text-sm font-black">📊 ボリンジャーバンド・補助評価を表示</summary>
           <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
         </details>
+
+        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
+          <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
+
+          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
+          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
+        </section>
+
+        <SwingEntryCard decision={swingEntryDecision} />
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
