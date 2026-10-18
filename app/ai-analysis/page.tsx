@@ -400,7 +400,7 @@ function AiAnalysisContent() {
         {topStock && aiRank && (
             <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-labelledby="today-top-five-title">
               <h2 id="today-top-five-title" className="text-xl font-black">今日のTOP5</h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">銘柄を選ぶと、下の詳しいAI分析が表示されます</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">銘柄をタップすると、その銘柄の個別解析ページを開きます</p>
               <ol className="mt-3 space-y-2">
                 {topFive.map((stock, index) => {
                   const isCurrent = stock.code === topStock.code;
@@ -408,7 +408,7 @@ function AiAnalysisContent() {
                   const change = stock.changePercent ?? 0;
                   return (
                     <li key={stock.code}>
-                      <Link href={`/ai-analysis?${selectedBudget === null ? "" : `budget=${selectedBudget}&`}symbol=${encodeURIComponent(stock.code)}#analysis-detail`} aria-current={isCurrent ? "page" : undefined} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
+                      <Link href={`/analysis/${encodeURIComponent(stock.code)}`} aria-label={`${stock.code} ${stock.name}の個別解析を開く`} className={`block min-w-0 rounded-xl border p-3 transition active:scale-[0.99] ${topFiveStyle(index, isCurrent)}`}>
                         <div className="flex min-w-0 items-start gap-3">
                           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${topFiveMedalStyle(index)}`} aria-label={`${index + 1}位`}>{index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
                           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1.5"><p className="break-words text-sm font-black text-slate-950 dark:text-slate-100">{stock.code} {stock.name}</p>{isCurrent && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black text-white">✓ 表示中</span>}</div><p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">{rank.rank}ランク・{rank.comment}</p></div>
