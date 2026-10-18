@@ -1,6 +1,9 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import { jstToday } from "@/app/lib/learning/priceReferenceObservations";
+import { analyzeCrashStrength } from "@/app/lib/research/crashStrengthShadow.mjs";
+import { getCrashMarketReferences } from "@/app/lib/research/crashStrengthMarketReferenceRunner";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 
@@ -34,6 +37,30 @@ export default async function CrashForwardPage(){
   rows=r.rows;
  }
  const latest=events[0];
+ // Independent retrospective reference: never insert these rows into frozen cohorts.
+ let historical: {date:string; indexReturn:number|null; strong:{code:string;name:string;excessReturn:number;after1:number|null}[];weak:{code:string;name:string;excessReturn:number;after1:number|null}[]} | null=null;
+ try {
+  const today=jstToday();
+  const since=new Date(Date.parse(today+"T00:00:00Z")-145*86400000).toISOString().slice(0,10);
+  const [reference, stock]=await Promise.all([
+   getCrashMarketReferences(today),
+   pool.query(`WITH valid_days AS (
+     SELECT date FROM public.daily_stock_results WHERE date >= $1 AND date < $2 AND price > 0
+     GROUP BY date HAVING COUNT(DISTINCT code) BETWEEN 800 AND 1500
+     ORDER BY date DESC LIMIT 85)
+     SELECT DISTINCT ON (d.date,d.code) d.date,d.code,d.name,d.price
+     FROM public.daily_stock_results d JOIN valid_days v ON v.date=d.date
+     WHERE d.price > 0 AND d.code ~ '^[0-9]{4}$'
+     ORDER BY d.date,d.code,d.created_at DESC`,[since,today])
+  ]);
+  const report=analyzeCrashStrength({marketRows:reference.marketRows,priceRows:stock.rows,asOf:today});
+  if(report.event){
+   historical={date:report.event.date,indexReturn:report.event.indexReturn,
+    strong:report.strong.slice(0,5).map((s:{code:string;name:string;excessReturn:number;after1:number|null})=>({code:s.code,name:s.name,excessReturn:s.excessReturn,after1:s.after1})),
+    weak:report.weak.slice(0,5).map((s:{code:string;name:string;excessReturn:number;after1:number|null})=>({code:s.code,name:s.name,excessReturn:s.excessReturn,after1:s.after1}))};
+  }
+ } catch(error){console.error("[crash-forward] retrospective reference unavailable",error);}
+
  const kinds=[
   {id:"RESISTANCE",title:"🟢 暴落耐性型",description:"急落日でも日経平均より相対的に強かった銘柄"},
   {id:"REBOUND_WATCH",title:"🔄 急反発候補型",description:"急落日に市場以上に売られ、翌取引日の反発を確認する銘柄"},
@@ -86,6 +113,25 @@ export default async function CrashForwardPage(){
      </section>;
     })}
    </>}
+   <section className="rounded-2xl border border-indigo-200 bg-white p-4">
+    <p className="text-xs font-black tracking-widest text-indigo-700">HISTORICAL / RETROSPECTIVE ONLY</p>
+    <h2 className="mt-2 text-lg font-black">📚 過去の暴落・参考ランキング</h2>
+    <p className="mt-2 text-xs leading-6 text-slate-600">過去の保存データから事後的に集計した参考情報です。上の事前固定検証とは完全に別集計で、当時の予測・実証ではありません。</p>
+    {!historical?<p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">比較可能な過去の暴落データがありません。保存データは補完・改変しません。</p>:<>
+     <p className="mt-3 text-sm font-bold">対象日 {historical.date} ／ 日経平均 {fmt(historical.indexReturn)}</p>
+     {([{title:"🟢 暴落日に相対的に強かった銘柄",stocks:historical.strong},{title:"🔴 暴落日に相対的に弱かった銘柄",stocks:historical.weak}]).map(group=><div key={group.title} className="mt-4">
+      <h3 className="font-black">{group.title}</h3>
+      <div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 px-3">
+       {group.stocks.map((s,i)=><div key={s.code} className="flex items-center justify-between gap-2 py-3">
+        <div className="min-w-0"><p className="text-sm font-bold">{i+1}. {s.name} <span className="text-slate-500">({s.code})</span></p><Link href={"/chart/"+s.code} className="text-xs font-bold text-blue-700">CHART →</Link></div>
+        <div className="shrink-0 text-right text-xs"><p>当日市場比 <b className={s.excessReturn>=0?"text-emerald-700":"text-rose-700"}>{fmt(s.excessReturn)}</b></p><p className="mt-1 text-slate-500">翌取引日 {fmt(s.after1)}</p></div>
+       </div>)}
+       {group.stocks.length===0&&<p className="py-3 text-sm text-slate-500">対象なし</p>}
+      </div>
+     </div>)}
+     <Link href="/admin/crash-strength" className="mt-4 block rounded-xl bg-blue-50 p-3 text-center text-sm font-black text-blue-700">過去の詳しいランキングを見る →</Link>
+    </>}
+   </section>
    <p className="rounded-xl bg-blue-50 p-3 text-xs leading-6 text-slate-600">
     研究専用・取引と通知への接続なし。少数日の結果は精度保証ではありません。
     株式分割、ストップ高・ストップ安、寄付き約定、価格修正は別途検証が必要です。</p>
