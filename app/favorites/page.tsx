@@ -408,10 +408,10 @@ export default function FavoritesPage() {
                   </div>
 
                   <Link
-                    href={`/chart/${stock.code}`}
+                    href={`/analysis/${stock.code}`}
                     className="mt-3 block rounded-2xl bg-slate-900 py-3 text-center font-black text-white"
                   >
-                    📈 チャートを見る
+                    🔍 個別解析を見る
                   </Link>
                 </div>
               );
