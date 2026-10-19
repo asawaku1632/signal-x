@@ -11,6 +11,26 @@ const headers = { "Cache-Control": "private, no-store" };
 const fail = (reason: string, status = 503) =>
   NextResponse.json({ success: false, reason }, { status, headers });
 
+type ProbeError = { code?: string; message?: string };
+const classifyConnectionError = (error: unknown): string => {
+  const value = (error && typeof error === "object" ? error : {}) as ProbeError;
+  const code = typeof value.code === "string" ? value.code : "";
+  const message = typeof value.message === "string" ? value.message.toLowerCase() : "";
+  // Return only fixed categories; never expose credentials, connection strings or raw errors.
+  if (code === "28P01" || code === "28000" || message.includes("password authentication failed"))
+    return "DB_AUTH_FAILED";
+  if (code === "ETIMEDOUT" || code === "ETIMEOUT" || message.includes("timeout"))
+    return "DB_TIMEOUT";
+  if (["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH", "ECONNRESET"].includes(code))
+    return "DB_NETWORK_FAILED";
+  if (["DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "SELF_SIGNED_CERT_IN_CHAIN", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"].includes(code) ||
+      message.includes("certificate") || message.includes("ssl") || message.includes("tls"))
+    return "DB_SSL_FAILED";
+  if (code === "3D000" || code === "42501")
+    return "DB_DATABASE_REJECTED";
+  return "DB_CONNECTION_UNKNOWN";
+};
+
 // Production-hosted, owner-only, read-only probe of the *separate development* DB.
 // Never falls back to DATABASE_URL and never performs writes or triggers research jobs.
 export async function GET() {
@@ -53,9 +73,9 @@ export async function GET() {
       { success: true, result: "DEV_DATABASE_READ_ONLY_CONNECTION_OK" },
       { headers }
     );
-  } catch {
+  } catch (error) {
     if (client) { try { await client.query("ROLLBACK"); } catch {} }
-    return fail("CONNECTION_FAILED_CHECK_CREDENTIALS");
+    return fail(classifyConnectionError(error));
   } finally {
     client?.release();
     await pool.end().catch(() => {});
