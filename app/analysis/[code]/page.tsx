@@ -884,7 +884,7 @@ export default function AnalysisPage() {
         </section>
 
         <SwingEntryCard decision={swingEntryDecision} />
-        {swingEntryDecision.status === "CANDIDATE" && <SwingHistoricalEvidence code={signal.code} />}
+        <SwingHistoricalEvidence code={signal.code} />
 
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
           <summary className="cursor-pointer text-xs font-black">
