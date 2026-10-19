@@ -11,6 +11,7 @@ import BottomNav from "@/app/components/BottomNav";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
 import { getSwingEntryDecision, type SwingEntryDecision } from "@/app/lib/swingDecision";
+import SwingHistoricalEvidence from "@/app/components/analysis/SwingHistoricalEvidence";
 
 type Signal = {
   code: string;
@@ -860,7 +861,7 @@ export default function AnalysisPage() {
               {judgeIcon} {judge}
             </span>
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-800 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
-              {swingEntryDecision.icon} {swingEntryDecision.label}
+              {swingEntryDecision.icon} {swingEntryDecision.label}{swingEntryDecision.status === "CANDIDATE" ? "（暫定）" : ""}
             </span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
@@ -883,6 +884,7 @@ export default function AnalysisPage() {
         </section>
 
         <SwingEntryCard decision={swingEntryDecision} />
+        {swingEntryDecision.status === "CANDIDATE" && <SwingHistoricalEvidence code={signal.code} />}
 
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
           <summary className="cursor-pointer text-xs font-black">
