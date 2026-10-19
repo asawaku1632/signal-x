@@ -14,6 +14,9 @@ export const dynamic="force-dynamic";
 export const revalidate=0;
 
 type SavedRow={code:string;name:string;score:number|string;price:number|string};
+type NightMorningCandidate={
+  code:string;name:string;score:number;referencePrice:number;rank:number;band:string
+};
 type StudyRun={trade_date:string;results:unknown};
 type Evidence={
   band:string;count:number;wins:number;days:number;sufficient:boolean;
@@ -66,7 +69,7 @@ export default async function NightMorningWatchPage(){
     }
   }
 
-  const candidates=candidateReadError?[]:buildNightMorningCandidates(rows);
+  const candidates:NightMorningCandidate[]=candidateReadError?[]:buildNightMorningCandidates(rows);
   const evidence:Evidence[]=evidenceReadError||!tradeDate?[]:
     summarizeNightMorningEvidence(runs,tradeDate);
   const byBand=new Map(evidence.map(e=>[e.band,e]));
