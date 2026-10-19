@@ -7,9 +7,18 @@ import {
   type SwingHistoricalGroup,
 } from "@/app/lib/learning/swingEvidenceAdvisory";
 
+type SavedSwingEntry = {
+  date: string;
+  code: string;
+  label: string;
+  power: number;
+  price: number;
+};
+
 type Report = {
   success: boolean;
   groups?: SwingHistoricalGroup[];
+  latest?: SavedSwingEntry[];
   latestDate?: string | null;
 };
 
@@ -25,6 +34,7 @@ function signedPercent(value: number | null) {
  * The cohort intentionally differs: daily AI POWER alone, not intraday RSI.
  */
 export default function SwingHistoricalEvidence({ code }: { code: string }) {
+  const [expanded, setExpanded] = useState(false);
   const [request, setRequest] = useState<{
     code: string;
     report: Report | null;
@@ -32,6 +42,7 @@ export default function SwingHistoricalEvidence({ code }: { code: string }) {
   }>({ code, report: null, state: "loading" });
 
   useEffect(() => {
+    if (!expanded) return;
     let active = true;
 
     void fetch("/api/swing-universe-audit?code=" + encodeURIComponent(code), { cache: "no-store" })
@@ -45,12 +56,13 @@ export default function SwingHistoricalEvidence({ code }: { code: string }) {
         if (active) setRequest({ code, report: null, state: "unavailable" });
       });
     return () => { active = false; };
-  }, [code]);
+  }, [code, expanded]);
 
   const report = request.code === code ? request.report : null;
   const fetchState = request.code === code ? request.state : "loading";
   const group = report?.groups?.find((item) => item.status === "CANDIDATE");
   const evidence = summarizeSwingHistoricalEvidence(group);
+  const recentForStock = (report?.latest ?? []).filter((row) => row.code === code).slice(0, 3);
   const statusText = fetchState === "loading" ? "照合中" :
     fetchState === "unavailable" ? "確認できません" :
     evidence.status === "CAUTION" ? "実績注意" :
@@ -62,16 +74,27 @@ export default function SwingHistoricalEvidence({ code }: { code: string }) {
       className={"mt-2 rounded-xl border p-3 shadow-sm dark:bg-slate-900 " +
         (caution ? "border-amber-300 bg-amber-50 dark:border-amber-700" :
           "border-slate-200 bg-white dark:border-slate-700")}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">🧪 スイング実績照合</h2>
-        <span data-testid="swing-evidence-status" aria-live="polite"
-          className={"rounded-full px-2.5 py-1 text-xs font-black " +
-            (caution ? "bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100" :
-              "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200")}>
-          {statusText}
-        </span>
-      </div>
-      {fetchState !== "ready" ? (
+      <button type="button" aria-expanded={expanded}
+        onClick={() => {
+          if (!expanded) setRequest({ code, report: null, state: "loading" });
+          setExpanded(!expanded);
+        }}
+        className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="text-sm font-black text-slate-900 dark:text-slate-100">🧪 スイング実績照合</span>
+        <span className="shrink-0 text-xs font-bold text-blue-700 dark:text-blue-300">{expanded ? "▲ 閉じる" : "▼ 開く"}</span>
+      </button>
+      {expanded && (
+        <>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">過去の全銘柄スイング候補</p>
+            <span data-testid="swing-evidence-status" aria-live="polite"
+              className={"rounded-full px-2.5 py-1 text-xs font-black " +
+                (caution ? "bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100" :
+                  "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200")}>
+              {statusText}
+            </span>
+          </div>
+          {fetchState !== "ready" ? (
         <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
           {fetchState === "loading" ?
             "過去の3・5取引日後の成績を確認しています。" :
@@ -107,6 +130,19 @@ export default function SwingHistoricalEvidence({ code }: { code: string }) {
           </p>
         </>
       )}
+      {fetchState === "ready" && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-xs font-black text-slate-900 dark:text-slate-100">{code} の保存済み簡易判定（直近3件）</p>
+          {recentForStock.length ? recentForStock.map((row) => (
+            <p key={row.date} className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+              {row.date}：AI POWER {row.power} ／ {row.label} ／ 参考株価 {row.price.toLocaleString("ja-JP")}円
+            </p>
+          )) : <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">この銘柄の保存済み簡易判定はまだありません。</p>}
+          <p className="mt-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+            個別解析のスイング判定と判定条件が異なります。休日に見た表示を、この日次履歴だけで再現することはできません。
+          </p>
+        </div>
+      )}
       <p className="mt-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
         ※全銘柄のAI POWERのみを用いた過去の簡易判定です。個別解析のRSI・当日変化率などを含む判定とは条件が異なり、この銘柄自体の勝率や約定可能な利益を示すものではありません。
       </p>
@@ -114,6 +150,8 @@ export default function SwingHistoricalEvidence({ code }: { code: string }) {
         className="mt-2 inline-block text-xs font-black text-blue-700 underline dark:text-blue-300">
         全銘柄スイング検証を見る →
       </Link>
+        </>
+      )}
     </section>
   );
 }
