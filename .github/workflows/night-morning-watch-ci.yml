@@ -1,0 +1,21 @@
+name: Night Morning Watch Read-only Checks
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/nightMorningWatch.mjs"
+      - "app/admin/night-morning-watch/**"
+      - "app/admin/learning-hub/page.tsx"
+      - "tests/nightMorningWatch.test.mjs"
+      - ".github/workflows/night-morning-watch-ci.yml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/nightMorningWatch.test.mjs
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
