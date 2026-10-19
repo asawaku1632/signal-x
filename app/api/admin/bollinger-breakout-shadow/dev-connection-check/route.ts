@@ -23,9 +23,17 @@ const classifyConnectionError = (error: unknown): string => {
     return "DB_TIMEOUT";
   if (["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH", "ECONNRESET"].includes(code))
     return "DB_NETWORK_FAILED";
-  if (["DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "SELF_SIGNED_CERT_IN_CHAIN", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"].includes(code) ||
-      message.includes("certificate") || message.includes("ssl") || message.includes("tls"))
-    return "DB_SSL_FAILED";
+  if (code === "ERR_TLS_CERT_ALTNAME_INVALID" || message.includes("hostname/ip does not match certificate"))
+    return "DB_SSL_HOSTNAME_MISMATCH";
+  if (code === "CERT_HAS_EXPIRED" || message.includes("certificate has expired"))
+    return "DB_SSL_CERT_EXPIRED";
+  if (["DEPTH_ZERO_SELF_SIGNED_CERT", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "SELF_SIGNED_CERT_IN_CHAIN", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY"].includes(code) ||
+      message.includes("unable to verify") || message.includes("self-signed certificate"))
+    return "DB_SSL_CERT_CHAIN_UNTRUSTED";
+  if (message.includes("does not support ssl") || message.includes("ssl off"))
+    return "DB_SSL_NOT_SUPPORTED";
+  if (message.includes("ssl") || message.includes("tls") || message.includes("certificate"))
+    return "DB_SSL_OTHER";
   if (code === "3D000" || code === "42501")
     return "DB_DATABASE_REJECTED";
   return "DB_CONNECTION_UNKNOWN";
