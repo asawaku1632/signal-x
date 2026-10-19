@@ -96,6 +96,8 @@ export function summarizeNightMorningEvidence(runs, targetTradeDate){
 export function buildNightMorningCandidates(savedSignals){
   // Fixed selection rule re-used by the existing entry-time study.
   // No historical results, current-day AI or later quotes may enter this ranking.
-  return selectPriorDayCandidates(Array.isArray(savedSignals)?savedSignals:[])
+  const valid=Array.isArray(savedSignals)?
+    savedSignals.filter(row=>scoreBand(row?.score)!==null):[];
+  return selectPriorDayCandidates(valid)
     .map(row=>({...row,band:scoreBand(row.score)}));
 }
