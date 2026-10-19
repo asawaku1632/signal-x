@@ -25,33 +25,30 @@ function signedPercent(value: number | null) {
  * The cohort intentionally differs: daily AI POWER alone, not intraday RSI.
  */
 export default function SwingHistoricalEvidence({ code }: { code: string }) {
-  const [report, setReport] = useState<Report | null>(null);
-  const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [request, setRequest] = useState<{
+    code: string;
+    report: Report | null;
+    state: FetchState;
+  }>({ code, report: null, state: "loading" });
 
   useEffect(() => {
     let active = true;
-    setReport(null);
-    setFetchState("loading");
 
     void fetch("/api/swing-universe-audit?code=" + encodeURIComponent(code), { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Evidence unavailable");
         const data = (await response.json()) as Report;
         if (!data?.success || !Array.isArray(data.groups)) throw new Error("Invalid evidence");
-        if (active) {
-          setReport(data);
-          setFetchState("ready");
-        }
+        if (active) setRequest({ code, report: data, state: "ready" });
       })
       .catch(() => {
-        if (active) {
-          setReport(null);
-          setFetchState("unavailable");
-        }
+        if (active) setRequest({ code, report: null, state: "unavailable" });
       });
     return () => { active = false; };
   }, [code]);
 
+  const report = request.code === code ? request.report : null;
+  const fetchState = request.code === code ? request.state : "loading";
   const group = report?.groups?.find((item) => item.status === "CANDIDATE");
   const evidence = summarizeSwingHistoricalEvidence(group);
   const statusText = fetchState === "loading" ? "照合中" :
