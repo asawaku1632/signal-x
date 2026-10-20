@@ -106,7 +106,15 @@ export function summarizeMorningMarketForward(snapshots,runs){
     if(!dateFormat.test(date)||!snapshotIsPreopen(snap,date))continue;
     capturedDays++;
     const run=byDate.get(date),bands=marketBands(snap.quotes);
-    if(!run||!bands||!validOrder(snap,run))continue;
+    // Explicitly reject any quote whose own timestamp is after the captured morning.
+    const captureTime=Date.parse(snap.captured_at??"");
+    const quotes=Object.values(snap.quotes??{});
+    const asOfValid=quotes.length===3&&quotes.every(q=>{
+      const quotedAt=Date.parse(q?.sourceTimestamp??"");
+      return Number.isFinite(quotedAt)&&quotedAt<=captureTime &&
+        typeof q.quoteDate==="string"&&dateFormat.test(q.quoteDate)&&q.quoteDate<=date;
+    });
+    if(!run||!bands||!asOfValid||!validOrder(snap,run))continue;
     const entry=new Map((Array.isArray(run.morning_observations)?
       run.morning_observations:[]).map(x=>[String(x.code),x]));
     const closing=new Map((Array.isArray(run.closing_results)?
