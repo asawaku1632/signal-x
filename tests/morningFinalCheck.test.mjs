@@ -44,7 +44,7 @@ test("09:05 uses only 09:00 complete OHLC and 09:05 OPEN; later bars never matte
   assert.equal(s.volume0900,2000);
 });
 test("clear skip/caution rules and genuine missing as unavailable",()=>{
-  const base=[bar("09:00",100,101,99,100,500),bar("09:05",100,100,100,100)];
+  const base=[bar("09:00",100,101,99.5,100,500),bar("09:05",100,100,100,100)];
   assert.equal(decideAtNineOhFive(c,base,today).label,"BUY_CANDIDATE");
   assert.equal(decideAtNineOhFive(c,[base[0],bar("09:05",105,105,105,105)],today).label,"SKIP");
   assert.equal(decideAtNineOhFive(c,[base[0],bar("09:05",103.5)],today).label,"CAUTION");
