@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pool from "@/app/lib/postgres";
+import { Pool } from "pg";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 
 export const runtime = "nodejs";
@@ -17,6 +17,18 @@ export async function GET() {
   if (process.env.PROD_DB_ROLE_PROBE_ENABLED !== "true")
     return NextResponse.json({ success: false, reason: "PROBE_DISABLED" }, { status: 403, headers });
 
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString)
+    return NextResponse.json({ success: false, reason: "DB_NOT_CONFIGURED" }, { status: 503, headers });
+
+  const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }, // Matches the existing application DB pool.
+    max: 1,
+    connectionTimeoutMillis: 4000,
+    query_timeout: 4000,
+    idleTimeoutMillis: 1000,
+  });
   let client;
   try {
     client = await pool.connect();
@@ -43,5 +55,6 @@ export async function GET() {
     return NextResponse.json({ success: false, reason: "DB_PROBE_FAILED" }, { status: 503, headers });
   } finally {
     client?.release();
+    await pool.end().catch(() => {});
   }
 }
