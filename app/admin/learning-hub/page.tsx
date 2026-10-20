@@ -49,6 +49,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
     subtitle: "どんな条件のときに上がりやすいか探す",
     items: [
       {
+        href: "/admin/research-allstars", icon: "🏆",
+        title: "研究オールスター", tag: "本人専用・厳選研究",
+        detail: "全研究の前向き成績を点検し、別期間でも再現した法則だけを自動選抜",
+      },
+      {
         href: "/admin/crash-strength", icon: "📉",
         title: "暴落後・強弱ランキング", tag: "本人専用・読み取り研究",
         detail: "急落時の市場比ランキングと翌日・3日・5保存日後の事後検証",
@@ -202,6 +207,16 @@ export default async function PrivateLearningHubPage() {
           </p>
         </header>
 
+        <Link href="/admin/research-allstars"
+          className="mt-3 block rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black text-amber-900">🏆 SIGNALX 研究オールスター</p>
+          <p className="mt-1 text-sm font-bold text-slate-700">
+            日々の研究から、検証条件に合格した法則だけを厳選する →
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            別期間での再確認まで求める研究専用ランキング。売買推奨ではありません。
+          </p>
+        </Link>
         <nav aria-label="学習データの分類" className="mt-3 grid grid-cols-3 gap-2">
           {[
             { href: "#verification", label: "📈 答え合わせ" },
