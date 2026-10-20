@@ -2,6 +2,7 @@ import Link from "next/link";
 import {notFound} from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
 import MorningMarketContextCard from "@/app/components/research/MorningMarketContextCard";
+import MorningMarketForwardResults from "@/app/components/research/MorningMarketForwardResults";
 import {interpretOpeningGap} from "@/app/lib/research/morningExternalContext.mjs";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
@@ -117,6 +118,7 @@ export default async function MorningFinalCheckPage(){
       </header>
 
       <MorningMarketContextCard/>
+      <MorningMarketForwardResults/>
 
       {dateError||dataError?<section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800" role="alert">
         {dateError?"営業日カレンダーが確認できません。":"専用研究データを読み込めません。DBの準備と接続を確認してください。"}
