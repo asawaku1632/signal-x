@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 
 export const runtime = "nodejs";
@@ -61,7 +63,10 @@ export async function GET() {
 
   const pool = new Pool({
     connectionString,
-    ssl: { rejectUnauthorized: true },
+    ssl: {
+      rejectUnauthorized: true,
+      ca: readFileSync(join(process.cwd(), "app/api/admin/bollinger-breakout-shadow/dev-connection-check/supabase-root-2021-ca.crt"), "utf8"),
+    },
     max: 1,
     connectionTimeoutMillis: 5000,
     query_timeout: 5000,
