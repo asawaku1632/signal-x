@@ -147,6 +147,10 @@
     {
       "path": "/api/cron/weak-ai-rebound?phase=outcomes",
       "schedule": "35 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/morning-market-forward",
+      "schedule": "45 23 * * 0-4"
     }
   ]
 }
