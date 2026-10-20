@@ -24,7 +24,7 @@ test("eight distinct preregistered sources; in-sample replay catalogue never cer
  assert.ok(STUDIES.every(s=>s.href.startsWith("/")));
  assert.ok(WAITING_STUDIES.some(x=>x.href==="/admin/exit-timing-study"));
  assert.ok(WAITING_STUDIES.some(x=>x.href==="/admin/weak-ai-rebound"));
- assert.equal(DISCOVERY_END,"2026-11-30");
+ assert.equal(DISCOVERY_END,"2026-11-20");
  assert.equal(CONFIRMATION_FROM,"2026-12-01");
 });
 test("empty sources show zero selected and honest unfulfilled conditions",()=>{
