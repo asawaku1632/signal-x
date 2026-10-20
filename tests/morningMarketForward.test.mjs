@@ -30,7 +30,7 @@ test("snapshot refuses future bars and missing/revised records",()=>{
   assert.equal(parsePreopenQuote({}, "Asia/Tokyo",now),null);
 });
 test("USDJPY up means yen weaker; mixed US never means all up",()=>{
-  const q=p=>({state:"REFERENCE",price:p,changePct:p,quoteDate:"2026-10-20",
+  const q=p=>({state:"REFERENCE",price:100,changePct:p,quoteDate:"2026-10-20",
     sourceTimestamp:"2026-10-20T00:00:00Z"});
   assert.deepEqual(marketBands({dow:q(0.5),nasdaq:q(0.9),usdJpy:q(0.3)}),
     {us:"US_UP",fx:"YEN_WEAKER"});
