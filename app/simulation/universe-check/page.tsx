@@ -37,6 +37,8 @@ const signed = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 const rate = (count: number, checked: number) =>
   checked ? (100 * count / checked).toFixed(1) + "%" : "集計待ち";
 const observed = (value: number | null) => value == null ? "集計待ち" : signed(value);
+const upPercentage = (value: number | null) =>
+  value == null ? "集計待ち" : value.toFixed(1) + "%";
 
 
 export default function UniverseCheckPage() {
@@ -206,12 +208,12 @@ export default function UniverseCheckPage() {
                       <div className="rounded-lg bg-slate-50 p-2">
                         <p className="text-[10px] text-slate-500">{c.label}の日別平均</p>
                         <p className="mt-1 text-base font-black">{observed(c.bandMeanPct)}</p>
-                        <p className="text-[10px] text-slate-500">上昇割合 {observed(c.bandUpRate)}</p>
+                        <p className="text-[10px] text-slate-500">上昇割合 {upPercentage(c.bandUpRate)}</p>
                       </div>
                       <div className="rounded-lg bg-slate-50 p-2">
                         <p className="text-[10px] text-slate-500">同じ日の全銘柄平均</p>
                         <p className="mt-1 text-base font-black">{observed(c.universeMeanPct)}</p>
-                        <p className="text-[10px] text-slate-500">上昇割合 {observed(c.universeUpRate)}</p>
+                        <p className="text-[10px] text-slate-500">上昇割合 {upPercentage(c.universeUpRate)}</p>
                       </div>
                     </div>
                     <p className="mt-2 text-sm font-black">
