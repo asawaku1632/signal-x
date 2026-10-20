@@ -18,7 +18,7 @@ test("reads two dated references and marks stale data",()=>{
   assert.equal(recent.changePct,2);
   assert.equal(recent.state,"REFERENCE");
   assert.equal(recent.quoteDate,"2026-10-20");
-  assert.equal(parseDailyMarketQuote(data,"Asia/Tokyo",new Date("2026-11-05")),null===undefined?null:"unused");
+  assert.equal(parseDailyMarketQuote(data,"Asia/Tokyo",new Date("2026-11-05")).state,"STALE");
 });
 test("gap rebound is descriptive and never returns a buy recommendation",()=>{
   const bounce=interpretOpeningGap(1000,975,983);
