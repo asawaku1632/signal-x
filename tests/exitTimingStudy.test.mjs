@@ -112,7 +112,8 @@ test("short evidence hides apparent winning exit time and exposes counts only",(
 });
 test("morning-only rise then closing loss is detected on same stock-day",()=>{
  const full=fullEvidence();
- full.find(x=>x.time===bar("15:25").time).close=98;
+ const final=full.find(x=>x.time===bar("15:25").time);
+ final.close=98;final.low=97;
  const study=evaluateExitTimeStudy(date,candidate,full);
  assert.equal(study.complete,true);
  const stats=summarizeExitResearch([{date,code:"7044",label:"BUY_CANDIDATE",
