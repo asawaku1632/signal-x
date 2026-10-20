@@ -1,0 +1,21 @@
+name: Swing Same-Day Relative Study Safety
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/swingSameDayRelative.ts"
+      - "app/lib/learning/swingUniverseAudit.ts"
+      - "app/simulation/universe-check/page.tsx"
+      - "tests/swingSameDayRelative.test.mjs"
+      - ".github/workflows/swing-same-day-relative-ci.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/swingSameDayRelative.test.mjs tests/swingUniverseAudit.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

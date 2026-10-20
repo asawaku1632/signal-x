@@ -2,6 +2,7 @@ import pool from "@/app/lib/postgres";
 import { getFallbackTotalStockList } from "@/app/lib/learning/scanEngine";
 import { validateDailyScanCoverage } from "@/app/lib/learning/dailyScanGuard";
 import { getSwingEntryDecision, type SwingEntryDecisionStatus } from "@/app/lib/swingDecision";
+import {summarizeSameDayRelative,type SameDaySource} from "@/app/lib/learning/swingSameDayRelative";
 import {
   isTseTradingDate,
   isTseTargetDateReady,
@@ -233,7 +234,7 @@ const asNumber = (value: string | number | null) =>
   value == null ? null : Number(value);
 
 export async function getSwingUniverseReport(code?: string) {
-  const [meta, groups, examples, avoidBandRows] = await Promise.all([
+  const [meta, groups, examples, avoidBandRows, sameDayRows] = await Promise.all([
     pool.query<{ total: string; latest_date: Date | string | null; distinct_dates: string }>(
       `SELECT COUNT(*) AS total, MAX(trade_date) AS latest_date,
          COUNT(DISTINCT trade_date) AS distinct_dates
@@ -316,6 +317,47 @@ export async function getSwingUniverseReport(code?: string) {
        ORDER BY e.ord, e.days`,
       [UNIVERSE_SWING_RULE_VERSION],
     ),
+    // True same-date, same-horizon cohort comparison: the entire saved universe
+    // is an equal-weight reference, NOT Nikkei or TOPIX. Only completed
+    // outcome prices contribute to an observed mean.
+    pool.query<SameDaySource>(
+      `WITH expanded AS (
+         SELECT obs.trade_date, obs.decision_status, obs.ai_power,
+           horizon.days, horizon.return_pct
+         FROM public.swing_universe_observations AS obs
+         CROSS JOIN LATERAL (
+           VALUES (1, obs.return_1d), (3, obs.return_3d),
+                  (5, obs.return_5d), (10, obs.return_10d)
+         ) horizon(days,return_pct)
+         WHERE obs.rule_version=$1
+           AND obs.trade_date>=((now() AT TIME ZONE 'Asia/Tokyo')::date-INTERVAL '90 days')
+       ), grouped AS (
+         SELECT e.trade_date::text AS trade_date,e.days,comparison.group_key,
+           e.return_pct
+         FROM expanded AS e
+         CROSS JOIN LATERAL (
+           VALUES
+             ('ALL'::text),
+             (e.decision_status::text),
+             (CASE WHEN e.decision_status='AVOID' THEN
+               CASE WHEN e.ai_power<20 THEN '0-19'
+                    WHEN e.ai_power<40 THEN '20-39'
+                    WHEN e.ai_power<55 THEN '40-54'
+                    ELSE '55-64' END
+              ELSE NULL END)
+         ) comparison(group_key)
+         WHERE comparison.group_key IS NOT NULL
+       )
+       SELECT trade_date,days,group_key,
+         COUNT(*)::text AS recorded,
+         COUNT(return_pct)::text AS checked,
+         COUNT(*) FILTER (WHERE return_pct>0)::text AS up_count,
+         ROUND(AVG(return_pct),6)::text AS avg_return
+       FROM grouped
+       GROUP BY trade_date,days,group_key
+       ORDER BY trade_date,days,group_key`,
+      [UNIVERSE_SWING_RULE_VERSION],
+    ),
   ]);
   const records = groups.rows.map((g) => ({
     status: g.decision_status, label: g.decision_label,
@@ -354,6 +396,7 @@ export async function getSwingUniverseReport(code?: string) {
     distinctDates: Number(meta.rows[0]?.distinct_dates ?? 0),
     groups: records,
     avoidBreakdown,
+    sameDayComparison: summarizeSameDayRelative(sameDayRows.rows),
     latest: examples.rows.map((r) => ({
       code: r.code, name: r.name, date: dateOnly(r.trade_date),
       status: r.decision_status, label: r.decision_label,
