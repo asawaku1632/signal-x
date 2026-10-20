@@ -1,0 +1,25 @@
+name: Morning Final Check Forward Research
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/morningFinalCheck.mjs"
+      - "app/lib/research/morningFinalCheckRunner.ts"
+      - "app/admin/morning-final-check/**"
+      - "app/admin/learning-hub/page.tsx"
+      - "app/api/cron/morning-final-check/**"
+      - "tests/morningFinalCheck.test.mjs"
+      - "supabase/migrations/20261020_create_morning_final_check_runs.sql"
+      - "vercel.json"
+      - ".github/workflows/morning-final-check-ci.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/morningFinalCheck.test.mjs tests/nightMorningWatch.test.mjs
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit

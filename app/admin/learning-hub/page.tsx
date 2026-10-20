@@ -74,6 +74,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "買い候補→見送りなどAI評価帯の変化回数と翌営業日の成績を比較",
       },
       {
+        href: "/admin/morning-final-check", icon: "☀️",
+        title: "朝9:05 最終チェック", tag: "本人専用・前夜5銘柄",
+        detail: "前夜固定→9:05最初の5分足を確認→大引け後に答え合わせ（独立研究）",
+      },
+      {
         href: "/admin/night-morning-watch", icon: "🌙",
         title: "翌朝9時・勝率重視候補", tag: "本人専用・前夜候補",
         detail: "前営業日のAI上位5銘柄と朝9:05→大引けの過去検証を比較（研究用）",
