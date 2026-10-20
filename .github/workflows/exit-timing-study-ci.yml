@@ -1,0 +1,22 @@
+name: Exit Time Four-Way Research Safety
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/exitTimingStudy.mjs"
+      - "app/lib/research/entryTimeShadowRunner.ts"
+      - "app/admin/exit-timing-study/**"
+      - "app/admin/learning-hub/page.tsx"
+      - "tests/exitTimingStudy.test.mjs"
+      - ".github/workflows/exit-timing-study-ci.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/exitTimingStudy.test.mjs tests/entryTimeShadow.test.mjs tests/morningFinalCheck.test.mjs
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
