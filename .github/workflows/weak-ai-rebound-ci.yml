@@ -1,0 +1,25 @@
+name: Weak AI Rebound Forward Safety
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/weakAiRebound.mjs"
+      - "app/lib/research/weakAiReboundRunner.ts"
+      - "app/admin/weak-ai-rebound/**"
+      - "app/admin/learning-hub/page.tsx"
+      - "app/api/cron/weak-ai-rebound/**"
+      - "tests/weakAiRebound.test.mjs"
+      - "supabase/migrations/20261020_create_weak_ai_rebound_forward.sql"
+      - "vercel.json"
+      - ".github/workflows/weak-ai-rebound-ci.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/weakAiRebound.test.mjs tests/morningFinalCheck.test.mjs tests/exitTimingStudy.test.mjs tests/swingUniverseAudit.test.mjs
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
