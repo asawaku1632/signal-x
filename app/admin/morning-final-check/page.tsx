@@ -1,6 +1,8 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import MorningMarketContextCard from "@/app/components/research/MorningMarketContextCard";
+import {interpretOpeningGap} from "@/app/lib/research/morningExternalContext.mjs";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
@@ -114,6 +116,8 @@ export default async function MorningFinalCheckPage(){
         </p>
       </header>
 
+      <MorningMarketContextCard/>
+
       {dateError||dataError?<section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800" role="alert">
         {dateError?"営業日カレンダーが確認できません。":"専用研究データを読み込めません。DBの準備と接続を確認してください。"}
         過去の候補や推定価格で埋め合わせません。
@@ -151,6 +155,7 @@ export default async function MorningFinalCheckPage(){
         <div className="mt-3 space-y-2">
           {cohort.map(stock=>{
             const o=observations.get(stock.code),out=outcomes.get(stock.code);
+            const opening=interpretOpeningGap(stock.referencePrice,o?.open0900,o?.price0905);
             return <div key={stock.code} className="rounded-xl border border-slate-200 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -172,6 +177,11 @@ export default async function MorningFinalCheckPage(){
                 </p>
                 <p className="mt-2 text-xs">{Array.isArray(o.reasons)?o.reasons.join("・"):""}</p></>:null}
               </div>
+              {opening?<p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">
+                📉 寄り付き観察：{opening.label} ／ 前夜保存参考価格比 {percent(opening.gapPct)}
+                ／ 最初の5分 {percent(opening.firstFivePct)}
+                <span className="block text-[11px] text-sky-700">※前夜保存参考価格は公式の前日終値と一致するとは限りません。表示は過去5分間の方向を説明するだけです。</span>
+              </p>:null}
               {out?.complete?<p className="mt-2 text-xs font-bold">
                 引け {money(out.closePrice)} ／ 100株仮想損益 {signedMoney(out.pnl100)}
                 {o?.label==="BUY_CANDIDATE"?"（購入候補として集計）":"（見送り時の参考結果）"}
