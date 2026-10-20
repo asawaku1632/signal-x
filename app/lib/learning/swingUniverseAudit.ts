@@ -48,6 +48,32 @@ type GroupRow = {
   avg_5d: string | null;
   avg_10d: string | null;
 };
+/** Four disjoint score bands inside the existing AVOID status (<65).
+ * These are historical score strata, NOT the position-specific EXIT signal.
+ */
+type AvoidBandKey = "0-19" | "20-39" | "40-54" | "55-64";
+type AvoidBandRow = {
+  band: AvoidBandKey;
+  days: number;
+  recorded: string;
+  observed_days: string;
+  checked: string;
+  checked_days: string;
+  up: string;
+  down: string;
+  plus3: string;
+  minus3: string;
+  avg_return: string | null;
+  median_return: string | null;
+  worst_return: string | null;
+};
+const AVOID_BANDS: ReadonlyArray<{ key: AvoidBandKey; label: string }> = [
+  { key: "0-19", label: "0〜19" },
+  { key: "20-39", label: "20〜39" },
+  { key: "40-54", label: "40〜54" },
+  { key: "55-64", label: "55〜64" },
+];
+
 type ExampleRow = {
   code: string;
   name: string;
@@ -207,7 +233,7 @@ const asNumber = (value: string | number | null) =>
   value == null ? null : Number(value);
 
 export async function getSwingUniverseReport(code?: string) {
-  const [meta, groups, examples] = await Promise.all([
+  const [meta, groups, examples, avoidBandRows] = await Promise.all([
     pool.query<{ total: string; latest_date: Date | string | null; distinct_dates: string }>(
       `SELECT COUNT(*) AS total, MAX(trade_date) AS latest_date,
          COUNT(DISTINCT trade_date) AS distinct_dates
@@ -250,6 +276,46 @@ export async function getSwingUniverseReport(code?: string) {
        LIMIT 40`,
       [UNIVERSE_SWING_RULE_VERSION, code ?? null],
     ),
+    // Read-only aggregation from the SAME frozen observations already used by
+    // the parent AVOID card. Do not change, relabel or retroactively save data.
+    pool.query<AvoidBandRow>(
+      `WITH bands(band, ord, min_power, max_power) AS (
+         VALUES ('0-19', 1, 0::numeric, 20::numeric),
+                ('20-39', 2, 20::numeric, 40::numeric),
+                ('40-54', 3, 40::numeric, 55::numeric),
+                ('55-64', 4, 55::numeric, 65::numeric)
+       ), matching AS (
+         SELECT bands.band, bands.ord, obs.trade_date,
+           obs.return_1d, obs.return_3d, obs.return_5d, obs.return_10d
+         FROM public.swing_universe_observations AS obs
+         JOIN bands ON obs.ai_power >= bands.min_power AND obs.ai_power < bands.max_power
+         WHERE obs.rule_version = $1 AND obs.decision_status = 'AVOID'
+       ), records AS (
+         SELECT band, COUNT(*)::text AS recorded,
+           COUNT(DISTINCT trade_date)::text AS observed_days
+         FROM matching GROUP BY band
+       ), expanded AS (
+         SELECT m.band, m.ord, m.trade_date, outcome.days, outcome.ret
+         FROM matching AS m CROSS JOIN LATERAL (
+           VALUES (1, m.return_1d), (3, m.return_3d),
+                  (5, m.return_5d), (10, m.return_10d)
+         ) AS outcome(days, ret)
+       )
+       SELECT e.band, e.days, r.recorded, r.observed_days,
+         COUNT(e.ret)::text AS checked,
+         COUNT(DISTINCT e.trade_date) FILTER (WHERE e.ret IS NOT NULL)::text AS checked_days,
+         COUNT(*) FILTER (WHERE e.ret > 0)::text AS up,
+         COUNT(*) FILTER (WHERE e.ret < 0)::text AS down,
+         COUNT(*) FILTER (WHERE e.ret >= 3)::text AS plus3,
+         COUNT(*) FILTER (WHERE e.ret <= -3)::text AS minus3,
+         ROUND(AVG(e.ret), 2)::text AS avg_return,
+         ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY e.ret)::numeric, 2)::text AS median_return,
+         ROUND(MIN(e.ret), 2)::text AS worst_return
+       FROM expanded AS e JOIN records AS r ON r.band = e.band
+       GROUP BY e.band, e.ord, e.days, r.recorded, r.observed_days
+       ORDER BY e.ord, e.days`,
+      [UNIVERSE_SWING_RULE_VERSION],
+    ),
   ]);
   const records = groups.rows.map((g) => ({
     status: g.decision_status, label: g.decision_label,
@@ -261,11 +327,33 @@ export async function getSwingUniverseReport(code?: string) {
       averageReturnPercent: asNumber(g[`avg_${days}d` as keyof GroupRow]),
     })),
   }));
+  const avoidBreakdown = AVOID_BANDS.map((band) => {
+    const subset = avoidBandRows.rows.filter((row) => row.band === band.key);
+    const first = subset[0];
+    return {
+      band: band.key, label: band.label,
+      count: Number(first?.recorded ?? 0),
+      distinctDates: Number(first?.observed_days ?? 0),
+      outcomes: UNIVERSE_SWING_HORIZONS.map((days) => {
+        const row = subset.find((item) => Number(item.days) === days);
+        return {
+          days, checked: Number(row?.checked ?? 0),
+          checkedDays: Number(row?.checked_days ?? 0),
+          up: Number(row?.up ?? 0), down: Number(row?.down ?? 0),
+          plus3: Number(row?.plus3 ?? 0), minus3: Number(row?.minus3 ?? 0),
+          averageReturnPercent: asNumber(row?.avg_return ?? null),
+          medianReturnPercent: asNumber(row?.median_return ?? null),
+          worstReturnPercent: asNumber(row?.worst_return ?? null),
+        };
+      }),
+    };
+  });
   return {
     total: Number(meta.rows[0]?.total ?? 0),
     latestDate: meta.rows[0]?.latest_date ? dateOnly(meta.rows[0].latest_date) : null,
     distinctDates: Number(meta.rows[0]?.distinct_dates ?? 0),
     groups: records,
+    avoidBreakdown,
     latest: examples.rows.map((r) => ({
       code: r.code, name: r.name, date: dateOnly(r.trade_date),
       status: r.decision_status, label: r.decision_label,
