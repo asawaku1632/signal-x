@@ -24,11 +24,12 @@ test("cron phases are restricted to Japanese trading hours and no after-the-fact
   assert.throws(()=>gatePhase(at("09:08"),"unknown",market),/INVALID_PHASE/);
 });
 test("night selection is predetermined: <=5, numeric scores and price valid",()=>{
+  const dbSignal={code:c.code,name:c.name,score:c.score,price:100};
   const candidates=selectFrozenCohort([
-    {...c,score:101},c,{...c,code:"8306",score:92},
-    {...c,code:"9984",score:99}, {...c,code:"1111",score:85},
-    {...c,code:"2222",score:85},{...c,code:"3333",score:88},
-    {...c,code:"4444",score:84}]);
+    {...dbSignal,score:101},dbSignal,{...dbSignal,code:"8306",score:92},
+    {...dbSignal,code:"9984",score:99}, {...dbSignal,code:"1111",score:85},
+    {...dbSignal,code:"2222",score:85},{...dbSignal,code:"3333",score:88},
+    {...dbSignal,code:"4444",score:84}]);
   assert.deepEqual(candidates.map(x=>x.code),["9984","7044","8306","3333","1111"]);
   assert.equal(candidates[0].rank,1);
   assert.equal(MORNING_FINAL_POLICY,"FROZEN_NIGHT_0905_CHECK_V1");
