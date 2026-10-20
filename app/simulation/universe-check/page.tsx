@@ -5,10 +5,16 @@ import BottomNav from "@/app/components/BottomNav";
 
 type Outcome = { days: number; checked: number; up: number; rebounded: number; averageReturnPercent: number | null };
 type Group = { status: string; label: string; count: number; distinctDates: number; outcomes: Outcome[] };
+type AvoidOutcome = { days: number; checked: number; checkedDays: number;
+  up: number; down: number; plus3: number; minus3: number;
+  averageReturnPercent: number | null; medianReturnPercent: number | null;
+  worstReturnPercent: number | null };
+type AvoidBand = { band: string; label: string; count: number; distinctDates: number;
+  outcomes: AvoidOutcome[] };
 type Item = { code: string; name: string; date: string; status: string; label: string;
   price: number; power: number; outcomes: { days: number; returnPercent: number | null }[] };
 type Report = { total: number; latestDate: string | null; distinctDates: number;
-  groups: Group[]; latest: Item[]; note: string };
+  groups: Group[]; avoidBreakdown: AvoidBand[]; latest: Item[]; note: string };
 const colors: Record<string, string> = {
   CANDIDATE: "border-emerald-200 bg-emerald-50 text-emerald-800",
   WAIT: "border-blue-200 bg-blue-50 text-blue-800",
@@ -16,6 +22,10 @@ const colors: Record<string, string> = {
   AVOID: "border-rose-200 bg-rose-50 text-rose-800",
 };
 const signed = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+const rate = (count: number, checked: number) =>
+  checked ? (100 * count / checked).toFixed(1) + "%" : "集計待ち";
+const observed = (value: number | null) => value == null ? "集計待ち" : signed(value);
+
 
 export default function UniverseCheckPage() {
   const [report, setReport] = useState<Report | null>(null);
@@ -81,6 +91,72 @@ export default function UniverseCheckPage() {
                   </div>)}
                 </div>
               </section>)}</div>}
+        <section className="mt-6 rounded-2xl border border-rose-200 bg-white p-4">
+          <h2 className="text-lg font-black text-slate-900">🔍 「見送り」のAI POWER別・反発検証</h2>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            上の「見送り」を4つのAI POWER帯に分割。過去に保存した同じ銘柄・同じ判定時点の株価を
+            1・3・5・10取引日後と比較しています。下の各区分をタップすると詳しい結果が開きます。
+          </p>
+          <p className="mt-2 text-xs leading-5 text-amber-900">
+            上昇割合は検証できた記録の割合で、将来の勝率予測ではありません。
+            同じ銘柄が別の日に出た場合は別記録です。
+            「最悪の下落」は指定取引日の保存価格との差で、保有途中の最大下落ではありません。
+          </p>
+          <div className="mt-3 space-y-3">
+            {report.avoidBreakdown.map((band) => {
+              const five = band.outcomes.find((outcome) => outcome.days === 5);
+              return <details key={band.band} className="group rounded-xl border border-slate-200 bg-slate-50"
+                open={band.band === "0-19"}>
+                <summary className="cursor-pointer list-none rounded-xl p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-black text-slate-900">AI POWER {band.label}</p>
+                      <p className="mt-1 text-[11px] text-slate-600">
+                        判定 {band.count.toLocaleString("ja-JP")}件 ／ 記録 {band.distinctDates}日
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-black text-slate-900">
+                        {five ? rate(five.up, five.checked) : "集計待ち"}
+                      </p>
+                      <p className="text-[10px] text-slate-600">
+                        5日後の上昇割合　<span aria-hidden="true">⌄</span>
+                      </p>
+                    </div>
+                  </div>
+                </summary>
+                <div className="border-t border-slate-200 px-3 pb-3 pt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {band.outcomes.map((o) => <article key={o.days}
+                      className="rounded-lg border border-slate-100 bg-white p-2 text-slate-800">
+                      <h3 className="text-xs font-black">{o.days}取引日後</h3>
+                      <p className="mt-1 text-lg font-black">{rate(o.up, o.checked)}</p>
+                      <p className="text-[10px] text-slate-500">上昇 {o.up} / 検証済み {o.checked}件</p>
+                      <p className="mt-1 text-[10px] text-slate-500">判定日 {o.checkedDays}日分</p>
+                      {o.checkedDays > 0 && o.checkedDays < 10 &&
+                        <p className="mt-1 text-[10px] font-bold text-amber-800">日数が少なく検証途中</p>}
+                      <div className="mt-2 space-y-1 border-t pt-2 text-[11px]">
+                        <p>平均騰落率 <b>{observed(o.averageReturnPercent)}</b></p>
+                        <p>中央値 <b>{observed(o.medianReturnPercent)}</b></p>
+                        <p>+3%以上 <b>{rate(o.plus3, o.checked)}</b>
+                          <span className="text-slate-500">（{o.plus3}件）</span></p>
+                        <p>−3%以下 <b>{rate(o.minus3, o.checked)}</b>
+                          <span className="text-slate-500">（{o.minus3}件）</span></p>
+                        <p>最悪の下落 <b className="text-rose-700">{observed(o.worstReturnPercent)}</b></p>
+                      </div>
+                    </article>)}
+                  </div>
+                </div>
+              </details>;
+            })}
+          </div>
+          <p className="mt-3 text-[11px] leading-5 text-slate-600">
+            ※AI POWER 0〜54は新しい「弱いAI判定からの逆張り反発研究」の対象帯ですが、
+            こちらは従来の判定時点の保存株価に対する過去実績です。
+            新研究の翌9:10仮想購入結果とは異なります。
+            実際の「撤退候補」は購入価格や損切り条件も含み、見送りとは別の判定です。
+          </p>
+        </section>
         <h2 className="mt-7 text-lg font-black">銘柄ごとに調べる</h2>
         <div className="mt-3 flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="numeric"
