@@ -16,12 +16,7 @@ type Evidence={
   worst5:number|null;relativeToUniverse:number|null;
   daysBeating:number;dayWinRate:number|null;
 };
-type Entry={
-  key:string;title:string;href:string;family:string;method:string;
-  status:"ALL_STAR"|"CONFIRMING"|"COLLECTING";
-  latest:string|null;discovery:Evidence;confirmation:Evidence;
-  unmet:string[];reference:string;rule:string;
-};
+type Entry=Awaited<ReturnType<typeof readResearchAllStars>>[number];
 const pct=(n:number|null)=>n===null?"確認待ち":(n>0?"+":"")+n.toFixed(2)+"%";
 const hit=(n:number|null)=>n===null?"確認待ち":n.toFixed(1)+"%";
 const diff=(n:number|null)=>n===null?"確認待ち":(n>0?"+":"")+n.toFixed(2)+"pt";
