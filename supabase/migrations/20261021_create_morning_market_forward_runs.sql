@@ -21,4 +21,6 @@ COMMENT ON TABLE public.morning_market_forward_runs IS
   'Owner-only pre-open market reference snapshot, without PTS source, orders, trade advice or model updates.';
 ALTER TABLE public.morning_market_forward_runs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.morning_market_forward_runs FROM PUBLIC, anon, authenticated;
+-- Server-side service role can save and read rows; browser roles remain denied.
+GRANT SELECT, INSERT, UPDATE ON TABLE public.morning_market_forward_runs TO service_role;
 -- No RLS policy for anonymous/authenticated clients. Server Postgres only.
