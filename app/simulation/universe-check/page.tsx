@@ -11,10 +11,22 @@ type AvoidOutcome = { days: number; checked: number; checkedDays: number;
   worstReturnPercent: number | null };
 type AvoidBand = { band: string; label: string; count: number; distinctDates: number;
   outcomes: AvoidOutcome[] };
+type SameDayPeer = { groupKey: string; label: string; matchedDates: number;
+  peerMeanPct: number | null; excessPctPoints: number | null };
+type SameDayDaily = { date: string; count: number; bandMeanPct: number;
+  universeMeanPct: number; excessPctPoints: number;
+  bandUpRate: number; universeUpRate: number };
+type SameDayComparison = { band: string; label: string; days: number;
+  matchedDates: number; stockDays: number; universeStockDays: number;
+  bandMeanPct: number | null; universeMeanPct: number | null;
+  excessPctPoints: number | null; bandUpRate: number | null;
+  universeUpRate: number | null; beatUniverseDays: number; conclusive: boolean;
+  peers: SameDayPeer[]; daily: SameDayDaily[] };
 type Item = { code: string; name: string; date: string; status: string; label: string;
   price: number; power: number; outcomes: { days: number; returnPercent: number | null }[] };
 type Report = { total: number; latestDate: string | null; distinctDates: number;
-  groups: Group[]; avoidBreakdown: AvoidBand[]; latest: Item[]; note: string };
+  groups: Group[]; avoidBreakdown: AvoidBand[];
+  sameDayComparison: SameDayComparison[]; latest: Item[]; note: string };
 const colors: Record<string, string> = {
   CANDIDATE: "border-emerald-200 bg-emerald-50 text-emerald-800",
   WAIT: "border-blue-200 bg-blue-50 text-blue-800",
@@ -33,6 +45,7 @@ export default function UniverseCheckPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [relativeDays, setRelativeDays] = useState<1 | 3 | 5 | 10>(5);
   const load = useCallback(async (filter: string) => {
     setLoading(true);
     setError("");
@@ -155,6 +168,109 @@ export default function UniverseCheckPage() {
             こちらは従来の判定時点の保存株価に対する過去実績です。
             新研究の翌9:10仮想購入結果とは異なります。
             実際の「撤退候補」は購入価格や損切り条件も含み、見送りとは別の判定です。
+          </p>
+        </section>
+        <section className="mt-6 rounded-2xl border border-indigo-200 bg-white p-4">
+          <h2 className="text-lg font-black text-slate-900">⚖️ 同じ日の全銘柄平均・他判定との比較</h2>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            その日の同じ検証期間で「見送り」の各AI POWER帯を、SIGNALXが保存した
+            全銘柄の均等加重平均と比べます。日経平均・TOPIXの騰落率ではありません。
+            日ごとに平均を出してから各日を同じ重みで集計します。
+          </p>
+          <div className="mt-3 grid grid-cols-4 gap-2" role="group" aria-label="比較する取引日数">
+            {([1,3,5,10] as const).map(days=>
+              <button key={days} type="button" onClick={()=>setRelativeDays(days)}
+                aria-pressed={relativeDays===days}
+                className={"rounded-xl border px-1 py-2 text-xs font-black "+(
+                  relativeDays===days?"border-indigo-600 bg-indigo-600 text-white":
+                    "border-slate-200 bg-slate-50 text-slate-700")}>
+                {days}日後
+              </button>)}
+          </div>
+          <div className="mt-3 space-y-3">
+            {report.sameDayComparison.filter(c=>c.days===relativeDays).map(c=>
+              <article key={c.band} className="rounded-xl border border-slate-200 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <b className="text-sm text-slate-900">{c.label}</b>
+                  <span className="text-[11px] text-slate-600">
+                    {c.matchedDates}判定日 / {c.stockDays}銘柄日
+                  </span>
+                </div>
+                {c.matchedDates===0?
+                  <p className="mt-2 text-sm text-slate-500">同日比較はまだ集計待ち</p>:
+                  <>
+                    {!c.conclusive&&<p className="mt-2 text-[11px] font-bold text-amber-800">
+                      判定日が10日未満。まだ仮の観察結果です
+                    </p>}
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">{c.label}の日別平均</p>
+                        <p className="mt-1 text-base font-black">{observed(c.bandMeanPct)}</p>
+                        <p className="text-[10px] text-slate-500">上昇割合 {observed(c.bandUpRate)}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">同じ日の全銘柄平均</p>
+                        <p className="mt-1 text-base font-black">{observed(c.universeMeanPct)}</p>
+                        <p className="text-[10px] text-slate-500">上昇割合 {observed(c.universeUpRate)}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm font-black">
+                      全銘柄平均との差：{c.excessPctPoints===null?"集計待ち":
+                        (c.excessPctPoints>0?"+":"")+c.excessPctPoints.toFixed(2)+"ポイント"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-600">
+                      全銘柄平均を上回った日 {c.beatUniverseDays} / {c.matchedDates}日
+                    </p>
+                    <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                      <summary className="cursor-pointer text-xs font-black">
+                        他の3判定グループと比べる
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {c.peers.map(p=><div key={p.groupKey}
+                          className="rounded-lg bg-white p-2 text-xs">
+                          <div className="flex justify-between gap-2">
+                            <b>{p.label}</b>
+                            <span>{p.matchedDates}日</span>
+                          </div>
+                          <p className="mt-1">
+                            相手グループの日別平均 {observed(p.peerMeanPct)}
+                          </p>
+                          <p className="mt-1">
+                            こちらとの差 {p.excessPctPoints===null?"比較待ち":
+                              (p.excessPctPoints>0?"+":"")+p.excessPctPoints.toFixed(2)+"ポイント"}
+                          </p>
+                        </div>)}
+                      </div>
+                    </details>
+                    <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                      <summary className="cursor-pointer text-xs font-black">
+                        判定日ごとの結果（{c.daily.length}日）
+                      </summary>
+                      <div className="mt-2 space-y-1">
+                        {c.daily.map(d=><div key={d.date}
+                          className="rounded-lg bg-white px-2 py-2 text-[11px]">
+                          <b>{d.date}</b>
+                          <p className="mt-1">
+                            {c.label} {signed(d.bandMeanPct)} ／ 全銘柄 {signed(d.universeMeanPct)}
+                          </p>
+                          <p>
+                            差 {(d.excessPctPoints>0?"+":"")+d.excessPctPoints.toFixed(2)}ポイント
+                            ・比較銘柄 {d.count}件
+                          </p>
+                        </div>)}
+                      </div>
+                    </details>
+                  </>}
+              </article>)}
+          </div>
+          <p className="mt-3 text-[11px] leading-5 text-slate-600">
+            比較に採用するのは、同一判定日の全銘柄が800件以上保存され、
+            全体および対象グループの価格照合が各80%以上完了した日だけ。
+            未照合は0%扱いにしません。全銘柄平均には対象帯の銘柄も含まれます。
+            他判定との比較も両グループの保存結果が揃う日のみです。
+            対象90暦日の観察結果で、売買手数料・実際の約定・税金や
+            当日途中の最大下落は反映していません。
+            相場から独立した優位性や将来の利益確率を保証するものではありません。
           </p>
         </section>
         <h2 className="mt-7 text-lg font-black">銘柄ごとに調べる</h2>
