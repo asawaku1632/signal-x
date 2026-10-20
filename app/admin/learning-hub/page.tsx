@@ -74,6 +74,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "買い候補→見送りなどAI評価帯の変化回数と翌営業日の成績を比較",
       },
       {
+        href: "/admin/weak-ai-rebound", icon: "🔬",
+        title: "弱いAI判定からの逆張り反発研究", tag: "本人専用・前向き検証",
+        detail: "AI POWER55未満の5銘柄を前夜固定し、翌9:10参考価格から1・3・5・10日後を検証",
+      },
+      {
         href: "/admin/exit-timing-study", icon: "⏰",
         title: "朝9:10購入・4つの利確時刻研究", tag: "本人専用・自動検証",
         detail: "同じ前夜5銘柄を9:10に仮想購入し、9:30・10:00・11:30・大引けの損益と最大下落を比較",
