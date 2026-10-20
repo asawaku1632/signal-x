@@ -80,3 +80,42 @@ test("forward-only full-universe audit compares +3% rebounds without equating AV
   assert.match(page, /outcome\.rebounded \/ outcome\.checked/);
   assert.match(page, /集計待ち/);
 });
+
+test("AVOID score breakdown uses exactly four disjoint numeric boundaries without changing stored status", () => {
+  assert.match(audit, /'0-19', 1, 0::numeric, 20::numeric/);
+  assert.match(audit, /'20-39', 2, 20::numeric, 40::numeric/);
+  assert.match(audit, /'40-54', 3, 40::numeric, 55::numeric/);
+  assert.match(audit, /'55-64', 4, 55::numeric, 65::numeric/);
+  assert.match(audit, /obs\.decision_status = 'AVOID'/);
+  assert.match(audit, /obs\.ai_power >= bands\.min_power AND obs\.ai_power < bands\.max_power/);
+  assert.match(audit, /WHERE obs\.rule_version = \$1/);
+  assert.doesNotMatch(audit, /UPDATE\s+public\.swing_universe_observations\s+SET\s+decision_status/);
+});
+
+test("the breakdown counts only verified horizon prices, including zero observations and downside", () => {
+  assert.match(audit, /VALUES \(1, m\.return_1d\), \(3, m\.return_3d\)/);
+  assert.match(audit, /\(5, m\.return_5d\), \(10, m\.return_10d\)/);
+  assert.match(audit, /COUNT\(e\.ret\)::text AS checked/);
+  assert.match(audit, /COUNT\(DISTINCT e\.trade_date\) FILTER \(WHERE e\.ret IS NOT NULL\)/);
+  assert.match(audit, /e\.ret > 0/);
+  assert.match(audit, /e\.ret < 0/);
+  assert.match(audit, /e\.ret >= 3/);
+  assert.match(audit, /e\.ret <= -3/);
+  assert.match(audit, /PERCENTILE_CONT\(0\.5\)/);
+  assert.match(audit, /ROUND\(MIN\(e\.ret\), 2\)/);
+  assert.match(audit, /avoidBreakdown,/);
+});
+
+test("the mobile UI shows 1/3/5/10 day counts, downside, missingness and EXIT distinction", () => {
+  const page = read("app/simulation/universe-check/page.tsx");
+  assert.match(page, /report\.avoidBreakdown\.map/);
+  assert.match(page, /見送り.*AI POWER別・反発検証/);
+  assert.match(page, /o\.checkedDays/);
+  assert.match(page, /o\.minus3/);
+  assert.match(page, /o\.worstReturnPercent/);
+  assert.match(page, /o\.medianReturnPercent/);
+  assert.match(page, /checked \? \(100 \* count \/ checked\)/);
+  assert.match(page, /新しい「弱いAI判定からの逆張り反発研究」/);
+  assert.match(page, /実際の「撤退候補」/);
+  assert.doesNotMatch(page, /自動購入|買い確定/);
+});
