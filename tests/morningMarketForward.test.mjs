@@ -91,3 +91,12 @@ test("future revised reference timestamps are excluded",()=>{
   snapshots[0].quotes.nasdaq.state="UNAVAILABLE";
   assert.equal(summarizeMorningMarketForward(snapshots,runs).pairs,0);
 });
+
+test("persisted quote later than its preopen capture cannot leak into results",()=>{
+  const {snapshots,runs}=fixtures(1);
+  snapshots[0].quotes.dow.sourceTimestamp=jst("2026-10-01",9,10).toISOString();
+  assert.equal(summarizeMorningMarketForward(snapshots,runs).pairs,0);
+  snapshots[0].quotes.dow.sourceTimestamp="2026-09-30T22:00:00Z";
+  snapshots[0].quotes.nasdaq.quoteDate="2026-10-02";
+  assert.equal(summarizeMorningMarketForward(snapshots,runs).pairs,0);
+});
