@@ -123,6 +123,18 @@
     {
       "path": "/api/cron/crash-forward-research",
       "schedule": "20 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/morning-final-check?phase=freeze",
+      "schedule": "10 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/morning-final-check?phase=morning",
+      "schedule": "8 0 * * 1-5"
+    },
+    {
+      "path": "/api/cron/morning-final-check?phase=closing",
+      "schedule": "5 8 * * 1-5"
     }
   ]
 }
