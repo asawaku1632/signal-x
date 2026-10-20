@@ -3,7 +3,7 @@
  * Never re-label historic decisions; never promote from a cherry-picked subset.
  */
 export const ALLSTAR_POLICY="ALLSTAR_FIVE_DAY_COHORT_V1";
-export const DISCOVERY_END="2026-11-30";
+export const DISCOVERY_END="2026-11-20";
 export const CONFIRMATION_FROM="2026-12-01";
 export const STUDIES=Object.freeze([
   {key:"MM_V1",title:"🚀 爆益前兆 / Momentum Memory",href:"/admin/momentum-memory",family:"signal",
