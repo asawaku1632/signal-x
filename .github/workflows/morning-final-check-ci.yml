@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - "app/lib/research/morningFinalCheck.mjs"
+      - "app/lib/research/morningMarketForward.mjs"
+      - "app/lib/research/morningMarketForwardRunner.ts"
+      - "app/api/cron/morning-market-forward/**"
+      - "app/components/research/MorningMarketForwardResults.tsx"
+      - "tests/morningMarketForward.test.mjs"
+      - "supabase/migrations/20261021_create_morning_market_forward_runs.sql"
       - "app/lib/research/morningFinalCheckRunner.ts"
       - "app/admin/morning-final-check/**"
       - "app/admin/learning-hub/page.tsx"
@@ -19,7 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morningFinalCheck.test.mjs tests/nightMorningWatch.test.mjs
+      - run: node --test tests/morningFinalCheck.test.mjs tests/nightMorningWatch.test.mjs tests/morningMarketForward.test.mjs tests/morningExternalContext.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
