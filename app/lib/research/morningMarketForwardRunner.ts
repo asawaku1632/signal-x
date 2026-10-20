@@ -7,7 +7,7 @@ import {
 } from "./morningMarketForward.mjs";
 
 type Quote={price:number;changePct:number;quoteDate:string;
-  sourceTimestamp:string;state:"REFERENCE"|"STALE"};
+  sourceTimestamp:string;state:string};
 type Entry={key:string;symbol:string;zone:string;label:string};
 const TIMEOUT=7_000;
 
