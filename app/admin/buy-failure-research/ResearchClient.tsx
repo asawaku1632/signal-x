@@ -87,7 +87,7 @@ export default function ResearchClient() {
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
             {[1, 3, 5, 10, 20].map((day) => {
               const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
-              const due = outcomes.filter((outcome) => outcome && outcome.status !== "NOT_YET_DUE" && outcome.status !== "CALENDAR_UNAVAILABLE");
+              const due = outcomes.filter((outcome) => outcome && ["MISSING", "UNVERIFIED", "VERIFIED"].includes(outcome.status));
               const available = due.filter((outcome) => outcome && (outcome.status === "UNVERIFIED" || outcome.status === "VERIFIED"));
               return <div key={day} className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800">
                 <p className="font-bold">{day}営業日</p>
@@ -97,7 +97,7 @@ export default function ResearchClient() {
             })}
           </div>
           <p className="mt-1 text-xs text-slate-500">未到来・営業日未確定は分母から除外。記録ありは価格の検証済みを意味しません。到来済0件の場合も0/0と表示します。</p>
-          <p className="mt-1 text-xs text-slate-500">代表候補は今回表示した記録の中で銘柄・日本時間の日付ごとに最も早い監視開始です。抽出範囲外にさらに早い記録がある可能性があり、全履歴の確定代表ではありません。ほかの記録も保持します。</p>
+          <p className="mt-1 text-xs text-slate-500">代表判定は保存された全監視履歴に基づきます。画面の銘柄×日付数は表示範囲のみの集計です。全イベントを保持し、同一銘柄の別日も独立試行とは限りません。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
         {report.items.map((item, index) => <section key={item.code + ":" + item.triggeredAt + ":" + index} className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
