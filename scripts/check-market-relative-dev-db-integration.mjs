@@ -44,6 +44,8 @@ const persistence = load("app/lib/research/marketRelativeSnapshotPersistence.ts"
 const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 10000 });
 await client.connect();
 let transactionStarted = false;
+let probeSignalId;
+let testPassed = false;
 try {
   const identity = await client.query("select current_database() as db");
   await client.query("BEGIN");
@@ -56,6 +58,7 @@ try {
     capturedAt: "2026-10-21T09:05:15+09:00",
     source: "synthetic-integration", version: "dev-v1",
   };
+  probeSignalId = input.signalId;
   const storage = { query: (sql, params) => client.query(sql, params) };
   assert.equal((await persistence.persistResearchSnapshot(storage, input)).status, "inserted");
   assert.equal((await persistence.persistResearchSnapshot(storage, input)).status, "duplicate");
@@ -65,8 +68,19 @@ try {
     [input.signalId],
   );
   assert.equal(Number(original.rows[0].ai_power), 93);
-  console.log("PASS: 4 real PostgreSQL development integration assertions", identity.rows[0].db);
+  testPassed = true;
 } finally {
-  if (transactionStarted) await client.query("ROLLBACK");
-  await client.end();
+  try {
+    if (transactionStarted) await client.query("ROLLBACK");
+    if (testPassed) {
+      const check = await client.query(
+        "select count(*)::int as n from public.market_relative_prospective_ledger where signal_id=$1",
+        [probeSignalId],
+      );
+      assert.equal(Number(check.rows[0].n), 0, "Probe row must be absent after rollback");
+      console.log("PASS: 5 real PostgreSQL development integration assertions including rollback");
+    }
+  } finally {
+    await client.end();
+  }
 }
