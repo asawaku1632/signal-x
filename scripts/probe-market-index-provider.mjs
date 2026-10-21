@@ -1,5 +1,5 @@
 // Manual, read-only research diagnostic. Never persists observations or places orders.
-const symbols = { nikkei: "^N225", topix: "998405.T" };
+const symbols = { nikkei: "^N225", topix_998405: "998405.T", topix_topx: "^TOPX", topix_topix: "^TOPIX", topix_tpx: "^TPX" };
 for (const [index, symbol] of Object.entries(symbols)) {
   const url = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) + "?range=1d&interval=1m";
   try {
