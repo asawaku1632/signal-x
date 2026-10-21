@@ -40,3 +40,11 @@ test("invalid prices and missing source metadata never pass review", () => {
   assert.ok(result.reasons.includes("SOURCE_UNDOCUMENTED"));
   assert.ok(result.reasons.includes("RETRIEVAL_TIME_MISSING"));
 });
+
+test("non-UTC or timezone-ambiguous retrieval times are rejected", () => {
+  for (const timestamp of ["2026-10-21T08:00:00", "2026-10-21T17:00:00+09:00"]) {
+    const result = compareIndependentDailyReference({ ...sample, retrievalTimestamp: timestamp });
+    assert.ok(result.reasons.includes("RETRIEVAL_TIME_MISSING"));
+    assert.equal(result.canPublishReturn, false);
+  }
+});
