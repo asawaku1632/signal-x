@@ -61,6 +61,12 @@ export default function ResearchClient() {
             <p className="mt-1 text-xl font-black">{stat.value ?? "—"}</p>
           </div>)}
         </section>
+        <section className="rounded-xl border bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <p className="font-bold">データ品質（今回の抽出範囲）</p>
+          <p className="mt-1">抽出：{report.sampled ?? "—"}件 ／ 有効：{report.items.length}件 ／ 除外：{report.excluded}件</p>
+          <p className="mt-1">有効記録率：{report.sampled ? (100 * report.items.length / report.sampled).toFixed(1) + "%" : "—"}</p>
+          <p className="mt-1 text-xs text-slate-500">全履歴の有効率ではありません。価格の独立検証・株式分割調整は未完了です。</p>
+        </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
         {report.items.map((item, index) => <section key={item.code + ":" + item.triggeredAt + ":" + index} className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2">
