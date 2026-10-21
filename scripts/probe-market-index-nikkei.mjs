@@ -41,7 +41,24 @@ try {
       payload: JSON.parse(body),
       capturedAt: new Date().toISOString(),
     });
-    console.log(JSON.stringify({ ...observation, persisted: false, productionConnected: false }, null, 2));
+    const result = JSON.parse(body)?.chart?.result?.[0];
+    const lastTimestamp = Array.isArray(result?.timestamp) ? result.timestamp.at(-1) : null;
+    const observedAt = typeof lastTimestamp === "number" && Number.isSafeInteger(lastTimestamp) &&
+      lastTimestamp > 0 ? new Date(lastTimestamp * 1000).toISOString() : null;
+    const captureTime = new Date();
+    const ageMinutes = observedAt ? Math.round((captureTime.getTime() -
+      Date.parse(observedAt)) / 60000 * 10) / 10 : null;
+    const diagnostics = {
+      source: "yahoo-unofficial-chart:^N225:1m",
+      observedAt,
+      capturedAt: captureTime.toISOString(),
+      ageMinutes,
+      maxAgeMinutes: 20,
+      freshness: observation.status,
+      persisted: false,
+      productionConnected: false,
+    };
+    console.log(JSON.stringify({ ...observation, diagnostics }, null, 2));
     if (observation.status !== "observed") process.exitCode = 1;
   }
 } catch (error) {
