@@ -29,6 +29,18 @@ export default function ResearchClient() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [probeBusy, setProbeBusy] = useState(false);
+  const [probeStatus, setProbeStatus] = useState("");
+  const runProbe = async () => {
+    setProbeBusy(true);
+    setProbeStatus("");
+    try {
+      const response = await fetch("/api/admin/jquants-research-probe", { method: "POST", cache: "no-store" });
+      const result = await response.json() as { status?: string };
+      setProbeStatus(result.status ?? "UNAVAILABLE");
+    } catch { setProbeStatus("NETWORK_ERROR"); }
+    finally { setProbeBusy(false); }
+  };
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -64,6 +76,12 @@ export default function ResearchClient() {
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
         ⚠️ 研究段階：日次学習の保存価格はスキャン由来の参考値で、正式な大引け終値ではありません。直近の保存ログでは多くが15:15以前の5分足を参照しており、銘柄ごとに時刻は異なります。独立検証・株式分割調整も未確認です。回復率・勝率・推奨売買は表示しません。
       </p>
+      <section className="rounded-xl border bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="font-bold">🔒 J-Quants 接続診断（管理者専用・研究）</p>
+        <p className="mt-1 text-xs leading-5">Preview環境でのみ有効。固定した過去の1件を読み取り確認します。APIキー・株価は表示せず、検証済み利益率にも反映しません。</p>
+        <button type="button" disabled={probeBusy} onClick={() => void runProbe()} className="mt-3 rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-50">{probeBusy ? "接続確認中…" : "過去データの接続を確認"}</button>
+        {probeStatus && <p role="status" className="mt-2 break-words text-xs">診断結果：{probeStatus === "HISTORICAL_BAR_PRESENT" ? "過去データを1件取得できました（価格検証は未完了）" : probeStatus === "RESEARCH_PROBE_DISABLED" ? "安全設定により無効です（Preview用フラグ未設定）" : probeStatus === "KEY_NOT_CONFIGURED" ? "PreviewのAPIキーが見つかりません" : probeStatus === "AUTH_OR_ENTITLEMENT_REJECTED" ? "認証または契約プランの確認が必要です" : probeStatus === "NO_UNAMBIGUOUS_BAR" ? "指定日のデータが取得できませんでした" : probeStatus === "RATE_LIMITED" ? "APIの回数制限に達しました" : "確認できませんでした（" + probeStatus + "）"}</p>}
+      </section>
       {loading && <p className="rounded-xl border p-4 text-sm">研究データを読み込み中…</p>}
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{error}</p>}
       {report && <div className="space-y-3">
