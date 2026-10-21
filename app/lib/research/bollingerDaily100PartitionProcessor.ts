@@ -13,7 +13,7 @@ export async function processDaily100Partition(args:{
   partitionId:number;
   codes:readonly string[];
   claimed:boolean;
-  fetchCompletedDaily:(code:string)=>Promise<unknown>;
+  fetchCompletedDaily:(code:string,signal:AbortSignal)=>Promise<unknown>;
   validateCompletedDaily:(code:string,source:unknown)=>boolean;
   persistChecks:(result:Daily100Result)=>Promise<void>;
   timeoutMs?:number;
@@ -26,15 +26,15 @@ export async function processDaily100Partition(args:{
   if(!Number.isInteger(timeout)||timeout<1||timeout>DAILY_100_SOURCE_TIMEOUT_MS)
     throw Error("DAILY100_TIMEOUT_INVALID");
   const checks:Daily100Check[]=new Array(args.codes.length);
-  let cursor=0;
+  let cursor=0;\n  let stopped=false;
   async function worker(){
-    while(cursor<args.codes.length){
+    while(cursor<args.codes.length && !stopped){
       const index=cursor++,code=args.codes[index];
-      let timer:ReturnType<typeof setTimeout>|undefined;
+      let timer:ReturnType<typeof setTimeout>|undefined;\n      const controller=new AbortController();
       try{
         const source=await Promise.race([
-          Promise.resolve().then(()=>args.fetchCompletedDaily(code)),
-          new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error("SOURCE_TIMEOUT")),timeout);})
+          Promise.resolve().then(()=>args.fetchCompletedDaily(code,controller.signal)),
+          new Promise<never>((_,reject)=>{timer=setTimeout(()=>{stopped=true;controller.abort();reject(Error("SOURCE_TIMEOUT"));},timeout);})
         ]);
         if(!args.validateCompletedDaily(code,source))throw Error("SOURCE_NOT_COMPLETED");
         checks[index]={code,state:"OK",note:null};
@@ -45,7 +45,7 @@ export async function processDaily100Partition(args:{
     }
   }
   await Promise.all(Array.from({length:Math.min(DAILY_100_MAX_CONCURRENCY,args.codes.length)},()=>worker()));
-  const observed=checks.filter(c=>c.state==="OK").length,failed=checks.length-observed;
+  // Any unstarted codes after a timeout are explicitly recorded as failed.\n  for(let i=0;i<checks.length;i++)if(!checks[i])checks[i]={code:args.codes[i],state:"SOURCE_FAILED",note:"STOPPED_AFTER_TIMEOUT"};\n  const observed=checks.filter(c=>c.state==="OK").length,failed=checks.length-observed;
   const result:Daily100Result={partitionId:args.partitionId,requested:checks.length,observed,failed,
     status:failed===0?"COMPLETE":observed===0?"FAILED":"PARTIAL",checks};
   // Persist failure must propagate. Never claim success when audit persistence fails.
