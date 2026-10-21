@@ -14,6 +14,7 @@ import AICommentCard from "./components/AICommentCard";
 import AIPredictionCard from "./components/AIPredictionCard";
 import { buildAIAdvice, getAIAdviceImportance } from "./aiAdvice";
 import densityStyles from "./chart-density.module.css";
+import { intradayBarDelayMinutes } from "../../lib/chartIntradayBarDelay.mjs";
 
 type SupportResistanceStatus =
   | "BREAKOUT"
@@ -271,11 +272,21 @@ export default function ChartPage() {
   const [chart, setChart] = useState<ChartApi | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
   const [chartLoading, setChartLoading] = useState(true);
+  const [nowMs, setNowMs] = useState<number | null>(null);
   const [showScrollCue, setShowScrollCue] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(true);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [favoriteError, setFavoriteError] = useState("");
+
+  useEffect(() => {
+    // Client-only clock avoids hydration mismatches and ages the displayed
+    // candle even when the user keeps this page open during the session.
+    const refreshClock = () => setNowMs(Date.now());
+    refreshClock();
+    const interval = window.setInterval(refreshClock, 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const updateScrollCue = () => setShowScrollCue(window.scrollY <= 12);
@@ -459,10 +470,13 @@ export default function ChartPage() {
     typeof chart.latestBarTimestamp === "number" &&
     Number.isFinite(chart.latestBarTimestamp) &&
     chart.latestBarTimestamp > 0;
+  const delayMinutes = intradayBarDelayMinutes(chart.latestBarTimestamp, nowMs, timeframe);
+  const intradayDelayed = delayMinutes !== null;
   const historicalQuote =
     !quoteTimestampKnown ||
     quoteIsFromEarlierDay(chart.latestBarTimestamp) ||
-    chart.status === "stale";
+    chart.status === "stale" ||
+    intradayDelayed;
   const referencePriceLabel = historicalQuote ? "前回参考値" : "参考値";
   const currentPrice = chart.currentPrice ?? resolvedStock.price ?? 0;
 
@@ -585,9 +599,10 @@ export default function ChartPage() {
           {historicalQuote ? (
             <div role="status" className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
               <p className="font-black">
-                ⚠ {quoteTimestampKnown ? "前回の株価・AI判定を表示中" : "株価の取得時刻が不明です"}
+                ⚠ {intradayDelayed ? "当日5分足の更新が遅れています" : quoteTimestampKnown ? "前回の株価・AI判定を表示中" : "株価の取得時刻が不明です"}
               </p>
-              <p>この画面の「買い候補」や価格は保存時点の参考情報です。今日の値動きや購入可否を示すものではありません。証券会社の最新株価を確認してください。</p>
+              {intradayDelayed ? <p>最終ローソク足は約{delayMinutes}分前（{chartQuoteAsOf(chart.latestBarTimestamp)}）です。取得済みの価格とAI判定は今の相場を反映していません。</p> : null}
+              <p>この画面のAI判定や価格は取得時点の参考情報です。現在の値動きや購入可否を示すものではありません。証券会社の最新株価を確認してください。</p>
             </div>
           ) : null}
           <ChartHeader
@@ -606,6 +621,7 @@ export default function ChartPage() {
             Yahoo Finance参考価格・最終ローソク足: {chartQuoteAsOf(chart.latestBarTimestamp)}（日本時間）。リアルタイムの約定価格ではありません。
             {quoteTimestampKnown && quoteIsFromEarlierDay(chart.latestBarTimestamp) ? <p className="text-red-700">⚠ 最終足は本日分ではありません。証券会社の最新株価を確認してください。</p> : null}
             {chart.status === "stale" ? <p className="text-red-700">⚠ データ更新失敗のため保存済みチャートを表示中です。</p> : null}
+            {intradayDelayed ? <p className="text-red-700">⚠ 5分足が約{delayMinutes}分前のままです。9:05などの直近の売買判断には使用しないでください。</p> : null}
           </div>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-2">
