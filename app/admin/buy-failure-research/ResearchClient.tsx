@@ -24,7 +24,7 @@ export default function ResearchClient() {
     setError("");
     try {
       const response = await fetch("/api/admin/buy-failure-forward-preview", { cache: "no-store" });
-      if (response.status === 403) throw new Error("管理者のみ閲覧できます。");
+      if (response.status === 401 || response.status === 403) throw new Error("管理者のみ閲覧できます。");
       const data = await response.json() as Report;
       if (!response.ok || !data.success) throw new Error(data.error || "研究データを取得できませんでした。");
       setReport(data);
@@ -39,7 +39,7 @@ export default function ResearchClient() {
 
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-2xl space-y-4">
-      <Link href="/admin" className="text-sm font-bold text-blue-600">← 管理室へ</Link>
+      <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-600">← 学習データ・管理室へ</Link>
       <header className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-xs font-black tracking-wider text-blue-600">OWNER PRIVATE / READ ONLY</p>
         <h1 className="mt-2 text-xl font-black">📉 買いシグナル後の下落・回復研究</h1>
