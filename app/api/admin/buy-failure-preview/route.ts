@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const { isAdmin } = await getAdminSession();
-  if (!isAdmin) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  if (!isAdmin) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
   try {
     const preview = await getBuyActivationPreview();
     return NextResponse.json({
