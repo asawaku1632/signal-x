@@ -37,6 +37,12 @@ export default function ResearchClient() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
+  const earliestByCodeDay = new Map<string, string>();
+  for (const item of report?.items ?? []) {
+    const key = item.code + ":" + item.signalDate;
+    const previous = earliestByCodeDay.get(key);
+    if (!previous || item.triggeredAt < previous) earliestByCodeDay.set(key, item.triggeredAt);
+  }
   return <main className="min-h-screen bg-slate-50 px-3 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div className="mx-auto max-w-2xl space-y-4">
       <Link href="/admin/learning-hub" className="text-sm font-bold text-blue-600">← 学習データ・管理室へ</Link>
@@ -74,14 +80,17 @@ export default function ResearchClient() {
           <p className="mt-1">監視イベント：{report.items.length}件</p>
           <p>銘柄×日付：{new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}組</p>
           <p>異なる銘柄：{new Set(report.items.map((item) => item.code)).size}銘柄</p>
-          <p>重複イベント：{report.items.length - new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}件</p>
+          <p>重複イベント：{report.items.length - earliestByCodeDay.size}件</p>
           <p className="mt-1 text-xs text-slate-500">代表記録は銘柄・日本時間の日付ごとに最初の監視記録を採用。ほかの記録も保持し、独立した予測回数としては数えません。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
         {report.items.map((item, index) => <section key={item.code + ":" + item.triggeredAt + ":" + index} className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-black">{item.code} {item.name}</h2>
-            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">{item.status === "CALENDAR_UNAVAILABLE" ? "営業日未確定" : "未検証"}</span>
+            <div className="flex flex-wrap justify-end gap-1">
+              <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-900">{earliestByCodeDay.get(item.code + ":" + item.signalDate) === item.triggeredAt ? "同日代表候補" : "同日追加記録"}</span>
+              <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">{item.status === "CALENDAR_UNAVAILABLE" ? "営業日未確定" : "未検証"}</span>
+            </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">監視開始：{item.triggeredAt} / AI POWER：{item.aiPower ?? "—"}</p>
           <p className="mt-1 text-xs text-slate-500">参考基準価格：{item.referencePrice?.toLocaleString("ja-JP") ?? "—"}円（約定価格ではありません）</p>
