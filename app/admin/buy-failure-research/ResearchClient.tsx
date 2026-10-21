@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 type Outcome = { horizon: number; targetDate: string | null; status: string; returnPct: number | null };
 type Item = {
   code: string; name: string; triggeredAt: string; signalDate: string;
-  referencePrice: number; aiPower: number; status: string; calendarAnchor?: string;
+  referencePrice: number; aiPower: number; status: string; sameDayRole?: "REPRESENTATIVE" | "ADDITIONAL"; calendarAnchor?: string;
   availablePriceSessions?: number; notYetDueSessions?: number; outcomes: Outcome[];
 };
 type Report = { success: boolean; total: number; excluded: number; sampled?: number; exclusionReasons?: Record<string, number>; items: Item[]; caveat: string; error?: string };
@@ -88,7 +88,7 @@ export default function ResearchClient() {
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-black">{item.code} {item.name}</h2>
             <div className="flex flex-wrap justify-end gap-1">
-              <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-900">{earliestByCodeDay.get(item.code + ":" + item.signalDate) === item.triggeredAt ? "同日代表候補" : "同日追加記録"}</span>
+              <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-900">{item.sameDayRole === "REPRESENTATIVE" ? "全履歴・同日代表" : item.sameDayRole === "ADDITIONAL" ? "同日追加記録" : earliestByCodeDay.get(item.code + ":" + item.signalDate) === item.triggeredAt ? "表示内代表候補" : "同日追加記録"}</span>
               <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">{item.status === "CALENDAR_UNAVAILABLE" ? "営業日未確定" : "未検証"}</span>
             </div>
           </div>
