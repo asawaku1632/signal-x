@@ -41,3 +41,20 @@ test("audit write failure propagates",async()=>{
 test("invalid code and partition fail before fetching",async()=>{
  await assert.rejects(run({...base,codes:[...codes.slice(0,19),"BAD!"],fetchCompletedDaily:async()=>{},persistChecks:async()=>{}}),/INVALID_PARTITION/);
 });
+
+test("timeout aborts in-flight calls and prevents dispatching remaining codes",async()=>{
+ let calls=0,aborts=0;
+ const result=await run({...base,timeoutMs:5,
+  fetchCompletedDaily:async(_code,signal)=>{
+   calls++;
+   return new Promise((_resolve,reject)=>{
+    signal.addEventListener("abort",()=>{aborts++;reject(Error("ABORTED"));},{once:true});
+   });
+  },persistChecks:async()=>{}});
+ assert.equal(result.status,"FAILED");
+ assert.equal(result.checks.length,20);
+ assert.equal(result.failed,20);
+ assert.ok(calls<=3);
+ assert.equal(aborts,calls);
+ assert.ok(result.checks.some(c=>c.note==="STOPPED_AFTER_TIMEOUT"));
+});
