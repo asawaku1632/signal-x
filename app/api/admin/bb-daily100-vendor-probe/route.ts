@@ -19,13 +19,13 @@ export async function GET() {
       process.env.BB_DAILY100_DEV_DIAGNOSTIC !== "true") {
     return NextResponse.json({ success: false, error: "PREVIEW_ONLY_DISABLED" }, { status: 404, headers });
   }
-  const result = await probeDaily100Vendor(codes, async code => {
+  const result = await probeDaily100Vendor(codes, async (code, signal) => {
     const url = "https://query1.finance.yahoo.com/v8/finance/chart/" +
       encodeURIComponent(code + ".T") + "?range=2y&interval=1d&events=splits";
     const response = await fetch(url, {
       cache: "no-store",
       headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(12000),
+      signal,
     });
     if (!response.ok) throw Error("PRICE_PROVIDER_STATUS_" + response.status);
     const payload = await response.json();
