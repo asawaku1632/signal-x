@@ -2,6 +2,7 @@ import pool from "@/app/lib/postgres";
 import { resolveTseTradingDatesAfter, isTseTargetDateReady, isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import { getBuyActivationPreview } from "@/app/lib/research/buyFailureReadOnly";
 import { evaluateBuySignalForward } from "@/app/lib/research/buySignalForwardCore.mjs";
+import { classifyResearchCheckpoint, tokyoDateOnly } from "@/app/lib/research/buyFailureCheckpointPolicy.mjs";
 
 
 type PriceRow = { session_date: Date | string; price: string | number };
@@ -18,11 +19,7 @@ export async function previewBuySignalForward(limit = 20) {
   const items = [];
   const now = new Date();
   for (const event of rows) {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-    }).formatToParts(new Date(event.triggeredAt));
-    const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
-    const signalDate = [part("year"), part("month"), part("day")].join("-");
+    const signalDate = tokyoDateOnly(event.triggeredAt);
     let tradingDates: string[];
     let calendarAnchor = signalDate;
     try {
@@ -65,9 +62,8 @@ export async function previewBuySignalForward(limit = 20) {
       notYetDueSessions: tradingDates.filter((date) => !isTseTargetDateReady(date, now)).length,
       outcomes: evaluation.outcomes.map((outcome) => ({
         ...outcome,
-        status: outcome.status === "PENDING_OR_MISSING" && outcome.targetDate &&
-          !isTseTargetDateReady(outcome.targetDate, now) ? "NOT_YET_DUE" :
-          outcome.status === "PENDING_OR_MISSING" ? "MISSING" : outcome.status,
+        status: classifyResearchCheckpoint(outcome.status, outcome.targetDate,
+          outcome.targetDate ? isTseTargetDateReady(outcome.targetDate, now) : false),
       })),
       worstCloseDrawdownPct: evaluation.worstCloseDrawdownPct,
       firstCloseRecoverySession: evaluation.firstCloseRecoverySession,
