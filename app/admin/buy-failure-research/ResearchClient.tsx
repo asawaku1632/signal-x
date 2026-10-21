@@ -6,12 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 type Outcome = { horizon: number; targetDate: string | null; status: string; returnPct: number | null };
 type Item = {
   code: string; name: string; triggeredAt: string; signalDate: string;
-  referencePrice: number; aiPower: number; status: string;
+  referencePrice: number; aiPower: number; status: string; calendarAnchor?: string;
   availablePriceSessions?: number; notYetDueSessions?: number; outcomes: Outcome[];
 };
 type Report = { success: boolean; total: number; excluded: number; items: Item[]; caveat: string; error?: string };
 const stateText = (status: string) => ({
-  VERIFIED: "検証済み", UNVERIFIED: "価格未検証", PENDING_OR_MISSING: "未到来・欠損",
+  VERIFIED: "検証済み", UNVERIFIED: "価格未検証", NOT_YET_DUE: "未到来", MISSING: "データ欠損", PENDING_OR_MISSING: "未到来・欠損",
   CALENDAR_UNAVAILABLE: "営業日未確定",
 }[status] ?? "未確認");
 
@@ -69,6 +69,7 @@ export default function ResearchClient() {
           </div>
           <p className="mt-2 text-xs text-slate-500">監視開始：{item.triggeredAt} / AI POWER：{item.aiPower ?? "—"}</p>
           <p className="mt-1 text-xs text-slate-500">参考基準価格：{item.referencePrice?.toLocaleString("ja-JP") ?? "—"}円（約定価格ではありません）</p>
+          {item.calendarAnchor && item.calendarAnchor !== item.signalDate && <p className="mt-2 text-xs text-amber-700">休場日記録：追跡の営業日基準は {item.calendarAnchor}（約定日ではありません）</p>}
           <p className="mt-2 text-xs">価格記録：{item.availablePriceSessions ?? 0}営業日分 ／ 未到来：{item.notYetDueSessions ?? "—"}営業日</p>
           <div className="mt-3 grid grid-cols-5 gap-1">
             {[1, 3, 5, 10, 20].map((day) => {
