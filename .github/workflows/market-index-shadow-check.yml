@@ -4,6 +4,7 @@ on:
     paths:
       - 'app/lib/research/marketIndex*'
       - 'scripts/check-market-index-shadow.mjs'
+      - 'scripts/probe-market-index-provider.mjs'
       - '.github/workflows/market-index-shadow-check.yml'
   workflow_dispatch:
 
@@ -23,3 +24,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Validate shadow index data contract
         run: node scripts/check-market-index-shadow.mjs
+  provider-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only Yahoo chart diagnostic (no database access)
+        run: node scripts/probe-market-index-provider.mjs
