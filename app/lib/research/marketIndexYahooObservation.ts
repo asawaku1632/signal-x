@@ -10,6 +10,9 @@ const YAHOO_INDEX_SYMBOLS: Record<MarketIndexKey, string> = {
  * A provider result is rejected unless its identity, price and timestamp match.
  */
 export async function fetchTimestampedMarketIndex(index: MarketIndexKey, capturedAt = new Date().toISOString()) {
+  if (index === "topix") {
+    return { index, status: "missing" as const, reason: "TOPIX Yahoo chart source unverified (multiple symbols returned HTTP 404); ingestion disabled" };
+  }
   const symbol = YAHOO_INDEX_SYMBOLS[index];
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1m`;
   const response = await fetch(url, { cache: "no-store", headers: { "User-Agent": "Mozilla/5.0" } });
