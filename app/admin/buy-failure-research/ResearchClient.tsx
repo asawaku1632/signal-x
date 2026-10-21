@@ -65,6 +65,8 @@ export default function ResearchClient() {
           <p className="font-bold">データ品質（今回の抽出範囲）</p>
           <p className="mt-1">抽出：{report.sampled ?? "—"}件 ／ 有効：{report.items.length}件 ／ 除外：{report.excluded}件</p>
           <p className="mt-1">有効記録率：{report.sampled ? (100 * report.items.length / report.sampled).toFixed(1) + "%" : "—"}</p>
+          <p className="mt-1 text-xs">除外理由：コード {report.exclusionReasons?.INVALID_CODE ?? 0}件 ／ 日時 {report.exclusionReasons?.INVALID_TIMESTAMP ?? 0}件 ／ 価格 {report.exclusionReasons?.INVALID_PRICE ?? 0}件 ／ AI評価 {report.exclusionReasons?.INVALID_AI_POWER ?? 0}件</p>
+          <p className="mt-1 text-xs text-slate-500">除外理由は1件に複数該当する場合があります。</p>
           <p className="mt-1 text-xs text-slate-500">全履歴の有効率ではありません。価格の独立検証・株式分割調整は未完了です。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
