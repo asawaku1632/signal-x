@@ -26,16 +26,17 @@ describe("timestamped research-only index fetch", () => {
       expect.stringContaining("%5EN225"), expect.any(Object));
   });
   it("rejects a provider symbol mismatch", async () => {
-    mockChart("^N225", timestamp, 3000);
-    expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("invalid");
+    mockChart("998405.T", timestamp, 3000);
+    expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("missing");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
   it("rejects stale prices even when numeric", async () => {
-    mockChart("998405.T", timestamp - 3600, 3000);
-    expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("stale");
+    mockChart("^N225", timestamp - 3600, 3000);
+    expect((await fetchTimestampedMarketIndex("nikkei", capture)).status).toBe("stale");
   });
   it("rejects missing price without inventing a timestamp", async () => {
-    mockChart("998405.T", timestamp, Number.NaN);
-    expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("missing");
+    mockChart("^N225", timestamp, Number.NaN);
+    expect((await fetchTimestampedMarketIndex("nikkei", capture)).status).toBe("missing");
   });
   it("does not accept an HTTP error as an observation", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429 } as Response);
