@@ -48,3 +48,10 @@ test("non-UTC or timezone-ambiguous retrieval times are rejected", () => {
     assert.equal(result.canPublishReturn, false);
   }
 });
+
+test("valid UTC retrieval timestamp is accepted for manual comparison", () => {
+  const result = compareIndependentDailyReference(sample);
+  assert.equal(result.reasons.includes("RETRIEVAL_TIME_MISSING"), false);
+  assert.equal(result.comparisonStatus, "COMPARABLE_FOR_MANUAL_REVIEW");
+  assert.equal(result.canPublishReturn, false);
+});
