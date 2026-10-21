@@ -35,3 +35,34 @@ test("invalid prices and duplicate dates fail closed", () => {
   assert.equal(result.outcomes[0].status, "UNVERIFIED");
   assert.throws(() => evaluateBuySignalForward({ ...base, observations: [observation(0, 90), observation(0, 100)] }), /DUPLICATE/);
 });
+
+test("verified adjusted boundary prices are computed only at exact horizons", () => {
+  const result = evaluateBuySignalForward({ ...base, observations: [
+    observation(0, 90), observation(2, 95), observation(4, 98),
+    observation(9, 100), observation(19, 110),
+  ] });
+  assert.deepEqual(result.outcomes.map((outcome) => outcome.horizon), [1, 3, 5, 10, 20]);
+  assert.deepEqual(result.outcomes.map((outcome) => outcome.status), Array(5).fill("VERIFIED"));
+  assert.deepEqual(result.outcomes.map((outcome) => outcome.returnPct), [-10, -5, -2, 0, 10]);
+  assert.equal(result.firstCloseRecoverySession, null,
+    "Path recovery must not be inferred when intermediate sessions are absent");
+});
+
+test("unverified first-day fall cannot become a confirmed recovery cohort", () => {
+  const result = evaluateBuySignalForward({ ...base, observations: [
+    observation(0, 80, { verified: false }), observation(2, 110),
+  ] });
+  assert.equal(result.outcomes[0].status, "UNVERIFIED");
+  assert.equal(result.outcomes[0].returnPct, null);
+  assert.equal(result.outcomes[1].status, "VERIFIED");
+  assert.equal(result.firstCloseRecoverySession, null);
+});
+
+test("path drawdown halts at the first missing or unadjusted session", () => {
+  const result = evaluateBuySignalForward({ ...base, observations: [
+    observation(0, 95), observation(1, 90, { corporateActionAdjusted: false }),
+    observation(2, 70), observation(3, 120),
+  ] });
+  assert.equal(result.worstCloseDrawdownPct, -5);
+  assert.equal(result.firstCloseRecoverySession, null);
+});
