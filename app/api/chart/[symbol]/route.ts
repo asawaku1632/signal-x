@@ -365,14 +365,16 @@ export async function GET(request: Request) {
   };
 
   if (snapshot && ageMs < CHART_FRESH_MS) {
-    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt });
+    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt,
+      chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), latestBarTimestamp: snapshot.payload?.latestBarTimestamp ?? null } });
   }
 
   if (snapshot) {
     try {
       const { response, payload } = await update();
       if (response.ok && payload?.success) {
-        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString() });
+        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(),
+            chartDiagnostics: { source: "upstream", latestBarTimestamp: payload.latestBarTimestamp ?? null } });
       }
     } catch (error) {
       console.error("chart synchronous refresh failed:", error);
@@ -383,9 +385,11 @@ export async function GET(request: Request) {
     after(async () => {
       await update().catch((error) => console.error("chart snapshot retry failed:", error));
     });
-    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt });
+    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt,
+      chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), latestBarTimestamp: snapshot.payload?.latestBarTimestamp ?? null } });
   }
 
   const { response, payload } = await update();
-  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString() }, { status: response.status });
+  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(),
+    chartDiagnostics: { source: "upstream", latestBarTimestamp: payload.latestBarTimestamp ?? null } }, { status: response.status });
 }

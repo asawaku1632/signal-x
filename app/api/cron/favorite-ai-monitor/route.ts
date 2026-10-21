@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buyQuoteFreshness } from "@/app/lib/buyQuoteFreshness.mjs";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
@@ -24,10 +25,11 @@ type Stock = {
   aiPower?: number;
   takeProfit?: number;
   stopLoss?: number;
+  latestBarTimestamp?: number | string | null;
+  dataSource?: string;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
-
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -55,6 +57,7 @@ export async function GET(req: Request) {
 
   const scanJson = await scanRes.json();
   const stocks: Stock[] = Array.isArray(scanJson?.stocks) ? scanJson.stocks : [];
+  const nowMs = Date.now();
   const started = [];
   const waiting = [];
 
@@ -80,6 +83,12 @@ export async function GET(req: Request) {
 
     if (watchState === "DISARMED") {
       waiting.push({ code: favorite.code, score, reason: "waiting_for_rearm", watchState });
+      continue;
+    }
+
+    const freshness = buyQuoteFreshness(stock, scanJson, nowMs);
+    if (!freshness.ok) {
+      waiting.push({ code: favorite.code, score, reason: freshness.reason });
       continue;
     }
 
