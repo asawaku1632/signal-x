@@ -30,11 +30,11 @@ describe("timestamped research-only index fetch", () => {
     expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("invalid");
   });
   it("rejects stale prices even when numeric", async () => {
-    mockChart("^TOPX", timestamp - 3600, 3000);
+    mockChart("998405.T", timestamp - 3600, 3000);
     expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("stale");
   });
   it("rejects missing price without inventing a timestamp", async () => {
-    mockChart("^TOPX", timestamp, Number.NaN);
+    mockChart("998405.T", timestamp, Number.NaN);
     expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("missing");
   });
   it("does not accept an HTTP error as an observation", async () => {
