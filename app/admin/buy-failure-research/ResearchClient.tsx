@@ -65,12 +65,12 @@ export default function ResearchClient() {
         {report.items.map((item, index) => <section key={item.code + ":" + item.triggeredAt + ":" + index} className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-black">{item.code} {item.name}</h2>
-            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">未検証</span>
+            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">{item.status === "CALENDAR_UNAVAILABLE" ? "営業日未確定" : "未検証"}</span>
           </div>
           <p className="mt-2 text-xs text-slate-500">監視開始：{item.triggeredAt} / AI POWER：{item.aiPower ?? "—"}</p>
           <p className="mt-1 text-xs text-slate-500">参考基準価格：{item.referencePrice?.toLocaleString("ja-JP") ?? "—"}円（約定価格ではありません）</p>
           {item.calendarAnchor && item.calendarAnchor !== item.signalDate && <p className="mt-2 text-xs text-amber-700">休場日記録：追跡の営業日基準は {item.calendarAnchor}（約定日ではありません）</p>}
-          <p className="mt-2 text-xs">価格記録：{item.availablePriceSessions ?? 0}営業日分 ／ 未到来：{item.notYetDueSessions ?? "—"}営業日</p>
+          {item.status === "CALENDAR_UNAVAILABLE" ? <p className="mt-2 text-xs text-amber-700">対象日が営業日カレンダーの対応範囲外、または営業日を確定できません。価格欠損や予測失敗として集計しません。</p> : <p className="mt-2 text-xs">価格記録：{item.availablePriceSessions ?? 0}営業日分 ／ 未到来：{item.notYetDueSessions ?? "—"}営業日</p>}
           <div className="mt-3 grid grid-cols-5 gap-1">
             {[1, 3, 5, 10, 20].map((day) => {
               const outcome = item.outcomes?.find((value) => value.horizon === day);
