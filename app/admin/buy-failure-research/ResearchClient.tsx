@@ -83,6 +83,22 @@ export default function ResearchClient() {
           <p>重複イベント：{report.items.length - earliestByCodeDay.size}件</p>
           <p>全履歴で判定した代表：{report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").length}件</p>
           <p>全履歴で判定した追加記録：{report.items.filter((item) => item.sameDayRole === "ADDITIONAL").length}件</p>
+
+          {(() => {
+            const representatives = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE");
+            const perCode = new Map<string, number>();
+            for (const item of representatives) perCode.set(item.code, (perCode.get(item.code) ?? 0) + 1);
+            const maxCount = Math.max(0, ...perCode.values());
+            const mostRepeated = [...perCode.entries()].filter(([, count]) => count === maxCount).map(([code]) => code);
+            return <div className="mt-2 rounded-lg bg-slate-100 p-2 text-xs dark:bg-slate-800">
+              <p className="font-bold">標本の偏りチェック（表示範囲）</p>
+              <p>代表記録 {representatives.length}件 ／ 対象銘柄 {perCode.size}銘柄</p>
+              <p>最多登場銘柄：{maxCount ? mostRepeated.join("・") + "（各" + maxCount + "件）" : "記録なし"}</p>
+              <p>最多登場銘柄の割合：{representatives.length ? (100 * maxCount / representatives.length).toFixed(1) + "%" : "—"}</p>
+              <p className="mt-1 text-slate-500">同じ銘柄の別日記録は相関する可能性があります。代表記録数を独立した検証回数とみなさず、銘柄数と偏りも併記します。</p>
+            </div>;
+          })()}
+
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
             <p className="font-bold">研究の進捗判定</p>
             <p>① 監視記録の収集：{report.items.length > 0 ? "記録あり" : "記録待ち"}</p>
