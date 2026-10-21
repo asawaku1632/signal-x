@@ -1,0 +1,34 @@
+name: Buy Signal Recovery Research Checks
+on:
+  push:
+    branches:
+      - research/signal-failure-recovery-20261021
+    paths:
+      - "app/lib/research/**"
+      - "app/api/admin/buy-failure-*/**"
+      - "tests/buySignalForward*.test.mjs"
+      - "tests/ownerPreviewPolicy.test.mjs"
+      - ".github/workflows/buy-signal-recovery-research-ci.yml"
+  pull_request:
+    paths:
+      - "app/lib/research/**"
+      - "app/api/admin/buy-failure-*/**"
+      - "tests/buySignalForward*.test.mjs"
+      - "tests/ownerPreviewPolicy.test.mjs"
+      - ".github/workflows/buy-signal-recovery-research-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
