@@ -54,7 +54,8 @@ export async function previewBuySignalForward(limit = 20) {
       verified: false, corporateActionAdjusted: false,
     }));
     const evaluation = evaluateBuySignalForward({
-      signalPrice: event.referencePrice, signalDate: calendarAnchor, tradingDates, observations,
+      signalPrice: event.referencePrice, signalPriceVerified: false, signalPriceCorporateActionAdjusted: false,
+      signalDate: calendarAnchor, tradingDates, observations,
     });
     items.push({
       ...event, signalDate, calendarAnchor, status: "HISTORICAL_UNVERIFIED",
@@ -70,5 +71,5 @@ export async function previewBuySignalForward(limit = 20) {
     });
   }
   return { total, excluded, sampled, exclusionReasons, items,
-    caveat: "daily_stock_results.price is a scan-derived reference, not an established official closing price; recent 2026-10-16 through 2026-10-21 daily-save provenance logs show mostly 15:15 JST or earlier intraday candle timestamps, with different times across 953 stocks per day. Prices remain unverified/unadjusted; daily_stock_results timestamps lack timezone information. No historical win rate, recovery rate or trade recommendation can be calculated yet." };
+    caveat: "daily_stock_results.price is a scan-derived reference, not an established official closing price; recent 2026-10-16 through 2026-10-21 daily-save provenance logs show mostly 15:15 JST or earlier intraday candle timestamps, with different times across 953 stocks per day. Both the monitor activation baseline and subsequent scan-derived prices remain unverified/unadjusted; daily_stock_results timestamps lack timezone information. No historical win rate, recovery rate or trade recommendation can be calculated yet." };
 }
