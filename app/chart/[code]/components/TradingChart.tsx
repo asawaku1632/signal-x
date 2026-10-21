@@ -36,6 +36,7 @@ type TradingChartProps = {
   macd: number | null;
   macdSignal: number | null;
   currentPrice: number | null;
+  priceLabel?: string;
   takeProfit: number;
   stopLoss: number;
   supportPrice: number | null;
@@ -73,11 +74,12 @@ function dateTimeLabel(time: number) {
 function buildLevels({
   ma20,
   currentPrice,
+  priceLabel,
   takeProfit,
   stopLoss,
   supportPrice,
   resistancePrice,
-}: Pick<TradingChartProps, "ma20" | "currentPrice" | "takeProfit" | "stopLoss" | "supportPrice" | "resistancePrice">) {
+}: Pick<TradingChartProps, "ma20" | "currentPrice" | "priceLabel" | "takeProfit" | "stopLoss" | "supportPrice" | "resistancePrice">) {
   const levels: Array<PriceLevel | null> = [
     resistancePrice !== null
       ? {
@@ -102,7 +104,7 @@ function buildLevels({
     currentPrice !== null
       ? {
           key: "current",
-          label: "現在値",
+          label: priceLabel ?? "参考値",
           price: currentPrice,
           color: "#2563eb",
           fill: "#dbeafe",
@@ -234,6 +236,7 @@ export default function TradingChart({
   macd,
   macdSignal,
   currentPrice,
+  priceLabel,
   takeProfit,
   stopLoss,
   supportPrice,
@@ -433,6 +436,7 @@ export default function TradingChart({
   const levels = buildLevels({
     ma20,
     currentPrice,
+    priceLabel,
     takeProfit,
     stopLoss,
     supportPrice,
