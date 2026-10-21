@@ -74,6 +74,7 @@ export default function ResearchClient() {
           <p className="mt-1">監視イベント：{report.items.length}件</p>
           <p>銘柄×日付：{new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}組</p>
           <p>異なる銘柄：{new Set(report.items.map((item) => item.code)).size}銘柄</p>
+          <p>重複イベント：{report.items.length - new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}件</p>
           <p className="mt-1 text-xs text-slate-500">日本時間の日付で集計。同一銘柄の複数日は独立試行とは限りません。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
