@@ -19,10 +19,13 @@ export async function probeDaily100Vendor(
     throw Error("DAILY100_PROBE_BUDGET_INVALID");
   }
   const started = now();
-  const checks: Daily100ProbeResult["checks"] = [];\n  let stop = false;
-  for (const code of codes) {\n    if (stop) { checks.push({ code, ok: false, elapsedMs: 0, error: "STOPPED_AFTER_TIMEOUT" }); continue; }
+  const checks: Daily100ProbeResult["checks"] = [];
+  let stop = false;
+  for (const code of codes) {
+    if (stop) { checks.push({ code, ok: false, elapsedMs: 0, error: "STOPPED_AFTER_TIMEOUT" }); continue; }
     const start = now();
-    let timer: ReturnType<typeof setTimeout> | undefined;\n    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
     try {
       await Promise.race([
         Promise.resolve().then(() => fetchOne(code, controller.signal)),
