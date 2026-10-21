@@ -157,7 +157,7 @@ export default function ResearchClient() {
           <p className="mt-1 text-xs text-slate-500">バーは各期間の到来割合で、予測精度・利益率ではありません。到来済みでも参考価格が欠損する場合があります。</p>
           <div className="mt-3 rounded-lg border p-3 text-xs dark:border-slate-700">
             <p className="font-bold">下落幅別の研究分類（1営業日後）</p>
-            <p className="mt-1 text-slate-500">独立検証済み・株式分割調整済みの価格だけで分類。未検証価格は必ず判定保留とします。</p>
+            <p className="mt-1 text-slate-500">基準価格と比較先価格の両方について、独立検証と株式分割等の調整が必要です。片方でも未検証なら判定保留にします。</p>
             <div className="mt-2 grid grid-cols-2 gap-1">
               {["大幅下落", "下落", "小幅下落", "微減", "横ばい・上昇", "判定保留"].map((label) => {
                 const count = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE" &&
@@ -169,7 +169,7 @@ export default function ResearchClient() {
           </div>
           <div className="mt-3 rounded-lg border p-3 text-xs dark:border-slate-700">
             <p className="font-bold">下落幅の期間別比較（検証済み価格のみ）</p>
-            <p className="mt-1 text-slate-500">同日代表記録を対象に、1・3・5・10・20営業日後の基準価格比を比較します。未検証は判定保留です。</p>
+            <p className="mt-1 text-slate-500">同日代表記録を対象に、1・3・5・10・20営業日後の基準価格比を比較します。基準価格と将来価格の双方が未検証なら判定保留です。</p>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full min-w-[480px] text-right text-xs">
                 <thead><tr className="border-b">
