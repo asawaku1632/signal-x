@@ -14,6 +14,8 @@ on:
       - 'scripts/check-market-relative-evidence-gate.mjs'
       - 'scripts/check-market-relative-evidence-report.mjs'
       - 'scripts/check-market-relative-evidence-scoring.mjs'
+      - 'scripts/check-market-relative-bb-audit-projection.mjs'
+      - 'app/lib/research/marketRelativeBbAuditProjection.ts'
       - 'app/lib/research/marketRelativeEvidenceReport.ts'
       - 'app/lib/research/marketRelativeEvidenceScoring.ts'
       - 'app/lib/research/marketRelativeEvidenceGate.ts'
@@ -55,6 +57,7 @@ jobs:
           node scripts/check-market-relative-evidence-gate.mjs
           node scripts/check-market-relative-evidence-report.mjs
           node scripts/check-market-relative-evidence-scoring.mjs
+          node scripts/check-market-relative-bb-audit-projection.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
