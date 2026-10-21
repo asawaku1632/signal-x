@@ -2,6 +2,7 @@ import pool from "@/app/lib/postgres";
 import { resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import { getBuyActivationPreview } from "@/app/lib/research/buyFailureReadOnly";
 import { evaluateBuySignalForward } from "@/app/lib/research/buySignalForwardCore.mjs";
+import { isTseTargetDateReady } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
 type PriceRow = { session_date: Date | string; price: string | number };
 const dateOnly = (value: Date | string) => value instanceof Date
@@ -15,6 +16,7 @@ const dateOnly = (value: Date | string) => value instanceof Date
 export async function previewBuySignalForward(limit = 20) {
   const { total, rows, excluded } = await getBuyActivationPreview(limit);
   const items = [];
+  const now = new Date();
   for (const event of rows) {
     const signalDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
@@ -33,7 +35,10 @@ export async function previewBuySignalForward(limit = 20) {
        ORDER BY date::date ASC, created_at DESC`,
       [event.code, tradingDates],
     );
-    const observations = result.rows.map((row) => ({
+    const observations = result.rows.filter((row) => {
+      const date = dateOnly(row.session_date);
+      return isTseTargetDateReady(date, now);
+    }).map((row) => ({
       tradeDate: dateOnly(row.session_date), close: Number(row.price),
       verified: false, corporateActionAdjusted: false,
     }));
@@ -43,6 +48,7 @@ export async function previewBuySignalForward(limit = 20) {
     items.push({
       ...event, signalDate, status: "HISTORICAL_UNVERIFIED",
       availablePriceSessions: observations.length,
+      notYetDueSessions: tradingDates.filter((date) => !isTseTargetDateReady(date, now)).length,
       outcomes: evaluation.outcomes,
       worstCloseDrawdownPct: evaluation.worstCloseDrawdownPct,
       firstCloseRecoverySession: evaluation.firstCloseRecoverySession,
