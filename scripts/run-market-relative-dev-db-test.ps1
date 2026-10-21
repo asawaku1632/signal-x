@@ -9,7 +9,7 @@ $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
 try {
   $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
   $encoded = [Uri]::EscapeDataString($password)
-  $env:SIGNALX_RESEARCH_DEV_DATABASE_URL = "postgresql://postgres.$project" + ":$encoded@$hostName" + ":5432/postgres?sslmode=require"
+  $env:SIGNALX_RESEARCH_DEV_DATABASE_URL = "postgresql://postgres.$project" + ":$encoded@$hostName" + ":5432/postgres?sslmode=verify-full"
   Write-Host "Running development-only transactional integration test..."
   node scripts/check-market-relative-dev-db-integration.mjs
   if ($LASTEXITCODE -ne 0) { throw "Integration test failed. Exit code: $LASTEXITCODE" }
