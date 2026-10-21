@@ -354,14 +354,33 @@ async function buildChartResponse(request: Request) {
   }
 }
 
+function chartSessionDiagnostics(now = new Date()) {
+  // Calendar-only context: public holidays and exceptional trading halts are not inferred.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo", weekday: "short", hour: "2-digit", minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const weekday = part("weekday");
+  const minutes = Number(part("hour")) * 60 + Number(part("minute"));
+  const weekdayTrading = !["Sat", "Sun"].includes(weekday);
+  const session = !weekdayTrading ? "WEEKEND" :
+    minutes < 540 ? "BEFORE_OPEN" :
+    minutes < 690 ? "MORNING_SESSION" :
+    minutes < 750 ? "LUNCH_BREAK" :
+    minutes < 930 ? "AFTERNOON_SESSION" : "AFTER_CLOSE";
+  return { marketSessionJst: session, marketSessionCalendarOnly: true };
+}
+
 function chartBarDiagnostics(latestBarTimestamp: unknown) {
   const timestamp = typeof latestBarTimestamp === "number" ? latestBarTimestamp : Number(latestBarTimestamp);
   if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return { latestBarTimestamp: null, barAgeSeconds: null, barAgeMinutes: null, barTimeJst: null };
+    return { latestBarTimestamp: null, barAgeSeconds: null, barAgeMinutes: null, barTimeJst: null, ...chartSessionDiagnostics() };
   }
   const barAgeSeconds = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
   return {
     latestBarTimestamp: timestamp,
+    ...chartSessionDiagnostics(),
     barAgeSeconds,
     barAgeMinutes: Math.floor(barAgeSeconds / 60),
     barTimeJst: new Date(timestamp * 1000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false }),
