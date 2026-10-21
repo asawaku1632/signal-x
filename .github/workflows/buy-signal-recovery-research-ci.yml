@@ -38,6 +38,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs
+      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs tests/independentPriceComparison.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
