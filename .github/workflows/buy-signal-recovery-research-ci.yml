@@ -1,5 +1,6 @@
 name: Buy Signal Recovery Research Checks
 on:
+  workflow_dispatch:
   push:
     branches:
       - research/signal-failure-recovery-20261021
