@@ -64,3 +64,59 @@ test("disabled guard prevents connecting", async () => {
   await assert.rejects(h.api.tryInsertDaily100Claim(args), /BLOCKED/);
   assert.equal(h.connections, 0);
 });
+
+test("source audit persists 20 checks and final status in one verified transaction", async () => {
+ const codes=Array.from({length:20},(_,i)=>String(1300+i));
+ const sqls=[];let released=false;
+ const client={
+   async query(sql){
+     sqls.push(sql);
+     if(sql.includes("database_project_ref"))return {rows:[{database_project_ref:REF}]};
+     if(sql.includes("SELECT codes FROM public.bb_daily100_runs"))return {rows:[{codes}]};
+     if(sql.includes("UPDATE public.bb_daily100_runs"))return {rowCount:1,rows:[]};
+     return {rowCount:1,rows:[]};
+   },
+   release(){released=true;}
+ };
+ const exports={};
+ new Function("require","exports",js)(name=>{
+   if(name==="@/app/lib/postgres")return {default:{connect:async()=>client}};
+   if(name==="./bollingerDaily100DbGuard")return {assertDaily100DevDatabase:()=>{},DAILY100_DEV_PROJECT_REF:REF};
+   if(name==="./bollingerDaily100Claim")return {claimDaily100Partition:async()=>({state:"DISABLED"})};
+   if(name==="./bollingerForwardUniverse")return {BB_FORWARD_FROZEN_CODES:[]};
+   return {};
+ },exports);
+ const checks=codes.map(code=>({code,state:"OK",note:null}));
+ await exports.persistDaily100SourceChecks({
+   tradeDate:"2026-10-21",partitionId:0,policyVersion:"BB_DAILY_100_V1",
+   result:{partitionId:0,requested:20,observed:20,failed:0,status:"COMPLETE",checks}
+ });
+ assert.equal(sqls.filter(s=>s.includes("INSERT INTO public.bb_daily100_checks")).length,20);
+ assert.ok(sqls.some(s=>s.includes("ON CONFLICT (trade_date,policy_version,code)")));
+ assert.equal(sqls.at(-1),"COMMIT");
+ assert.equal(released,true);
+});
+test("source audit refuses mismatched claimed universe without inserts", async () => {
+ const sqls=[];
+ const client={async query(sql){
+   sqls.push(sql);
+   if(sql.includes("database_project_ref"))return {rows:[{database_project_ref:REF}]};
+   if(sql.includes("SELECT codes FROM public.bb_daily100_runs"))return {rows:[{codes:Array(20).fill("9999")}]};
+   return {rows:[],rowCount:0};
+ },release(){}};
+ const exports={};
+ new Function("require","exports",js)(name=>{
+   if(name==="@/app/lib/postgres")return {default:{connect:async()=>client}};
+   if(name==="./bollingerDaily100DbGuard")return {assertDaily100DevDatabase:()=>{},DAILY100_DEV_PROJECT_REF:REF};
+   if(name==="./bollingerDaily100Claim")return {claimDaily100Partition:async()=>({state:"DISABLED"})};
+   if(name==="./bollingerForwardUniverse")return {BB_FORWARD_FROZEN_CODES:[]};
+   return {};
+ },exports);
+ const checks=Array.from({length:20},(_,i)=>({code:String(1300+i),state:"OK",note:null}));
+ await assert.rejects(exports.persistDaily100SourceChecks({
+   tradeDate:"2026-10-21",partitionId:0,policyVersion:"BB_DAILY_100_V1",
+   result:{partitionId:0,requested:20,observed:20,failed:0,status:"COMPLETE",checks}
+ }),/CLAIM_MISMATCH/);
+ assert.equal(sqls.some(s=>s.includes("INSERT INTO public.bb_daily100_checks")),false);
+ assert.equal(sqls.at(-1),"ROLLBACK");
+});
