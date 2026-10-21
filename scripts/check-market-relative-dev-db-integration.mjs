@@ -19,8 +19,7 @@ if (process.env.SIGNALX_RESEARCH_DEV_PROJECT_ID !== DEV_PROJECT ||
 }
 const parsed = new URL(url);
 if (!["postgres:", "postgresql:"].includes(parsed.protocol) ||
-    !parsed.hostname.includes(DEV_PROJECT) ||
-    parsed.hostname.includes("paygtakajhvatwejygda")) {
+    parsed.hostname !== "db." + DEV_PROJECT + ".supabase.co") {
   throw new Error("Database host does not match approved development project");
 }
 
