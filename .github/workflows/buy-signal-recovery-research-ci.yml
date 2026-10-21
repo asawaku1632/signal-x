@@ -7,6 +7,7 @@ on:
     paths:
       - "app/lib/research/**"
       - "app/api/admin/buy-failure-*/**"
+      - "app/api/admin/jquants-research-probe/**"
       - "app/admin/buy-failure-research/**"
       - "tests/buySignalForward*.test.mjs"
       - "tests/buyFailureCheckpointPolicy.test.mjs"
@@ -18,12 +19,14 @@ on:
       - "tests/independentPriceEvidenceCli.test.mjs"
       - "tests/jQuantsDailyBarOfflineAdapter.test.mjs"
       - "tests/jQuantsV2ResponseAdapter.test.mjs"
+      - "tests/jQuantsHistoricalProbe.test.mjs"
       - "scripts/review-independent-price-evidence.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
   pull_request:
     paths:
       - "app/lib/research/**"
       - "app/api/admin/buy-failure-*/**"
+      - "app/api/admin/jquants-research-probe/**"
       - "app/admin/buy-failure-research/**"
       - "tests/buySignalForward*.test.mjs"
       - "tests/buyFailureCheckpointPolicy.test.mjs"
@@ -35,6 +38,7 @@ on:
       - "tests/independentPriceEvidenceCli.test.mjs"
       - "tests/jQuantsDailyBarOfflineAdapter.test.mjs"
       - "tests/jQuantsV2ResponseAdapter.test.mjs"
+      - "tests/jQuantsHistoricalProbe.test.mjs"
       - "scripts/review-independent-price-evidence.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
 permissions:
@@ -50,6 +54,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs tests/independentPriceComparison.test.mjs tests/independentPriceSampleBatch.test.mjs tests/independentPriceInputAdapter.test.mjs tests/independentPriceEvidenceCli.test.mjs tests/jQuantsDailyBarOfflineAdapter.test.mjs tests/jQuantsV2ResponseAdapter.test.mjs
+      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs tests/independentPriceComparison.test.mjs tests/independentPriceSampleBatch.test.mjs tests/independentPriceInputAdapter.test.mjs tests/independentPriceEvidenceCli.test.mjs tests/jQuantsDailyBarOfflineAdapter.test.mjs tests/jQuantsV2ResponseAdapter.test.mjs tests/jQuantsHistoricalProbe.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
