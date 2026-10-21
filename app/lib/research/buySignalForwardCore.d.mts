@@ -16,6 +16,8 @@ export type ForwardOutcome = {
 };
 export declare function evaluateBuySignalForward(input: {
   signalPrice: number;
+  signalPriceVerified?: boolean;
+  signalPriceCorporateActionAdjusted?: boolean;
   signalDate: string;
   tradingDates: string[];
   observations: ForwardObservation[];
