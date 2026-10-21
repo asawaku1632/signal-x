@@ -10,6 +10,8 @@ on:
       - 'scripts/check-market-relative-power-cohorts.mjs'
       - 'scripts/check-market-relative-reversal-study.mjs'
       - 'scripts/check-market-relative-error-matrix.mjs'
+      - 'scripts/check-market-relative-matched-study.mjs'
+      - 'app/lib/research/marketRelativeMatchedStudy.ts'
       - 'app/lib/research/marketRelativeErrorMatrix.ts'
       - 'app/lib/research/marketRelativeReversalStudy.ts'
       - 'app/lib/research/marketRelativePowerCohorts.ts'
@@ -43,6 +45,7 @@ jobs:
           node scripts/check-market-relative-power-cohorts.mjs
           node scripts/check-market-relative-reversal-study.mjs
           node scripts/check-market-relative-error-matrix.mjs
+          node scripts/check-market-relative-matched-study.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
