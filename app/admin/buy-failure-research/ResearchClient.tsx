@@ -69,6 +69,13 @@ export default function ResearchClient() {
           <p className="mt-1 text-xs text-slate-500">除外理由は1件に複数該当する場合があります。</p>
           <p className="mt-1 text-xs text-slate-500">全履歴の有効率ではありません。価格の独立検証・株式分割調整は未完了です。</p>
         </section>
+        <section className="rounded-xl border bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <p className="font-bold">監視記録の重複チェック</p>
+          <p className="mt-1">監視イベント：{report.items.length}件</p>
+          <p>銘柄×日付：{new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}組</p>
+          <p>異なる銘柄：{new Set(report.items.map((item) => item.code)).size}銘柄</p>
+          <p className="mt-1 text-xs text-slate-500">日本時間の日付で集計。同一銘柄の複数日は独立試行とは限りません。</p>
+        </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
         {report.items.map((item, index) => <section key={item.code + ":" + item.triggeredAt + ":" + index} className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2">
