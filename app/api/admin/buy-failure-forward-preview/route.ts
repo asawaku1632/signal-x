@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 export async function GET() {
   const { isAdmin } = await getAdminSession();
-  if (!isAdmin) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  if (!isAdmin) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
   try {
     const preview = await previewBuySignalForward(20);
     return NextResponse.json({ success: true, mode: "OWNER_READ_ONLY_UNVERIFIED_FORWARD_PREVIEW", ...preview },
