@@ -89,10 +89,16 @@ export default function ResearchClient() {
               const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
               const due = outcomes.filter((outcome) => outcome && ["MISSING", "UNVERIFIED", "VERIFIED"].includes(outcome.status));
               const available = due.filter((outcome) => outcome && (outcome.status === "UNVERIFIED" || outcome.status === "VERIFIED"));
+              const notDue = outcomes.filter((outcome) => outcome?.status === "NOT_YET_DUE").length;
+              const missing = outcomes.filter((outcome) => outcome?.status === "MISSING").length;
+              const unverified = outcomes.filter((outcome) => outcome?.status === "UNVERIFIED").length;
+              const calendarUnknown = outcomes.filter((outcome) => !outcome || outcome.status === "CALENDAR_UNAVAILABLE").length;
               return <div key={day} className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800">
                 <p className="font-bold">{day}営業日</p>
                 <p>{available.length}/{due.length}件</p>
                 <p className="text-[10px]">記録あり/到来済</p>
+                <p className="mt-1 text-[10px]">未到来 {notDue} / 欠損 {missing}</p>
+                <p className="text-[10px]">未検証 {unverified} / 暦未確定 {calendarUnknown}</p>
               </div>;
             })}
           </div>
