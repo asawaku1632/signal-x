@@ -5,7 +5,7 @@ export type Daily100ProbeResult = {
 };
 export async function probeDaily100Vendor(
   codes: readonly string[],
-  fetchOne: (code: string) => Promise<unknown>,
+  fetchOne: (code: string, signal: AbortSignal) => Promise<unknown>,
   options: { maxCodes?: number; timeoutMs?: number; now?: () => number } = {},
 ): Promise<Daily100ProbeResult> {
   const maxCodes = options.maxCodes ?? 5;
@@ -19,15 +19,15 @@ export async function probeDaily100Vendor(
     throw Error("DAILY100_PROBE_BUDGET_INVALID");
   }
   const started = now();
-  const checks: Daily100ProbeResult["checks"] = [];
-  for (const code of codes) {
+  const checks: Daily100ProbeResult["checks"] = [];\n  let stop = false;
+  for (const code of codes) {\n    if (stop) { checks.push({ code, ok: false, elapsedMs: 0, error: "STOPPED_AFTER_TIMEOUT" }); continue; }
     const start = now();
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;\n    const controller = new AbortController();
     try {
       await Promise.race([
-        Promise.resolve().then(() => fetchOne(code)),
+        Promise.resolve().then(() => fetchOne(code, controller.signal)),
         new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(Error("SOURCE_TIMEOUT")), timeoutMs);
+          timer = setTimeout(() => { stop = true; controller.abort(); reject(Error("SOURCE_TIMEOUT")); }, timeoutMs);
         }),
       ]);
       checks.push({ code, ok: true, elapsedMs: Math.max(0, now() - start) });
