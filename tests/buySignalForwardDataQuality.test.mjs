@@ -65,7 +65,9 @@ test("path drawdown halts at the first missing or unadjusted session", () => {
     observation(0, 95), observation(1, 90, { corporateActionAdjusted: false }),
     observation(2, 70), observation(3, 120),
   ] });
-  assert.equal(result.worstCloseDrawdownPct, -5);
+  assert.ok(Number.isFinite(result.worstCloseDrawdownPct));
+  assert.ok(Math.abs(result.worstCloseDrawdownPct - (-5)) < 1e-8,
+    "Floating-point drawdown should match -5% within numerical tolerance");
   assert.equal(result.firstCloseRecoverySession, null);
 });
 
