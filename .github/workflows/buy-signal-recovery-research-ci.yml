@@ -10,6 +10,7 @@ on:
       - "app/admin/buy-failure-research/**"
       - "tests/buySignalForward*.test.mjs"
       - "tests/buyFailureCheckpointPolicy.test.mjs"
+      - "tests/buyFailureTseCalendar.test.ts"
       - "tests/ownerPreviewPolicy.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
   pull_request:
@@ -19,6 +20,7 @@ on:
       - "app/admin/buy-failure-research/**"
       - "tests/buySignalForward*.test.mjs"
       - "tests/buyFailureCheckpointPolicy.test.mjs"
+      - "tests/buyFailureTseCalendar.test.ts"
       - "tests/ownerPreviewPolicy.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
 permissions:
@@ -34,6 +36,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs
+      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.ts
       - run: npx next typegen
       - run: npx tsc --noEmit
