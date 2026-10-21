@@ -15,7 +15,7 @@ const dateOnly = (value: Date | string) => value instanceof Date
  * must never be counted as verified returns or recovered outcomes.
  */
 export async function previewBuySignalForward(limit = 20) {
-  const { total, rows, excluded } = await getBuyActivationPreview(limit);
+  const { total, rows, excluded, sampled, exclusionReasons } = await getBuyActivationPreview(limit);
   const items = [];
   const now = new Date();
   for (const event of rows) {
@@ -69,6 +69,6 @@ export async function previewBuySignalForward(limit = 20) {
       firstCloseRecoverySession: evaluation.firstCloseRecoverySession,
     });
   }
-  return { total, excluded, items,
+  return { total, excluded, sampled, exclusionReasons, items,
     caveat: "Prices are unverified/unadjusted. No historical win rate, recovery rate or trade recommendation can be calculated yet." };
 }
