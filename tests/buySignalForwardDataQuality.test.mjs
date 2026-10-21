@@ -43,7 +43,9 @@ test("verified adjusted boundary prices are computed only at exact horizons", ()
   ] });
   assert.deepEqual(result.outcomes.map((outcome) => outcome.horizon), [1, 3, 5, 10, 20]);
   assert.deepEqual(result.outcomes.map((outcome) => outcome.status), Array(5).fill("VERIFIED"));
-  result.outcomes.forEach((outcome, index) => {\n    assert.ok(Math.abs(outcome.returnPct - [-10, -5, -2, 0, 10][index]) < 1e-8);\n  });
+  result.outcomes.forEach((outcome, index) => {
+    assert.ok(Math.abs(outcome.returnPct - [-10, -5, -2, 0, 10][index]) < 1e-8);
+  });
   assert.equal(result.firstCloseRecoverySession, null,
     "Path recovery must not be inferred when intermediate sessions are absent");
 });
