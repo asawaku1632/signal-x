@@ -91,7 +91,8 @@ export default function ResearchClient() {
             <p>④ 回復率・勝率の公表：不可（価格検証・株式分割調整・標本の独立性を確認するまで保留）</p>
             <p className="mt-1">※ この判定は今回表示した記録に限ります。③は価格観測の検証フラグであり、予測性能の保証ではありません。</p>
           </div>
-          <p className="mt-2 font-bold">代表記録のみ・営業日別データ状況（参考）</p>\n          <p className="mt-1 text-xs text-slate-500">以下は全履歴で最初の監視記録と判定されたイベントだけを対象にした保存状況です。後から記録された同日イベントは除外します。勝率・回復率ではありません。</p>
+          <p className="mt-2 font-bold">代表記録のみ・営業日別データ状況（参考）</p>
+          <p className="mt-1 text-xs text-slate-500">以下は全履歴で最初の監視記録と判定されたイベントだけを対象にした保存状況です。後から記録された同日イベントは除外します。勝率・回復率ではありません。</p>
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
             {[1, 3, 5, 10, 20].map((day) => {
               const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
@@ -110,6 +111,24 @@ export default function ResearchClient() {
               </div>;
             })}
           </div>
+          <p className="mt-2 font-bold">観測期間の到達状況（代表記録のみ）</p>
+          <div className="mt-1 space-y-1">
+            {[1, 3, 5, 10, 20].map((day) => {
+              const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE")
+                .map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
+              const dueCount = outcomes.filter((outcome) => outcome && ["MISSING", "UNVERIFIED", "VERIFIED"].includes(outcome.status)).length;
+              const observedCount = outcomes.filter((outcome) => outcome && ["UNVERIFIED", "VERIFIED"].includes(outcome.status)).length;
+              const totalCount = outcomes.length;
+              return <div key={day} className="flex items-center gap-2 text-xs">
+                <span className="w-16 shrink-0 font-bold">{day}営業日後</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="h-full bg-blue-500" style={{ width: totalCount ? (100 * dueCount / totalCount) + "%" : "0%" }} />
+                </div>
+                <span className="w-28 shrink-0 text-right">{dueCount}/{totalCount}到来・{observedCount}件記録</span>
+              </div>;
+            })}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">バーは各期間の到来割合で、予測精度・利益率ではありません。到来済みでも参考価格が欠損する場合があります。</p>
           <p className="mt-1 text-xs text-slate-500">未到来・営業日未確定は分母から除外。記録ありは価格の検証済みを意味しません。到来済0件の場合も0/0と表示します。</p>
           <p className="mt-1 text-xs text-slate-500">代表判定は保存された全監視履歴に基づきます。画面の銘柄×日付数は表示範囲のみの集計です。全イベントを保持し、同一銘柄の別日も独立試行とは限りません。</p>
         </section>
