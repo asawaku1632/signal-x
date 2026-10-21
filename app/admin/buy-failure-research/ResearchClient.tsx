@@ -129,6 +129,18 @@ export default function ResearchClient() {
             })}
           </div>
           <p className="mt-1 text-xs text-slate-500">バーは各期間の到来割合で、予測精度・利益率ではありません。到来済みでも参考価格が欠損する場合があります。</p>
+          <p className="mt-2 font-bold">次に確認できる検証日（表示対象の代表記録）</p>
+          {(() => {
+            const pending = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE")
+              .flatMap((item) => item.outcomes?.filter((outcome) => outcome.status === "NOT_YET_DUE" && outcome.targetDate)
+                .map((outcome) => ({ date: outcome.targetDate as string, day: outcome.horizon, code: item.code })) ?? [])
+              .sort((a, b) => a.date.localeCompare(b.date) || a.day - b.day);
+            if (!pending.length) return <p className="mt-1 text-xs text-slate-500">未到来の検証日はありません（営業日未確定のものは含みません）。</p>;
+            const earliest = pending[0].date;
+            const upcoming = pending.filter((entry) => entry.date === earliest);
+            return <p className="mt-1 text-xs">次回：<strong>{earliest}</strong> ／ 対象 {upcoming.length}件（{[...new Set(upcoming.map((entry) => entry.code))].length}銘柄）。市場終了後の保存・照合を待ちます。</p>;
+          })()}
+
           <p className="mt-1 text-xs text-slate-500">未到来・営業日未確定は分母から除外。記録ありは価格の検証済みを意味しません。到来済0件の場合も0/0と表示します。</p>
           <p className="mt-1 text-xs text-slate-500">代表判定は保存された全監視履歴に基づきます。画面の銘柄×日付数は表示範囲のみの集計です。全イベントを保持し、同一銘柄の別日も独立試行とは限りません。</p>
         </section>
