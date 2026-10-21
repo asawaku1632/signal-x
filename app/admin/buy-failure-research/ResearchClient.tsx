@@ -83,7 +83,7 @@ export default function ResearchClient() {
           <p>重複イベント：{report.items.length - earliestByCodeDay.size}件</p>
           <p>全履歴で判定した代表：{report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").length}件</p>
           <p>全履歴で判定した追加記録：{report.items.filter((item) => item.sameDayRole === "ADDITIONAL").length}件</p>
-          <p className="mt-2 font-bold">代表記録のみ・営業日別データ状況（参考）</p>
+          <p className="mt-2 font-bold">代表記録のみ・営業日別データ状況（参考）</p>\n          <p className="mt-1 text-xs text-slate-500">以下は全履歴で最初の監視記録と判定されたイベントだけを対象にした保存状況です。後から記録された同日イベントは除外します。勝率・回復率ではありません。</p>
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
             {[1, 3, 5, 10, 20].map((day) => {
               const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
