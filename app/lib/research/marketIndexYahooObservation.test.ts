@@ -26,7 +26,7 @@ describe("timestamped research-only index fetch", () => {
       expect.stringContaining("%5EN225"), expect.any(Object));
   });
   it("rejects a provider symbol mismatch", async () => {
-    mockChart("998405.T", timestamp, 3000);
+    mockChart("^N225", timestamp, 3000);
     expect((await fetchTimestampedMarketIndex("topix", capture)).status).toBe("invalid");
   });
   it("rejects stale prices even when numeric", async () => {
