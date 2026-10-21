@@ -21,7 +21,7 @@ export async function processDaily100Partition(args:{
   if(!args.claimed)throw Error("DAILY100_UNCLAIMED");
   if(!Number.isInteger(args.partitionId)||args.partitionId<0||args.partitionId>4||
      args.codes.length!==20||new Set(args.codes).size!==20||
-     args.codes.some(code=>!/^\\d{4}$/.test(code)))throw Error("DAILY100_INVALID_PARTITION");
+     args.codes.some(code=>!/^\d{4}$/.test(code)))throw Error("DAILY100_INVALID_PARTITION");
   const timeout=args.timeoutMs??DAILY_100_SOURCE_TIMEOUT_MS;
   if(!Number.isInteger(timeout)||timeout<1||timeout>DAILY_100_SOURCE_TIMEOUT_MS)
     throw Error("DAILY100_TIMEOUT_INVALID");
