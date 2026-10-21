@@ -81,6 +81,8 @@ export default function ResearchClient() {
           <p>銘柄×日付：{new Set(report.items.map((item) => item.code + ":" + item.signalDate)).size}組</p>
           <p>異なる銘柄：{new Set(report.items.map((item) => item.code)).size}銘柄</p>
           <p>重複イベント：{report.items.length - earliestByCodeDay.size}件</p>
+          <p>全履歴で判定した代表：{report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").length}件</p>
+          <p>全履歴で判定した追加記録：{report.items.filter((item) => item.sameDayRole === "ADDITIONAL").length}件</p>
           <p className="mt-1 text-xs text-slate-500">代表候補は今回表示した記録の中で銘柄・日本時間の日付ごとに最も早い監視開始です。抽出範囲外にさらに早い記録がある可能性があり、全履歴の確定代表ではありません。ほかの記録も保持します。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
