@@ -7,6 +7,8 @@ on:
       - 'scripts/check-market-index-benchmark-window.mjs'
       - 'scripts/check-market-index-benchmark-pair.mjs'
       - 'scripts/check-market-relative-performance.mjs'
+      - 'scripts/check-ai-rating-reversal-study.mjs'
+      - 'app/lib/research/aiRatingReversalStudy.ts'
       - 'app/lib/research/marketRelativePerformance.ts'
       - 'scripts/probe-market-index-provider.mjs'
       - '.github/workflows/market-index-shadow-check.yml'
@@ -32,6 +34,7 @@ jobs:
           node scripts/check-market-index-benchmark-window.mjs
           node scripts/check-market-index-benchmark-pair.mjs
           node scripts/check-market-relative-performance.mjs
+          node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
