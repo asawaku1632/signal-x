@@ -11,6 +11,8 @@ on:
       - 'scripts/check-market-relative-reversal-study.mjs'
       - 'scripts/check-market-relative-error-matrix.mjs'
       - 'scripts/check-market-relative-matched-study.mjs'
+      - 'scripts/check-market-relative-evidence-gate.mjs'
+      - 'app/lib/research/marketRelativeEvidenceGate.ts'
       - 'app/lib/research/marketRelativeMatchedStudy.ts'
       - 'app/lib/research/marketRelativeErrorMatrix.ts'
       - 'app/lib/research/marketRelativeReversalStudy.ts'
@@ -46,6 +48,7 @@ jobs:
           node scripts/check-market-relative-reversal-study.mjs
           node scripts/check-market-relative-error-matrix.mjs
           node scripts/check-market-relative-matched-study.mjs
+          node scripts/check-market-relative-evidence-gate.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
