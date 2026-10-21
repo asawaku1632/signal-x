@@ -83,6 +83,20 @@ export default function ResearchClient() {
           <p>重複イベント：{report.items.length - earliestByCodeDay.size}件</p>
           <p>全履歴で判定した代表：{report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").length}件</p>
           <p>全履歴で判定した追加記録：{report.items.filter((item) => item.sameDayRole === "ADDITIONAL").length}件</p>
+          <p className="mt-2 font-bold">代表記録のみ・営業日別データ状況（参考）</p>
+          <div className="grid grid-cols-5 gap-1 text-center text-xs">
+            {[1, 3, 5, 10, 20].map((day) => {
+              const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE").map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
+              const due = outcomes.filter((outcome) => outcome && outcome.status !== "NOT_YET_DUE" && outcome.status !== "CALENDAR_UNAVAILABLE");
+              const available = due.filter((outcome) => outcome && (outcome.status === "UNVERIFIED" || outcome.status === "VERIFIED"));
+              return <div key={day} className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800">
+                <p className="font-bold">{day}営業日</p>
+                <p>{available.length}/{due.length}件</p>
+                <p className="text-[10px]">記録あり/到来済</p>
+              </div>;
+            })}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">未到来・営業日未確定は分母から除外。記録ありは価格の検証済みを意味しません。到来済0件の場合も0/0と表示します。</p>
           <p className="mt-1 text-xs text-slate-500">代表候補は今回表示した記録の中で銘柄・日本時間の日付ごとに最も早い監視開始です。抽出範囲外にさらに早い記録がある可能性があり、全履歴の確定代表ではありません。ほかの記録も保持します。</p>
         </section>
         {!report.items.length && <p className="rounded-xl border p-4 text-sm">表示できる買い監視記録はありません。</p>}
