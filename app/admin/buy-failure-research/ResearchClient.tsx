@@ -129,6 +129,26 @@ export default function ResearchClient() {
             })}
           </div>
           <p className="mt-1 text-xs text-slate-500">バーは各期間の到来割合で、予測精度・利益率ではありません。到来済みでも参考価格が欠損する場合があります。</p>
+          <p className="mt-2 font-bold">研究に使える観測数（参考）</p>
+          <p className="mt-1 text-xs text-slate-500">同日代表のみを対象に、期間到来・価格記録・独立検証の3条件を別々に確認します。</p>
+          <div className="mt-1 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead><tr className="border-b"><th className="py-1">期間</th><th>到来済</th><th>参考価格あり</th><th>検証済み</th><th>研究判断</th></tr></thead>
+              <tbody>{[1, 3, 5, 10, 20].map((day) => {
+                const outcomes = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE")
+                  .map((item) => item.outcomes?.find((outcome) => outcome.horizon === day));
+                const due = outcomes.filter((outcome) => outcome && ["MISSING", "UNVERIFIED", "VERIFIED"].includes(outcome.status)).length;
+                const observed = outcomes.filter((outcome) => outcome && ["UNVERIFIED", "VERIFIED"].includes(outcome.status)).length;
+                const verified = outcomes.filter((outcome) => outcome?.status === "VERIFIED").length;
+                return <tr key={day} className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="py-1 font-bold">{day}営業日</td><td>{due}</td><td>{observed}</td><td>{verified}</td>
+                  <td>{due === 0 ? "到来待ち" : observed === 0 ? "価格待ち" : verified === 0 ? "価格検証待ち" : "追加検証が必要"}</td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">検証済み価格があっても、標本数・分割調整・独立性を確認するまでは回復率や勝率を公表しません。</p>
+
           <p className="mt-2 font-bold">次に確認できる検証日（表示対象の代表記録）</p>
           {(() => {
             const pending = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE")
