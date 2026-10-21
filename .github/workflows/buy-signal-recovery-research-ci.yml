@@ -30,6 +30,10 @@ on:
       - "tests/ownerPreviewPolicy.test.mjs"
       - "tests/independentPriceComparison.test.mjs"
       - "tests/independentPriceSampleBatch.test.mjs"
+      - "tests/independentPriceInputAdapter.test.mjs"
+      - "tests/independentPriceEvidenceCli.test.mjs"
+      - "tests/jQuantsDailyBarOfflineAdapter.test.mjs"
+      - "scripts/review-independent-price-evidence.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
 permissions:
   contents: read
