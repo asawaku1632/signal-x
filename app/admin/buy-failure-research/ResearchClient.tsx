@@ -210,6 +210,7 @@ export default function ResearchClient() {
               })}
             </div>
             <p className="mt-2 text-slate-500">比較可能件数と回復件数のみ表示。少数例・同一銘柄の相関・価格調整の影響があるため、回復確率や将来の利益を推定しません。</p>
+            <p className="mt-1 text-slate-500">「回復」は指定した営業日の終値相当が基準価格以上という意味です。途中で一度回復したか、翌朝の寄付きで約定できたか、途中で損切りに達したかは、この集計からは分かりません。</p>
           </div>
           <p className="mt-2 font-bold">研究に使える観測数（参考）</p>
           <p className="mt-1 text-xs text-slate-500">同日代表のみを対象に、期間到来・価格記録・独立検証の3条件を別々に確認します。</p>
