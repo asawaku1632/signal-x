@@ -196,7 +196,7 @@ function getSupportResistanceComment(
   if (status === "NO_DATA") {
     return "支持線・抵抗線を判定できるだけの価格データがありません。";
   }
-  return `現在値は支持線と抵抗線の間です。ブレイク期待度は${breakoutExpectation}%です。`;
+  return `参考価格は支持線と抵抗線の間です。ブレイク期待度は${breakoutExpectation}%です。`;
 }
 
 function buildCommentItems({
@@ -219,7 +219,7 @@ function buildCommentItems({
         : chart.trend === "DOWNTREND"
           ? "🔴"
           : "🟡",
-    text: `現在は${getTrendText(chart.trend)}です。`,
+    text: `保存データ上では${getTrendText(chart.trend)}です。`,
     tone:
       chart.trend === "UPTREND"
         ? "green"
@@ -453,6 +453,17 @@ export default function ChartPage() {
   const resolvedStock: Stock = stock ?? { code, name: code };
   const power = getPower(resolvedStock);
   const judge = getJudge(power, chart.trend);
+  // Candle timestamps refer to Yahoo's last quote, never the request time.
+  // An unknown or previous-day candle must not look like today's buy signal.
+  const quoteTimestampKnown =
+    typeof chart.latestBarTimestamp === "number" &&
+    Number.isFinite(chart.latestBarTimestamp) &&
+    chart.latestBarTimestamp > 0;
+  const historicalQuote =
+    !quoteTimestampKnown ||
+    quoteIsFromEarlierDay(chart.latestBarTimestamp) ||
+    chart.status === "stale";
+  const referencePriceLabel = historicalQuote ? "前回参考値" : "参考値";
   const currentPrice = chart.currentPrice ?? resolvedStock.price ?? 0;
 
   const takeProfit = resolvedStock.takeProfit ?? Math.round(currentPrice * 1.03);
@@ -571,6 +582,14 @@ export default function ChartPage() {
         ) : null}
 
         <div className="mt-2 space-y-2">
+          {historicalQuote ? (
+            <div role="status" className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+              <p className="font-black">
+                ⚠ {quoteTimestampKnown ? "前回の株価・AI判定を表示中" : "株価の取得時刻が不明です"}
+              </p>
+              <p>この画面の「買い候補」や価格は保存時点の参考情報です。今日の値動きや購入可否を示すものではありません。証券会社の最新株価を確認してください。</p>
+            </div>
+          ) : null}
           <ChartHeader
             code={resolvedStock.code}
             name={resolvedStock.name}
@@ -580,11 +599,12 @@ export default function ChartPage() {
             trendIcon={getTrendIcon(chart.trend)}
             trendClass={getTrendClass(chart.trend)}
             currentPrice={currentPrice}
+            historicalQuote={historicalQuote}
           />
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-5 text-amber-900">
             Yahoo Finance参考価格・最終ローソク足: {chartQuoteAsOf(chart.latestBarTimestamp)}（日本時間）。リアルタイムの約定価格ではありません。
-            {quoteIsFromEarlierDay(chart.latestBarTimestamp) ? <p className="text-red-700">⚠ 最終足は本日分ではありません。証券会社の最新株価を確認してください。</p> : null}
+            {quoteTimestampKnown && quoteIsFromEarlierDay(chart.latestBarTimestamp) ? <p className="text-red-700">⚠ 最終足は本日分ではありません。証券会社の最新株価を確認してください。</p> : null}
             {chart.status === "stale" ? <p className="text-red-700">⚠ データ更新失敗のため保存済みチャートを表示中です。</p> : null}
           </div>
 
@@ -615,7 +635,7 @@ export default function ChartPage() {
               })}
               </div>
               <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1.5 text-[11px] font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 md:px-2.5 md:py-2 md:text-xs">
-                <span className="mr-1 text-[9px]">●</span>Yahoo参考値
+                <span className="mr-1 text-[9px]">●</span>{historicalQuote ? "前回参考値" : "Yahoo参考値"}
               </span>
             </div>
 
@@ -629,6 +649,7 @@ export default function ChartPage() {
                   candles={chart.candles}
                   ma20={chart.ma20}
                   currentPrice={currentPrice}
+                  priceLabel={referencePriceLabel}
                   takeProfit={takeProfit}
                   stopLoss={stopLoss}
                   supportPrice={supportPrice}
@@ -683,6 +704,7 @@ export default function ChartPage() {
                 <p className="text-sm font-black text-red-700 dark:text-red-300">これは疑似購入です</p>
                 <p className="mt-1 text-xs font-medium leading-5 text-red-600 dark:text-red-300">
                   実際の株式注文・金銭の取引は発生しません。
+                  {historicalQuote ? " 株価は前回の参考値であり、今朝の取引価格ではありません。" : null}
                 </p>
               </div>
             </div>
@@ -696,6 +718,7 @@ export default function ChartPage() {
           </section>
 
           <div id="ai-future-prediction" className="scroll-mt-16">
+            {historicalQuote ? <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">⚠ 以下のAI未来予測・利確／損切目安は前回の保存価格に基づきます。今の株価での結果ではありません。</p> : null}
             <AIPredictionCard
   currentPrice={currentPrice}
   aiPower={power}
@@ -745,6 +768,7 @@ export default function ChartPage() {
             <SupportResistanceCard
               supportPrice={supportPrice}
               currentPrice={currentPrice}
+              priceLabel={referencePriceLabel}
               resistancePrice={resistancePrice}
               supportDiff={supportDiff}
               resistanceDiff={resistanceDiff}
