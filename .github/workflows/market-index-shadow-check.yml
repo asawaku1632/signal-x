@@ -21,6 +21,8 @@ on:
       - 'scripts/check-market-relative-snapshot-conflict.mjs'
       - 'scripts/check-market-relative-snapshot-persistence.mjs'
       - 'scripts/check-market-relative-capture-readiness.mjs'
+      - 'scripts/check-market-relative-dev-db-harness.mjs'
+      - 'scripts/check-market-relative-dev-db-integration.mjs'
       - 'app/lib/research/marketRelativeCaptureReadiness.ts'
       - 'app/lib/research/marketRelativeSnapshotPersistence.ts'
       - 'app/lib/research/marketRelativeSnapshotConflict.ts'
@@ -76,6 +78,7 @@ jobs:
           node scripts/check-market-relative-snapshot-conflict.mjs
           node scripts/check-market-relative-snapshot-persistence.mjs
           node scripts/check-market-relative-capture-readiness.mjs
+          node scripts/check-market-relative-dev-db-harness.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
