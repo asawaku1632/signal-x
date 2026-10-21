@@ -18,8 +18,13 @@ if (process.env.SIGNALX_RESEARCH_DEV_PROJECT_ID !== DEV_PROJECT ||
   throw new Error("Dev-only opt-in environment is required");
 }
 const parsed = new URL(url);
+const direct = parsed.hostname === "db." + DEV_PROJECT + ".supabase.co" &&
+  (parsed.username === "postgres" || parsed.username === "postgres." + DEV_PROJECT);
+const sessionPooler = parsed.hostname === "aws-0-ap-northeast-1.pooler.supabase.com" &&
+  parsed.port === "5432" && parsed.username === "postgres." + DEV_PROJECT;
 if (!["postgres:", "postgresql:"].includes(parsed.protocol) ||
-    parsed.hostname !== "db." + DEV_PROJECT + ".supabase.co") {
+    parsed.pathname !== "/postgres" ||
+    !(direct || sessionPooler)) {
   throw new Error("Database host does not match approved development project");
 }
 
