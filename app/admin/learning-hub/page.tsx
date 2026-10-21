@@ -13,6 +13,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
     subtitle: "当たりも外れも、その後の株価で確かめる",
     items: [
       {
+        href: "/admin/buy-failure-research", icon: "📉",
+        title: "買いシグナル後の下落・回復研究", tag: "管理者専用・未検証",
+        detail: "買い監視開始後1・3・5・10・20営業日の保存状況を確認。回復率は検証完了まで非表示",
+      },
+      {
         href: "/admin/post-sale-audit", icon: "📈",
         title: "実売却後の1・3・5営業日追跡", tag: "本人専用・自動研究",
         detail: "確定売買を手入力して、売却後の参考株価を引け後に自動追跡",
