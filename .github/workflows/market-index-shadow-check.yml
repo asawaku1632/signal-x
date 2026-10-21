@@ -4,6 +4,7 @@ on:
     paths:
       - 'app/lib/research/marketIndex*'
       - 'scripts/check-market-index-shadow.mjs'
+      - 'scripts/check-market-index-benchmark-window.mjs'
       - 'scripts/probe-market-index-provider.mjs'
       - '.github/workflows/market-index-shadow-check.yml'
   workflow_dispatch:
@@ -23,7 +24,9 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Validate shadow index data contract
-        run: node scripts/check-market-index-shadow.mjs
+        run: |
+          node scripts/check-market-index-shadow.mjs
+          node scripts/check-market-index-benchmark-window.mjs
   provider-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
