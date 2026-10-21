@@ -2,7 +2,7 @@ import { validateMarketIndexSnapshot, type MarketIndexKey } from "./marketIndexS
 
 const YAHOO_INDEX_SYMBOLS: Record<MarketIndexKey, string> = {
   nikkei: "^N225",
-  topix: "^TOPX",
+  topix: "998405.T",
 };
 
 /**
