@@ -10,7 +10,7 @@ const compare = module.exports.compareBenchmarkPoints;
 const before = { index: "nikkei", window: "daily_close", sessionDateJst: "2026-10-20", value: 40000, source: "synthetic" };
 const after = { ...before, sessionDateJst: "2026-10-21", value: 40400 };
 assert.equal(compare(before, after).status, "comparable");
-assert.equal(compare(before, after).changePct, 1);
+assert.ok(Math.abs(compare(before, after).changePct - 1) < 1e-10);
 assert.equal(compare(before, { ...after, index: "topix" }).status, "incompatible");
 assert.equal(compare(before, { ...after, window: "intraday_0905" }).status, "incompatible");
 assert.equal(compare(before, { ...after, sessionDateJst: "2026-10-19" }).status, "invalid_date");
