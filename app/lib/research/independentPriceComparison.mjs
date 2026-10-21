@@ -16,7 +16,7 @@ export function compareIndependentDailyReference(input) {
   if (typeof independentSource !== "string" || independentSource.trim().length === 0) reasons.push("SOURCE_UNDOCUMENTED");
   if (samePriceBasis !== true) reasons.push("PRICE_BASIS_UNCONFIRMED");
   if (corporateActionReviewed !== true) reasons.push("CORPORATE_ACTION_UNREVIEWED");
-  if (typeof retrievalTimestamp !== "string" || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$/.test(retrievalTimestamp) ||
+  if (typeof retrievalTimestamp !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(retrievalTimestamp) ||
       !Number.isFinite(Date.parse(retrievalTimestamp))) reasons.push("RETRIEVAL_TIME_MISSING");
   const differenceYen = validPrice(signalReference) && validPrice(independentClose)
     ? independentClose - signalReference : null;
