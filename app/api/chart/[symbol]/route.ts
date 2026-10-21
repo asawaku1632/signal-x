@@ -33,6 +33,9 @@ type YahooChartResult = {
   currentPrice: number;
   latestBarTimestamp: number;
   upstreamLastTimestamp: number | null;
+  upstreamMarketTime: number | null;
+  upstreamRegularMarketTime: number | null;
+  upstreamExchangeTimezone: string | null;
 };
 
 function calculateEma(values: number[], period: number) {
@@ -243,6 +246,9 @@ async function fetchYahooChart(symbol: string, range: string, interval: string, 
   if (!result) return null;
   const timestamps: number[] = result.timestamp ?? [];
   const upstreamLastTimestamp = [...timestamps].reverse().find((t) => Number.isFinite(t) && t > 0) ?? null;
+  const upstreamMarketTime = Number.isFinite(result.meta?.currentTradingPeriod?.regular?.end) ? result.meta.currentTradingPeriod.regular.end : null;
+  const upstreamRegularMarketTime = Number.isFinite(result.meta?.regularMarketTime) ? result.meta.regularMarketTime : null;
+  const upstreamExchangeTimezone = typeof result.meta?.exchangeTimezoneName === "string" ? result.meta.exchangeTimezoneName : null;
   const quote = result.indicators?.quote?.[0];
   const rawCandles = timestamps.map((time: number, index: number) => ({
     time, open: quote?.open?.[index], high: quote?.high?.[index], low: quote?.low?.[index], close: quote?.close?.[index], volume: quote?.volume?.[index],
@@ -251,7 +257,7 @@ async function fetchYahooChart(symbol: string, range: string, interval: string, 
   const closes = candles.map((candle) => candle.close);
   const currentPrice = closes[closes.length - 1] ?? null;
   if (!currentPrice) return null;
-  return { candles, closes, currentPrice, latestBarTimestamp: candles[candles.length - 1].time, upstreamLastTimestamp };
+  return { candles, closes, currentPrice, latestBarTimestamp: candles[candles.length - 1].time, upstreamLastTimestamp, upstreamMarketTime, upstreamRegularMarketTime, upstreamExchangeTimezone };
 }
 
 function emptyPayload(symbol: string, state: "NO_DATA" | "ERROR", error?: unknown) {
@@ -279,7 +285,7 @@ async function buildChartResponse(request: Request) {
       needsDailyReference ? fetchYahooChart(symbol, "6mo", "1d", 180) : Promise.resolve(null),
     ]);
     if (!selectedChart) return NextResponse.json({ ...emptyPayload(symbol, "NO_DATA"), timeframe, timeframeLabel: timeframeConfig.label });
-    const { candles, closes, currentPrice, latestBarTimestamp, upstreamLastTimestamp } = selectedChart;
+    const { candles, closes, currentPrice, latestBarTimestamp, upstreamLastTimestamp, upstreamMarketTime, upstreamRegularMarketTime, upstreamExchangeTimezone } = selectedChart;
     const ma20 = closes.length >= 20 ? closes.slice(-20).reduce((sum, value) => sum + value, 0) / 20 : null;
     const ema20 = calculateEma(closes, 20);
     const ema75 = calculateEma(closes, 75);
@@ -339,7 +345,7 @@ async function buildChartResponse(request: Request) {
     if (supportResistance.supportResistanceStatus === "BREAKDOWN_RISK") { patternScore -= 15; patternReasons.push("支持線割れリスクを検出"); }
     return NextResponse.json({
       success: true, symbol, timeframe, timeframeLabel: timeframeConfig.label, dataSource: "yahoo_chart", count: candles.length,
-      currentPrice, latestBarTimestamp, upstreamLastTimestamp, ma20: ma20 === null ? null : Number(ma20.toFixed(2)), ema20, ema75, vwap,
+      currentPrice, latestBarTimestamp, upstreamLastTimestamp, upstreamMarketTime, upstreamRegularMarketTime, upstreamExchangeTimezone, ma20: ma20 === null ? null : Number(ma20.toFixed(2)), ema20, ema75, vwap,
       macd: macdData.macd, macdSignal: macdData.macdSignal, macdHistogram: macdData.macdHistogram,
       trend, candleSignal, patternSignal, patternScore, patternReasons, detectedPatterns: detectedPatterns.slice(0, 3), seasonality, ...supportResistance, candles,
     });
@@ -381,14 +387,14 @@ export async function GET(request: Request) {
   };
 
   if (snapshot && ageMs < CHART_FRESH_MS) {
-    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null } });
+    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
   }
 
   if (snapshot) {
     try {
       const { response, payload } = await update();
       if (response.ok && payload?.success) {
-        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null } });
+        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } });
       }
     } catch (error) {
       console.error("chart synchronous refresh failed:", error);
@@ -399,9 +405,9 @@ export async function GET(request: Request) {
     after(async () => {
       await update().catch((error) => console.error("chart snapshot retry failed:", error));
     });
-    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null } });
+    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
   }
 
   const { response, payload } = await update();
-  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null } }, { status: response.status });
+  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } }, { status: response.status });
 }
