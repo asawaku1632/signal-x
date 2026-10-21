@@ -167,6 +167,50 @@ export default function ResearchClient() {
             </div>
             <p className="mt-2 text-slate-500">区分：大幅下落 −10%以下／下落 −10%超〜−5%／小幅下落 −5%超〜−2%／微減 −2%超〜0%未満／横ばい・上昇 0%以上。監視時の参考価格との比較であり、実売買損益や日中最大下落ではありません。</p>
           </div>
+          <div className="mt-3 rounded-lg border p-3 text-xs dark:border-slate-700">
+            <p className="font-bold">下落幅の期間別比較（検証済み価格のみ）</p>
+            <p className="mt-1 text-slate-500">同日代表記録を対象に、1・3・5・10・20営業日後の基準価格比を比較します。未検証は判定保留です。</p>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-right text-xs">
+                <thead><tr className="border-b">
+                  <th className="py-1 text-left">分類</th>
+                  {[1, 3, 5, 10, 20].map((day) => <th key={day} className="px-1">{day}営業日</th>)}
+                </tr></thead>
+                <tbody>
+                  {["大幅下落", "下落", "小幅下落", "微減", "横ばい・上昇", "判定保留"].map((label) => <tr key={label} className="border-b border-slate-100 dark:border-slate-800">
+                    <td className="py-1 text-left">{label}</td>
+                    {[1, 3, 5, 10, 20].map((day) => <td key={day} className="px-1">
+                      {report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE" &&
+                        severityLabel(item.outcomes?.find((outcome) => outcome.horizon === day)) === label).length}
+                    </td>)}
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-slate-500">各列は同じ代表記録群を別々の期間で分類したもの。途中の最大下落や売買の約定を示すものではありません。</p>
+          </div>
+          <div className="mt-3 rounded-lg border p-3 text-xs dark:border-slate-700">
+            <p className="font-bold">下落からの回復研究（1営業日後 → 各期間）</p>
+            <p className="mt-1 text-slate-500">1営業日後に検証済み価格でマイナスだった記録について、その後の価格が基準価格以上に戻ったかを確認します。</p>
+            <div className="mt-2 space-y-1">
+              {[3, 5, 10, 20].map((day) => {
+                const initialDeclines = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE" &&
+                  item.outcomes?.some((outcome) => outcome.horizon === 1 && outcome.status === "VERIFIED" &&
+                    outcome.returnPct !== null && Number.isFinite(outcome.returnPct) && outcome.returnPct < 0));
+                const comparable = initialDeclines.filter((item) => item.outcomes?.some((outcome) =>
+                  outcome.horizon === day && outcome.status === "VERIFIED" &&
+                  outcome.returnPct !== null && Number.isFinite(outcome.returnPct)));
+                const recovered = comparable.filter((item) => item.outcomes?.some((outcome) =>
+                  outcome.horizon === day && outcome.status === "VERIFIED" &&
+                  outcome.returnPct !== null && outcome.returnPct >= 0));
+                return <p key={day} className="rounded bg-slate-100 p-2 dark:bg-slate-800">
+                  {day}営業日後：{comparable.length ? recovered.length + "件 / 比較可能" + comparable.length + "件" : "比較可能な検証済み記録なし"}
+                  <span className="ml-1 text-slate-500">（初日下落 {initialDeclines.length}件）</span>
+                </p>;
+              })}
+            </div>
+            <p className="mt-2 text-slate-500">比較可能件数と回復件数のみ表示。少数例・同一銘柄の相関・価格調整の影響があるため、回復確率や将来の利益を推定しません。</p>
+          </div>
           <p className="mt-2 font-bold">研究に使える観測数（参考）</p>
           <p className="mt-1 text-xs text-slate-500">同日代表のみを対象に、期間到来・価格記録・独立検証の3条件を別々に確認します。</p>
           <div className="mt-1 overflow-x-auto">
