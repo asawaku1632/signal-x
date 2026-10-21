@@ -38,7 +38,7 @@ export function summarizeMatchedRelativeStudy(rows: MatchedStudyRow[]) {
     ...group,
     sampleSize: returns.length,
     meanExcessReturnPoints: returns.reduce((a, b) => a + b, 0) / returns.length,
-    medianExcessReturnPoints: [...returns].sort((a, b) => a - b)[Math.floor((returns.length - 1) / 2)],
+    medianExcessReturnPoints: (() => { const sorted = [...returns].sort((a, b) => a - b); const middle = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2; })(),
     outperformRatePct: 100 * returns.filter(value => value > 0).length / returns.length,
   }));
   return { groups, accepted: seen.size, rejected, caveat: "Descriptive only; verify the input horizon and original price timestamps upstream." };
