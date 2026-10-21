@@ -12,6 +12,7 @@ export type BuyActivationPreview = {
   aiPower: number;
   status: string;
   evidence: "HISTORICAL_MONITOR_UNVERIFIED_QUOTE";
+  sameDayRole: "REPRESENTATIVE" | "ADDITIONAL";
 };
 
 export async function getBuyActivationPreview(limit = 100): Promise<{
@@ -25,12 +26,12 @@ export async function getBuyActivationPreview(limit = 100): Promise<{
   const [count, result] = await Promise.all([
     pool.query<{ total: string }>("SELECT COUNT(*)::text AS total FROM public.favorite_ai_monitors"),
     pool.query<{
-      code: string; name: string; triggered_at: Date | string;
+      same_day_rank: string | number; code: string; name: string; triggered_at: Date | string;
       entry_price: string | number; ai_power: string | number; status: string;
     }>(
-      `SELECT code, name, triggered_at, entry_price, ai_power, status
-         FROM public.favorite_ai_monitors
-        ORDER BY triggered_at DESC, id DESC LIMIT $1`,
+      `WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY code, (triggered_at AT TIME ZONE 'Asia/Tokyo')::date ORDER BY triggered_at ASC, id ASC) AS same_day_rank FROM public.favorite_ai_monitors)
+       SELECT code, name, triggered_at, entry_price, ai_power, status, same_day_rank
+         FROM ranked ORDER BY triggered_at DESC, id DESC LIMIT $1`,
       [safeLimit],
     ),
   ]);
@@ -55,7 +56,7 @@ export async function getBuyActivationPreview(limit = 100): Promise<{
     rows.push({
       code: String(item.code), name: String(item.name),
       triggeredAt: timestamp.toISOString(), referencePrice: price,
-      aiPower: score, status: String(item.status),
+      aiPower: score, status: String(item.status), sameDayRole: Number(item.same_day_rank) === 1 ? "REPRESENTATIVE" : "ADDITIONAL",
       evidence: "HISTORICAL_MONITOR_UNVERIFIED_QUOTE",
     });
   }
