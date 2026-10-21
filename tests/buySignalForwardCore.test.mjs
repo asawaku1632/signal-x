@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { evaluateBuySignalForward } from "../app/lib/research/buySignalForwardCore.mjs";
 
 const dates = Array.from({length:20},(_,i)=>`2026-10-${String(i+1).padStart(2,"0")}`);
-const base = { signalPrice: 100, signalDate:"2026-09-30", tradingDates:dates };
+const base = { signalPrice: 100, signalPriceVerified: true, signalPriceCorporateActionAdjusted: true, signalDate:"2026-09-30", tradingDates:dates };
 const bar=(index,close,verified=true)=>({tradeDate:dates[index],close,verified,corporateActionAdjusted:true});
 test("evaluates exact horizons and first close recovery",()=>{
   const result=evaluateBuySignalForward({...base,observations:dates.map((_,i)=>bar(i,i===0?95:i===1?99:105))});
