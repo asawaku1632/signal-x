@@ -6,6 +6,8 @@ on:
       - 'scripts/check-market-index-shadow.mjs'
       - 'scripts/check-market-index-benchmark-window.mjs'
       - 'scripts/check-market-index-benchmark-pair.mjs'
+      - 'scripts/check-market-relative-performance.mjs'
+      - 'app/lib/research/marketRelativePerformance.ts'
       - 'scripts/probe-market-index-provider.mjs'
       - '.github/workflows/market-index-shadow-check.yml'
   workflow_dispatch:
@@ -29,6 +31,7 @@ jobs:
           node scripts/check-market-index-shadow.mjs
           node scripts/check-market-index-benchmark-window.mjs
           node scripts/check-market-index-benchmark-pair.mjs
+          node scripts/check-market-relative-performance.mjs
   provider-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
