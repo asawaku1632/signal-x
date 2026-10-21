@@ -8,6 +8,8 @@ on:
       - 'scripts/check-market-index-benchmark-pair.mjs'
       - 'scripts/check-market-relative-performance.mjs'
       - 'scripts/check-market-relative-power-cohorts.mjs'
+      - 'scripts/check-market-relative-reversal-study.mjs'
+      - 'app/lib/research/marketRelativeReversalStudy.ts'
       - 'app/lib/research/marketRelativePowerCohorts.ts'
       - 'scripts/check-ai-rating-reversal-study.mjs'
       - 'app/lib/research/aiRatingReversalStudy.ts'
@@ -37,6 +39,7 @@ jobs:
           node scripts/check-market-index-benchmark-pair.mjs
           node scripts/check-market-relative-performance.mjs
           node scripts/check-market-relative-power-cohorts.mjs
+          node scripts/check-market-relative-reversal-study.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
