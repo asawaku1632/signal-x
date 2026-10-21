@@ -12,6 +12,7 @@ on:
       - "tests/buyFailureCheckpointPolicy.test.mjs"
       - "tests/buyFailureTseCalendar.test.mjs"
       - "tests/ownerPreviewPolicy.test.mjs"
+      - "tests/independentPriceComparison.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - "tests/buyFailureCheckpointPolicy.test.mjs"
       - "tests/buyFailureTseCalendar.test.mjs"
       - "tests/ownerPreviewPolicy.test.mjs"
+      - "tests/independentPriceComparison.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
 permissions:
   contents: read
