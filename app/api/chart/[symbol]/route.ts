@@ -444,7 +444,10 @@ function fiveMinuteFeedLagObservation(timeframe: Timeframe, latestBarTimestamp: 
   };
 }
 
+// Limited preview experiment: shorten only 5-minute chart snapshot reuse.
+// Upstream Yahoo delivery may still lag; do not change trading/alert data paths.
 const CHART_FRESH_MS = 60_000;
+const CHART_5M_FRESH_MS = 15_000;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -462,7 +465,7 @@ export async function GET(request: Request) {
     return { response, payload };
   };
 
-  if (snapshot && ageMs < CHART_FRESH_MS) {
+  if (snapshot && ageMs < (timeframe === "5m" ? CHART_5M_FRESH_MS : CHART_FRESH_MS)) {
     return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, snapshot.payload.latestBarTimestamp), ...fiveMinuteFeedLagObservation(timeframe, snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
   }
 
