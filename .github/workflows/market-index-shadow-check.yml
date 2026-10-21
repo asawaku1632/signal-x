@@ -19,6 +19,8 @@ on:
       - 'scripts/check-market-relative-snapshot-ledger.mjs'
       - 'scripts/check-market-relative-snapshot-insert-plan.mjs'
       - 'scripts/check-market-relative-snapshot-conflict.mjs'
+      - 'scripts/check-market-relative-snapshot-persistence.mjs'
+      - 'app/lib/research/marketRelativeSnapshotPersistence.ts'
       - 'app/lib/research/marketRelativeSnapshotConflict.ts'
       - 'app/lib/research/marketRelativeSnapshotInsertPlan.ts'
       - 'app/lib/research/marketRelativeSnapshotLedger.ts'
@@ -70,6 +72,7 @@ jobs:
           node scripts/check-market-relative-snapshot-ledger.mjs
           node scripts/check-market-relative-snapshot-insert-plan.mjs
           node scripts/check-market-relative-snapshot-conflict.mjs
+          node scripts/check-market-relative-snapshot-persistence.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
