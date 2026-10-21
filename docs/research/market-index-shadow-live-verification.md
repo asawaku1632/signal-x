@@ -22,3 +22,12 @@ This document is a **manual read-only gate**, not proof that Yahoo Finance works
 - Transactional synthetic insert/read and duplicate prevention passed; synthetic rows rolled back.
 - GitHub Actions 7-case contract smoke check passed.
 - Live Yahoo API response and application-to-dev-database integration remain **unverified**.
+
+## Live read-only probe, 2026-10-21
+GitHub Actions ran `scripts/probe-market-index-provider.mjs` (no database credentials, no writes).
+- `^N225`: HTTP success, returned `^N225`, latest reported bar `2026-10-21T06:30:00.000Z`, price `64621.23828125`. The capture was about 18:09 JST, so the bar was **stale** under the 20-minute contract. A successful API response is not a valid fresh observation.
+- `998405.T`: HTTP 404.
+- `^TOPX`: HTTP 404.
+- `^TOPIX`: HTTP 404.
+- `^TPX`: HTTP 404.
+**Conclusion:** Yahoo Finance chart endpoint is not currently verified as a usable TOPIX source. Do not enable TOPIX persistence or a scheduled observation job. Find an alternative provider with explicit timestamp, identity, usage rights, and verified values before proceeding. Do not replace missing TOPIX with Nikkei or with a synthetic price.
