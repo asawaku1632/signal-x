@@ -52,7 +52,7 @@ export default function ResearchClient() {
         <p className="mt-2 text-sm leading-6">過去の買い監視開始記録から、1・3・5・10・20営業日後のデータ保存状況を確認します。実際の購入履歴やLINE通知の到達記録ではありません。</p>
       </header>
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
-        ⚠️ 研究段階：日次学習の保存価格はスキャン由来の参考値で、正式な大引け終値ではありません。直近の保存ログでは15:15の5分足が使用されており、独立検証・株式分割調整も未確認です。回復率・勝率・推奨売買は表示しません。
+        ⚠️ 研究段階：日次学習の保存価格はスキャン由来の参考値で、正式な大引け終値ではありません。直近の保存ログでは多くが15:15以前の5分足を参照しており、銘柄ごとに時刻は異なります。独立検証・株式分割調整も未確認です。回復率・勝率・推奨売買は表示しません。
       </p>
       {loading && <p className="rounded-xl border p-4 text-sm">研究データを読み込み中…</p>}
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{error}</p>}
