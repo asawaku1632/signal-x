@@ -19,7 +19,7 @@ on:
       - "tests/independentPriceEvidenceCli.test.mjs"
       - "tests/jQuantsDailyBarOfflineAdapter.test.mjs"
       - "tests/jQuantsV2ResponseAdapter.test.mjs"
-      - "tests/jQuantsHistoricalProbe.test.mjs"
+      - "tests/jQuantsHistoricalProbe.test.mjs tests/jQuantsLiveReferenceReview.test.mjs"
       - "scripts/review-independent-price-evidence.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
   pull_request:
