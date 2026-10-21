@@ -346,6 +346,20 @@ async function buildChartResponse(request: Request) {
   }
 }
 
+function chartBarDiagnostics(latestBarTimestamp: unknown) {
+  const timestamp = typeof latestBarTimestamp === "number" ? latestBarTimestamp : Number(latestBarTimestamp);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return { latestBarTimestamp: null, barAgeSeconds: null, barAgeMinutes: null, barTimeJst: null };
+  }
+  const barAgeSeconds = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
+  return {
+    latestBarTimestamp: timestamp,
+    barAgeSeconds,
+    barAgeMinutes: Math.floor(barAgeSeconds / 60),
+    barTimeJst: new Date(timestamp * 1000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false }),
+  };
+}
+
 const CHART_FRESH_MS = 60_000;
 
 export async function GET(request: Request) {
@@ -365,14 +379,14 @@ export async function GET(request: Request) {
   };
 
   if (snapshot && ageMs < CHART_FRESH_MS) {
-    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), latestBarTimestamp: snapshot.payload?.latestBarTimestamp ?? null } });
+    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload?.latestBarTimestamp) } });
   }
 
   if (snapshot) {
     try {
       const { response, payload } = await update();
       if (response.ok && payload?.success) {
-        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", latestBarTimestamp: payload.latestBarTimestamp ?? null } });
+        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp) } });
       }
     } catch (error) {
       console.error("chart synchronous refresh failed:", error);
@@ -383,9 +397,9 @@ export async function GET(request: Request) {
     after(async () => {
       await update().catch((error) => console.error("chart snapshot retry failed:", error));
     });
-    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), latestBarTimestamp: snapshot.payload?.latestBarTimestamp ?? null } });
+    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload?.latestBarTimestamp) } });
   }
 
   const { response, payload } = await update();
-  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", latestBarTimestamp: payload.latestBarTimestamp ?? null } }, { status: response.status });
+  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp) } }, { status: response.status });
 }
