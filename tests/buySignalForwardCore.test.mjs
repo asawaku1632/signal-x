@@ -11,7 +11,7 @@ test("evaluates exact horizons and first close recovery",()=>{
   assert.ok(Math.abs(result.outcomes[1].returnPct - 5) < 1e-9);
   assert.equal(result.outcomes[4].horizon,20);
   assert.equal(result.firstCloseRecoverySession,3);
-  assert.equal(result.worstCloseDrawdownPct,-5);
+  assert.ok(Math.abs(result.worstCloseDrawdownPct + 5) < 1e-9);
 });
 test("never fills missing or unverified outcomes",()=>{
   const result=evaluateBuySignalForward({...base,observations:[bar(0,95),bar(4,120,false)]});
