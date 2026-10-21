@@ -78,3 +78,55 @@ export async function claimDaily100FromDatabase(args: {
     });
   });
 }
+
+/** Audit source checks only. This does NOT generate or save BB signals/outcomes.
+ * A durable claim must already exist; all writes are one verified dev-DB transaction.
+ */
+export async function persistDaily100SourceChecks(args: {
+  tradeDate: string; partitionId: number; policyVersion: string;
+  result: import("./bollingerDaily100PartitionProcessor").Daily100Result;
+}): Promise<void> {
+  const { tradeDate, partitionId, policyVersion, result } = args;
+  if (result.partitionId !== partitionId || result.requested !== 20 ||
+      result.checks.length !== 20 || result.observed + result.failed !== 20 ||
+      new Set(result.checks.map(c => c.code)).size !== 20 ||
+      result.checks.some(c => !/^\d{4}$/.test(c.code) ||
+        !["OK", "SOURCE_FAILED"].includes(c.state)) ||
+      result.observed !== result.checks.filter(c => c.state === "OK").length ||
+      result.failed !== result.checks.filter(c => c.state === "SOURCE_FAILED").length ||
+      result.status !== (result.failed === 0 ? "COMPLETE" : result.observed === 0 ? "FAILED" : "PARTIAL")) {
+    throw Error("DAILY100_AUDIT_INVALID");
+  }
+  await withVerifiedDaily100Client(async client => {
+    const claim = await client.query<{ codes: string[] }>(
+      `SELECT codes FROM public.bb_daily100_runs
+       WHERE trade_date=$1::date AND partition_id=$2 AND policy_version=$3
+         AND status='CLAIMED' FOR UPDATE`,
+      [tradeDate, partitionId, policyVersion],
+    );
+    if (claim.rows.length !== 1 ||
+        claim.rows[0].codes.length !== 20 ||
+        claim.rows[0].codes.some((code, i) => code !== result.checks[i].code)) {
+      throw Error("DAILY100_AUDIT_CLAIM_MISMATCH");
+    }
+    for (const check of result.checks) {
+      await client.query(
+        `INSERT INTO public.bb_daily100_checks
+         (trade_date,partition_id,policy_version,code,state,note)
+         VALUES ($1::date,$2,$3,$4,$5,$6)
+         ON CONFLICT (trade_date,partition_id,policy_version,code) DO NOTHING`,
+        [tradeDate, partitionId, policyVersion, check.code, check.state, check.note],
+      );
+    }
+    const updated = await client.query(
+      `UPDATE public.bb_daily100_runs
+       SET status=$4, requested_count=20, observed_count=$5, failed_count=$6,
+           note='SOURCE_CHECK_ONLY_NO_SIGNAL_OR_OUTCOME',
+           finished_at=now()
+       WHERE trade_date=$1::date AND partition_id=$2 AND policy_version=$3
+         AND status='CLAIMED'`,
+      [tradeDate, partitionId, policyVersion, result.status, result.observed, result.failed],
+    );
+    if (updated.rowCount !== 1) throw Error("DAILY100_AUDIT_UPDATE_FAILED");
+  });
+}
