@@ -21,9 +21,7 @@ export async function probeJQuantsHistoricalDailyBar({ apiKey, code, date, fetch
     if (rows.length !== 1 || body.data.length !== 1) return { status: "NO_UNAMBIGUOUS_BAR" };
     const bar = rows[0];
     if (typeof bar.C !== "number" || !Number.isFinite(bar.C) || bar.C <= 0) return { status: "INVALID_CLOSE" };
-    const adjustedCloseAvailable = typeof bar.AdjC === "number" && Number.isFinite(bar.AdjC) && bar.AdjC > 0;
-    // Diagnostic metadata only. No prices, source body, or verification flags are exposed.
-    return { status: "HISTORICAL_BAR_PRESENT", adjustedCloseAvailable, priceVerified: false, publishableReturn: false };
+    return { status: "HISTORICAL_BAR_PRESENT", priceVerified: false, publishableReturn: false };
   } catch {
     return { status: "NETWORK_OR_PARSE_ERROR" };
   }
