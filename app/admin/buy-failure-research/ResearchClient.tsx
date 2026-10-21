@@ -9,7 +9,7 @@ type Item = {
   referencePrice: number; aiPower: number; status: string; calendarAnchor?: string;
   availablePriceSessions?: number; notYetDueSessions?: number; outcomes: Outcome[];
 };
-type Report = { success: boolean; total: number; excluded: number; items: Item[]; caveat: string; error?: string };
+type Report = { success: boolean; total: number; excluded: number; sampled?: number; exclusionReasons?: Record<string, number>; items: Item[]; caveat: string; error?: string };
 const stateText = (status: string) => ({
   VERIFIED: "検証済み", UNVERIFIED: "価格未検証", NOT_YET_DUE: "未到来", MISSING: "データ欠損", PENDING_OR_MISSING: "未到来・欠損",
   CALENDAR_UNAVAILABLE: "営業日未確定",
