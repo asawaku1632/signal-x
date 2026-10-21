@@ -1,0 +1,25 @@
+name: Daily100 isolated safety tests
+on:
+  push:
+    branches:
+      - research/bb-forward-100-daily-isolated
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BB_DAILY100_DB_WRITE_ENABLED: "false"
+      BB_DAILY100_DEV_DIAGNOSTIC: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Offline daily100 safety tests
+        run: node --test tests/bollingerDaily100PartitionProcessor.test.mjs tests/bollingerDaily100DevSourceAudit.test.mjs tests/bollingerDaily100StoreSafety.test.mjs
