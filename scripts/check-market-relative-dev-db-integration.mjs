@@ -8,6 +8,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import pg from "pg";
+import { randomUUID } from "node:crypto";
 
 const DEV_PROJECT = "jdtqwryiyxeuoraecorw";
 const url = process.env.SIGNALX_RESEARCH_DEV_DATABASE_URL;
@@ -44,7 +45,7 @@ try {
   await client.query("BEGIN");
   transactionStarted = true;
   const input = {
-    signalId: "dev-only-integration-" + crypto.randomUUID(),
+    signalId: "dev-only-integration-" + randomUUID(),
     code: "9684", aiPower: 93, price: 3000,
     priceObservedAt: "2026-10-21T09:05:00+09:00",
     signalObservedAt: "2026-10-21T09:05:10+09:00",
