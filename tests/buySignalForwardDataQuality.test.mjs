@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { evaluateBuySignalForward } from "../app/lib/research/buySignalForwardCore.mjs";
 
 const sessions = Array.from({ length: 20 }, (_, i) => `2026-11-${String(i + 1).padStart(2, "0")}`);
-const base = { signalDate: "2026-10-30", signalPrice: 100, tradingDates: sessions };
+const base = { signalDate: "2026-10-30", signalPrice: 100, signalPriceVerified: true, signalPriceCorporateActionAdjusted: true, tradingDates: sessions };
 const observation = (index, close, flags = {}) => ({
   tradeDate: sessions[index], close, verified: true, corporateActionAdjusted: true, ...flags,
 });
@@ -67,4 +67,18 @@ test("path drawdown halts at the first missing or unadjusted session", () => {
   ] });
   assert.equal(result.worstCloseDrawdownPct, -5);
   assert.equal(result.firstCloseRecoverySession, null);
+});
+
+test("unverified or unadjusted signal baseline blocks all returns even when future closes are verified", () => {
+  for (const flags of [{ signalPriceVerified: false }, { signalPriceCorporateActionAdjusted: false }]) {
+    const result = evaluateBuySignalForward({ ...base, ...flags, observations: [
+      observation(0, 95), observation(2, 110),
+    ] });
+    assert.equal(result.outcomes[0].status, "UNVERIFIED");
+    assert.equal(result.outcomes[0].returnPct, null);
+    assert.equal(result.outcomes[1].status, "UNVERIFIED");
+    assert.equal(result.outcomes[1].recoveredToSignal, null);
+    assert.equal(result.firstCloseRecoverySession, null);
+    assert.equal(result.worstCloseDrawdownPct, null);
+  }
 });
