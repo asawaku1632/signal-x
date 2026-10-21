@@ -31,13 +31,13 @@ export async function GET(request: NextRequest) {
   const groups: { group: number; succeeded: number; failed: number; elapsedMs: number }[] = [];
 
   for (let offset = 0; offset < codes.length; offset += 5) {
-    const result = await probeDaily100Vendor(codes.slice(offset, offset + 5), async code => {
+    const result = await probeDaily100Vendor(codes.slice(offset, offset + 5), async (code, signal) => {
       const url = "https://query1.finance.yahoo.com/v8/finance/chart/" +
         encodeURIComponent(code + ".T") + "?range=2y&interval=1d&events=splits";
       const response = await fetch(url, {
         cache: "no-store",
         headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(12000),
+        signal,
       });
       if (!response.ok) throw Error("PRICE_PROVIDER_STATUS_" + response.status);
       const payload = await response.json();
