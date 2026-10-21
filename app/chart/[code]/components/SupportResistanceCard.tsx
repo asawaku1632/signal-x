@@ -3,6 +3,7 @@
 type SupportResistanceCardProps = {
   supportPrice: number | null;
   currentPrice: number | null;
+  priceLabel?: string;
   resistancePrice: number | null;
   supportDiff: number | null;
   resistanceDiff: number | null;
@@ -60,6 +61,7 @@ function LevelItem({
 export default function SupportResistanceCard({
   supportPrice,
   currentPrice,
+  priceLabel,
   resistancePrice,
   supportDiff,
   resistanceDiff,
@@ -88,7 +90,7 @@ export default function SupportResistanceCard({
           tone="support"
         />
         <LevelItem
-          label="現在値"
+          label={priceLabel ?? "参考値"}
           value={currentPrice}
           tone="current"
         />
