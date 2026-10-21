@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buyQuoteFreshness } from "@/app/lib/buyQuoteFreshness.mjs";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
@@ -25,19 +26,10 @@ type Stock = {
   takeProfit?: number;
   stopLoss?: number;
   latestBarTimestamp?: number | string | null;
+  dataSource?: string;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
-// Fail closed for new buy alerts if the scan or underlying quote is old.
-const MAX_BUY_QUOTE_AGE_MS = 15 * 60_000;
-
-function quoteIsRecent(timestamp: unknown, nowMs: number): boolean {
-  const seconds = typeof timestamp === "number" || typeof timestamp === "string" ? Number(timestamp) : NaN;
-  if (!Number.isFinite(seconds) || seconds <= 0) return false;
-  const ageMs = nowMs - seconds * 1000;
-  return ageMs >= 0 && ageMs <= MAX_BUY_QUOTE_AGE_MS;
-}
-
 export async function GET(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -66,9 +58,6 @@ export async function GET(req: Request) {
   const scanJson = await scanRes.json();
   const stocks: Stock[] = Array.isArray(scanJson?.stocks) ? scanJson.stocks : [];
   const nowMs = Date.now();
-  const scanUpdatedAtMs = Date.parse(String(scanJson?.updatedAt ?? ""));
-  const scanRecent = scanJson?.status === "fresh" && Number.isFinite(scanUpdatedAtMs) &&
-    nowMs >= scanUpdatedAtMs && nowMs - scanUpdatedAtMs <= MAX_BUY_QUOTE_AGE_MS;
   const started = [];
   const waiting = [];
 
@@ -97,8 +86,9 @@ export async function GET(req: Request) {
       continue;
     }
 
-    if (!scanRecent || !quoteIsRecent(stock.latestBarTimestamp, nowMs)) {
-      waiting.push({ code: favorite.code, score, reason: !scanRecent ? "scan_stale" : "quote_stale_or_unknown" });
+    const freshness = buyQuoteFreshness(stock, scanJson, nowMs);
+    if (!freshness.ok) {
+      waiting.push({ code: favorite.code, score, reason: freshness.reason });
       continue;
     }
 
