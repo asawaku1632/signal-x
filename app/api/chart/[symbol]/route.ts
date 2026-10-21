@@ -410,6 +410,40 @@ function morningFiveMinuteObservation(timeframe: Timeframe, latestBarTimestamp: 
   };
 }
 
+function fiveMinuteFeedLagObservation(timeframe: Timeframe, latestBarTimestamp: unknown, now = new Date()) {
+  if (timeframe !== "5m") return { feedLagObservation: "NOT_APPLICABLE" };
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+    weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  });
+  const parts = (date: Date) => Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  const current = parts(now);
+  const minutes = Number(current.hour) * 60 + Number(current.minute);
+  const observedAtJst = now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
+  const timestamp = Number(latestBarTimestamp);
+  const bar = Number.isFinite(timestamp) && timestamp > 0 ? parts(new Date(timestamp * 1000)) : null;
+  const sameDay = !!bar && ["year", "month", "day"].every((key) => bar[key] === current[key]);
+  const barMinutes = bar ? Number(bar.hour) * 60 + Number(bar.minute) : null;
+  const isWeekday = !["Sat", "Sun"].includes(current.weekday);
+  // Grace after each open: Yahoo's candle timestamps may denote interval start, not finalization.
+  const window = !isWeekday ? "WEEKEND" :
+    minutes >= 540 && minutes < 555 ? "MORNING_OPEN_GRACE" :
+    minutes >= 555 && minutes < 690 ? "MORNING_ACTIVE" :
+    minutes >= 690 && minutes < 750 ? "LUNCH_BREAK" :
+    minutes >= 750 && minutes < 765 ? "AFTERNOON_OPEN_GRACE" :
+    minutes >= 765 && minutes < 930 ? "AFTERNOON_ACTIVE" : "OUTSIDE_SESSION";
+  const baseline = window === "MORNING_ACTIVE" ? 540 : window === "AFTERNOON_ACTIVE" ? 750 : null;
+  const observed = baseline !== null && sameDay && barMinutes !== null && barMinutes >= baseline;
+  return {
+    feedLagObservation: baseline === null ? "NOT_EVALUATED" :
+      !bar ? "NO_BAR" : observed ? "SESSION_BAR_OBSERVED" : "SESSION_BAR_NOT_OBSERVED",
+    feedLagWindowJst: window,
+    feedLagObservedAtJst: observedAtJst,
+    feedLagIsConfirmedDelay: false,
+    feedLagCalendarOnly: true,
+  };
+}
+
 const CHART_FRESH_MS = 60_000;
 
 export async function GET(request: Request) {
@@ -429,14 +463,14 @@ export async function GET(request: Request) {
   };
 
   if (snapshot && ageMs < CHART_FRESH_MS) {
-    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
+    return NextResponse.json({ ...snapshot.payload, status: "fresh", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, snapshot.payload.latestBarTimestamp), ...fiveMinuteFeedLagObservation(timeframe, snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
   }
 
   if (snapshot) {
     try {
       const { response, payload } = await update();
       if (response.ok && payload?.success) {
-        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } });
+        return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, payload.latestBarTimestamp), ...fiveMinuteFeedLagObservation(timeframe, payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } });
       }
     } catch (error) {
       console.error("chart synchronous refresh failed:", error);
@@ -447,9 +481,9 @@ export async function GET(request: Request) {
     after(async () => {
       await update().catch((error) => console.error("chart snapshot retry failed:", error));
     });
-    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
+    return NextResponse.json({ ...snapshot.payload, status: "stale", updatedAt: snapshot.updatedAt, chartDiagnostics: { source: "snapshot_fallback", snapshotAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)), ...chartBarDiagnostics(snapshot.payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, snapshot.payload.latestBarTimestamp), ...fiveMinuteFeedLagObservation(timeframe, snapshot.payload.latestBarTimestamp), upstreamLastTimestamp: snapshot.payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof snapshot.payload.upstreamLastTimestamp === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamLastTimestamp - snapshot.payload.latestBarTimestamp : null, upstreamRegularMarketTime: snapshot.payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: snapshot.payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof snapshot.payload.upstreamRegularMarketTime === "number" && typeof snapshot.payload.latestBarTimestamp === "number" ? snapshot.payload.upstreamRegularMarketTime - snapshot.payload.latestBarTimestamp : null } });
   }
 
   const { response, payload } = await update();
-  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } }, { status: response.status });
+  return NextResponse.json({ ...payload, status: "fresh", updatedAt: new Date().toISOString(), chartDiagnostics: { source: "upstream", ...chartBarDiagnostics(payload.latestBarTimestamp), ...morningFiveMinuteObservation(timeframe, payload.latestBarTimestamp), ...fiveMinuteFeedLagObservation(timeframe, payload.latestBarTimestamp), upstreamLastTimestamp: payload.upstreamLastTimestamp ?? null, upstreamToCandleGapSeconds: typeof payload.upstreamLastTimestamp === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamLastTimestamp - payload.latestBarTimestamp : null, upstreamRegularMarketTime: payload.upstreamRegularMarketTime ?? null, upstreamExchangeTimezone: payload.upstreamExchangeTimezone ?? null, upstreamRegularMarketToBarGapSeconds: typeof payload.upstreamRegularMarketTime === "number" && typeof payload.latestBarTimestamp === "number" ? payload.upstreamRegularMarketTime - payload.latestBarTimestamp : null } }, { status: response.status });
 }
