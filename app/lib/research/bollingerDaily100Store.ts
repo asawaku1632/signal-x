@@ -114,7 +114,7 @@ export async function persistDaily100SourceChecks(args: {
         `INSERT INTO public.bb_daily100_checks
          (trade_date,partition_id,policy_version,code,state,note)
          VALUES ($1::date,$2,$3,$4,$5,$6)
-         ON CONFLICT (trade_date,partition_id,policy_version,code) DO NOTHING`,
+         ON CONFLICT (trade_date,policy_version,code) DO NOTHING`,
         [tradeDate, partitionId, policyVersion, check.code, check.state, check.note],
       );
     }
