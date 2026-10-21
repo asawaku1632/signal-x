@@ -13,6 +13,7 @@ on:
       - "tests/buyFailureTseCalendar.test.mjs"
       - "tests/ownerPreviewPolicy.test.mjs"
       - "tests/independentPriceComparison.test.mjs"
+      - "tests/independentPriceSampleBatch.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "tests/buyFailureTseCalendar.test.mjs"
       - "tests/ownerPreviewPolicy.test.mjs"
       - "tests/independentPriceComparison.test.mjs"
+      - "tests/independentPriceSampleBatch.test.mjs"
       - ".github/workflows/buy-signal-recovery-research-ci.yml"
 permissions:
   contents: read
@@ -38,6 +40,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs tests/independentPriceComparison.test.mjs
+      - run: node --test tests/buySignalForwardCore.test.mjs tests/buySignalForwardDataQuality.test.mjs tests/ownerPreviewPolicy.test.mjs tests/buyFailureCheckpointPolicy.test.mjs tests/buyFailureTseCalendar.test.mjs tests/independentPriceComparison.test.mjs tests/independentPriceSampleBatch.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
