@@ -10,6 +10,16 @@ type Item = {
   availablePriceSessions?: number; notYetDueSessions?: number; outcomes: Outcome[];
 };
 type Report = { success: boolean; total: number; excluded: number; sampled?: number; exclusionReasons?: Record<string, number>; items: Item[]; caveat: string; error?: string };
+const severityLabel = (outcome: Outcome | undefined): string => {
+  if (!outcome || outcome.status !== "VERIFIED" || outcome.returnPct === null || !Number.isFinite(outcome.returnPct)) return "判定保留";
+  const change = outcome.returnPct;
+  if (change <= -10) return "大幅下落";
+  if (change <= -5) return "下落";
+  if (change <= -2) return "小幅下落";
+  if (change < 0) return "微減";
+  return "横ばい・上昇";
+};
+
 const stateText = (status: string) => ({
   VERIFIED: "検証済み", UNVERIFIED: "価格未検証", NOT_YET_DUE: "未到来", MISSING: "データ欠損", PENDING_OR_MISSING: "未到来・欠損",
   CALENDAR_UNAVAILABLE: "営業日未確定",
@@ -145,6 +155,18 @@ export default function ResearchClient() {
             })}
           </div>
           <p className="mt-1 text-xs text-slate-500">バーは各期間の到来割合で、予測精度・利益率ではありません。到来済みでも参考価格が欠損する場合があります。</p>
+          <div className="mt-3 rounded-lg border p-3 text-xs dark:border-slate-700">
+            <p className="font-bold">下落幅別の研究分類（1営業日後）</p>
+            <p className="mt-1 text-slate-500">独立検証済み・株式分割調整済みの価格だけで分類。未検証価格は必ず判定保留とします。</p>
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              {["大幅下落", "下落", "小幅下落", "微減", "横ばい・上昇", "判定保留"].map((label) => {
+                const count = report.items.filter((item) => item.sameDayRole === "REPRESENTATIVE" &&
+                  severityLabel(item.outcomes?.find((outcome) => outcome.horizon === 1)) === label).length;
+                return <p key={label} className="rounded bg-slate-100 p-2 dark:bg-slate-800">{label}：{count}件</p>;
+              })}
+            </div>
+            <p className="mt-2 text-slate-500">区分：大幅下落 −10%以下／下落 −10%超〜−5%／小幅下落 −5%超〜−2%／微減 −2%超〜0%未満／横ばい・上昇 0%以上。監視時の参考価格との比較であり、実売買損益や日中最大下落ではありません。</p>
+          </div>
           <p className="mt-2 font-bold">研究に使える観測数（参考）</p>
           <p className="mt-1 text-xs text-slate-500">同日代表のみを対象に、期間到来・価格記録・独立検証の3条件を別々に確認します。</p>
           <div className="mt-1 overflow-x-auto">
