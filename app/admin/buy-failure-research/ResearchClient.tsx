@@ -29,8 +29,19 @@ export default function ResearchClient() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState("");
   const [probeBusy, setProbeBusy] = useState(false);
   const [probeStatus, setProbeStatus] = useState("");
+  const runReview = async () => {
+    setReviewBusy(true); setReviewStatus("");
+    try {
+      const response = await fetch("/api/admin/jquants-research-review", { method: "POST", cache: "no-store" });
+      const data = await response.json() as { status?: string; reasons?: string[] };
+      setReviewStatus(data.status === "REVIEW_REQUIRED" ? "外部日足を取得し、価格基準・株式分割調整が未確認であることを検出しました。実際のSIGNALX保存価格との照合ではありません。" : (data.status ?? "UNAVAILABLE"));
+    } catch { setReviewStatus("NETWORK_ERROR"); }
+    finally { setReviewBusy(false); }
+  };
   const runProbe = async () => {
     setProbeBusy(true);
     setProbeStatus("");
@@ -81,6 +92,12 @@ export default function ResearchClient() {
         <p className="mt-1 text-xs leading-5">Preview環境でのみ有効。固定した過去の1件を読み取り確認します。APIキー・株価は表示せず、検証済み利益率にも反映しません。</p>
         <button type="button" disabled={probeBusy} onClick={() => void runProbe()} className="mt-3 rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-50">{probeBusy ? "接続確認中…" : "過去データの接続を確認"}</button>
         {probeStatus && <p role="status" className="mt-2 break-words text-xs">診断結果：{probeStatus === "HISTORICAL_BAR_PRESENT" ? "過去データを1件取得できました（価格検証は未完了）" : probeStatus === "RESEARCH_PROBE_DISABLED" ? "安全設定により無効です（Preview用フラグ未設定）" : probeStatus === "KEY_NOT_CONFIGURED" ? "PreviewのAPIキーが見つかりません" : probeStatus === "AUTH_OR_ENTITLEMENT_REJECTED" ? "認証または契約プランの確認が必要です" : probeStatus === "NO_UNAMBIGUOUS_BAR" ? "指定日のデータが取得できませんでした" : probeStatus === "RATE_LIMITED" ? "APIの回数制限に達しました" : "確認できませんでした（" + probeStatus + "）"}</p>}
+      </section>
+      <section className="rounded-xl border bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="font-bold">🔬 外部日足の比較診断（仮の参考価格）</p>
+        <p className="mt-1 text-xs leading-5">Preview限定。固定銘柄の外部日足と仮の参考価格を比較し、価格基準の不一致を確認します。SIGNALXに保存された実際の監視価格ではなく、検証済み件数や勝率には加算しません。</p>
+        <button type="button" disabled={reviewBusy} onClick={() => void runReview()} className="mt-3 rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-50">{reviewBusy ? "比較確認中…" : "仮の価格で比較診断"}</button>
+        {reviewStatus && <p role="status" className="mt-2 break-words text-xs">診断結果：{reviewStatus}</p>}
       </section>
       {loading && <p className="rounded-xl border p-4 text-sm">研究データを読み込み中…</p>}
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{error}</p>}
