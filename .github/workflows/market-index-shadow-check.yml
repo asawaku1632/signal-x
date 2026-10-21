@@ -18,6 +18,8 @@ on:
       - 'scripts/check-market-relative-prospective-snapshot.mjs'
       - 'scripts/check-market-relative-snapshot-ledger.mjs'
       - 'scripts/check-market-relative-snapshot-insert-plan.mjs'
+      - 'scripts/check-market-relative-snapshot-conflict.mjs'
+      - 'app/lib/research/marketRelativeSnapshotConflict.ts'
       - 'app/lib/research/marketRelativeSnapshotInsertPlan.ts'
       - 'app/lib/research/marketRelativeSnapshotLedger.ts'
       - 'app/lib/research/marketRelativeProspectiveSnapshot.ts'
@@ -67,6 +69,7 @@ jobs:
           node scripts/check-market-relative-prospective-snapshot.mjs
           node scripts/check-market-relative-snapshot-ledger.mjs
           node scripts/check-market-relative-snapshot-insert-plan.mjs
+          node scripts/check-market-relative-snapshot-conflict.mjs
           node scripts/check-ai-rating-reversal-study.mjs
   provider-probe:
     runs-on: ubuntu-latest
