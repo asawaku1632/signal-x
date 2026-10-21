@@ -8,7 +8,7 @@ const percent = (price, base) => ((price / base) - 1) * 100;
  * @param {{signalPrice:number,signalDate:string,observations:Array<{
  * tradeDate:string,close:number|null,low?:number|null,high?:number|null,
  * verified?:boolean,corporateActionAdjusted?:boolean}>,
- * tradingDates:string[]}} input
+ * tradingDates:string[],signalPriceVerified?:boolean,signalPriceCorporateActionAdjusted?:boolean}} input
  * tradingDates must be authoritative consecutive TSE sessions AFTER signalDate.
  * Never generate calendar dates from weekdays. No missing-session interpolation.
  */
@@ -29,7 +29,8 @@ export function evaluateBuySignalForward(input) {
     }
     observations.set(row.tradeDate, row);
   }
-  const isUsable = (row) => row?.verified === true &&
+  const baselineUsable = input.signalPriceVerified === true && input.signalPriceCorporateActionAdjusted === true;
+  const isUsable = (row) => baselineUsable && row?.verified === true &&
     row.corporateActionAdjusted === true && validPrice(row.close);
   const outcomes = RESEARCH_HORIZONS.map((horizon) => {
     const targetDate = dates[horizon - 1] ?? null;
@@ -57,5 +58,5 @@ export function evaluateBuySignalForward(input) {
     }
   }
   return { outcomes, worstCloseDrawdownPct, firstCloseRecoverySession,
-    caveat: "Verified adjusted closes only; intraday drawdown and executable fills are not inferred." };
+    caveat: "Both signal baseline and future closes must be independently verified and corporate-action-adjusted; intraday drawdown and executable fills are not inferred." };
 }
