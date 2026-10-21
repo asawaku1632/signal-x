@@ -1,8 +1,8 @@
 import pool from "@/app/lib/postgres";
-import { resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
+import { resolveTseTradingDatesAfter, isTseTargetDateReady, isTseTradingDate } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import { getBuyActivationPreview } from "@/app/lib/research/buyFailureReadOnly";
 import { evaluateBuySignalForward } from "@/app/lib/research/buySignalForwardCore.mjs";
-import { isTseTargetDateReady } from "@/app/lib/technicalObservation/tseMarketCalendar";
+
 
 type PriceRow = { session_date: Date | string; price: string | number };
 const dateOnly = (value: Date | string) => value instanceof Date
@@ -18,12 +18,26 @@ export async function previewBuySignalForward(limit = 20) {
   const items = [];
   const now = new Date();
   for (const event of rows) {
-    const signalDate = new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date(event.triggeredAt)).replace(/\//g, "-");
+    }).formatToParts(new Date(event.triggeredAt));
+    const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? "";
+    const signalDate = [part("year"), part("month"), part("day")].join("-");
     let tradingDates: string[];
+    let calendarAnchor = signalDate;
     try {
-      tradingDates = resolveTseTradingDatesAfter(signalDate, 20, { maxLookaheadDays: 50 });
+      // For non-trading-day activations, anchor to the preceding TSE session
+      // so the first future checkpoint is the next actual trading session.
+      if (!isTseTradingDate(calendarAnchor)) {
+        let found = false;
+        for (let offset = 1; offset <= 14; offset++) {
+          const prior = new Date(Date.parse(signalDate + "T00:00:00Z") - offset * 86400000)
+            .toISOString().slice(0, 10);
+          if (isTseTradingDate(prior)) { calendarAnchor = prior; found = true; break; }
+        }
+        if (!found) throw new Error("CALENDAR_ANCHOR_UNAVAILABLE");
+      }
+      tradingDates = resolveTseTradingDatesAfter(calendarAnchor, 20, { maxLookaheadDays: 50 });
     } catch {
       items.push({ ...event, signalDate, status: "CALENDAR_UNAVAILABLE", outcomes: [] });
       continue;
@@ -43,13 +57,18 @@ export async function previewBuySignalForward(limit = 20) {
       verified: false, corporateActionAdjusted: false,
     }));
     const evaluation = evaluateBuySignalForward({
-      signalPrice: event.referencePrice, signalDate, tradingDates, observations,
+      signalPrice: event.referencePrice, signalDate: calendarAnchor, tradingDates, observations,
     });
     items.push({
-      ...event, signalDate, status: "HISTORICAL_UNVERIFIED",
+      ...event, signalDate, calendarAnchor, status: "HISTORICAL_UNVERIFIED",
       availablePriceSessions: observations.length,
       notYetDueSessions: tradingDates.filter((date) => !isTseTargetDateReady(date, now)).length,
-      outcomes: evaluation.outcomes,
+      outcomes: evaluation.outcomes.map((outcome) => ({
+        ...outcome,
+        status: outcome.status === "PENDING_OR_MISSING" && outcome.targetDate &&
+          !isTseTargetDateReady(outcome.targetDate, now) ? "NOT_YET_DUE" :
+          outcome.status === "PENDING_OR_MISSING" ? "MISSING" : outcome.status,
+      })),
       worstCloseDrawdownPct: evaluation.worstCloseDrawdownPct,
       firstCloseRecoverySession: evaluation.firstCloseRecoverySession,
     });
