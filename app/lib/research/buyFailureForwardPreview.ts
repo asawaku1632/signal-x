@@ -11,7 +11,7 @@ const dateOnly = (value: Date | string) => value instanceof Date
 
 /**
  * Strictly read-only preview. daily_stock_results.price is NOT established as
- * corporate-action-adjusted or independently verified. Therefore its values
+ * corporate-action-adjusted, independently verified, or confirmed to be closing prices. Therefore its values
  * must never be counted as verified returns or recovered outcomes.
  */
 export async function previewBuySignalForward(limit = 20) {
@@ -70,5 +70,5 @@ export async function previewBuySignalForward(limit = 20) {
     });
   }
   return { total, excluded, sampled, exclusionReasons, items,
-    caveat: "Prices are unverified/unadjusted. No historical win rate, recovery rate or trade recommendation can be calculated yet." };
+    caveat: "daily_stock_results.price has unconfirmed price semantics (closing price vs scan reference), and is unverified/unadjusted. Database timestamps lack timezone information. No historical win rate, recovery rate or trade recommendation can be calculated yet." };
 }
