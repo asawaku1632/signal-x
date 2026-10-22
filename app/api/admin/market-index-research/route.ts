@@ -19,17 +19,32 @@ async function readDevelopmentHistory(): Promise<ResearchRun[] | null> {
   if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") throw new Error("Invalid dev DB protocol");
   // Guard against accidentally reading a production database or arbitrary server.
   const expectedProject = "jdtqwryiyxeuoraecorw";
-  if (!url.hostname.includes(expectedProject) || !url.hostname.endsWith(".supabase.com")) {
+  const directHost = `db.${expectedProject}.supabase.co`;
+  const sessionPoolerHost = "aws-0-ap-northeast-1.pooler.supabase.com";
+  const isDirect = url.hostname === directHost && url.username === "postgres" && url.port === "5432";
+  const isSessionPooler = url.hostname === sessionPoolerHost &&
+    decodeURIComponent(url.username) === `postgres.${expectedProject}` && url.port === "5432";
+  if ((!isDirect && !isSessionPooler) || !url.password || url.pathname !== "/postgres") {
     throw new Error("Research dev DB host mismatch");
   }
   const { Pool } = await import("pg");
   const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 4000, ssl: { rejectUnauthorized: true } });
   try {
-    const result = await pool.query<ResearchRun>(
-      `SELECT run_id, checked_at, index_key, provider_id, status, observed_at, age_minutes, reason
-       FROM public.market_index_research_runs ORDER BY checked_at DESC LIMIT 30`
-    );
-    return result.rows;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN READ ONLY");
+      const result = await client.query<ResearchRun>(
+        `SELECT run_id, checked_at, index_key, provider_id, status, observed_at, age_minutes, reason
+         FROM public.market_index_research_runs ORDER BY checked_at DESC LIMIT 30`
+      );
+      await client.query("ROLLBACK");
+      return result.rows;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   } finally {
     await pool.end();
   }
