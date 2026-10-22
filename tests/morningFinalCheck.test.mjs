@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  gatePhase,selectFrozenCohort,decideAtNineOhFive,compareClosingResults,
+  gatePhase,selectFrozenCohort,decideAtNineOhFive as decideRaw,compareClosingResults,
   summarizeForwardResearch,MORNING_FINAL_POLICY
 } from "../app/lib/research/morningFinalCheck.mjs";
 
 const today="2026-10-20";
+const decideAtNineOhFive=(candidate,bars,date,at=new Date(date+"T09:08:00+09:00"))=>decideRaw(candidate,bars,date,at);
 const bar=(when,open,high=open,low=open,close=open,volume=1000)=>
   ({time:Date.parse(today+"T"+when+":00+09:00")/1000,open,high,low,close,volume});
 const c={code:"7044",name:"ピアラ",score:96.7,rank:1,referencePrice:100};
