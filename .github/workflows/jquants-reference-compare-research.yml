@@ -1,5 +1,8 @@
 name: J-Quants reference comparator (research only)
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - research/jquants-independent-compare-20261022
