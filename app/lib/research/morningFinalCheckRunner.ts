@@ -19,6 +19,15 @@ type Bar={time:number;open:number|null;high:number|null;
 const YAHOO_TIMEOUT_MS=8000;
 const MAX_CODES=5;
 
+// Research metadata only. Never infer a trading halt from a failed quote feed.
+function quoteFailureReason(error:unknown):string {
+  const message=error instanceof Error?error.message:"";
+  if(message==="MISSING_FIVE_MINUTE_CANDLES")return "MISSING_CANDLES";
+  if(message==="OPENING_QUOTE_UNAVAILABLE")return "UPSTREAM_HTTP_ERROR";
+  if(error instanceof Error&&error.name==="TimeoutError")return "UPSTREAM_TIMEOUT";
+  return "UPSTREAM_FETCH_ERROR";
+}
+
 function asPrice(value:unknown):number|null {
   if(value===null||value===undefined||value==="")return null;
   const n=Number(value);
@@ -96,9 +105,14 @@ export async function runMorningFinalCheck(phase:string,now=new Date()) {
       const snapshots=await Promise.all(run.cohort.slice(0,MAX_CODES).map(async c=>{
         try {
           const bars=await openingBars(c.code);
-          return decideAtNineOhFive(c,bars,date,new Date());
-        }catch {
-          return decideAtNineOhFive(c,[],date,new Date());
+          const observation=decideAtNineOhFive(c,bars,date,new Date());
+          return {...observation,quoteStatus:observation.label==="UNAVAILABLE"?"UNAVAILABLE":"OBSERVED",
+            quoteReason:observation.label==="UNAVAILABLE"?"INVALID_OR_MISSING_OPENING_BAR":null,
+            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
+        }catch(error) {
+          const unavailable=decideAtNineOhFive(c,[],date,new Date());
+          return {...unavailable,quoteStatus:"UNAVAILABLE",quoteReason:quoteFailureReason(error),
+            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
         }
       }));
       const observed=snapshots.filter(s=>s.label!=="UNAVAILABLE").length;
