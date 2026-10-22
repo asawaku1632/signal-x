@@ -23,17 +23,27 @@ test("rejects provider rate limits and ambiguous bars", async () => {
   assert.equal((await probeJQuantsHistoricalDailyBar({ ...args, fetchImpl: async () => ({ status: 200, ok: true, json: async () => ({ data: [] }) }) })).status, "NO_UNAMBIGUOUS_BAR");
 });
 
-// Keep the isolated comparator suite covered by the established PR workflow.
-// This invokes only offline tests: no API key, network, or production writes.
-test("research-only reference comparison suite passes (18 cases)", async () => {
-  const { spawnSync } = await import("node:child_process");
-  const result = spawnSync(process.execPath, [
-    "--experimental-strip-types", "--test",
-    "tests/jquants-reference-compare.test.mjs",
-    "tests/jquants-reference-compare-route.test.mjs",
-  ], { cwd: new URL("../", import.meta.url), encoding: "utf8", timeout: 30000 });
-  assert.equal(result.status, 0, [result.stdout, result.stderr].filter(Boolean).join("\n"));
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
-  assert.match(output, /# pass 18(?:\r?\n|$)/);
-  assert.match(output, /# fail 0(?:\r?\n|$)/);
+// Offline comparator is exercised by the established PR workflow without nested node:test execution.
+import { compareHistoricalBar } from "../app/lib/research/jquants-reference-compare.ts";
+import { readFileSync } from "node:fs";
+
+test("reference comparator matches fixed bar and rejects mismatches", () => {
+  const bar = { Code: "39960", Date: "2026-07-01", O: 173, H: 175, L: 173, C: 175, Vo: 7000 };
+  assert.equal(compareHistoricalBar(bar), "REFERENCE_MATCH");
+  assert.equal(compareHistoricalBar({ ...bar, C: 176 }), "REFERENCE_MISMATCH");
+  assert.equal(compareHistoricalBar({ ...bar, Vo: 7001 }), "REFERENCE_MISMATCH");
+  assert.equal(compareHistoricalBar({ ...bar, H: null }), "FIELDS_MISSING");
+  assert.equal(compareHistoricalBar({ ...bar, Date: "2026-07-02" }), "WRONG_BAR");
+  assert.equal(compareHistoricalBar({ ...bar, Code: "39970" }), "WRONG_BAR");
+});
+
+test("research comparison API is Preview-only, admin-gated and unverified", () => {
+  const route = readFileSync(new URL("../app/api/admin/research/jquants-reference-compare/route.ts", import.meta.url), "utf8");
+  assert.match(route, /process\\.env\\.VERCEL_ENV !== "preview"/);
+  assert.match(route, /process\\.env\\.JQUANTS_RESEARCH_PROBE_ENABLED !== "true"/);
+  assert.match(route, /getAdminSession\\(\\)/);
+  assert.match(route, /independentlyCompared:\\s*false/);
+  assert.match(route, /priceVerified:\\s*false/);
+  assert.match(route, /publishableReturn:\\s*false/);
+  assert.doesNotMatch(route, /console\\./);
 });
