@@ -39,11 +39,11 @@ test("reference comparator matches fixed bar and rejects mismatches", () => {
 
 test("research comparison API is Preview-only, admin-gated and unverified", () => {
   const route = readFileSync(new URL("../app/api/admin/research/jquants-reference-compare/route.ts", import.meta.url), "utf8");
-  assert.match(route, /process\\.env\\.VERCEL_ENV !== "preview"/);
-  assert.match(route, /process\\.env\\.JQUANTS_RESEARCH_PROBE_ENABLED !== "true"/);
-  assert.match(route, /getAdminSession\\(\\)/);
-  assert.match(route, /independentlyCompared:\\s*false/);
-  assert.match(route, /priceVerified:\\s*false/);
-  assert.match(route, /publishableReturn:\\s*false/);
-  assert.doesNotMatch(route, /console\\./);
+  assert.match(route, /process\.env\.VERCEL_ENV !== "preview"/);
+  assert.match(route, /process\.env\.JQUANTS_RESEARCH_PROBE_ENABLED !== "true"/);
+  assert.match(route, /getAdminSession\(\)/);
+  assert.match(route, /independentlyCompared:\s*false/);
+  assert.match(route, /priceVerified:\s*false/);
+  assert.match(route, /publishableReturn:\s*false/);
+  assert.doesNotMatch(route, /console\./);
 });
