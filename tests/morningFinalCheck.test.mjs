@@ -123,3 +123,11 @@ test("price verification fails closed on invalid candles and does not turn them 
   }
   assert.equal(decideAtNineOhFive(c,good,today).label,"BUY_CANDIDATE");
 });
+
+test("09:00 candle cannot be treated as complete before 09:05 or after morning capture window",()=>{
+  const bars=[bar("09:00",100,100.5,99.5,100),bar("09:05",100.2)];
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:04:59+09:00")).label,"UNAVAILABLE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:08:00+09:00")).label,"BUY_CANDIDATE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:19:00+09:00")).label,"UNAVAILABLE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date("2026-10-21T09:08:00+09:00")).label,"UNAVAILABLE");
+});
