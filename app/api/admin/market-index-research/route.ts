@@ -110,3 +110,22 @@ export async function GET() {
     return NextResponse.json({ success: false, error: "研究用DBの取得に失敗しました（本番DBへの切替は行いません）", failureCategory }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
+
+export async function POST() {
+  const { isAdmin } = await getAdminSession();
+  if (!isAdmin || process.env.VERCEL_ENV !== "preview")
+    return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
+  if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true")
+    return NextResponse.json({ success: false, reason: "DEV_DB_DISABLED" }, { status: 403 });
+  // Dry-run only. A read-only transaction verifies app-to-DB access without saving data.
+  try {
+    const rows = await readDevelopmentHistory();
+    return NextResponse.json({
+      success: rows !== null, mode: "PREVIEW_READ_ONLY_SMOKE_TEST",
+      recordsFound: rows?.length ?? 0, writeTestPerformed: false,
+    }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json({ success: false, failureCategory: classifyDbFailure(error) },
+      { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+}
