@@ -22,4 +22,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated comparison tests
-        run: node --experimental-strip-types --test tests/jquants-reference-compare.test.mjs
+        run: node --experimental-strip-types --test tests/jquants-reference-compare.test.mjs tests/jquants-reference-compare-route.test.mjs
