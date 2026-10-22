@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,7 +45,10 @@ async function readDevelopmentHistory(): Promise<ResearchRun[] | null> {
     throw new Error("Research dev DB host mismatch");
   }
   const { Pool } = await import("pg");
-  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 4000, ssl: { rejectUnauthorized: true } });
+  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 4000, ssl: {
+    rejectUnauthorized: true,
+    ca: readFileSync(join(process.cwd(), "app/api/admin/bollinger-breakout-shadow/dev-connection-check/supabase-root-2021-ca.crt"), "utf8"),
+  } });
   try {
     const client = await pool.connect();
     try {
