@@ -47,3 +47,8 @@ test("research comparison API is Preview-only, admin-gated and unverified", () =
   assert.match(route, /publishableReturn:\s*false/);
   assert.doesNotMatch(route, /console\./);
 });
+
+// Register the complete 18-case offline suite in the established PR workflow.
+// These are module imports, not recursive node:test child processes.
+await import("./jquants-reference-compare.test.mjs");
+await import("./jquants-reference-compare-route.test.mjs");
