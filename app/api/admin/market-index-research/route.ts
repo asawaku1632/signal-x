@@ -111,13 +111,14 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const { isAdmin } = await getAdminSession();
   if (!isAdmin || process.env.VERCEL_ENV !== "preview")
     return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
   if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true")
     return NextResponse.json({ success: false, reason: "DEV_DB_DISABLED" }, { status: 403 });
-  // Preview-only transaction test. Insert a non-price fixture, then always roll back.
+  const saveStatus = (await request.json().catch(() => null))?.action === "save-unavailable-status";
+  // Preview-only synthetic status record; no price or licensed provider data.
   let pool: import("pg").Pool | undefined;
   try {
     const connectionString = process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL;
@@ -136,7 +137,7 @@ export async function POST() {
     const client = await pool.connect();
     let inserted = false;
     let rolledBack = false;
-    const runId = "preview-rollback-" + crypto.randomUUID();
+    const runId = (saveStatus ? "manual-unavailable-" : "preview-rollback-") + crypto.randomUUID();
     try {
       await client.query("BEGIN");
       await client.query(`INSERT INTO public.market_index_research_runs
@@ -146,15 +147,15 @@ export async function POST() {
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
       inserted = check.rows[0]?.present === true;
     } finally {
-      await client.query("ROLLBACK");
+      await client.query(saveStatus && inserted ? "COMMIT" : "ROLLBACK");
       const check = await client.query<{ present: boolean }>(
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
-      rolledBack = check.rows[0]?.present === false;
+      rolledBack = check.rows[0]?.present === saveStatus;
       client.release();
     }
     const success = inserted && rolledBack;
-    return NextResponse.json({ success, mode: "PREVIEW_WRITE_ROLLBACK_TEST",
-      writeVerified: inserted, rollbackVerified: rolledBack, persistedRows: 0,
+    return NextResponse.json({ success, mode: saveStatus ? "PREVIEW_UNAVAILABLE_STATUS_SAVED" : "PREVIEW_WRITE_ROLLBACK_TEST",
+      writeVerified: inserted, rollbackVerified: !saveStatus && rolledBack, persistedRows: saveStatus && success ? 1 : 0,
       marketDataCaptured: false }, { status: success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ success: false, failureCategory: classifyDbFailure(error) },
