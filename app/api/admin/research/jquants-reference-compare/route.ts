@@ -32,7 +32,7 @@ export async function GET() {
         const bar = body.data[0];
         if (!bar || bar.Code !== "39960" || bar.Date !== "2026-07-01") status = "WRONG_BAR";
         else if (!Object.keys(reference).every(k => typeof bar[k] === "number" && Number.isFinite(bar[k]))) status = "FIELDS_MISSING";
-        else status = Object.keys(reference).every(k => bar[k] === reference[k]) ? "REFERENCE_MATCH" : "REFERENCE_MISMATCH";
+        else status = (Object.keys(reference) as Array<keyof typeof reference>).every(k => bar[k] === reference[k]) ? "REFERENCE_MATCH" : "REFERENCE_MISMATCH";
       }
     }
   } catch { /* fail closed, no provider payload or secret logs */ }
