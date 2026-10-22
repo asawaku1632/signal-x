@@ -40,7 +40,7 @@ export function selectFrozenCohort(savedSignals){
  * Only 09:05 OPEN may be read; never use 09:05 high/low/close/volume.
  * Lack of both candles is missing evidence, NOT "skip" or a win.
  */
-export function decideAtNineOhFive(candidate,bars,tradeDate) {
+export function decideAtNineOhFive(candidate,bars,tradeDate,observedAt=new Date()) {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)||
     !candidate||!/^[0-9]{4}$/.test(String(candidate.code)))throw Error("INVALID_CANDIDATE");
   const map=new Map();
@@ -50,8 +50,12 @@ export function decideAtNineOhFive(candidate,bars,tradeDate) {
     if(j.date===tradeDate&&(j.hhmm==="09:00"||j.hhmm==="09:05")&&!map.has(j.hhmm))map.set(j.hhmm,b);
   }
   const first=map.get("09:00"),second=map.get("09:05");
+  const observed=jstParts(observedAt);
+  const observationAfterClose=observed.date===tradeDate&&observed.minute>=545;
+  const observationWithinMorning=observed.minute<9*60+19;
   const price=Number(candidate.referencePrice);
   if(!positive(price)||!first||!second||
+    !observationAfterClose||!observationWithinMorning||
     !positive(first.open)||!positive(first.high)||!positive(first.low)||
     !positive(first.close)||!positive(second.open)||
     !Number.isSafeInteger(first.time)||!Number.isSafeInteger(second.time)||
@@ -63,7 +67,7 @@ export function decideAtNineOhFive(candidate,bars,tradeDate) {
     first.close>first.high||first.close<first.low) {
     return {code:String(candidate.code),name:String(candidate.name),rank:Number(candidate.rank),
       priorScore:Number(candidate.score),priorReferencePrice:price,
-      label:"UNAVAILABLE",reasons:["当日9:00の確定足と9:05始値を検証できないため価格確認待ち（買い候補にしない）"],
+      label:"UNAVAILABLE",reasons:["当日9:00/9:05の価格と取得時刻を確認できないため価格確認待ち（買い候補にしない）"],
       open0900:null,price0905:null,gapPct:null,movePct:null,rangePct:null,
       adversePct:null,volume0900:null};
   }
