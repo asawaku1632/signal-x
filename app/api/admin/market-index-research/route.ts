@@ -142,7 +142,9 @@ export async function POST(request: Request) {
       await client.query("BEGIN");
       await client.query(`INSERT INTO public.market_index_research_runs
         (run_id, checked_at, index_key, provider_id, provider_rights_verified, status, reason)
-        VALUES ($1, now(), 'nikkei', 'test-fixture', false, 'unavailable', 'ROLLBACK_ONLY')`, [runId]);
+        VALUES ($1, now(), 'nikkei', $2, false, 'unavailable', $3)`, [runId,
+        saveStatus ? 'licensed-provider-pending' : 'test-fixture',
+        saveStatus ? 'PROVIDER_APPROVAL_REQUIRED' : 'ROLLBACK_ONLY']);
       const check = await client.query<{ present: boolean }>(
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
       inserted = check.rows[0]?.present === true;
@@ -150,13 +152,13 @@ export async function POST(request: Request) {
       await client.query(saveStatus && inserted ? "COMMIT" : "ROLLBACK");
       const check = await client.query<{ present: boolean }>(
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
-      rolledBack = check.rows[0]?.present === saveStatus;
+      rolledBack = check.rows[0]?.present === (saveStatus && inserted);
       client.release();
     }
     const success = inserted && rolledBack;
     return NextResponse.json({ success, mode: saveStatus ? "PREVIEW_UNAVAILABLE_STATUS_SAVED" : "PREVIEW_WRITE_ROLLBACK_TEST",
       writeVerified: inserted, rollbackVerified: !saveStatus && rolledBack, persistedRows: saveStatus && success ? 1 : 0,
-      marketDataCaptured: false }, { status: success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
+      marketDataCaptured: false, scheduledCaptureConfigured: false }, { status: success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ success: false, failureCategory: classifyDbFailure(error) },
       { status: 503, headers: { "Cache-Control": "no-store" } });
