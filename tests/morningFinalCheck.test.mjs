@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  gatePhase,selectFrozenCohort,decideAtNineOhFive,compareClosingResults,
+  gatePhase,selectFrozenCohort,decideAtNineOhFive as decideRaw,compareClosingResults,
   summarizeForwardResearch,MORNING_FINAL_POLICY
 } from "../app/lib/research/morningFinalCheck.mjs";
 
 const today="2026-10-20";
+const decideAtNineOhFive=(candidate,bars,date,at=new Date(date+"T09:08:00+09:00"))=>decideRaw(candidate,bars,date,at);
 const bar=(when,open,high=open,low=open,close=open,volume=1000)=>
   ({time:Date.parse(today+"T"+when+":00+09:00")/1000,open,high,low,close,volume});
 const c={code:"7044",name:"ピアラ",score:96.7,rank:1,referencePrice:100};
@@ -97,4 +98,36 @@ test("not enough forward days hides statistics; invalid/duplicated outcomes excl
   assert.equal(stats.sufficient,false);
   assert.equal(stats.labels[0].positiveRate,null);
   assert.equal(stats.allPnl100,null);
+});
+
+test("price verification fails closed on invalid candles and does not turn them into skips",()=>{
+  const good=[bar("09:00",100,100.8,99.5,100,1000),bar("09:05",100.5)];
+  const bad=[
+    [],
+    [good[0]],
+    [good[1]],
+    [bar("09:00",100,99,98,100),good[1]],
+    [bar("09:00",100,101,99,102),good[1]],
+    [bar("09:00",100,101,99,98),good[1]],
+    [bar("09:00",100,101,99,100,-1),good[1]],
+    [good[0],{...good[1],time:good[1].time+0.5}],
+    [good[0],{...good[1],time:good[1].time+60}],
+    [good[0],{...good[1],open:0}],
+    [bar("09:00",100,101,99,100),bar("09:05",Number.NaN)],
+    [bar("09:00",100,101,99,100),{...good[1],time:Date.parse("2026-10-19T09:05:00+09:00")/1000}],
+  ];
+  for(const candles of bad){
+    const result=decideAtNineOhFive(c,candles,today);
+    assert.equal(result.label,"UNAVAILABLE");
+    assert.equal(result.price0905,null);
+  }
+  assert.equal(decideAtNineOhFive(c,good,today).label,"BUY_CANDIDATE");
+});
+
+test("09:00 candle cannot be treated as complete before 09:05 or after morning capture window",()=>{
+  const bars=[bar("09:00",100,100.5,99.5,100),bar("09:05",100.2)];
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:04:59+09:00")).label,"UNAVAILABLE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:08:00+09:00")).label,"BUY_CANDIDATE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date(today+"T09:19:00+09:00")).label,"UNAVAILABLE");
+  assert.equal(decideAtNineOhFive(c,bars,today,new Date("2026-10-21T09:08:00+09:00")).label,"UNAVAILABLE");
 });

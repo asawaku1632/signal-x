@@ -96,9 +96,9 @@ export async function runMorningFinalCheck(phase:string,now=new Date()) {
       const snapshots=await Promise.all(run.cohort.slice(0,MAX_CODES).map(async c=>{
         try {
           const bars=await openingBars(c.code);
-          return decideAtNineOhFive(c,bars,date);
+          return decideAtNineOhFive(c,bars,date,new Date());
         }catch {
-          return decideAtNineOhFive(c,[],date);
+          return decideAtNineOhFive(c,[],date,new Date());
         }
       }));
       const observed=snapshots.filter(s=>s.label!=="UNAVAILABLE").length;
