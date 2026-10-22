@@ -26,3 +26,8 @@ test("does not persist or log provider response", () => {
   assert.doesNotMatch(route, /console\./);
   assert.doesNotMatch(route, /\.insert\(|\.upsert\(|\.update\(/);
 });
+
+test("manual fixture match cannot set overall success true", () => {
+  assert.match(route, /success:\s*false,\s*\/\/ A fixture match/);
+  assert.doesNotMatch(route, /success:\s*status\s*===\s*"REFERENCE_MATCH"/);
+});
