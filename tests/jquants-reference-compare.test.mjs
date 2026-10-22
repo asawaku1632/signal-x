@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { compareHistoricalBar } from "../app/lib/research/jquants-reference-compare.ts";
+const bar = { Code: "39960", Date: "2026-07-01", O: 173, H: 175, L: 173, C: 175, Vo: 7000 };
+test("match", () => assert.equal(compareHistoricalBar(bar), "REFERENCE_MATCH"));
+test("close differs", () => assert.equal(compareHistoricalBar({ ...bar, C: 176 }), "REFERENCE_MISMATCH"));
+test("volume differs", () => assert.equal(compareHistoricalBar({ ...bar, Vo: 7001 }), "REFERENCE_MISMATCH"));
+test("missing value", () => assert.equal(compareHistoricalBar({ ...bar, H: null }), "FIELDS_MISSING"));
+test("wrong date", () => assert.equal(compareHistoricalBar({ ...bar, Date: "2026-07-02" }), "WRONG_BAR"));
+test("wrong code", () => assert.equal(compareHistoricalBar({ ...bar, Code: "39970" }), "WRONG_BAR"));
