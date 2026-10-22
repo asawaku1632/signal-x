@@ -35,7 +35,7 @@ export async function GET() {
     }
   } catch { /* fail closed, no provider payload or secret logs */ }
   return NextResponse.json({
-    success: status === "REFERENCE_MATCH",
+    success: false, // A fixture match is not an independently verified price.
     status,
     sourceType: "manually-recorded-public-reference",
     checkedFields: ["O", "H", "L", "C", "Vo"],
