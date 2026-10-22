@@ -98,3 +98,27 @@ test("not enough forward days hides statistics; invalid/duplicated outcomes excl
   assert.equal(stats.labels[0].positiveRate,null);
   assert.equal(stats.allPnl100,null);
 });
+
+test("price verification fails closed on invalid candles and does not turn them into skips",()=>{
+  const good=[bar("09:00",100,101,99,100,1000),bar("09:05",100.5)];
+  const bad=[
+    [],
+    [good[0]],
+    [good[1]],
+    [bar("09:00",100,99,98,100),good[1]],
+    [bar("09:00",100,101,99,102),good[1]],
+    [bar("09:00",100,101,99,98),good[1]],
+    [bar("09:00",100,101,99,100,-1),good[1]],
+    [good[0],{...good[1],time:good[1].time+0.5}],
+    [good[0],{...good[1],time:good[1].time+60}],
+    [good[0],{...good[1],open:0}],
+    [bar("09:00",100,101,99,100),bar("09:05",Number.NaN)],
+    [bar("09:00",100,101,99,100),{...good[1],time:Date.parse("2026-10-19T09:05:00+09:00")/1000}],
+  ];
+  for(const candles of bad){
+    const result=decideAtNineOhFive(c,candles,today);
+    assert.equal(result.label,"UNAVAILABLE");
+    assert.equal(result.price0905,null);
+  }
+  assert.equal(decideAtNineOhFive(c,good,today).label,"BUY_CANDIDATE");
+});
