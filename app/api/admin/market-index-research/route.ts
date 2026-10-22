@@ -117,15 +117,49 @@ export async function POST() {
     return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
   if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true")
     return NextResponse.json({ success: false, reason: "DEV_DB_DISABLED" }, { status: 403 });
-  // Dry-run only. A read-only transaction verifies app-to-DB access without saving data.
+  // Preview-only transaction test. Insert a non-price fixture, then always roll back.
+  let pool: import("pg").Pool | undefined;
   try {
-    const rows = await readDevelopmentHistory();
-    return NextResponse.json({
-      success: rows !== null, mode: "PREVIEW_READ_ONLY_SMOKE_TEST",
-      recordsFound: rows?.length ?? 0, writeTestPerformed: false,
-    }, { headers: { "Cache-Control": "no-store" } });
+    const connectionString = process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL;
+    if (!connectionString) return NextResponse.json({ success: false, reason: "DEV_DB_URL_MISSING" }, { status: 503 });
+    const url = new URL(connectionString);
+    const ref = "jdtqwryiyxeuoraecorw";
+    const valid = ["postgres:", "postgresql:"].includes(url.protocol) &&
+      url.hostname === "aws-0-ap-northeast-1.pooler.supabase.com" &&
+      decodeURIComponent(url.username) === "postgres." + ref &&
+      url.port === "5432" && url.pathname === "/postgres" && Boolean(url.password);
+    if (!valid) return NextResponse.json({ success: false, reason: "DEV_DB_IDENTITY_MISMATCH" }, { status: 403 });
+    const { Pool } = await import("pg");
+    pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 4000,
+      ssl: { rejectUnauthorized: true, ca: readFileSync(join(process.cwd(),
+        "app/api/admin/bollinger-breakout-shadow/dev-connection-check/supabase-root-2021-ca.crt"), "utf8") } });
+    const client = await pool.connect();
+    let inserted = false;
+    let rolledBack = false;
+    const runId = "preview-rollback-" + crypto.randomUUID();
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO public.market_index_research_runs
+        (run_id, checked_at, index_key, provider_id, provider_rights_verified, status, reason)
+        VALUES ($1, now(), 'nikkei', 'test-fixture', false, 'unavailable', 'ROLLBACK_ONLY')`, [runId]);
+      const check = await client.query<{ present: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
+      inserted = check.rows[0]?.present === true;
+    } finally {
+      await client.query("ROLLBACK");
+      const check = await client.query<{ present: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
+      rolledBack = check.rows[0]?.present === false;
+      client.release();
+    }
+    const success = inserted && rolledBack;
+    return NextResponse.json({ success, mode: "PREVIEW_WRITE_ROLLBACK_TEST",
+      writeVerified: inserted, rollbackVerified: rolledBack, persistedRows: 0,
+      marketDataCaptured: false }, { status: success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ success: false, failureCategory: classifyDbFailure(error) },
       { status: 503, headers: { "Cache-Control": "no-store" } });
+  } finally {
+    await pool?.end().catch(() => {});
   }
 }
