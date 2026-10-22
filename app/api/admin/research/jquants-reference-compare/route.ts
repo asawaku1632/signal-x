@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
+import { compareHistoricalBar } from "@/app/lib/research/jquants-reference-compare";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,7 +8,6 @@ export const runtime = "nodejs";
 // Reference: Matsui Securities daily bars and Minkabu daily bars, 3996, 2026-07-01.
 // Both publicly display O=173 H=175 L=173 C=175 Volume=7000.
 // This is a manually fixed research fixture, not a live independent provider API.
-const reference = Object.freeze({ O: 173, H: 175, L: 173, C: 175, Vo: 7000 });
 export async function GET() {
   const headers = { "Cache-Control": "no-store" };
   const { isAdmin } = await getAdminSession();
@@ -30,9 +30,7 @@ export async function GET() {
       if (!body || !Array.isArray(body.data) || body.data.length !== 1 || body.pagination_key) status = "INVALID_RESPONSE";
       else {
         const bar = body.data[0];
-        if (!bar || bar.Code !== "39960" || bar.Date !== "2026-07-01") status = "WRONG_BAR";
-        else if (!Object.keys(reference).every(k => typeof bar[k] === "number" && Number.isFinite(bar[k]))) status = "FIELDS_MISSING";
-        else status = (Object.keys(reference) as Array<keyof typeof reference>).every(k => bar[k] === reference[k]) ? "REFERENCE_MATCH" : "REFERENCE_MISMATCH";
+        status = compareHistoricalBar(bar);
       }
     }
   } catch { /* fail closed, no provider payload or secret logs */ }
