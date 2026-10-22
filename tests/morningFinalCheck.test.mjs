@@ -100,7 +100,7 @@ test("not enough forward days hides statistics; invalid/duplicated outcomes excl
 });
 
 test("price verification fails closed on invalid candles and does not turn them into skips",()=>{
-  const good=[bar("09:00",100,101,99,100,1000),bar("09:05",100.5)];
+  const good=[bar("09:00",100,100.8,99.5,100,1000),bar("09:05",100.5)];
   const bad=[
     [],
     [good[0]],
