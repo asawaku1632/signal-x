@@ -33,6 +33,7 @@ test("research-only reference comparison suite passes (18 cases)", async () => {
     "tests/jquants-reference-compare-route.test.mjs",
   ], { cwd: new URL("../", import.meta.url), encoding: "utf8", timeout: 30000 });
   assert.equal(result.status, 0, [result.stdout, result.stderr].filter(Boolean).join("\n"));
-  assert.match(result.stdout, /# pass 18(?:\r?\n|$)/);
-  assert.match(result.stdout, /# fail 0(?:\r?\n|$)/);
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  assert.match(output, /# pass 18(?:\r?\n|$)/);
+  assert.match(output, /# fail 0(?:\r?\n|$)/);
 });
