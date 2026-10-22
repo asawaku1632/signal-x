@@ -40,8 +40,9 @@ export async function GET() {
     sourceType: "manually-recorded-public-reference",
     checkedFields: ["O", "H", "L", "C", "Vo"],
     referenceUrls: ["https://finance.matsui.co.jp/stock/3996/daily_bar/index", "https://minkabu.jp/stock/3996/daily_bar?page=4"],
-    independentlyCompared: status === "REFERENCE_MATCH",
-    priceVerified: status === "REFERENCE_MATCH",
+    referenceFixtureMatched: status === "REFERENCE_MATCH",
+    independentlyCompared: false,
+    priceVerified: false,
     publishableReturn: false,
   }, { headers });
 }
