@@ -10,6 +10,21 @@ type ResearchRun = {
   reason: string | null;
 };
 
+type SafeDbFailure = "CONFIG_INVALID" | "AUTH_FAILED" | "TLS_FAILED" | "CONNECTION_TIMEOUT" | "NETWORK_FAILED" | "QUERY_FAILED" | "UNKNOWN";
+
+function classifyDbFailure(error: unknown): SafeDbFailure {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === "string" ? e.code : "";
+  const message = typeof e?.message === "string" ? e.message.toLowerCase() : "";
+  if (message === "invalid dev db protocol" || message === "research dev db host mismatch" || error instanceof TypeError) return "CONFIG_INVALID";
+  if (code === "28P01" || code === "28000") return "AUTH_FAILED";
+  if (code.startsWith("ERR_TLS_") || code.startsWith("CERT_") || code === "DEPTH_ZERO_SELF_SIGNED_CERT" || code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" || message.includes("certificate") || message.includes("ssl")) return "TLS_FAILED";
+  if (code === "ETIMEDOUT" || code === "ETIMEOUT" || message.includes("timeout")) return "CONNECTION_TIMEOUT";
+  if (["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH"].includes(code)) return "NETWORK_FAILED";
+  if (/^[0-9A-Z]{5}$/.test(code)) return "QUERY_FAILED";
+  return "UNKNOWN";
+}
+
 async function readDevelopmentHistory(): Promise<ResearchRun[] | null> {
   // Explicit separate development connection: never fall back to production DATABASE_URL.
   if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true") return null;
@@ -85,7 +100,8 @@ export async function GET() {
         : "開発用DBの読み取り結果です。自動収集は未設定で、Yahoo非公式データの継続取得は行いません。",
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("market index research dev read failed", error instanceof Error ? error.name : "unknown");
-    return NextResponse.json({ success: false, error: "研究用DBの取得に失敗しました（本番DBへの切替は行いません）" }, { status: 503 });
+    const failureCategory = classifyDbFailure(error);
+    console.error("market index research dev read failed", failureCategory);
+    return NextResponse.json({ success: false, error: "研究用DBの取得に失敗しました（本番DBへの切替は行いません）", failureCategory }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
