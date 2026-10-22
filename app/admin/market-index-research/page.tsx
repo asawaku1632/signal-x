@@ -11,8 +11,8 @@ type ResearchStatus = {
   providerRightsVerified: boolean;
   scheduledCaptureConfigured: boolean;
   databasePersistenceConfigured: boolean;
-  lastObservation: null | { observedAt: string; capturedAt: string; ageMinutes: number; status: string };
-  history: Array<{ date: string; observedAt: string; status: string; ageMinutes: number }>;
+  lastObservation: null | { observedAt: string | null; capturedAt: string; ageMinutes: number | null; status: string };
+  history: Array<{ date: string; observedAt: string | null; status: string; ageMinutes: number | null }>;
   note: string;
 };
 
@@ -67,7 +67,7 @@ export default function MarketIndexResearchPage() {
           <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h2 className="font-black">過去の検証履歴</h2>
             {data.history.length === 0 ? <p className="mt-3 text-sm text-slate-500">保存された検証結果はまだありません。未実行と失敗を推測で区別しません。</p> :
-              <ul className="mt-3 space-y-2 text-sm">{data.history.map(row => <li key={row.date + row.observedAt}>{row.date}｜{row.status}｜{row.ageMinutes}分</li>)}</ul>}
+              <ul className="mt-3 space-y-2 text-sm">{data.history.map(row => <li key={row.date + row.observedAt}>{row.date}｜{row.status}｜{row.ageMinutes === null ? '不明' : `${row.ageMinutes}分`}</li>)}</ul>}
           </section>
           <p className="text-xs text-slate-500">本番のAI POWER・通知・注文には接続しません。画面確認時刻：{format(data.asOf)}</p>
         </>}
