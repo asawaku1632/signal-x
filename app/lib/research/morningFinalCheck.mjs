@@ -15,7 +15,7 @@ const safePct=(a,b)=>(a-b)/b*100;
 const two=n=>Number(n.toFixed(3));
 export const LABELS=Object.freeze({
   BUY_CANDIDATE:"買い候補（研究）",CAUTION:"注意（研究）",
-  SKIP:"見送り（研究）",UNAVAILABLE:"データ不足"
+  SKIP:"見送り（研究）",UNAVAILABLE:"価格確認待ち（データ不足）"
 });
 
 export function gatePhase(now,phase,isTradingDate) {
@@ -45,7 +45,7 @@ export function decideAtNineOhFive(candidate,bars,tradeDate) {
     !candidate||!/^[0-9]{4}$/.test(String(candidate.code)))throw Error("INVALID_CANDIDATE");
   const map=new Map();
   for(const b of Array.isArray(bars)?bars:[]){
-    if(!Number.isFinite(b?.time))continue;
+    if(!Number.isSafeInteger(b?.time)||b.time<=0)continue;
     const j=jstParts(b.time*1000);
     if(j.date===tradeDate&&(j.hhmm==="09:00"||j.hhmm==="09:05")&&!map.has(j.hhmm))map.set(j.hhmm,b);
   }
@@ -54,12 +54,16 @@ export function decideAtNineOhFive(candidate,bars,tradeDate) {
   if(!positive(price)||!first||!second||
     !positive(first.open)||!positive(first.high)||!positive(first.low)||
     !positive(first.close)||!positive(second.open)||
+    !Number.isSafeInteger(first.time)||!Number.isSafeInteger(second.time)||
+    second.time-first.time!==300||
     !Number.isFinite(first.volume)||first.volume<0||
     first.high<first.low||first.high<Math.max(first.open,first.close)||
-    first.low>Math.min(first.open,first.close)) {
+    first.low>Math.min(first.open,first.close)||
+    first.open>first.high||first.open<first.low||
+    first.close>first.high||first.close<first.low) {
     return {code:String(candidate.code),name:String(candidate.name),rank:Number(candidate.rank),
       priorScore:Number(candidate.score),priorReferencePrice:price,
-      label:"UNAVAILABLE",reasons:["必要な9:00/9:05データが揃っていない"],
+      label:"UNAVAILABLE",reasons:["当日9:00の確定足と9:05始値を検証できないため価格確認待ち（買い候補にしない）"],
       open0900:null,price0905:null,gapPct:null,movePct:null,rangePct:null,
       adversePct:null,volume0900:null};
   }
