@@ -36,6 +36,15 @@ export default function ResearchConnectionTest() {
         style={{ padding: "12px 20px", borderRadius: 8, background: "#174ea6", color: "white", cursor: busy ? "wait" : "pointer" }}>
         {busy ? "確認中…" : "書き込み・取り消しテストを実行"}
       </button>
+      <section style={{ marginTop: 28, padding: 16, border: "1px solid #aaa", borderRadius: 8 }}>
+        <h2>次の研究記録・保存前プレビュー</h2>
+        <p>対象：日経平均（nikkei）</p>
+        <p>提供元：許諾確認待ち</p>
+        <p>取得状態：unavailable（取得不可）</p>
+        <p>理由：PROVIDER_APPROVAL_REQUIRED</p>
+        <p>指数値：保存しない / 自動収集：無効</p>
+        <p><strong>これは表示のみ。DBには保存されません。</strong></p>
+      </section>
       {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
       {result && <section aria-live="polite" style={{ marginTop: 24 }}>
         <h2>{result.success ? "接続テスト成功" : "接続テスト未成功"}</h2>
