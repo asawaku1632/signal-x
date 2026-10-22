@@ -15,3 +15,26 @@ test("wrong shape", () => assert.equal(compareHistoricalBar([]), "WRONG_BAR"));
 test("wrong open", () => assert.equal(compareHistoricalBar({ ...bar, O: 174 }), "REFERENCE_MISMATCH"));
 test("wrong high", () => assert.equal(compareHistoricalBar({ ...bar, H: 176 }), "REFERENCE_MISMATCH"));
 test("wrong low", () => assert.equal(compareHistoricalBar({ ...bar, L: 174 }), "REFERENCE_MISMATCH"));
+
+test("all five numeric fields must be finite", () => {
+  for (const field of ["O", "H", "L", "C", "Vo"]) {
+    for (const value of [Number.NaN, Infinity, -Infinity, null, undefined, "175"]) {
+      assert.equal(compareHistoricalBar({ ...bar, [field]: value }), "FIELDS_MISSING", `${field}: ${String(value)}`);
+    }
+  }
+});
+test("every fixed reference field is compared independently", () => {
+  for (const field of ["O", "H", "L", "C", "Vo"]) {
+    assert.equal(compareHistoricalBar({ ...bar, [field]: bar[field] + 1 }), "REFERENCE_MISMATCH", field);
+  }
+});
+test("ambiguous identity values are never accepted", () => {
+  for (const invalid of [{ ...bar, Code: 39960 }, { ...bar, Date: 20260701 }, { ...bar, Code: "3996" }, { ...bar, Date: "2026/07/01" }]) {
+    assert.equal(compareHistoricalBar(invalid), "WRONG_BAR");
+  }
+});
+test("comparison does not mutate provider objects", () => {
+  const frozen = Object.freeze({ ...bar });
+  assert.equal(compareHistoricalBar(frozen), "REFERENCE_MATCH");
+  assert.deepEqual(frozen, bar);
+});
