@@ -47,7 +47,13 @@ export async function GET() {
       mode: "RESEARCH_SHADOW_ONLY",
       source: "licensed-provider-pending",
       providerRightsVerified: false,
+      providerApprovalRequired: true,
+      availableBenchmarkOptions: [
+        { id: "nikkei225", label: "日経平均", permission: "指数の機械処理・表示利用について日経側の許諾確認が必要", minuteBarsAvailable: false },
+        { id: "topix", label: "TOPIX", permission: "J-Quants個人向け利用条件では第三者への反復配信を禁止。商用利用は別途確認", minuteBarsAvailable: false },
+      ],
       scheduledCaptureConfigured: false,
+      marketOpenMinuteValidationReady: false,
       databasePersistenceConfigured: rows !== null,
       lastObservation: latest ? {
         observedAt: latest.observed_at,
