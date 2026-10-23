@@ -105,6 +105,14 @@ export default async function NightMorningWatchPage(){
         </p>
       </header>
 
+      <Link href="/admin/night-entry-holding"
+        className="block rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+        <p className="text-sm font-black text-indigo-900">🔬 新研究：前夜候補 × 購入時刻 × 1・3・5営業日後</p>
+        <p className="mt-1 text-xs leading-5 text-indigo-800">
+          9:00・9:05・9:15・9:30を前夜の保存価格と比較。事前固定された銘柄だけを検証し、欠損は補完しません。
+        </p>
+      </Link>
+
       <section className="rounded-2xl border border-violet-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-black">🔎 前夜時点の注目候補</h2>
