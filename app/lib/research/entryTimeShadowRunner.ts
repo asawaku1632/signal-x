@@ -3,6 +3,7 @@ import pool from "@/app/lib/postgres";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {ENTRY_TIME_SHADOW_VERSION, jstParts, selectPriorDayCandidates, evaluateEntryTimes} from "./entryTimeShadow.mjs";
 import {evaluateExitTimeStudy} from "./exitTimingStudy.mjs";
+import {captureHoldingEntryAnchors} from "./nightTimingHolding.mjs";
 
 type SavedSignal = {code:string;name:string;score:number|string;price:number|string};
 type FrozenSignal = {code:string;name:string;score:number;referencePrice:number;rank:number};
@@ -76,14 +77,24 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
       try {
         const candles=await yahooIntraday(signal.code);
         const original=evaluateEntryTimes(date,signal,candles);
+        // Optional entry-price record: reuse the SAME Yahoo response and frozen
+        // candidate. Missing 09:15 or a helper failure stays missing; never
+        // disrupt the existing 16:45 closing study.
+        let holdingAnchors=null;
+        try {
+          holdingAnchors=captureHoldingEntryAnchors(date,signal.code,candles);
+        } catch(error) {
+          console.warn("optional night holding anchors unavailable",signal.code,error);
+        }
+        const extended=holdingAnchors?{...original,holdingAnchors}:original;
         // Optional additive shadow: same frozen cohort / same 5 market-data requests.
         // Any new evaluator error must not disrupt legacy 16:45 saved outcomes.
         try {
           const exitTimeStudy=evaluateExitTimeStudy(date,signal,candles);
-          return {...original,exitTimeStudy};
+          return {...extended,exitTimeStudy};
         } catch (error) {
           console.warn("exit timing optional study unavailable",signal.code,error);
-          return original;
+          return extended;
         }
       }catch(e) {
         return {code:signal.code,name:signal.name,rank:signal.rank,
