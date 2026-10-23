@@ -1,7 +1,7 @@
 /** Frozen hypothesis evaluator. Pure function: no fetch, writes, orders, or notifications. */
 export const FROZEN_AFTERNOON_REBOUND_VERSION = "FROZEN_AFTERNOON_REBOUND_20261023_V1";
 const positive = x => typeof x === "number" && Number.isFinite(x) && x > 0;
-const parseTime = x => typeof x === "string" && /(?:Z|[+-]\\d{2}:\\d{2})$/.test(x) ? Date.parse(x) : NaN;
+const parseTime = x => typeof x === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(x) ? Date.parse(x) : NaN;
 /**
  * A record is an independently approved source's three observations.
  * observedAt: market quote timestamp; availableAt: timestamp the quote and score were available to research.
@@ -9,7 +9,7 @@ const parseTime = x => typeof x === "string" && /(?:Z|[+-]\\d{2}:\\d{2})$/.test(
  */
 export function evaluateFrozenAfternoonRebound(record = {}) {
   const {tradeDate,code,source,commercialRightsApproved,permission,early,decision,outcome} = record;
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(tradeDate ?? "") || !/^\\d{4}$/.test(code ?? ""))
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate ?? "") || !/^\d{4}$/.test(code ?? ""))
     return {status:"EXCLUDED",reason:"INVALID_ID"};
   if (!source || permission !== "APPROVED" || commercialRightsApproved !== true)
     return {status:"EXCLUDED",reason:"SOURCE_RIGHTS_NOT_VERIFIED"};
