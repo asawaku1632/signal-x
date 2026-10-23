@@ -4,7 +4,7 @@ import { useState } from "react";
 
 type Result = { success?: boolean; mode?: string; recordsFound?: number; writeTestPerformed?: boolean; writeVerified?: boolean; rollbackVerified?: boolean; failureCategory?: string; reason?: string; persistedRows?: number };
 
-type HistoryResponse = { success?: boolean; databasePersistenceConfigured?: boolean; history?: Array<{ date: string; status: string; observedAt: string | null }> };
+type HistoryResponse = { success?: boolean; databasePersistenceConfigured?: boolean; history?: Array<{ date: string; checkedAt?: string; indexKey?: string; reason?: string | null; status: string; observedAt: string | null }> };
 export default function ResearchConnectionTest() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -77,7 +77,7 @@ export default function ResearchConnectionTest() {
         {history && <div aria-live="polite">
           <p>取得した履歴：{history.history?.length ?? 0}件（最新30件まで）</p>
           <ul>{(history.history ?? []).map((item, i) =>
-            <li key={i}>{item.date} — {item.status === "unavailable" ? "取得不可" : item.status}</li>)}</ul>
+            <li key={i}>{item.checkedAt ? new Date(item.checkedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : item.date} ／ {item.indexKey === "nikkei" ? "日経平均" : item.indexKey === "topix" ? "TOPIX" : "対象未確認"} ／ {item.status === "unavailable" ? "取得不可" : item.status} ／ {item.reason === "PROVIDER_APPROVAL_REQUIRED" ? "提供元の許諾待ち" : item.reason ?? "理由未記録"}</li>)}</ul>
         </div>}
       </section>
       {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
