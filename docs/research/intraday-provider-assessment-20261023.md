@@ -24,3 +24,12 @@ Do not activate intraday collection, schedule a cron, or purchase data. Individu
 2. Validate real sample timestamps and coverage for 3762, 9684, 6088, plus representative 950-name universe.
 3. Ingest into isolated shadow tables, idempotently keyed by provider/security/trading-date/bar timestamp.
 4. Keep replay/backtests separate from real-time alerts, trading, and paid-user surfaces.
+
+## Critical licensing clarification (2026-10-23)
+Official individual J-Quants terms Article 8 limit the service/data to private use by the registered user. Commercial use and third-party distribution of raw or processed data are outside that scope. Official FAQ also prohibits repeatedly providing derived investment analysis to third parties. A paid personal subscription does **not** grant SIGNALX commercial analysis/distribution rights. Treat all J-Quants personal plans as BLOCKED for SIGNALX production and public features absent a separate written agreement. Private research must independently comply with all applicable terms; do not assume a shared cloud database is allowed.
+
+Official terms: https://jpx-jquants.com/ja/termsofservice?lang=ja
+Official FAQ: https://jpx-jquants.com/apidoc.html
+Official free plan: 12-week delayed daily OHLC, not intraday bars: https://jpx-jquants.com/en/spec/data-spec
+
+Zero-cost next step: inventory existing quote feeds and contracts from repository configuration WITHOUT exposing secrets; record provider, timestamps, update latency and commercial rights as UNKNOWN until verified. Do not fetch new J-Quants data into production, do not auto-enable collection, and do not subscribe.
