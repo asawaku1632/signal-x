@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - 'app/lib/research/afternoonReboundStudy.mjs'
+      - 'app/lib/research/approvedAfternoonPair.mjs'
       - 'app/lib/research/afternoonLimitStudy.mjs'
       - 'app/lib/research/intradayObservationContract.mjs'
       - 'tests/afternoonReboundStudy.test.mjs'
+      - 'tests/approvedAfternoonPair.test.mjs'
       - 'tests/afternoonLimitStudy.test.mjs'
       - 'tests/intradayObservationContract.test.mjs'
       - '.github/workflows/afternoon-rebound-research-tests.yml'
@@ -28,4 +30,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated research tests
-        run: node --test tests/afternoonReboundStudy.test.mjs tests/afternoonLimitStudy.test.mjs tests/intradayObservationContract.test.mjs
+        run: node --test tests/afternoonReboundStudy.test.mjs tests/afternoonLimitStudy.test.mjs tests/intradayObservationContract.test.mjs tests/approvedAfternoonPair.test.mjs
