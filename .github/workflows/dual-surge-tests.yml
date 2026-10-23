@@ -1,0 +1,23 @@
+name: Dual surge isolated tests
+on:
+  push:
+    branches:
+      - research/dual-surge-study-20261023
+  pull_request:
+    paths:
+      - 'app/lib/research/dualSurgeDetectors.mjs'
+      - 'tests/dualSurgeDetectors.test.mjs'
+      - '.github/workflows/dual-surge-tests.yml'
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b163ceea73d27597364c9e # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - run: node --test tests/dualSurgeDetectors.test.mjs
