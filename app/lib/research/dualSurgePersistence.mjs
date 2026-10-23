@@ -7,9 +7,9 @@ const dateJst=t=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tok
  * exchange calendar, provider license and that the observation is being captured now.
  */
 export function prepareDualSurgeCandidates({code,candles,signalDate,completedDate,provider,licenseStatus,calendarVersion,sourceVerified}) {
- if(!/^\\d{4}$/.test(code||""))throw Error("INVALID_CODE");
+ if(!/^\d{4}$/.test(code||""))throw Error("INVALID_CODE");
  if(!provider||licenseStatus!=="APPROVED"||sourceVerified!==true)throw Error("PROVIDER_NOT_APPROVED");
- if(!calendarVersion||!/^\\d{4}-\\d{2}-\\d{2}$/.test(signalDate||"")||signalDate!==completedDate)
+ if(!calendarVersion||!/^\d{4}-\d{2}-\d{2}$/.test(signalDate||"")||signalDate!==completedDate)
   throw Error("NOT_FRESH_COMPLETED_SESSION");
  const t=candles?.length-1;
  if(!Number.isInteger(t)||t<21||dateJst(candles[t].time)!==signalDate)
@@ -30,7 +30,7 @@ export async function insertDualSurgeCandidates(db,rows) {
  if(!Array.isArray(rows))throw Error("INVALID_ROWS");
  const ids=[];
  for(const row of rows){
-  if(row.detector_version!==DUAL_SURGE_VERSION||!["PRE_SURGE_V1","SURGE_START_V1"].includes(row.cohort)||!/^\\d{4}$/.test(row.code)||row.provider_license_status!=="APPROVED"||!/^[a-f0-9]{64}$/.test(row.source_hash)||!Number.isFinite(row.signal_close)||row.signal_close<=0)throw Error("INVALID_CAPTURE");
+  if(row.detector_version!==DUAL_SURGE_VERSION||!["PRE_SURGE_V1","SURGE_START_V1"].includes(row.cohort)||!/^\d{4}$/.test(row.code)||row.provider_license_status!=="APPROVED"||!/^[a-f0-9]{64}$/.test(row.source_hash)||!Number.isFinite(row.signal_close)||row.signal_close<=0)throw Error("INVALID_CAPTURE");
   const params=[row.detector_version,row.cohort,row.code,row.signal_date,row.signal_time,row.provider,row.provider_license_status,row.source_hash,row.calendar_version,JSON.stringify(row.features),row.signal_close];
   const sql=`insert into public.dual_surge_shadow_candidates
    (detector_version,cohort,code,signal_date,signal_time,provider,provider_license_status,source_hash,calendar_version,features,signal_close)
