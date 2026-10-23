@@ -1,0 +1,14 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {evaluateFrozenAfternoonRebound as run} from "../app/lib/research/frozenAfternoonRebound.mjs";
+const p=(hour,price,score)=>({observedAt:`2026-10-23T${hour}:00+09:00`,availableAt:`2026-10-23T${hour}:01+09:00`,price,...(score===undefined?{}:{score})});
+const base={tradeDate:"2026-10-23",code:"3762",source:"SYNTHETIC_TEST_ONLY",permission:"APPROVED",commercialRightsApproved:true,early:p("13:00",3500),decision:p("14:30",3400,65),outcome:p("15:15",3450)};
+test("hypothesis counts strictly higher later quote only",()=>{const r=run(base);assert.equal(r.status,"RESEARCH_ONLY");assert.equal(r.group,"HYPOTHESIS_60_79");assert.equal(r.rebound,true);assert.equal(r.limitFillStatus,"NOT_EVALUATED");});
+test("control group remains separate",()=>assert.equal(run({...base,decision:{...base.decision,score:59}}).group,"CONTROL_UNDER_60"));
+test("equal price is not rebound",()=>assert.equal(run({...base,outcome:{...base.outcome,price:3400}}).rebound,false));
+test("no rights fail closed",()=>assert.equal(run({...base,commercialRightsApproved:false}).reason,"SOURCE_RIGHTS_NOT_VERIFIED"));
+test("no early decline is excluded",()=>assert.equal(run({...base,early:{...base.early,price:3300}}).reason,"NO_EARLY_DECLINE"));
+test("future quote relative to availability excluded",()=>assert.equal(run({...base,decision:{...base.decision,observedAt:"2026-10-23T14:31:00+09:00"}}).reason,"TIME_ORDER_OR_AVAILABILITY_INVALID"));
+test("outcome available before decision excluded",()=>assert.equal(run({...base,outcome:{...base.outcome,availableAt:"2026-10-23T14:00:00+09:00"}}).reason,"TIME_ORDER_OR_AVAILABILITY_INVALID"));
+test("wrong day excluded",()=>assert.equal(run({...base,tradeDate:"2026-10-22"}).reason,"WRONG_TRADING_DAY"));
+test("score 80 is outside frozen hypothesis",()=>assert.equal(run({...base,decision:{...base.decision,score:80}}).reason,"OUTSIDE_FROZEN_GROUPS"));
