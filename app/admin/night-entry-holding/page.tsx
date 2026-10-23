@@ -6,6 +6,8 @@ import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
+import {nightMorningTradingDates,buildNightMorningCandidates} from "@/app/lib/research/nightMorningWatch.mjs";
+import {historicPeriodEvidence} from "@/app/lib/research/nightHoldingGuidance.mjs";
 import {
   NIGHT_HOLDING_POLICY,NIGHT_HOLDING_SLOTS,NIGHT_HOLDING_HORIZONS,
   NIGHT_HOLDING_MIN_STOCK_DAYS,NIGHT_HOLDING_MIN_DAYS,
@@ -91,6 +93,21 @@ export default async function NightEntryHoldingPage(){
   const stats=summarizeNightHolding(observations);
   const gateStats=summarizeMorningGateHolding(observations);
   const latest=observations.slice(0,12);
+  let futureCandidates:{code:string;name:string;score:number;referencePrice:number;rank:number}[]=[];
+  let targetDate:string|null=null;
+  let candidateFailure=false;
+  try {
+    const dates=nightMorningTradingDates(new Date(),isTseTradingDate);
+    targetDate=dates.tradeDate;
+    const {rows}=await pool.query<{code:string;name:string;score:number|string;price:number|string}>(
+      "SELECT code,name,score,price FROM public.daily_stock_results "+
+      "WHERE date=$1 AND score>=85 AND score<=100 AND price>0 AND code ~ '^[0-9]{4}$' "+
+      "ORDER BY score DESC,code ASC LIMIT 5",[dates.sourceDate]);
+    futureCandidates=buildNightMorningCandidates(rows);
+  } catch(error) {
+    console.error("night-holding guide candidate read unavailable",error);
+    candidateFailure=true;
+  }
 
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
@@ -114,6 +131,44 @@ export default async function NightEntryHoldingPage(){
         </p>
       </header>
 
+      <section className="rounded-2xl border border-indigo-200 bg-white p-4">
+        <h2 className="text-lg font-black">📅 次の候補：1日・3日・5日後の参考傾向</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          次回研究日 {targetDate??"未確認"}。前夜の高評価5銘柄について、
+          過去の<strong>同じAI POWER帯</strong>で9:05参考購入した場合の
+          1・3・5営業日後を比較します。銘柄個別の未来予測ではありません。
+        </p>
+        {candidateFailure?<p role="alert" className="mt-2 text-sm text-red-700">
+          候補・営業日を取得できません。推測値は表示しません。
+        </p>:null}
+        {!candidateFailure&&futureCandidates.length===0?<p className="mt-3 text-sm">
+          次回の保存候補はまだありません。保存が完了すると表示します。
+        </p>:null}
+        <div className="mt-3 space-y-2">
+          {futureCandidates.map(c=>{
+            const e=historicPeriodEvidence(observations,targetDate,c.score);
+            return <article key={c.code} className="rounded-xl border bg-slate-50 p-3">
+              <p className="text-sm font-black">{c.code} {c.name} / AI {c.score}</p>
+              <p className="mt-1 text-xs text-slate-600">
+                過去のAI {e.group}帯：{e.count}銘柄日・{e.days}営業日（3期間共通）
+              </p>
+              {!e.ready?<p className="mt-2 text-xs font-bold text-amber-800">
+                検証不足：保有期間の優劣は未判定（最低30銘柄日・10営業日）
+              </p>:<div className="mt-2 grid grid-cols-3 gap-1.5">
+                {e.periods.map(p=><div key={p.horizon} className="rounded-lg bg-white p-2 text-center text-xs">
+                  <p className="font-bold">{p.horizon}営業日後</p>
+                  <p className="mt-1">過去プラス率 {p.positiveRate?.toFixed(1)}%</p>
+                  <p className="mt-1">平均 {p.meanPct?.toFixed(2)}%</p>
+                </div>)}
+                <p className="col-span-3 text-[11px] leading-5 text-amber-800">
+                  過去の同スコア帯の観測値であり、推奨保有日・未来の的中率ではありません。
+                  当日の9:05の株価や出来高を改めて確認してください。
+                </p>
+              </div>}
+            </article>;
+          })}
+        </div>
+      </section>
       <section className="rounded-2xl border border-blue-100 bg-white p-4">
         <h2 className="text-lg font-black">📋 データの揃い具合</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
