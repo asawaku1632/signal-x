@@ -9,13 +9,15 @@ import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {
   NIGHT_HOLDING_POLICY,NIGHT_HOLDING_SLOTS,NIGHT_HOLDING_HORIZONS,
   NIGHT_HOLDING_MIN_STOCK_DAYS,NIGHT_HOLDING_MIN_DAYS,
-  holdingTradingDates,buildNightHoldingStudy,summarizeNightHolding,holdingPnl100,
+  holdingTradingDates,buildNightHoldingStudy,summarizeNightHolding,
+  summarizeMorningGateHolding,holdingPnl100,
 } from "@/app/lib/research/nightTimingHolding.mjs";
 
 export const dynamic="force-dynamic";
 export const revalidate=0;
 
-type FrozenRun={trade_date:string;prior_date:string;frozen_at:string;cohort:unknown[]};
+type FrozenRun={trade_date:string;prior_date:string;frozen_at:string;cohort:unknown[];
+  morning_state:string;morning_saved_at:string|null;morning_observations:unknown[]};
 type ArchiveRun={trade_date:string;prior_date:string;status:string;finished_at:string|null;results:unknown[]};
 type PriceRow={date:string;code:string;price:string|number;created_at:string};
 const label:Record<string,string>={
@@ -39,7 +41,8 @@ export default async function NightEntryHoldingPage(){
   try {
     const [f,a]=await Promise.all([
       pool.query<FrozenRun>(
-        "SELECT trade_date::text,prior_date::text,frozen_at::text,cohort "+
+        "SELECT trade_date::text,prior_date::text,frozen_at::text,cohort, "+
+        "morning_state,morning_saved_at::text,morning_observations "+
         "FROM public.morning_final_check_runs WHERE policy_version=$1 "+
         "ORDER BY trade_date DESC LIMIT 45",[MORNING_FINAL_POLICY]),
       pool.query<ArchiveRun>(
@@ -81,6 +84,7 @@ export default async function NightEntryHoldingPage(){
     isTradingDate:isTseTradingDate,now:new Date(),
   });
   const stats=summarizeNightHolding(observations);
+  const gateStats=summarizeMorningGateHolding(observations);
   const latest=observations.slice(0,12);
 
   return <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
@@ -100,7 +104,7 @@ export default async function NightEntryHoldingPage(){
         <p className="mt-2 text-xs leading-5 text-amber-900">
           前夜参考値は夜間約定価格ではありません。
           翌朝の参考価格はYahoo 5分足の始値。1・3・5営業日後は
-          SIGN​ALXの日次スキャン保存価格であり、確定終値・実約定を保証しません。
+          SIGNALXの日次スキャン保存価格であり、確定終値・実約定を保証しません。
           将来値は事前候補の選定に使いません。
         </p>
       </header>
@@ -157,6 +161,31 @@ export default async function NightEntryHoldingPage(){
         </div>)}
       </section>
 
+      <section className="rounded-2xl border border-amber-100 bg-white p-4">
+        <h2 className="text-lg font-black">⚖️ 9:05に見送ったら、その後どうなった？</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          前夜の保存候補に対して、当日の9:05に実際に保存された「買い候補・注意・見送り」だけを使う追加研究。
+          「注意・見送り」は購入しないと仮定し、9:05に買った場合の仮想損失を回避した件と、
+          上昇を逃した件を両方数えます。後日の結果を使って判定を変更しません。
+        </p>
+        <div className="mt-3 space-y-2">
+          {gateStats.map(g=><div key={g.horizon} className="rounded-xl border bg-slate-50 p-3 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <b>{exitName[g.horizon]}</b>
+              <span>{g.count}銘柄日 / {g.days}営業日（見送り {g.skipCount}件）</span>
+            </div>
+            {!g.sufficient?<p className="mt-2 font-bold text-amber-800">検証不足：勝ち負けの傾向はまだ未判定</p>:
+            <div className="mt-2 space-y-1">
+              <p>仮想損失を回避：<b>{pnl(g.avoidedLoss100)}</b></p>
+              <p>見送って逃した仮想利益：<b>{pnl(g.missedProfit100)}</b></p>
+              <p>9:05に全件買った場合：<b>{pnl(g.alwaysBuyPnl100)}</b></p>
+              <p>9:05判定に従った場合：<b>{pnl(g.gatedPnl100)}</b></p>
+              <p className="text-slate-500">合計額は対象件数・保有時間の影響を受けます。</p>
+            </div>}
+          </div>)}
+        </div>
+      </section>
+
       <section className="rounded-2xl border bg-white p-4">
         <h2 className="text-lg font-black">🔎 個別銘柄の答え合わせ</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -175,6 +204,12 @@ export default async function NightEntryHoldingPage(){
             <p className="mt-2 text-xs text-slate-500">
               前夜固定：{new Date(row.freezeAt).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}
               （日本時間）
+            </p>
+            <p className="mt-1 text-xs font-bold">
+              当時保存された9:05判定：
+              {row.morningGate==="BUY_CANDIDATE"?"買い候補":
+                row.morningGate==="CAUTION"?"注意":
+                row.morningGate==="SKIP"?"見送り":"判定照合不可"}
             </p>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full min-w-[420px] text-left text-xs">
@@ -211,6 +246,7 @@ export default async function NightEntryHoldingPage(){
         朝の5分足は実際にその株数を約定できるとは限らず、日次スキャンの保存価格は
         当日の正式な終値ではない可能性があります。
         分割・配当・売買停止・手数料・税金・スリッページ・待機中の機会損失は未反映。
+        9:05判定の「見送り」はあくまで研究上の仮想ルールで、利用者の実際の判断を記録したものではありません。
         後から好成績の銘柄だけを選ばず、欠損・外れ値も監査対象として残します。
         この画面は読み取り専用で、学習・予測・通知・注文へは接続しません。
       </p>
