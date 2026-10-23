@@ -20,6 +20,11 @@ type FrozenRun={trade_date:string;prior_date:string;frozen_at:string;cohort:unkn
   morning_state:string;morning_saved_at:string|null;morning_observations:unknown[]};
 type ArchiveRun={trade_date:string;prior_date:string;status:string;finished_at:string|null;results:unknown[]};
 type PriceRow={date:string;code:string;price:string|number;created_at:string};
+type ObservedStockDay={
+  date:string;code:string;name:string;score:number;freezeAt:string;
+  targetDates:Record<number,string>;entries:Record<string,number|null>;
+  exits:Record<number,number|null>;morningGate:string|null;
+};
 const label:Record<string,string>={
   PREVIOUS_REFERENCE:"前夜の保存参考値",
   "09:00":"9:00 始値（仮定）",
@@ -79,10 +84,10 @@ export default async function NightEntryHoldingPage(){
       futureError=true;
     }
   }
-  const observations=baseError?[]:buildNightHoldingStudy({
+  const observations:ObservedStockDay[]=baseError?[]:buildNightHoldingStudy({
     frozenRuns:frozen,archiveRuns:archives,priceRows:futureError?[]:saved,
     isTradingDate:isTseTradingDate,now:new Date(),
-  });
+  }) as ObservedStockDay[];
   const stats=summarizeNightHolding(observations);
   const gateStats=summarizeMorningGateHolding(observations);
   const latest=observations.slice(0,12);
