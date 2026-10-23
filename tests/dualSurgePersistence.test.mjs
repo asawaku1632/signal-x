@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {prepareDualSurgeCandidates,insertDualSurgeCandidates} from "../app/lib/research/dualSurgePersistence.mjs";
+const bars=Array.from({length:22},(_,i)=>({time:1792720000+i*86400,open:100,high:110,low:95,close:100,volume:1000}));
+bars[21]={...bars[21],open:109,high:117,low:108,close:115,volume:2000};
+const day=new Date(bars[21].time*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+const args={code:"3762",candles:bars,signalDate:day,completedDate:day,provider:"TEST_ONLY",licenseStatus:"APPROVED",calendarVersion:"TEST_CALENDAR",sourceVerified:true};
+test("builds isolated snapshot",()=>{const rows=prepareDualSurgeCandidates(args);assert.equal(rows.length,1);assert.equal(rows[0].source_hash.length,64);});
+test("refuses unapproved source",()=>assert.throws(()=>prepareDualSurgeCandidates({...args,licenseStatus:"PENDING"}),/PROVIDER_NOT_APPROVED/));
+test("refuses stale capture",()=>assert.throws(()=>prepareDualSurgeCandidates({...args,completedDate:"2026-01-01"}),/NOT_FRESH/));
+test("insert is parameterized and duplicate fails closed",async()=>{const row=prepareDualSurgeCandidates(args)[0];let seen;const db={query:async(sql,params)=>{seen={sql,params};return {rowCount:1,rows:[{id:7}]}}};assert.deepEqual(await insertDualSurgeCandidates(db,[row]),[7]);assert.match(seen.sql,/on conflict/);assert.equal(seen.params[2],"3762");await assert.rejects(insertDualSurgeCandidates({query:async()=>({rowCount:0,rows:[]})},[row]),/DUPLICATE/);});
