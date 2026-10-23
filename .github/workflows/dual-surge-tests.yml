@@ -27,5 +27,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
+      - run: npx next typegen
       - run: npx tsc --noEmit
       - run: node --test tests/dualSurgeDetectors.test.mjs tests/dualSurgePersistence.test.mjs tests/dualSurgeOwnerRoute.test.mjs tests/dualSurgeDashboard.test.mjs
