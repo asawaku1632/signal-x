@@ -80,6 +80,26 @@ function lateSnapshot(row,expectedDate,nowMs){
   return price;
 }
 
+function matchedMorningGate(run,candidate,referenceEntry){
+  const saved=Date.parse(String(run.morning_saved_at??""));
+  const date=String(run.trade_date);
+  if(!["COMPLETE","PARTIAL"].includes(run.morning_state)||
+     !Number.isFinite(saved)||saved<jstMs(date,"09:05")||
+     saved>jstMs(date,"09:19")||
+     !Array.isArray(run.morning_observations)||
+     numericPositive(referenceEntry)===null)return null;
+  const matches=run.morning_observations.filter(m=>
+    String(m?.code)===String(candidate.code));
+  if(matches.length!==1)return null;
+  const m=matches[0];
+  if(!["BUY_CANDIDATE","CAUTION","SKIP"].includes(m.label)||
+     Number(m.priorScore)!==Number(candidate.score)||
+     Math.abs(Number(m.priorReferencePrice)-Number(candidate.referencePrice))>0.001||
+     numericPositive(m.price0905)===null||
+     Math.abs(Number(m.price0905)-referenceEntry)>0.01)return null;
+  return m.label;
+}
+
 const mapArchive=archiveRuns=>{
   const map=new Map();
   for(const run of Array.isArray(archiveRuns)?archiveRuns:[]){
@@ -152,8 +172,9 @@ export function buildNightHoldingStudy({frozenRuns,archiveRuns,priceRows,isTradi
         3:snapshots.get(targetDates[3]+":"+code)??null,
         5:snapshots.get(targetDates[5]+":"+code)??null,
       };
+      const morningGate=matchedMorningGate(run,candidate,entries["09:05"]);
       rows.push({date:tradeDate,code,name:String(candidate.name??code),
-        score,freezeAt:run.frozen_at,targetDates,entries,exits});
+        score,freezeAt:run.frozen_at,targetDates,entries,exits,morningGate});
     }
   }
   rows.sort((a,b)=>b.date.localeCompare(a.date)||a.code.localeCompare(b.code));
@@ -182,4 +203,31 @@ export function summarizeNightHolding(rows){
 export function holdingPnl100(row,slot,horizon){
   const entry=numericPositive(row?.entries?.[slot]),exit=numericPositive(row?.exits?.[horizon]);
   return entry===null||exit===null?null:Number(((exit-entry)*100).toFixed(2));
+}
+
+/** Gate-only counterfactual, separate from the all-buy entry comparison:
+ * only genuinely saved 09:05 morning observations are counted. CAUTION/SKIP
+ * means no purchase (cash) in this hypothetical policy, never loss=0 data.
+ */
+export function summarizeMorningGateHolding(rows){
+  return NIGHT_HOLDING_HORIZONS.map(horizon=>{
+    const eligible=(Array.isArray(rows)?rows:[]).filter(row=>
+      ["BUY_CANDIDATE","CAUTION","SKIP"].includes(row.morningGate)&&
+      holdingPnl100(row,"09:05",horizon)!==null);
+    const days=new Set(eligible.map(row=>row.date)).size;
+    const sufficient=eligible.length>=NIGHT_HOLDING_MIN_STOCK_DAYS&&
+      days>=NIGHT_HOLDING_MIN_DAYS;
+    const skip=eligible.filter(row=>row.morningGate!=="BUY_CANDIDATE");
+    const lost=skip.map(row=>holdingPnl100(row,"09:05",horizon));
+    const sum=values=>Number(values.reduce((a,b)=>a+b,0).toFixed(2));
+    return {horizon,count:eligible.length,days,sufficient,skipCount:skip.length,
+      buyCount:eligible.length-skip.length,
+      avoidedLoss100:sufficient?sum(lost.filter(n=>n<0).map(n=>-n)):null,
+      missedProfit100:sufficient?sum(lost.filter(n=>n>0)):null,
+      gatedPnl100:sufficient?sum(eligible.filter(row=>
+        row.morningGate==="BUY_CANDIDATE").map(row=>
+        holdingPnl100(row,"09:05",horizon))):null,
+      alwaysBuyPnl100:sufficient?sum(eligible.map(row=>
+        holdingPnl100(row,"09:05",horizon))):null};
+  });
 }
