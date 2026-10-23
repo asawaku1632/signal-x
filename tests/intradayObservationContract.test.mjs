@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { validateIntradayObservation } from "../app/lib/research/intradayObservationContract.mjs";
+const row={code:"3762",tradingDate:"2026-10-23",capturedAt:"2026-10-23T14:10:02+09:00",observedAt:"2026-10-23T14:10:00+09:00",source:"SYNTHETIC_TEST_ONLY",licenseStatus:"APPROVED",quotePrice:3485,phase:"AFTERNOON"};
+test("synthetic approved observation validates",()=>assert.equal(validateIntradayObservation(row).status,"VALID"));
+test("unapproved provider is unavailable",()=>assert.equal(validateIntradayObservation({...row,licenseStatus:"UNKNOWN"}).reason,"PROVIDER_APPROVAL_REQUIRED"));
+test("future quotes fail closed",()=>assert.equal(validateIntradayObservation({...row,observedAt:"2026-10-23T14:11:00+09:00"}).reason,"FUTURE_OR_INVALID_QUOTE"));
+test("previous day quotes fail closed",()=>assert.equal(validateIntradayObservation({...row,observedAt:"2026-10-22T14:10:00+09:00"}).reason,"WRONG_TRADING_DAY"));
+test("missing timezone fails closed",()=>assert.equal(validateIntradayObservation({...row,observedAt:"2026-10-23T14:10:00"}).reason,"MISSING_TIMEZONE"));
+test("invalid quote fails closed",()=>assert.equal(validateIntradayObservation({...row,quotePrice:0}).reason,"INVALID_QUOTE"));

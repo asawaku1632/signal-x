@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessIntradayProviderReadiness as gate} from "../app/lib/research/intradayProviderReadiness.mjs";
+const valid={provider:"SYNTHETIC",permission:"APPROVED",intradayAvailable:true,timestamped:true,coverageVerified:true,costApproved:true,commercialRightsApproved:true};
+test("no provider blocks",()=>assert.equal(gate().reason,"NO_PROVIDER"));
+test("permission required",()=>assert.equal(gate({...valid,permission:"UNKNOWN"}).reason,"PROVIDER_APPROVAL_REQUIRED"));
+test("personal-use license cannot support commercial SIGNALX",()=>assert.equal(gate({...valid,commercialRightsApproved:false}).reason,"COMMERCIAL_USE_RIGHTS_REQUIRED"));
+test("intraday required",()=>assert.equal(gate({...valid,intradayAvailable:false}).reason,"INTRADAY_DATA_UNAVAILABLE"));
+test("timestamps required",()=>assert.equal(gate({...valid,timestamped:false}).reason,"TIMESTAMP_VERIFICATION_REQUIRED"));
+test("coverage required",()=>assert.equal(gate({...valid,coverageVerified:false}).reason,"COVERAGE_VERIFICATION_REQUIRED"));
+test("cost approval required",()=>assert.equal(gate({...valid,costApproved:false}).reason,"COST_APPROVAL_REQUIRED"));
+test("ready does not enable collection",()=>{const r=gate(valid);assert.equal(r.status,"READY_FOR_ISOLATED_REVIEW");assert.equal(r.autoCollectionEnabled,false);});
