@@ -94,6 +94,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "前夜固定→9:05最初の5分足を確認→大引け後に答え合わせ（独立研究）",
       },
       {
+        href: "/admin/night-entry-holding", icon: "🔬",
+        title: "前夜候補・購入時間と1/3/5日後", tag: "本人専用・前向き研究",
+        detail: "前夜に固定した同じ銘柄の9:00〜9:30と1・3・5営業日後を比較（参考価格）",
+      },
+      {
         href: "/admin/night-morning-watch", icon: "🌙",
         title: "翌朝9時・勝率重視候補", tag: "本人専用・前夜候補",
         detail: "前営業日のAI上位5銘柄と朝9:05→大引けの過去検証を比較（研究用）",
