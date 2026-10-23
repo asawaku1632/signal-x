@@ -1,0 +1,32 @@
+name: Dual surge isolated tests
+on:
+  push:
+    branches:
+      - research/dual-surge-study-20261023
+  pull_request:
+    paths:
+      - 'app/lib/research/dualSurgeDetectors.mjs'
+      - 'tests/dualSurgeDetectors.test.mjs'
+      - 'app/lib/research/dualSurgePersistence.mjs'
+      - 'tests/dualSurgePersistence.test.mjs'
+      - 'tests/dualSurgeOwnerRoute.test.mjs'
+      - 'tests/dualSurgeDashboard.test.mjs'
+      - 'app/admin/dual-surge-shadow/**'
+      - 'app/api/admin/dual-surge-shadow/route.ts'
+      - '.github/workflows/dual-surge-tests.yml'
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4 # v4.4.0
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: node --test tests/dualSurgeDetectors.test.mjs tests/dualSurgePersistence.test.mjs tests/dualSurgeOwnerRoute.test.mjs tests/dualSurgeDashboard.test.mjs

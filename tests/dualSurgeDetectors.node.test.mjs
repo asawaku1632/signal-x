@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {inspectDualSurge, COHORTS} from "../app/lib/research/dualSurgeDetectors.mjs";
+const base=()=>Array.from({length:22},(_,i)=>({time:1000+i*86400,open:100,high:110,low:95,close:100,volume:1000}));
+test("requires history",()=>assert.equal(inspectDualSurge(base(),19).reason,"INSUFFICIENT_HISTORY"));
+test("breakout plus volume",()=>{const b=base();b[21]={...b[21],open:109,high:117,low:108,close:115,volume:2000};assert.deepEqual(inspectDualSurge(b).signals.map(x=>x.cohort),[COHORTS.START]);});
+test("pre-surge rising",()=>{const b=base();b[20].close=103;b[21]={...b[21],open:105,high:109,low:103,close:106,volume:1200};assert.deepEqual(inspectDualSurge(b).signals.map(x=>x.cohort),[COHORTS.PRE]);});
+test("no breakout at low volume",()=>{const b=base();b[21]={...b[21],open:109,high:117,low:108,close:115,volume:100};assert.equal(inspectDualSurge(b).signals.length,0);});
+test("future data cannot affect prior result",()=>{const b=base();b[21]={...b[21],open:109,high:117,low:108,close:115,volume:2000};const frozen=inspectDualSurge(b,21);b.push({...b[21],time:b[21].time+86400,close:200,high:210});assert.deepEqual(inspectDualSurge(b,21),frozen);});
+test("reject negative volume",()=>{const b=base();b[21].volume=-1;assert.equal(inspectDualSurge(b).available,false);});
