@@ -118,8 +118,12 @@ export async function POST(request: Request) {
   if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true")
     return NextResponse.json({ success: false, reason: "DEV_DB_DISABLED" }, { status: 403 });
   const payload = await request.json().catch(() => null);
-  const saveStatus = payload?.action === "save-unavailable-status";
-  const indexKey = payload?.indexKey === "topix" ? "topix" : "nikkei";
+  if (!payload || !["save-unavailable-status", "rollback-test"].includes(payload.action))
+    return NextResponse.json({ success: false, reason: "INVALID_ACTION" }, { status: 400 });
+  if (payload.indexKey !== "nikkei" && payload.indexKey !== "topix")
+    return NextResponse.json({ success: false, reason: "INVALID_INDEX_KEY" }, { status: 400 });
+  const saveStatus = payload.action === "save-unavailable-status";
+  const indexKey: "nikkei" | "topix" = payload.indexKey;
   // Preview-only synthetic status record; no price or licensed provider data.
   let pool: import("pg").Pool | undefined;
   try {
@@ -143,6 +147,8 @@ export async function POST(request: Request) {
     const runId = (saveStatus ? "manual-unavailable-" : "preview-rollback-") + crypto.randomUUID();
     try {
       await client.query("BEGIN");
+      await client.query("SET LOCAL statement_timeout = 5000");
+      await client.query("SET LOCAL lock_timeout = 3000");
       if (saveStatus) {
         await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["manual-unavailable-" + indexKey]);
         const existing = await client.query(
