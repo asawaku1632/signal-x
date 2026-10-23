@@ -16,6 +16,16 @@ export async function GET() {
  const devUrl=process.env.DUAL_SURGE_DEV_DATABASE_URL;
  if (!devUrl || process.env.DUAL_SURGE_DEV_PROJECT_REF !== "jdtqwryiyxeuoraecorw")
   return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ // Reject a mismatched database endpoint even if the project-ref flag was copied.
+ try {
+  const url=new URL(devUrl);
+  const ref="jdtqwryiyxeuoraecorw";
+  const direct=url.hostname===`db.${ref}.supabase.co`;
+  const pooler=url.hostname.endsWith(".pooler.supabase.com") && decodeURIComponent(url.username).endsWith(`.${ref}`);
+  if (!["postgres:","postgresql:"].includes(url.protocol) || (!direct && !pooler)) throw Error("WRONG_DEV_DATABASE");
+ } catch {
+  return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ }
  const pool=new Pool({connectionString:devUrl,ssl:{rejectUnauthorized:true},max:2,connectionTimeoutMillis:3000});
  try {
   const summary=await pool.query(
