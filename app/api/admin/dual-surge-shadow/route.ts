@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
-import pool from "@/app/lib/postgres";
+import { Pool } from "pg";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,8 +9,24 @@ export const runtime = "nodejs";
 export async function GET() {
  const { isOwner } = await getLearningOwnerSession();
  if (!isOwner) return NextResponse.json({success:false,error:"Owner access required"},{status:403,headers:{"Cache-Control":"private, no-store"}});
- if (process.env.DUAL_SURGE_SHADOW_READ_ENABLED !== "true")
+ if (process.env.VERCEL_ENV !== "preview" || process.env.DUAL_SURGE_SHADOW_READ_ENABLED !== "true")
   return NextResponse.json({success:false,error:"RESEARCH_DISABLED"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ // Never reuse the application's DATABASE_URL for this isolated research.
+ // A separate dev-only URL and project reference must both be configured.
+ const devUrl=process.env.DUAL_SURGE_DEV_DATABASE_URL;
+ if (!devUrl || process.env.DUAL_SURGE_DEV_PROJECT_REF !== "jdtqwryiyxeuoraecorw")
+  return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ // Reject a mismatched database endpoint even if the project-ref flag was copied.
+ try {
+  const url=new URL(devUrl);
+  const ref="jdtqwryiyxeuoraecorw";
+  const direct=url.hostname===`db.${ref}.supabase.co`;
+  const pooler=url.hostname.endsWith(".pooler.supabase.com") && decodeURIComponent(url.username).endsWith(`.${ref}`);
+  if (!["postgres:","postgresql:"].includes(url.protocol) || (!direct && !pooler)) throw Error("WRONG_DEV_DATABASE");
+ } catch {
+  return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ }
+ const pool=new Pool({connectionString:devUrl,ssl:{rejectUnauthorized:true},max:2,connectionTimeoutMillis:3000});
  try {
   const summary=await pool.query(
    "select cohort,count(*)::integer as candidates,count(distinct code)::integer as codes,min(signal_date)::text as first_date,max(signal_date)::text as last_date from public.dual_surge_shadow_candidates group by cohort order by cohort"
@@ -22,5 +38,7 @@ export async function GET() {
  } catch(e) {
   console.error("[dual-surge] owner summary unavailable",e);
   return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ } finally {
+  await pool.end();
  }
 }
