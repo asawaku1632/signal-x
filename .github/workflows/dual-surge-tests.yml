@@ -26,4 +26,6 @@ jobs:
       - uses: actions/setup-node@v4 # v4.4.0
         with:
           node-version: '22'
+      - run: npm ci
+      - run: npx tsc --noEmit
       - run: node --test tests/dualSurgeDetectors.test.mjs tests/dualSurgePersistence.test.mjs tests/dualSurgeOwnerRoute.test.mjs tests/dualSurgeDashboard.test.mjs
