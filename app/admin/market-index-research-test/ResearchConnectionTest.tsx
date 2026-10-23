@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 
-type Result = { success?: boolean; mode?: string; recordsFound?: number; writeTestPerformed?: boolean; writeVerified?: boolean; rollbackVerified?: boolean; failureCategory?: string; reason?: string; persistedRows?: number };
+type Result = { success?: boolean; mode?: string; recordsFound?: number; writeTestPerformed?: boolean; writeVerified?: boolean; rollbackVerified?: boolean; failureCategory?: string; reason?: string; persistedRows?: number; alreadySaved?: boolean; indexKey?: string };
 
 type HistoryResponse = { success?: boolean; databasePersistenceConfigured?: boolean; history?: Array<{ date: string; checkedAt?: string; indexKey?: string; reason?: string | null; status: string; observedAt: string | null }> };
 export default function ResearchConnectionTest() {
   const [busy, setBusy] = useState(false);
+  const [indexKey, setIndexKey] = useState<"nikkei" | "topix">("nikkei");
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryResponse | null>(null);
@@ -36,7 +37,7 @@ export default function ResearchConnectionTest() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ action: saveStatus ? "save-unavailable-status" : "rollback-test" }),
+        body: JSON.stringify({ action: saveStatus ? "save-unavailable-status" : "rollback-test", indexKey }),
         cache: "no-store",
       });
       const data: Result = await response.json();
@@ -58,12 +59,17 @@ export default function ResearchConnectionTest() {
       </button>
       <section style={{ marginTop: 28, padding: 16, border: "1px solid #aaa", borderRadius: 8 }}>
         <h2>次の研究記録・保存前プレビュー</h2>
-        <p>対象：日経平均（nikkei）</p>
+        <label>対象指数：
+          <select value={indexKey} onChange={e => setIndexKey(e.target.value as "nikkei" | "topix")}>
+            <option value="nikkei">日経平均</option>
+            <option value="topix">TOPIX</option>
+          </select>
+        </label>
         <p>提供元：許諾確認待ち</p>
         <p>取得状態：unavailable（取得不可）</p>
         <p>理由：PROVIDER_APPROVAL_REQUIRED</p>
         <p>指数値：保存しない / 自動収集：無効</p>
-        <p>以下のボタンを押した場合のみ、開発用DBに1件保存します。</p>
+        <p>以下のボタンを押した場合のみ、開発用DBに記録します。同じ指数・同じ日本時間の日付の取得不可記録は重複保存しません。</p>
         <button type="button" onClick={() => runTest(true)} disabled={busy}
           style={{ padding: "12px 20px", borderRadius: 8, background: "#365a44", color: "white" }}>
           {busy ? "処理中…" : "取得不可の研究記録を1件保存"}
@@ -86,7 +92,7 @@ export default function ResearchConnectionTest() {
         <p>方式：{result.mode ?? "不明"}</p>
         {result.mode !== "PREVIEW_UNAVAILABLE_STATUS_SAVED" && <p>テスト書き込み：{result.writeVerified ? "成功" : "未確認"}</p>}
         {result.mode === "PREVIEW_UNAVAILABLE_STATUS_SAVED"
-          ? <p>研究記録：{result.success && result.persistedRows === 1 ? "保存成功（1件）" : "保存未確認"}</p>
+          ? <p>研究記録：{result.success && result.alreadySaved ? "本日分は保存済み（重複保存なし）" : result.success && result.persistedRows === 1 ? "保存成功（1件）" : "保存未確認"}</p>
           : <p>取り消し確認：{result.rollbackVerified ? "成功（データは残りません）" : "未確認"}</p>}
         {result.failureCategory && <p>原因分類：{result.failureCategory}</p>}
         {result.reason && <p>理由：{result.reason}</p>}
