@@ -9,6 +9,8 @@ on:
       - 'tests/dualSurgeDetectors.test.mjs'
       - 'app/lib/research/dualSurgePersistence.mjs'
       - 'tests/dualSurgePersistence.test.mjs'
+      - 'tests/dualSurgeOwnerRoute.test.mjs'
+      - 'app/api/admin/dual-surge-shadow/route.ts'
       - '.github/workflows/dual-surge-tests.yml'
 permissions:
   contents: read
@@ -22,4 +24,4 @@ jobs:
       - uses: actions/setup-node@v4 # v4.4.0
         with:
           node-version: '22'
-      - run: node --test tests/dualSurgeDetectors.test.mjs tests/dualSurgePersistence.test.mjs
+      - run: node --test tests/dualSurgeDetectors.test.mjs tests/dualSurgePersistence.test.mjs tests/dualSurgeOwnerRoute.test.mjs
