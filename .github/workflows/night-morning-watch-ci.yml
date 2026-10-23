@@ -4,6 +4,8 @@ on:
     paths:
       - "app/lib/research/nightMorningWatch.mjs"
       - "app/lib/research/nightHoldingGuidance.mjs"
+      - "app/lib/research/nightHoldingAudit.mjs"
+      - "tests/nightHoldingAudit.test.mjs"
       - "app/admin/night-entry-holding/**"
       - "tests/nightHoldingGuidance.test.mjs"
       - "app/lib/research/nightTimingHolding.mjs"
@@ -22,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/nightMorningWatch.test.mjs tests/nightHoldingGuidance.test.mjs tests/nightTimingHolding.test.mjs tests/entryTimeShadow.test.mjs
+      - run: node --test tests/nightMorningWatch.test.mjs tests/nightHoldingGuidance.test.mjs tests/nightHoldingAudit.test.mjs tests/nightTimingHolding.test.mjs tests/entryTimeShadow.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit

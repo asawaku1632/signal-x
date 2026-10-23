@@ -8,6 +8,7 @@ import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs"
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {nightMorningTradingDates,buildNightMorningCandidates} from "@/app/lib/research/nightMorningWatch.mjs";
 import {historicPeriodEvidence} from "@/app/lib/research/nightHoldingGuidance.mjs";
+import {auditHoldingPeriods} from "@/app/lib/research/nightHoldingAudit.mjs";
 import {
   NIGHT_HOLDING_POLICY,NIGHT_HOLDING_SLOTS,NIGHT_HOLDING_HORIZONS,
   NIGHT_HOLDING_MIN_STOCK_DAYS,NIGHT_HOLDING_MIN_DAYS,
@@ -147,11 +148,33 @@ export default async function NightEntryHoldingPage(){
         <div className="mt-3 space-y-2">
           {futureCandidates.map(c=>{
             const e=historicPeriodEvidence(observations,targetDate,c.score);
+            const audit=auditHoldingPeriods(observations,targetDate,c.score);
             return <article key={c.code} className="rounded-xl border bg-slate-50 p-3">
               <p className="text-sm font-black">{c.code} {c.name} / AI {c.score}</p>
               <p className="mt-1 text-xs text-slate-600">
                 過去のAI {e.group}帯：{e.count}銘柄日・{e.days}営業日（3期間共通）
               </p>
+              <div className="mt-2 rounded-lg border border-indigo-100 bg-white p-2 text-xs leading-5">
+                <p className="font-black text-indigo-900">🧪 別期間で再現するか検証</p>
+                {!audit.ready?
+                  <p className="mt-1 text-amber-800">
+                    検証不足：学習用 {audit.trainCount}件・別期間 {audit.testCount}件。
+                    少なくとも学習30銘柄日/10営業日、別期間15銘柄日/5営業日が必要。
+                  </p>:
+                  <>
+                    <p className="mt-1">
+                      過去の前半期間で平均上昇率が最大だった保有期間：
+                      <b>{audit.chosen}営業日</b>
+                    </p>
+                    <p className="mt-1 font-bold">
+                      別期間の結果：{audit.reproduced?"同じ期間が最高":"同じ結果は再現せず"}
+                    </p>
+                    <p className="text-slate-500">
+                      前半 {audit.trainCount}件・後半 {audit.testCount}件。
+                      前半の結果が後半の予測になるわけではありません。
+                    </p>
+                  </>}
+              </div>
               {!e.ready?<p className="mt-2 text-xs font-bold text-amber-800">
                 検証不足：保有期間の優劣は未判定（最低30銘柄日・10営業日）
               </p>:<div className="mt-2 grid grid-cols-3 gap-1.5">
