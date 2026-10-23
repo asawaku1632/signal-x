@@ -5,7 +5,7 @@ import {fileURLToPath} from "node:url";
 import {
  NIGHT_HOLDING_POLICY, NIGHT_HOLDING_SLOTS,
  holdingTradingDates,captureHoldingEntryAnchors,
- buildNightHoldingStudy,summarizeNightHolding,holdingPnl100,
+ buildNightHoldingStudy,summarizeNightHolding,summarizeMorningGateHolding,holdingPnl100,
 } from "../app/lib/research/nightTimingHolding.mjs";
 
 const date="2026-10-21";
@@ -14,7 +14,10 @@ const time=(d,t)=>new Date(d+"T"+t+":00+09:00");
 const bar=(d,t,price)=>({time:time(d,t).getTime()/1000,open:price});
 const candidate={code:"2503",name:"キリンHD",score:91,referencePrice:2937.5,rank:1};
 const frozen=()=>({trade_date:date,prior_date:"2026-10-20",frozen_at:time("2026-10-20","18:12").toISOString(),
-  cohort:[candidate]});
+  cohort:[{...candidate}],morning_state:"COMPLETE",
+  morning_saved_at:time(date,"09:12").toISOString(),
+  morning_observations:[{code:"2503",priorScore:91,priorReferencePrice:2937.5,
+    price0905:2940,label:"SKIP"}]});
 const anchors=()=>captureHoldingEntryAnchors(date,"2503",[
   bar(date,"09:00",2935),bar(date,"09:05",2940),
   bar(date,"09:15",2929),bar(date,"09:30",2926),
@@ -61,6 +64,21 @@ test("exact frozen cohort matches independent after-close archive and later save
   assert.equal(NIGHT_HOLDING_SLOTS.length,5);
 });
 
+test("saved same-morning skip is matched, not guessed retrospectively",()=>{
+  const rows=buildNightHoldingStudy(fixture());
+  assert.equal(rows[0].morningGate,"SKIP");
+  assert.equal(summarizeMorningGateHolding(rows)[0].count,1);
+  assert.equal(summarizeMorningGateHolding(rows)[0].skipCount,1);
+  assert.equal(summarizeMorningGateHolding(rows)[0].avoidedLoss100,null); // insufficient sample
+
+  const absent=frozen();absent.morning_saved_at=null;
+  assert.equal(buildNightHoldingStudy(fixture({frozenRuns:[absent]}))[0].morningGate,null);
+  const tooLate=frozen();tooLate.morning_saved_at=time(date,"09:20").toISOString();
+  assert.equal(buildNightHoldingStudy(fixture({frozenRuns:[tooLate]}))[0].morningGate,null);
+  const mismatch=frozen();mismatch.morning_observations[0].price0905=2970;
+  assert.equal(buildNightHoldingStudy(fixture({frozenRuns:[mismatch]}))[0].morningGate,null);
+});
+
 test("unfrozen next morning or mutated historical candidate cannot be reclassified",()=>{
   const modified=frozen();modified.frozen_at=time(date,"09:10").toISOString();
   assert.equal(buildNightHoldingStudy(fixture({frozenRuns:[modified]})).length,0);
@@ -105,6 +123,11 @@ test("all 5 entry strategies use exact same matched stock-days per horizon",()=>
   assert.equal(s[0].comparison[0].count,s[0].comparison[4].count);
   assert.equal(s[3].comparison[0].wins,30);
   assert.equal(s[1].comparison[0].winRate,100);
+  const gates=summarizeMorningGateHolding(copies);
+  assert.equal(gates[0].sufficient,true);
+  assert.equal(gates[0].skipCount,30);
+  assert.equal(gates[0].missedProfit100,30000); // 09:05 reference 2940 -> 2950 for 30 cases
+  assert.equal(gates[0].avoidedLoss100,0);
 });
 
 test("no new scan, market requests, cron, alerts or trade paths added",()=>{
