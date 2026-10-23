@@ -3,11 +3,13 @@ on:
   pull_request:
     paths:
       - 'app/lib/research/afternoonReboundStudy.mjs'
+      - 'app/lib/research/frozenAfternoonRebound.mjs'
       - 'app/lib/research/approvedAfternoonPair.mjs'
       - 'app/lib/research/intradayProviderReadiness.mjs'
       - 'app/lib/research/afternoonLimitStudy.mjs'
       - 'app/lib/research/intradayObservationContract.mjs'
       - 'tests/afternoonReboundStudy.test.mjs'
+      - 'tests/frozenAfternoonRebound.test.mjs'
       - 'tests/approvedAfternoonPair.test.mjs'
       - 'tests/intradayProviderReadiness.test.mjs'
       - 'tests/afternoonLimitStudy.test.mjs'
@@ -32,4 +34,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated research tests
-        run: node --test tests/afternoonReboundStudy.test.mjs tests/afternoonLimitStudy.test.mjs tests/intradayObservationContract.test.mjs tests/approvedAfternoonPair.test.mjs tests/intradayProviderReadiness.test.mjs
+        run: node --test tests/afternoonReboundStudy.test.mjs tests/afternoonLimitStudy.test.mjs tests/intradayObservationContract.test.mjs tests/approvedAfternoonPair.test.mjs tests/intradayProviderReadiness.test.mjs tests/frozenAfternoonRebound.test.mjs
