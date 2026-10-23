@@ -88,6 +88,18 @@ export async function GET() {
         { id: "topix", label: "TOPIX", permission: "J-Quants個人向け利用条件では第三者への反復配信を禁止。商用利用は別途確認", minuteBarsAvailable: false },
       ],
       scheduledCaptureConfigured: false,
+      scheduledStatusPlan: {
+        mode: "PREVIEW_ONLY_DISABLED",
+        timezone: "Asia/Tokyo",
+        proposedDailyTimeJst: "17:30",
+        indices: ["nikkei", "topix"],
+        recordStatus: "unavailable",
+        recordReason: "PROVIDER_APPROVAL_REQUIRED",
+        capturesIndexValues: false,
+        writesToProduction: false,
+        requiresExplicitActivation: true,
+        safeguards: ["preview-environment-only", "dev-db-identity-check", "per-index-per-jst-day-deduplication", "fail-closed"],
+      },
       marketOpenMinuteValidationReady: false,
       databasePersistenceConfigured: rows !== null,
       lastObservation: latest ? {
