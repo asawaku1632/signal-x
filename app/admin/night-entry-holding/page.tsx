@@ -66,7 +66,7 @@ export default async function NightEntryHoldingPage(){
   let calendarError=false;
   for(const r of frozen){
     try{
-      const targets=holdingTradingDates(r.trade_date,isTseTradingDate);
+      const targets=holdingTradingDates(r.trade_date,isTseTradingDate) as Record<number,string>;
       for(const horizon of [1,3,5])dates.add(targets[horizon]);
     }catch{calendarError=true;}
   }
