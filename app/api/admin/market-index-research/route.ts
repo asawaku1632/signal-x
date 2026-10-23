@@ -117,7 +117,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
   if (process.env.MARKET_INDEX_RESEARCH_DEV_READ_ENABLED !== "true")
     return NextResponse.json({ success: false, reason: "DEV_DB_DISABLED" }, { status: 403 });
-  const saveStatus = (await request.json().catch(() => null))?.action === "save-unavailable-status";
+  const payload = await request.json().catch(() => null);
+  const saveStatus = payload?.action === "save-unavailable-status";
+  const indexKey = payload?.indexKey === "topix" ? "topix" : "nikkei";
   // Preview-only synthetic status record; no price or licensed provider data.
   let pool: import("pg").Pool | undefined;
   try {
@@ -137,27 +139,35 @@ export async function POST(request: Request) {
     const client = await pool.connect();
     let inserted = false;
     let rolledBack = false;
+    let alreadySaved = false;
     const runId = (saveStatus ? "manual-unavailable-" : "preview-rollback-") + crypto.randomUUID();
     try {
       await client.query("BEGIN");
-      await client.query(`INSERT INTO public.market_index_research_runs
+      if (saveStatus) {
+        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["manual-unavailable-" + indexKey]);
+        const existing = await client.query(
+          "SELECT 1 FROM public.market_index_research_runs WHERE index_key = $1 AND reason = 'PROVIDER_APPROVAL_REQUIRED' AND checked_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Tokyo') AT TIME ZONE 'Asia/Tokyo' AND checked_at < (date_trunc('day', now() AT TIME ZONE 'Asia/Tokyo') + interval '1 day') AT TIME ZONE 'Asia/Tokyo' LIMIT 1",
+          [indexKey]);
+        alreadySaved = (existing.rowCount ?? 0) > 0;
+      }
+      if (!alreadySaved) await client.query(`INSERT INTO public.market_index_research_runs
         (run_id, checked_at, index_key, provider_id, provider_rights_verified, status, reason)
-        VALUES ($1, now(), 'nikkei', $2, false, 'unavailable', $3)`, [runId,
+        VALUES ($1, now(), $4, $2, false, 'unavailable', $3)`, [runId,
         saveStatus ? 'licensed-provider-pending' : 'test-fixture',
-        saveStatus ? 'PROVIDER_APPROVAL_REQUIRED' : 'ROLLBACK_ONLY']);
+        saveStatus ? 'PROVIDER_APPROVAL_REQUIRED' : 'ROLLBACK_ONLY', indexKey]);
       const check = await client.query<{ present: boolean }>(
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
-      inserted = check.rows[0]?.present === true;
+      inserted = alreadySaved || check.rows[0]?.present === true;
     } finally {
       await client.query(saveStatus && inserted ? "COMMIT" : "ROLLBACK");
       const check = await client.query<{ present: boolean }>(
         "SELECT EXISTS(SELECT 1 FROM public.market_index_research_runs WHERE run_id = $1) AS present", [runId]);
-      rolledBack = check.rows[0]?.present === (saveStatus && inserted);
+      rolledBack = alreadySaved || check.rows[0]?.present === (saveStatus && inserted);
       client.release();
     }
     const success = inserted && rolledBack;
     return NextResponse.json({ success, mode: saveStatus ? "PREVIEW_UNAVAILABLE_STATUS_SAVED" : "PREVIEW_WRITE_ROLLBACK_TEST",
-      writeVerified: inserted, rollbackVerified: !saveStatus && rolledBack, persistedRows: saveStatus && success ? 1 : 0,
+      writeVerified: inserted, rollbackVerified: !saveStatus && rolledBack, persistedRows: saveStatus && success && !alreadySaved ? 1 : 0, alreadySaved, indexKey,
       marketDataCaptured: false, scheduledCaptureConfigured: false }, { status: success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ success: false, failureCategory: classifyDbFailure(error) },
