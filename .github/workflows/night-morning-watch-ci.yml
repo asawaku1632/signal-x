@@ -3,9 +3,13 @@ on:
   pull_request:
     paths:
       - "app/lib/research/nightMorningWatch.mjs"
+      - "app/lib/research/nightTimingHolding.mjs"
+      - "app/lib/research/entryTimeShadowRunner.ts"
+      - "app/admin/night-entry-holding/**"
       - "app/admin/night-morning-watch/**"
       - "app/admin/learning-hub/page.tsx"
       - "tests/nightMorningWatch.test.mjs"
+      - "tests/nightTimingHolding.test.mjs"
       - ".github/workflows/night-morning-watch-ci.yml"
 jobs:
   validate:
@@ -15,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/nightMorningWatch.test.mjs
+      - run: node --test tests/nightMorningWatch.test.mjs tests/nightTimingHolding.test.mjs tests/entryTimeShadow.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
