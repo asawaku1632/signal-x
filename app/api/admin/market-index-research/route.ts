@@ -97,7 +97,7 @@ export async function GET() {
         status: latest.status,
       } : null,
       history: (rows ?? []).map(r => ({
-        date: new Date(r.checked_at).toISOString().slice(0, 10), observedAt: r.observed_at,
+        date: new Date(r.checked_at).toISOString().slice(0, 10), checkedAt: new Date(r.checked_at).toISOString(), indexKey: r.index_key, providerId: r.provider_id, reason: r.reason, observedAt: r.observed_at,
         status: r.status, ageMinutes: r.age_minutes === null ? null : Number(r.age_minutes),
       })),
       note: rows === null
