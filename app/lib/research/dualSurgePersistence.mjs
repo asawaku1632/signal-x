@@ -27,10 +27,10 @@ export function prepareDualSurgeCandidates({code,candles,signalDate,completedDat
 /** Insert-only. Conflicting capture must be verified rather than overwritten. */
 export async function insertDualSurgeCandidates(db,rows) {
  if(!db||typeof db.query!=="function")throw Error("DATABASE_UNAVAILABLE");
- if(!Array.isArray(rows))throw Error("INVALID_ROWS");
+ if(!Array.isArray(rows)||rows.length>1)throw Error("INVALID_ROWS");
  const ids=[];
  for(const row of rows){
-  if(row.detector_version!==DUAL_SURGE_VERSION||!["PRE_SURGE_V1","SURGE_START_V1"].includes(row.cohort)||!/^\d{4}$/.test(row.code)||row.provider_license_status!=="APPROVED"||!/^[a-f0-9]{64}$/.test(row.source_hash)||!Number.isFinite(row.signal_close)||row.signal_close<=0)throw Error("INVALID_CAPTURE");
+  if(row.detector_version!==DUAL_SURGE_VERSION||!["PRE_SURGE_V1","SURGE_START_V1"].includes(row.cohort)||!/^\d{4}$/.test(row.code)||row.provider_license_status!=="APPROVED"||!/^[a-f0-9]{64}$/.test(row.source_hash)||!Number.isFinite(row.signal_close)||row.signal_close<=0||!Number.isSafeInteger(row.signal_time)||row.signal_time<=0||typeof row.provider!=="string"||!row.provider.trim()||typeof row.calendar_version!=="string"||!row.calendar_version.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(row.signal_date)||!row.features||typeof row.features!=="object"||Array.isArray(row.features))throw Error("INVALID_CAPTURE");
   const params=[row.detector_version,row.cohort,row.code,row.signal_date,row.signal_time,row.provider,row.provider_license_status,row.source_hash,row.calendar_version,JSON.stringify(row.features),row.signal_close];
   const sql=`insert into public.dual_surge_shadow_candidates
    (detector_version,cohort,code,signal_date,signal_time,provider,provider_license_status,source_hash,calendar_version,features,signal_close)
