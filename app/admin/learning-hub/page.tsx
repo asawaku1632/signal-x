@@ -59,6 +59,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "急落時の市場比ランキングと翌日・3日・5保存日後の事後検証",
       },
       {
+        href: "/admin/dual-surge-shadow", icon: "🚀",
+        title: "急騰前兆・急騰開始の独立研究", tag: "本人専用・研究用",
+        detail: "急騰前の兆候と急騰開始を別々に検証。未収集・未検証の成績は表示しません",
+      },
+      {
         href: "/admin/explosive-watch", icon: "🚀",
         title: "爆上げ候補ウォッチ",
         detail: "候補銘柄の前兆と未来追跡をまとめて確認",
