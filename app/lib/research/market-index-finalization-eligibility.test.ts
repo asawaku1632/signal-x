@@ -173,3 +173,27 @@ test("return stable key for the same valid synthetic observation", () => {
   assert.deepEqual(a, b);
   assert.deepEqual(a, { eligible: true, key: "nikkei:2026-10-23" });
 });
+
+test("deny prototype-shaped and non-object candidate inputs", () => {
+  for (const input of [0, 1, true, "nikkei", Symbol("x"), () => null]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+  }
+});
+
+test("deny date or regex objects as candidate inputs", () => {
+  for (const input of [new Date("2026-10-23T00:00:00Z"), /nikkei/]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  }
+});
+
+test("keep valid synthetic contract independent of input property insertion order", () => {
+  const reverse = Object.fromEntries(Object.entries(candidate).reverse()) as FinalizationCandidate;
+  assert.deepEqual(checkFinalizationEligibility(reverse), { eligible: true, key: "nikkei:2026-10-23" });
+});
+
+test("reject unsupported status spellings and inconsistent numeric encodings", () => {
+  reject({ status: "AVAILABLE" }, "OBSERVATION_UNAVAILABLE");
+  reject({ status: "available " }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: "40000.0" }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: Number.NaN }, "OBSERVATION_UNAVAILABLE");
+});
