@@ -61,7 +61,18 @@ export async function GET(){
    const complete=window.length===22&&window.at(-1)?.date===endDate;
    const split=window.some(x=>x.split);
    const evaluated=complete&&!split?inspectDualSurge(window.map(x=>x.bar)):null;
-   results.push({code,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
+   // Historical diagnostic only: never write or mislabel these as prospective signals.
+   const historical={sessionsEvaluated:0,preSurgeHits:0,surgeStartHits:0,unavailableSessions:0};
+   for(let i=21;i<unique.length;i++){
+    const sample=unique.slice(i-21,i+1);
+    if(sample.some(x=>x.split)){historical.unavailableSessions++;continue;}
+    const result=inspectDualSurge(sample.map(x=>x.bar));
+    if(!result.available){historical.unavailableSessions++;continue;}
+    historical.sessionsEvaluated++;
+    if(result.signals.some((s:{cohort:string})=>s.cohort==="PRE_SURGE_V1"))historical.preSurgeHits++;
+    if(result.signals.some((s:{cohort:string})=>s.cohort==="SURGE_START_V1"))historical.surgeStartHits++;
+   }
+   results.push({code,historical,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
     latestDate:unique.at(-1)?.date||null,has22CompletedSessions:complete,corporateActionInWindow:split,
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.available===true?null:(evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE")),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
