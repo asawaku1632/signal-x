@@ -98,7 +98,35 @@ export async function GET(){
       averageReturnPct:values.length?Number((values.reduce((sum,x)=>sum+x,0)/values.length).toFixed(3)):null});
     }
    }
-   results.push({code,historical,forward,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
+   // Consecutive sessions in the same cohort are one event; retain all daily signals separately.
+   const events=[] as Array<{cohort:string;startDate:string;endDate:string;signalDays:number;firstClose:number;firstReturns:Record<string,number|null>;continuationSignals:number;continuationFiveDayReturns:number[]}>;
+   for(const signal of forward.signals){
+    const previous=events.at(-1);
+    const currentIndex=unique.findIndex(x=>x.date===signal.date);
+    const lastIndex=previous?unique.findIndex(x=>x.date===previous.endDate):-1;
+    if(previous&&previous.cohort===signal.cohort&&currentIndex===lastIndex+1){
+     previous.endDate=signal.date;
+     previous.signalDays++;
+     previous.continuationSignals++;
+     const r5=signal.returns["5"];
+     if(r5!==null)previous.continuationFiveDayReturns.push(r5);
+    }else{
+     events.push({cohort:signal.cohort,startDate:signal.date,endDate:signal.date,signalDays:1,
+      firstClose:signal.signalClose,firstReturns:signal.returns,continuationSignals:0,continuationFiveDayReturns:[]});
+    }
+   }
+   const eventSummary=["PRE_SURGE_V1","SURGE_START_V1"].map(cohort=>{
+    const group=events.filter(e=>e.cohort===cohort);
+    const maturedFive=group.map(e=>e.firstReturns["5"]).filter((x):x is number=>x!==null);
+    const continuationFive=group.flatMap(e=>e.continuationFiveDayReturns);
+    return {cohort,events:group.length,firstSignalsWithFiveDayResult:maturedFive.length,
+     firstFiveDayPositive:maturedFive.filter(x=>x>0).length,
+     firstFiveDayAveragePct:maturedFive.length?Number((maturedFive.reduce((a,b)=>a+b,0)/maturedFive.length).toFixed(3)):null,
+     continuationSignals:group.reduce((n,e)=>n+e.continuationSignals,0),
+     continuationFiveDayMatured:continuationFive.length,
+     continuationFiveDayAveragePct:continuationFive.length?Number((continuationFive.reduce((a,b)=>a+b,0)/continuationFive.length).toFixed(3)):null};
+   });
+   results.push({code,historical,forward,events,eventSummary,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
     latestDate:unique.at(-1)?.date||null,has22CompletedSessions:complete,corporateActionInWindow:split,
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.available===true?null:(evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE")),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
