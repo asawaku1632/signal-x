@@ -4,6 +4,7 @@ import {
   assessRightsEvidenceDraft,
   assessSessionEvidenceDraft,
   assessClaimedRightsCoverage,
+  compareSessionEvidenceClaims,
   type RightsEvidenceDraft,
   type SessionEvidenceDraft,
 } from "./market-index-evidence-review.ts";
@@ -119,4 +120,30 @@ test("claimed rights coverage rejects out-of-range dates and invalid requests", 
   assert.deepEqual(assessClaimedRightsCoverage({ ...rights, revoked: true }, {
     indexKey: "nikkei", use: "internal_research", sessionDate: "2026-10-23",
   }), { coveredByClaim: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
+});
+
+test("calendar claim comparison accepts matching claims from distinct source IDs only", () => {
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "fixture-independent-calendar",
+  }), {
+    consistent: true, indexKey: "nikkei", sessionDate: "2026-10-23", sessionClaim: "open",
+  });
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, verifierId: "different-reviewer",
+  }), { consistent: false, reason: "NOT_INDEPENDENT_EVIDENCE" });
+});
+
+test("calendar claim comparison rejects conflicts and identity mismatches", () => {
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "other", sessionClaim: "closed",
+  }), { consistent: false, reason: "SESSION_CLAIM_CONFLICT" });
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "other", sessionDate: "2026-10-22",
+  }), { consistent: false, reason: "SESSION_IDENTITY_MISMATCH" });
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "other", indexKey: "topix",
+  }), { consistent: false, reason: "SESSION_IDENTITY_MISMATCH" });
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "other", sessionDate: "2026-02-30",
+  }), { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
 });
