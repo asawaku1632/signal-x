@@ -42,7 +42,8 @@ export function fiveDayOutcome(bars,index,horizon=5){
 export function nextOpenReturn(bars,index,horizon=5){
  if(!Number.isInteger(index)||index<0||!Number.isInteger(horizon)||horizon<1)throw Error("INVALID_INDEX");
  const entry=bars[index+1],exit=bars[index+horizon];
- if(!entry||!exit)return {status:"PENDING",returnPct:null};
+ if(index+1>=bars.length||index+horizon>=bars.length)return {status:"PENDING",returnPct:null};
+ if(!entry||!exit)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  const window=bars.slice(index,index+horizon+1);
  if(window.some(b=>!b||typeof b!=="object"))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(window.some(b=>adjustmentStatus(b.adjFactor)!=="ELIGIBLE"))return {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",returnPct:null};
