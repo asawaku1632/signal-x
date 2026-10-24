@@ -43,6 +43,10 @@ export function checkFinalizationEligibility(c: FinalizationCandidate): Finaliza
       !Number.isFinite(Date.parse(c.observedAt)) ||
       !/(Z|[+-]\d{2}:\d{2})$/.test(c.observedAt))
     return { eligible: false, reason: "TIMESTAMP_UNVERIFIED" };
+  const observedDay = c.observedAt.slice(0, 10);
+  if (!Number.isFinite(Date.parse(observedDay + "T00:00:00Z")) ||
+      new Date(observedDay + "T00:00:00Z").toISOString().slice(0, 10) !== observedDay)
+    return { eligible: false, reason: "TIMESTAMP_UNVERIFIED" };
   if (typeof c.sourceRunId !== "string" || !c.sourceRunId.trim() ||
       typeof c.providerId !== "string" || !c.providerId.trim() ||
       c.providerId.trim() === "licensed-provider-pending")
