@@ -124,6 +124,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // Reject cross-origin state-changing requests in the research Preview.
+  if (request.headers.get("origin") !== new URL(request.url).origin)
+    return NextResponse.json({ success: false, reason: "ORIGIN_MISMATCH" }, { status: 403 });
   const { isAdmin } = await getAdminSession();
   if (!isAdmin || process.env.VERCEL_ENV !== "preview")
     return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
