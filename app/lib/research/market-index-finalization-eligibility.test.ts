@@ -105,3 +105,23 @@ test("does not mutate the input candidate", () => {
   assert.deepEqual(checkFinalizationEligibility(frozen), { eligible: true, key: "nikkei:2026-10-23" });
   assert.deepEqual(frozen, candidate);
 });
+
+test("rejects each missing field independently", () => {
+  const fields: Array<[keyof FinalizationCandidate, string]> = [
+    ["indexKey", "INVALID_INDEX"],
+    ["rightsEvidenceId", "PROVIDER_RIGHTS_UNVERIFIED"],
+    ["providerRightsVerified", "PROVIDER_RIGHTS_UNVERIFIED"],
+    ["sessionDate", "SESSION_UNVERIFIED"],
+    ["exchangeSessionVerified", "SESSION_UNVERIFIED"],
+    ["status", "OBSERVATION_UNAVAILABLE"],
+    ["value", "OBSERVATION_UNAVAILABLE"],
+    ["observedAt", "TIMESTAMP_UNVERIFIED"],
+    ["sourceRunId", "SOURCE_UNVERIFIED"],
+    ["providerId", "SOURCE_UNVERIFIED"],
+  ];
+  for (const [field, reason] of fields) {
+    const missing = { ...candidate } as Record<string, unknown>;
+    delete missing[field];
+    assert.deepEqual(checkFinalizationEligibility(missing as FinalizationCandidate), { eligible: false, reason }, field);
+  }
+});
