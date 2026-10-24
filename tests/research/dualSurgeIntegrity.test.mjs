@@ -11,3 +11,7 @@ test('equal denominator is comparable',()=>assert.equal(compareDenominators({mat
 test('unequal denominator is not comparable',()=>assert.equal(compareDenominators({matured:15},{matured:12}).comparable,false));
 test('zero denominator is not comparable',()=>assert.equal(compareDenominators({matured:0},{matured:0}).comparable,false));
 test('invalid denominator throws',()=>assert.throws(()=>compareDenominators({matured:null},{matured:2})));
+
+test('negative manifest stock count rejected',()=>assert.throws(()=>checkBaselineManifest({selectedStocks:-1,detectorEligibleStocks:0,eventCounts:{}}),/INVALID_MANIFEST/));
+test('negative denominator rejected',()=>assert.throws(()=>compareDenominators({matured:-1},{matured:1}),/INVALID_DENOMINATOR/));
+test('eligible stock count cannot exceed selected',()=>{const m={selectedStocks:1,detectorEligibleStocks:2,eventCounts:{independentFirstEvents:1,maturedFiveSession:1,pendingFiveSession:0,positiveFiveSession:1,negativeFiveSession:0}};assert.equal(checkBaselineManifest(m).eligibleNotMoreThanSelected,false)});
