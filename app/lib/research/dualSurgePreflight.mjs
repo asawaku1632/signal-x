@@ -1,3 +1,4 @@
+import {validIsoSessionDate} from "./dualSurgeCalendar.mjs";
 // Research-only preflight; consumes caller-supplied rows. Never fetches or writes data.
 export const PREFLIGHT_VERSION="DUAL_SURGE_PREFLIGHT_V1";
 const validNumber=x=>typeof x==="number"&&Number.isFinite(x)&&x>0;
@@ -7,7 +8,7 @@ export function inspectProviderRows(rows,code){
  const seen=new Set();
  for(const r of rows){
   if(!r||typeof r.Code!=="string"||(r.Code!==code&&r.Code!==code+"0")){counts.wrongCode++;continue;}
-  if(typeof r.Date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(r.Date)||!Number.isFinite(Date.parse(r.Date+"T00:00:00Z"))){counts.invalidDate++;continue;}
+  if(!validIsoSessionDate(r.Date)){counts.invalidDate++;continue;}
   if(![r.O,r.H,r.L,r.C].every(validNumber)||typeof r.Vo!=="number"||!Number.isFinite(r.Vo)||r.Vo<0||r.H<Math.max(r.O,r.C,r.L)||r.L>Math.min(r.O,r.C)){counts.invalidOHLCV++;continue;}
   if(seen.has(r.Date))counts.duplicateDates++;
   seen.add(r.Date);
