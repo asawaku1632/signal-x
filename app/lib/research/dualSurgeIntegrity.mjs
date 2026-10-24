@@ -7,7 +7,7 @@ export function verifyAggregateArithmetic({events,matured,pending,excluded=0,pos
  return {statusBalanced,directionBalanced,valid:statusBalanced&&directionBalanced};
 }
 export function checkBaselineManifest(manifest){
- if(!manifest||!manifest.eventCounts||!Number.isSafeInteger(manifest.selectedStocks)||!Number.isSafeInteger(manifest.detectorEligibleStocks))throw Error("INVALID_MANIFEST");
+ if(!manifest||!manifest.eventCounts||!Number.isSafeInteger(manifest.selectedStocks)||!Number.isSafeInteger(manifest.detectorEligibleStocks)||manifest.selectedStocks<0||manifest.detectorEligibleStocks<0)throw Error("INVALID_MANIFEST");
  const e=manifest.eventCounts;
  const arithmetic=verifyAggregateArithmetic({
   events:e.independentFirstEvents,matured:e.maturedFiveSession,pending:e.pendingFiveSession,
@@ -20,7 +20,7 @@ export function checkBaselineManifest(manifest){
   warnings:["Aggregate arithmetic is not event-level reconciliation.","Do not infer unknown return buckets from totals."]};
 }
 export function compareDenominators(a,b){
- if(!a||!b||!Number.isSafeInteger(a.matured)||!Number.isSafeInteger(b.matured))throw Error("INVALID_DENOMINATOR");
+ if(!a||!b||!Number.isSafeInteger(a.matured)||!Number.isSafeInteger(b.matured)||a.matured<0||b.matured<0)throw Error("INVALID_DENOMINATOR");
  return {sameMatured:a.matured===b.matured,legacyMatured:a.matured,newMatured:b.matured,
   delta:b.matured-a.matured,comparable:a.matured===b.matured&&a.matured>0};
 }
