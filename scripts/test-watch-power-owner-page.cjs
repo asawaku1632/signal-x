@@ -14,7 +14,7 @@ test("owner authorization precedes the first database read", () => {
 
 test("report uses a bounded parameterized read-only SELECT", () => {
   assert.match(page, /SELECT code, trade_date::text AS trade_date/);
-  assert.match(page, /WHERE trade_date > \\$1::date AND decision_status = \\$2/);
+  assert.match(page, /WHERE trade_date > \$1::date AND decision_status = \$2/);
   assert.match(page, /LIMIT 20001/);
   assert.match(page, /result\.rows\.length > 20000/);
   assert.match(page, /if \(!truncated\)/);
