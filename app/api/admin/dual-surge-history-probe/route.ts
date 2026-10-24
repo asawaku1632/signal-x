@@ -155,6 +155,21 @@ export async function GET(){
    {metric:"distanceFrom20DayHighPct",label:"above_0_to_below_5pct",min:0.000001,max:5},
    {metric:"distanceFrom20DayHighPct",label:"5pct_or_more",min:5,max:Infinity}
   ] as const;
+  // Cohorts are kept separate: PRE_SURGE is not interchangeable with SURGE_START.
+  // The signal-day continuation rate is descriptive and not known on the first day.
+  const continuationStudy=(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
+   const group=results.flatMap(r=>r.events.filter(e=>e.cohort===cohort).map(e=>({code:r.code,...e})));
+   const summary=(events:typeof group)=>{
+    const matured=events.filter(e=>e.firstReturns["5"]!==null);
+    return {events:events.length,maturedFiveDay:matured.length,
+     positiveFiveDay:matured.filter(e=>(e.firstReturns["5"] as number)>0).length,
+     averageFiveDayReturnPct:matured.length?Number((matured.reduce((n,e)=>n+(e.firstReturns["5"] as number),0)/matured.length).toFixed(3)):null,
+     insufficientSample:matured.length<30};
+   };
+   return {cohort,oneDayOnly:summary(group.filter(e=>e.signalDays===1)),
+    twoOrMoreConsecutiveDays:summary(group.filter(e=>e.signalDays>=2)),
+    caution:"Consecutive-day status uses future information; never use as an entry-day predictor."};
+  });
   const featureBuckets=bucketSpecs.map(spec=>{
    const matched=firstEvents.filter(e=>{const value=e[spec.metric];return value!==null&&value>=spec.min&&value<spec.max;});
    const matured=matched.filter(e=>e.fiveDayReturnPct!==null);
@@ -164,7 +179,7 @@ export async function GET(){
     averageFiveDayReturnPct:average,insufficientSample:matured.length<30};
   });
   return NextResponse.json({success:true,source:"JQUANTS_V2",mode:"READ_ONLY_HISTORICAL_DIAGNOSTIC",fromDate,endDate,
-   codesChecked:codes.length,results,firstEvents,featureBuckets,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
+   codesChecked:codes.length,results,firstEvents,featureBuckets,continuationStudy,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
    note:"Historical close-to-close forward returns, not tradable returns or prospective predictions. No database writes."},{headers});
  }catch(e){
   const reason=e instanceof Error&&/^PROVIDER_HTTP_[0-9]{3}$/.test(e.message)?e.message:"PROBE_UNAVAILABLE";
