@@ -67,3 +67,16 @@ test("fail closed on malformed top-level input", () => {
   assert.deepEqual(checkFinalizationEligibility(null as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
   assert.deepEqual(checkFinalizationEligibility(undefined as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
 });
+
+test("reject absent required fields without throwing", () => {
+  reject({ indexKey: null }, "INVALID_INDEX");
+  reject({ sessionDate: null }, "SESSION_UNVERIFIED");
+  reject({ status: null }, "OBSERVATION_UNAVAILABLE");
+  reject({ observedAt: null }, "TIMESTAMP_UNVERIFIED");
+  reject({ sourceRunId: null }, "SOURCE_UNVERIFIED");
+});
+
+test("accept explicit UTC timestamps and reject timezone-free ones", () => {
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, observedAt: "2026-10-23T06:00:00Z" }), { eligible: true, key: "nikkei:2026-10-23" });
+  reject({ observedAt: "2026-10-23T06:00:00" }, "TIMESTAMP_UNVERIFIED");
+});
