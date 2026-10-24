@@ -1,0 +1,253 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { checkFinalizationEligibility, type FinalizationCandidate } from "./market-index-finalization-eligibility.ts";
+
+const candidate: FinalizationCandidate = {
+  indexKey: "nikkei",
+  sessionDate: "2026-10-23",
+  sourceRunId: "synthetic-run",
+  providerId: "synthetic-provider",
+  providerRightsVerified: true,
+  rightsEvidenceId: "synthetic-evidence-not-real-permission",
+  status: "available",
+  observedAt: "2026-10-23T15:00:00+09:00",
+  value: 40000,
+  exchangeSessionVerified: true,
+};
+
+function reject(patch: Partial<FinalizationCandidate>, reason: string) {
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, ...patch }), { eligible: false, reason });
+}
+
+test("synthetic complete candidate passes the pure contract (NOT a real provider authorization)", () => {
+  assert.deepEqual(checkFinalizationEligibility(candidate), { eligible: true, key: "nikkei:2026-10-23" });
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, indexKey: "topix" }), { eligible: true, key: "topix:2026-10-23" });
+});
+
+test("reject unsupported index and absent rights evidence", () => {
+  reject({ indexKey: "other" }, "INVALID_INDEX");
+  reject({ providerRightsVerified: false }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ rightsEvidenceId: "" }, "PROVIDER_RIGHTS_UNVERIFIED");
+});
+
+test("reject missing calendar verdict and invalid dates", () => {
+  reject({ exchangeSessionVerified: false }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-02-30" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-10-23T00:00:00Z" }, "SESSION_UNVERIFIED");
+});
+
+test("reject missing prices and unavailable status", () => {
+  reject({ status: "unavailable" }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: 0 }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: Number.NaN }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: Number.POSITIVE_INFINITY }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("reject missing source or invalid timestamp", () => {
+  reject({ observedAt: "2026-10-23T15:00:00" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "invalid" }, "TIMESTAMP_UNVERIFIED");
+  reject({ sourceRunId: "" }, "SOURCE_UNVERIFIED");
+  reject({ providerId: "" }, "SOURCE_UNVERIFIED");
+});
+
+test("reject truthy substitutes for trusted verification flags", () => {
+  reject({ providerRightsVerified: "true" }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ exchangeSessionVerified: 1 }, "SESSION_UNVERIFIED");
+  reject({ rightsEvidenceId: "   " }, "PROVIDER_RIGHTS_UNVERIFIED");
+});
+
+test("reject malformed calendar days and negative observations", () => {
+  reject({ sessionDate: "2026-13-01" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-02-29" }, "SESSION_UNVERIFIED");
+  reject({ value: -100 }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: "40000" }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("fail closed on malformed top-level input", () => {
+  assert.deepEqual(checkFinalizationEligibility(null as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+  assert.deepEqual(checkFinalizationEligibility(undefined as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+});
+
+test("reject absent required fields without throwing", () => {
+  reject({ indexKey: null }, "INVALID_INDEX");
+  reject({ sessionDate: null }, "SESSION_UNVERIFIED");
+  reject({ status: null }, "OBSERVATION_UNAVAILABLE");
+  reject({ observedAt: null }, "TIMESTAMP_UNVERIFIED");
+  reject({ sourceRunId: null }, "SOURCE_UNVERIFIED");
+});
+
+test("accept explicit UTC timestamps and reject timezone-free ones", () => {
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, observedAt: "2026-10-23T06:00:00Z" }), { eligible: true, key: "nikkei:2026-10-23" });
+  reject({ observedAt: "2026-10-23T06:00:00" }, "TIMESTAMP_UNVERIFIED");
+});
+
+test("fail closed for structurally invalid input objects", () => {
+  assert.deepEqual(checkFinalizationEligibility([] as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+  assert.deepEqual(checkFinalizationEligibility({} as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+});
+
+test("reject non-boolean rights and session verification", () => {
+  reject({ providerRightsVerified: 1 }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ providerRightsVerified: null }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ exchangeSessionVerified: "true" }, "SESSION_UNVERIFIED");
+  reject({ exchangeSessionVerified: null }, "SESSION_UNVERIFIED");
+});
+
+test("reject non-string provenance and unsupported status", () => {
+  reject({ rightsEvidenceId: 123 }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ providerId: 123 }, "SOURCE_UNVERIFIED");
+  reject({ sourceRunId: "  " }, "SOURCE_UNVERIFIED");
+  reject({ status: "pending" }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("does not mutate the input candidate", () => {
+  const frozen = Object.freeze({ ...candidate });
+  assert.deepEqual(checkFinalizationEligibility(frozen), { eligible: true, key: "nikkei:2026-10-23" });
+  assert.deepEqual(frozen, candidate);
+});
+
+test("rejects each missing field independently", () => {
+  const fields: Array<[keyof FinalizationCandidate, string]> = [
+    ["indexKey", "INVALID_INDEX"],
+    ["rightsEvidenceId", "PROVIDER_RIGHTS_UNVERIFIED"],
+    ["providerRightsVerified", "PROVIDER_RIGHTS_UNVERIFIED"],
+    ["sessionDate", "SESSION_UNVERIFIED"],
+    ["exchangeSessionVerified", "SESSION_UNVERIFIED"],
+    ["status", "OBSERVATION_UNAVAILABLE"],
+    ["value", "OBSERVATION_UNAVAILABLE"],
+    ["observedAt", "TIMESTAMP_UNVERIFIED"],
+    ["sourceRunId", "SOURCE_UNVERIFIED"],
+    ["providerId", "SOURCE_UNVERIFIED"],
+  ];
+  for (const [field, reason] of fields) {
+    const missing = { ...candidate } as Record<string, unknown>;
+    delete missing[field];
+    assert.deepEqual(checkFinalizationEligibility(missing as FinalizationCandidate), { eligible: false, reason }, field);
+  }
+});
+
+test("placeholder provider never becomes eligible from asserted flags alone", () => {
+  reject({ providerId: "licensed-provider-pending" }, "SOURCE_UNVERIFIED");
+  reject({ providerId: " licensed-provider-pending " }, "SOURCE_UNVERIFIED");
+});
+
+test("reject invalid calendar boundaries and malformed session dates", () => {
+  reject({ sessionDate: "2026-00-01" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-12-32" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-04-31" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-1-02" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026/10/23" }, "SESSION_UNVERIFIED");
+});
+
+test("accept valid leap day only with asserted external session verification", () => {
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, sessionDate: "2028-02-29" }), { eligible: true, key: "nikkei:2028-02-29" });
+  reject({ sessionDate: "2028-02-29", exchangeSessionVerified: false }, "SESSION_UNVERIFIED");
+});
+
+test("reject invalid observedAt offsets and dates", () => {
+  reject({ observedAt: "2026-10-23T15:00:00+99:99" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-02-30T15:00:00+09:00" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23T15:00:00Z trailing" }, "TIMESTAMP_UNVERIFIED");
+});
+
+test("reject numeric edge cases", () => {
+  reject({ value: Number.NEGATIVE_INFINITY }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: -0 }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: null }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: undefined }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("reject misleading provider identity even if rights flags are asserted", () => {
+  reject({ providerId: "licensed-provider-pending", providerRightsVerified: true }, "SOURCE_UNVERIFIED");
+  reject({ providerId: " licensed-provider-pending ", providerRightsVerified: true }, "SOURCE_UNVERIFIED");
+});
+
+test("reject whitespace-only provider and run identifiers", () => {
+  reject({ providerId: "\t  " }, "SOURCE_UNVERIFIED");
+  reject({ sourceRunId: "\n " }, "SOURCE_UNVERIFIED");
+});
+
+test("return stable key for the same valid synthetic observation", () => {
+  const a = checkFinalizationEligibility({ ...candidate });
+  const b = checkFinalizationEligibility({ ...candidate });
+  assert.deepEqual(a, b);
+  assert.deepEqual(a, { eligible: true, key: "nikkei:2026-10-23" });
+});
+
+test("deny prototype-shaped and non-object candidate inputs", () => {
+  for (const input of [0, 1, true, "nikkei", Symbol("x"), () => null]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+  }
+});
+
+test("deny date or regex objects as candidate inputs", () => {
+  for (const input of [new Date("2026-10-23T00:00:00Z"), /nikkei/]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  }
+});
+
+test("keep valid synthetic contract independent of input property insertion order", () => {
+  const reverse = Object.fromEntries(Object.entries(candidate).reverse()) as FinalizationCandidate;
+  assert.deepEqual(checkFinalizationEligibility(reverse), { eligible: true, key: "nikkei:2026-10-23" });
+});
+
+test("reject unsupported status spellings and inconsistent numeric encodings", () => {
+  reject({ status: "AVAILABLE" }, "OBSERVATION_UNAVAILABLE");
+  reject({ status: "available " }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: "40000.0" }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: Number.NaN }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("reject boxed primitive candidate inputs", () => {
+  for (const input of [new String("nikkei"), new Number(1), new Boolean(true)]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  }
+});
+
+test("reject timestamps missing ISO date/time separator or offset", () => {
+  reject({ observedAt: "2026-10-23 15:00:00+09:00" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23T15:00:00+0900" }, "TIMESTAMP_UNVERIFIED");
+});
+
+test("reject malformed evidence and source field types", () => {
+  reject({ rightsEvidenceId: [] }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ sourceRunId: [] }, "SOURCE_UNVERIFIED");
+  reject({ providerId: {} }, "SOURCE_UNVERIFIED");
+});
+
+test("return a stable separate key for each supported index", () => {
+  const nikkei = checkFinalizationEligibility({ ...candidate, indexKey: "nikkei" });
+  const topix = checkFinalizationEligibility({ ...candidate, indexKey: "topix" });
+  assert.deepEqual(nikkei, { eligible: true, key: "nikkei:2026-10-23" });
+  assert.deepEqual(topix, { eligible: true, key: "topix:2026-10-23" });
+  assert.notDeepEqual(nikkei, topix);
+});
+
+test("reject pending provider IDs irrespective of ASCII case and surrounding whitespace", () => {
+  for (const providerId of [
+    "LICENSED-PROVIDER-PENDING",
+    "Licensed-Provider-Pending",
+    " licensed-PROVIDER-pending ",
+    "\tlicensed-provider-pending\n",
+  ]) {
+    reject({ providerId }, "SOURCE_UNVERIFIED");
+  }
+});
+
+test("reject a zero-length or whitespace-only evidence identifier", () => {
+  for (const rightsEvidenceId of ["", " ", "\n\t"]) {
+    reject({ rightsEvidenceId }, "PROVIDER_RIGHTS_UNVERIFIED");
+  }
+});
+
+test("do not confuse index names differing by ASCII case", () => {
+  reject({ indexKey: "NIKKEI" }, "INVALID_INDEX");
+  reject({ indexKey: "Topix" }, "INVALID_INDEX");
+});
+
+test("reject zero, negative, and non-finite observation values", () => {
+  for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    reject({ value }, "OBSERVATION_UNAVAILABLE");
+  }
+});

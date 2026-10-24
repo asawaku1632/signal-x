@@ -1,0 +1,92 @@
+name: Market index shadow research checks
+on:
+  pull_request:
+    paths:
+      - 'app/lib/research/marketIndex*'
+      - 'scripts/check-market-index-shadow.mjs'
+      - 'scripts/check-market-index-benchmark-window.mjs'
+      - 'scripts/check-market-index-benchmark-pair.mjs'
+      - 'scripts/check-market-relative-performance.mjs'
+      - 'scripts/check-market-relative-power-cohorts.mjs'
+      - 'scripts/check-market-relative-reversal-study.mjs'
+      - 'scripts/check-market-relative-error-matrix.mjs'
+      - 'scripts/check-market-relative-matched-study.mjs'
+      - 'scripts/check-market-relative-evidence-gate.mjs'
+      - 'scripts/check-market-relative-evidence-report.mjs'
+      - 'scripts/check-market-relative-evidence-scoring.mjs'
+      - 'scripts/check-market-relative-bb-audit-projection.mjs'
+      - 'scripts/check-market-relative-prospective-snapshot.mjs'
+      - 'scripts/check-market-relative-snapshot-ledger.mjs'
+      - 'scripts/check-market-relative-snapshot-insert-plan.mjs'
+      - 'scripts/check-market-relative-snapshot-conflict.mjs'
+      - 'scripts/check-market-relative-snapshot-persistence.mjs'
+      - 'scripts/check-market-relative-capture-readiness.mjs'
+      - 'scripts/check-market-relative-dev-db-harness.mjs'
+      - 'scripts/check-market-relative-dev-db-integration.mjs'
+      - 'app/lib/research/marketRelativeCaptureReadiness.ts'
+      - 'app/lib/research/marketRelativeSnapshotPersistence.ts'
+      - 'app/lib/research/marketRelativeSnapshotConflict.ts'
+      - 'app/lib/research/marketRelativeSnapshotInsertPlan.ts'
+      - 'app/lib/research/marketRelativeSnapshotLedger.ts'
+      - 'app/lib/research/marketRelativeProspectiveSnapshot.ts'
+      - 'app/lib/research/marketRelativeBbAuditProjection.ts'
+      - 'app/lib/research/marketRelativeEvidenceReport.ts'
+      - 'app/lib/research/marketRelativeEvidenceScoring.ts'
+      - 'app/lib/research/marketRelativeEvidenceGate.ts'
+      - 'app/lib/research/marketRelativeMatchedStudy.ts'
+      - 'app/lib/research/marketRelativeErrorMatrix.ts'
+      - 'app/lib/research/marketRelativeReversalStudy.ts'
+      - 'app/lib/research/marketRelativePowerCohorts.ts'
+      - 'scripts/check-ai-rating-reversal-study.mjs'
+      - 'app/lib/research/aiRatingReversalStudy.ts'
+      - 'app/lib/research/marketRelativePerformance.ts'
+      - 'scripts/probe-market-index-provider.mjs'
+      - '.github/workflows/market-index-shadow-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Validate shadow index data contract
+        run: |
+          node scripts/check-market-index-shadow.mjs
+          node scripts/check-market-index-benchmark-window.mjs
+          node scripts/check-market-index-benchmark-pair.mjs
+          node scripts/check-market-relative-performance.mjs
+          node scripts/check-market-relative-power-cohorts.mjs
+          node scripts/check-market-relative-reversal-study.mjs
+          node scripts/check-market-relative-error-matrix.mjs
+          node scripts/check-market-relative-matched-study.mjs
+          node scripts/check-market-relative-evidence-gate.mjs
+          node scripts/check-market-relative-evidence-report.mjs
+          node scripts/check-market-relative-evidence-scoring.mjs
+          node scripts/check-market-relative-bb-audit-projection.mjs
+          node scripts/check-market-relative-prospective-snapshot.mjs
+          node scripts/check-market-relative-snapshot-ledger.mjs
+          node scripts/check-market-relative-snapshot-insert-plan.mjs
+          node scripts/check-market-relative-snapshot-conflict.mjs
+          node scripts/check-market-relative-snapshot-persistence.mjs
+          node scripts/check-market-relative-capture-readiness.mjs
+          node scripts/check-market-relative-dev-db-harness.mjs
+          node scripts/check-ai-rating-reversal-study.mjs
+  provider-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only Yahoo chart diagnostic (no database access)
+        run: node scripts/probe-market-index-provider.mjs
