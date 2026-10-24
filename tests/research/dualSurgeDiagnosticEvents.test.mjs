@@ -1,0 +1,21 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {compareEventIdentities} from "../../app/lib/research/dualSurgeEvidence.mjs";
+
+const read=path=>JSON.parse(readFileSync(new URL(path,import.meta.url),"utf8"));
+const reference=read("../../docs/research/dual-surge-user-diagnostic-events-20261025.json");
+const baseline=read("../../docs/research/dual-surge-frozen-baseline-20261024.json");
+const events=reference.events;
+const matured=events.filter(e=>e.status==="MATURED");
+const pending=events.filter(e=>e.status==="PENDING");
+test("all 24 event identities are present",()=>assert.equal(events.length,baseline.eventCounts.independentFirstEvents));
+test("all event identities are unique",()=>assert.equal(compareEventIdentities(events,events).identical,true));
+test("matured events match frozen count",()=>assert.equal(matured.length,baseline.eventCounts.maturedFiveSession));
+test("pending events match frozen count",()=>assert.equal(pending.length,baseline.eventCounts.pendingFiveSession));
+test("positive matured returns match frozen count",()=>assert.equal(matured.filter(e=>e.returnPct>0).length,baseline.eventCounts.positiveFiveSession));
+test("negative matured returns match frozen count",()=>assert.equal(matured.filter(e=>e.returnPct<0).length,baseline.eventCounts.negativeFiveSession));
+test("pending returns are null",()=>assert.ok(pending.every(e=>e.returnPct===null)));
+test("matured returns are finite",()=>assert.ok(matured.every(e=>typeof e.returnPct==="number"&&Number.isFinite(e.returnPct))));
+test("five batch source hashes are preserved",()=>assert.equal(reference.sourceFiles.filter(f=>/^[a-f0-9]{64}$/.test(f.sha256)).length,5));
+test("source is explicitly diagnostic, not provider OHLCV",()=>assert.ok(reference.limitations.some(x=>/not independently fetched/i.test(x))));
