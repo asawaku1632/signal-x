@@ -49,3 +49,16 @@ test("reject missing source or invalid timestamp", () => {
   reject({ sourceRunId: "" }, "SOURCE_UNVERIFIED");
   reject({ providerId: "" }, "SOURCE_UNVERIFIED");
 });
+
+test("reject truthy substitutes for trusted verification flags", () => {
+  reject({ providerRightsVerified: "true" }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ exchangeSessionVerified: 1 }, "SESSION_UNVERIFIED");
+  reject({ rightsEvidenceId: "   " }, "PROVIDER_RIGHTS_UNVERIFIED");
+});
+
+test("reject malformed calendar days and negative observations", () => {
+  reject({ sessionDate: "2026-13-01" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-02-29" }, "SESSION_UNVERIFIED");
+  reject({ value: -100 }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: "40000" }, "OBSERVATION_UNAVAILABLE");
+});
