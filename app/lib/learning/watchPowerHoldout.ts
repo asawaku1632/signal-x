@@ -30,16 +30,19 @@ const mean = (values: number[]) =>
 export function evaluateWatchPowerHoldout(rows: WatchPowerRecord[]) {
   const byKey = new Map<string, WatchPowerRecord>();
   let conflictingDuplicates = 0;
+  const rejectedKeys = new Set<string>();
   for (const row of rows) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(row.signalDate)) continue;
     if (row.signalDate <= WATCH_POWER_HYPOTHESIS.trainingEndDate) continue;
     if (row.status !== "WATCH" || !row.code.trim()) continue;
     const key = JSON.stringify([row.signalDate, row.code]);
+    if (rejectedKeys.has(key)) continue;
     const previous = byKey.get(key);
     if (previous) {
       if (JSON.stringify(previous) !== JSON.stringify(row)) {
         conflictingDuplicates++;
         byKey.delete(key);
+        rejectedKeys.add(key);
       }
       continue;
     }
