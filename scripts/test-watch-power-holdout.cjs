@@ -102,3 +102,16 @@ test("rejects invalid dates and non-finite numeric values", () => {
   assert.equal(result.byDate[0].missingCount, 2);
   assert.equal(result.datesComparable, 0);
 });
+
+test("conflicting record stays quarantined even after a third duplicate", () => {
+  const result = evaluateWatchPowerHoldout([
+    row("2026-10-19", "A", 60, 2),
+    row("2026-10-19", "A", 60, 99),
+    row("2026-10-19", "A", 60, 2),
+    row("2026-10-19", "B", 72, 0),
+  ]);
+  assert.equal(result.conflictingDuplicates, 1);
+  assert.equal(result.byDate[0].lowCount, 0);
+  assert.equal(result.datesComparable, 0);
+  assert.equal(result.readyForReview, false);
+});
