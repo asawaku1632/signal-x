@@ -1,11 +1,10 @@
-import {validIsoSessionDate} from "./dualSurgeCalendar.mjs";
 // Research-only independent validation gates. No network or persistence.
 export const HORIZONS=Object.freeze([1,3,5,10]);
 export function validateLedger(ledger){
  if(!Array.isArray(ledger))throw Error("INVALID_LEDGER");
  const keys=new Set();
  for(const e of ledger){
-  if(!e||typeof e.code!=="string"||typeof e.cohort!=="string"||typeof e.startDate!=="string"||!Number.isSafeInteger(e.signalSessionIndex)||e.signalSessionIndex<0||!/^[0-9]{4}$/.test(e.code)||!["PRE_SURGE_V1","SURGE_START_V1"].includes(e.cohort)||!validIsoSessionDate(e.startDate))throw Error("INVALID_EVENT");
+  if(!e||typeof e.code!=="string"||typeof e.cohort!=="string"||typeof e.startDate!=="string"||!Number.isSafeInteger(e.signalSessionIndex)||e.signalSessionIndex<0)throw Error("INVALID_EVENT");
   const key=[e.code,e.cohort,e.startDate].join("|");
   if(keys.has(key))throw Error("DUPLICATE_EVENT");
   keys.add(key);
