@@ -13,3 +13,5 @@ test("replay flags missing signal date",()=>assert.equal(replayDiagnosticEvents(
 test("replay rejects duplicate event identities",()=>assert.throws(()=>replayDiagnosticEvents({referenceEvents:[...matured,...matured],providerRowsByCode:{"3762":bars},asOfDate:dates[7]}),/DUPLICATE_EVENT_IDENTITY/));
 test("replay excludes rows after as-of date",()=>assert.equal(replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":bars},asOfDate:dates[3]}).allMatched,false));
 test("replay is always read only and not production approved",()=>{const r=replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":bars},asOfDate:dates[7]});assert.equal(r.providerRequests,0);assert.equal(r.productionApproved,false)});
+
+test("replay rejects impossible as-of date",()=>assert.throws(()=>replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":bars},asOfDate:"2026-02-30"}),/INVALID_REPLAY_INPUT/));
