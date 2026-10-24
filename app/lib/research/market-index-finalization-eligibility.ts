@@ -22,6 +22,8 @@ export type FinalizationVerdict =
   | { eligible: false; reason: string };
 
 export function checkFinalizationEligibility(c: FinalizationCandidate): FinalizationVerdict {
+  if (!c || typeof c !== "object")
+    return { eligible: false, reason: "INVALID_CANDIDATE" };
   if (c.indexKey !== "nikkei" && c.indexKey !== "topix")
     return { eligible: false, reason: "INVALID_INDEX" };
   if (c.providerRightsVerified !== true ||
