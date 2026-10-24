@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/lib/learning/watchPowerHoldout.ts'
       - 'app/lib/learning/watchPowerHoldoutAdapter.ts'
+      - 'app/lib/learning/watchPowerHoldoutReadiness.ts'
       - 'scripts/test-watch-power-holdout.cjs'
       - '.github/workflows/watch-power-holdout-research.yml'
   workflow_dispatch:
