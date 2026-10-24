@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
 import { buildResearchDashboardModel } from "@/app/lib/research/market-index-dashboard-model";
+import { summarizeMarketIndexReadiness } from "@/app/lib/research/market-index-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +29,13 @@ export async function GET() {
     sourceState: "NO_CONNECTED_EVIDENCE",
     hasLiveEvidence: false,
     model: result.model,
+    readiness: summarizeMarketIndexReadiness({
+      providerRightsVerified: false,
+      licensedEvidenceAuthenticated: false,
+      exchangeCalendarAuthenticated: false,
+      observedMarketDataValidated: false,
+      scheduledCaptureConfigured: false,
+      databasePersistenceConfigured: false,
+    }),
   }, { headers: { "Cache-Control": "no-store" } });
 }
