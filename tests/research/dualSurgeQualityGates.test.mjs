@@ -1,0 +1,14 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {buildDualSurgeLedger,summarizeLedger} from "../../app/lib/research/dualSurgeLedger.mjs";
+import {validateLedger,overlapFlags,compareCohortSummaries} from "../../app/lib/research/dualSurgeQualityGates.mjs";
+const rows=Array.from({length:16},(_,i)=>({date:"D"+String(i).padStart(2,"0"),open:100+i,close:100+i,adjFactor:1}));
+const ledger=buildDualSurgeLedger({code:"TEST",rows,signals:[{date:"D00",cohort:"PRE"},{date:"D03",cohort:"START"},{date:"D10",cohort:"PRE"}]});
+test("valid ledger passes all horizon checks",()=>assert.deepEqual(validateLedger(ledger),{valid:true,events:3}));
+test("duplicate event rejected",()=>assert.throws(()=>validateLedger([ledger[0],ledger[0]]),/DUPLICATE_EVENT/));
+test("pending outcomes cannot have numeric return",()=>{const bad=structuredClone(ledger);bad[2].outcomes[10].legacyCloseToClose={status:"PENDING",returnPct:0};assert.throws(()=>validateLedger(bad),/NON_MATURED_RETURN/)});
+test("matured outcomes require numeric return",()=>{const bad=structuredClone(ledger);bad[0].outcomes[5].legacyCloseToClose={status:"MATURED",returnPct:null};assert.throws(()=>validateLedger(bad),/INVALID_MATURED_RETURN/)});
+test("overlap is flagged without deleting an event",()=>{const flags=overlapFlags(ledger,5);assert.equal(flags.length,3);assert.equal(flags[1].overlappingSameStock,true);assert.equal(flags[2].overlappingSameStock,false)});
+test("cohort comparison retains separate means",()=>{const old=summarizeLedger(ledger,{metric:"legacyCloseToClose"});const next=summarizeLedger(ledger,{metric:"nextOpenToFutureClose"});const result=compareCohortSummaries(old,next);assert.equal(result.length,2);assert.ok(result.every(x=>x.events>0))});
+test("cohort mismatches fail closed",()=>assert.throws(()=>compareCohortSummaries([{cohort:"PRE",events:1}],[{cohort:"START",events:1}]),/COHORT_MISMATCH/));
+test("unsupported horizon rejected",()=>assert.throws(()=>overlapFlags(ledger,2),/INVALID_HORIZON/));
