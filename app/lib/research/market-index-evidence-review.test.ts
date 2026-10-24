@@ -6,6 +6,7 @@ import {
   assessClaimedRightsCoverage,
   compareSessionEvidenceClaims,
   assessResearchEvidenceBundle,
+  summarizeResearchEvidenceForManualReview,
   type RightsEvidenceDraft,
   type SessionEvidenceDraft,
 } from "./market-index-evidence-review.ts";
@@ -235,4 +236,38 @@ test("bundle rejects request/calendar mismatch and malformed top-level input", (
   assert.deepEqual(assessResearchEvidenceBundle(null as unknown as typeof bundle), {
     readyForManualReview: false, reason: "INVALID_BUNDLE",
   });
+});
+
+test("manual review summary never authorizes or enables persistence", () => {
+  assert.deepEqual(summarizeResearchEvidenceForManualReview(bundle), {
+    stage: "manual_review_candidate",
+    indexKey: "nikkei",
+    sessionDate: "2026-10-23",
+    reasonCode: null,
+    authorized: false,
+    tradingSessionVerified: false,
+    persistenceEnabled: false,
+  });
+});
+
+test("blocked summary returns only a reason code and no candidate identity", () => {
+  assert.deepEqual(summarizeResearchEvidenceForManualReview({
+    ...bundle, rights: { ...rights, revoked: true },
+  }), {
+    stage: "blocked",
+    indexKey: null,
+    sessionDate: null,
+    reasonCode: "RIGHTS_CLAIM_EVIDENCE_NOT_REVIEWABLE",
+    authorized: false,
+    tradingSessionVerified: false,
+    persistenceEnabled: false,
+  });
+});
+
+test("manual review summary excludes raw evidence and provider identifiers", () => {
+  const summary = summarizeResearchEvidenceForManualReview(bundle);
+  const serialized = JSON.stringify(summary);
+  for (const sensitive of ["fixture-provider", "fixture-evidence", "fixture-verifier", "fixture-calendar"]) {
+    assert.equal(serialized.includes(sensitive), false);
+  }
 });
