@@ -115,3 +115,37 @@ test("conflicting record stays quarantined even after a third duplicate", () => 
   assert.equal(result.datesComparable, 0);
   assert.equal(result.readyForReview, false);
 });
+
+test("production-shaped row conversion preserves missing 5d outcomes", () => {
+  const ts = require("typescript");
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const Module = require("node:module");
+  const filename = path.resolve(__dirname, "../app/lib/learning/watchPowerHoldoutAdapter.ts");
+  const source = fs.readFileSync(filename, "utf8");
+  const output = ts.transpileModule(source, {
+    fileName: filename,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const adapter = new Module(filename, module);
+  adapter.filename = filename;
+  adapter.paths = Module._nodeModulePaths(path.dirname(filename));
+  adapter.require = function (name) {
+    if (name === "./watchPowerHoldout") return { evaluateWatchPowerHoldout };
+    return Module.prototype.require.call(this, name);
+  };
+  adapter._compile(output, filename);
+  const sqlRows = [
+    { code: "A", trade_date: "2026-10-19", decision_status: "WATCH", ai_power: "67", return_5d: null },
+    { code: "B", trade_date: "2026-10-19", decision_status: "WATCH", ai_power: "72", return_5d: "2.5" },
+    { code: "C", trade_date: "2026-10-19", decision_status: "AVOID", ai_power: "65", return_5d: "10" },
+  ];
+  const converted = adapter.mapFrozenSwingRows(sqlRows);
+  assert.equal(converted.length, 2);
+  assert.equal(converted[0].return5dPct, null);
+  assert.equal(converted[1].return5dPct, 2.5);
+  const result = adapter.evaluateFrozenSwingHoldout(sqlRows);
+  assert.equal(result.datesComparable, 0);
+  assert.equal(result.byDate[0].missingCount, 1);
+  assert.equal(result.readyForReview, false);
+});
