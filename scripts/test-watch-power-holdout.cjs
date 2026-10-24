@@ -140,11 +140,11 @@ test("production-shaped row conversion preserves missing 5d outcomes", () => {
     { code: "B", trade_date: "2026-10-19", decision_status: "WATCH", ai_power: "72", return_5d: "2.5" },
     { code: "C", trade_date: "2026-10-19", decision_status: "AVOID", ai_power: "65", return_5d: "10" },
   ];
-  const converted = adapter.mapFrozenSwingRows(sqlRows);
+  const converted = adapter.exports.mapFrozenSwingRows(sqlRows);
   assert.equal(converted.length, 2);
   assert.equal(converted[0].return5dPct, null);
   assert.equal(converted[1].return5dPct, 2.5);
-  const result = adapter.evaluateFrozenSwingHoldout(sqlRows);
+  const result = adapter.exports.evaluateFrozenSwingHoldout(sqlRows);
   assert.equal(result.datesComparable, 0);
   assert.equal(result.byDate[0].missingCount, 1);
   assert.equal(result.readyForReview, false);
