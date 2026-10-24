@@ -34,8 +34,9 @@ export function fiveDayOutcome(bars,index,horizon=5){
  if(!signal)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(!future)return {status:"PENDING",returnPct:null};
  const window=bars.slice(index,index+horizon+1);
+ if(window.some(b=>!b||typeof b!=="object"))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(window.some(b=>adjustmentStatus(b.adjFactor)!=="ELIGIBLE"))return {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",returnPct:null};
- if(window.some(b=>!Number.isFinite(b.close)||b.close<=0))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
+ if(window.some(b=>typeof b.close!=="number"||!Number.isFinite(b.close)||b.close<=0))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  return {status:"MATURED",returnPct:Number(((future.close/signal.close-1)*100).toFixed(3))};
 }
 export function nextOpenReturn(bars,index,horizon=5){
@@ -44,6 +45,6 @@ export function nextOpenReturn(bars,index,horizon=5){
  if(!entry||!exit)return {status:"PENDING",returnPct:null};
  const window=bars.slice(index,index+horizon+1);
  if(window.some(b=>adjustmentStatus(b.adjFactor)!=="ELIGIBLE"))return {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",returnPct:null};
- if(!Number.isFinite(entry.open)||entry.open<=0||!Number.isFinite(exit.close)||exit.close<=0)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
+ if(typeof entry.open!=="number"||!Number.isFinite(entry.open)||entry.open<=0||typeof exit.close!=="number"||!Number.isFinite(exit.close)||exit.close<=0)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  return {status:"MATURED",returnPct:Number(((exit.close/entry.open-1)*100).toFixed(3))};
 }
