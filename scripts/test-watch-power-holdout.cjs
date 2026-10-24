@@ -221,3 +221,10 @@ test("conflicting duplicates block review even after ten comparable dates", () =
   assert.equal(result.conflictingDuplicates, 1);
   assert.equal(result.readyForReview, false);
 });
+
+test("actual WATCH score bands", () => {
+ const result = evaluateWatchPowerHoldout([row("2026-10-26","A",65,3),row("2026-10-26","B",67,1),row("2026-10-26","C",68,99),row("2026-10-26","D",70,99),row("2026-10-26","E",71,0),row("2026-10-26","F",74,2)]);
+ assert.equal(result.byDate[0].lowCount,2);
+ assert.equal(result.byDate[0].highCount,2);
+ assert.equal(result.byDate[0].differencePp,1);
+});
