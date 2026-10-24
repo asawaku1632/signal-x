@@ -1,0 +1,17 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {buildDualSurgeLedger} from "../../app/lib/research/dualSurgeLedger.mjs";
+import {reconcileBaseline,buildAuditReport} from "../../app/lib/research/dualSurgeAuditReport.mjs";
+const rows=Array.from({length:18},(_,i)=>({date:"D"+String(i).padStart(2,"0"),open:100,close:100+i,adjFactor:1}));
+const ledger=buildDualSurgeLedger({code:"3762",rows,signals:[{date:"D00",cohort:"PRE"},{date:"D02",cohort:"START"},{date:"D15",cohort:"PRE"}]});
+const baseline={independentFirstEvents:3,maturedFiveSession:2,pendingFiveSession:1,positiveFiveSession:2,negativeFiveSession:0};
+test("matching baseline reconciles with no exclusions",()=>assert.equal(reconcileBaseline(ledger,baseline).reconciled,true));
+test("baseline mismatch is reported, not hidden",()=>{const r=reconcileBaseline(ledger,{...baseline,independentFirstEvents:24});assert.equal(r.reconciled,false);assert.equal(r.mismatches[0].field,"events")});
+test("pending outcome never becomes a loss",()=>{const r=reconcileBaseline(ledger,baseline);assert.equal(r.counts.pending,1);assert.equal(r.counts.negative,0)});
+test("overlapping same-stock windows are flagged",()=>{const r=buildAuditReport({ledger,baseline,studyId:"synthetic"});assert.equal(r.overlap.flagged,1);assert.equal(r.gates.noOverlap,false)});
+test("small sample is explicitly insufficient",()=>assert.equal(buildAuditReport({ledger,baseline,studyId:"synthetic"}).gates.sufficientMaturedSample,false));
+test("production is always disallowed by pure report",()=>assert.equal(buildAuditReport({ledger,baseline,studyId:"synthetic"}).gates.approvedForProduction,false));
+test("missing study id is rejected",()=>assert.throws(()=>buildAuditReport({ledger,baseline,studyId:""}),/INVALID_STUDY_ID/));
+test("malformed baseline rejected",()=>assert.throws(()=>reconcileBaseline(ledger,{independentFirstEvents:3}),/INVALID_BASELINE/));
+test("report includes all four horizon coverage entries per cohort",()=>assert.equal(buildAuditReport({ledger,baseline,studyId:"synthetic"}).maturity.length,8));
+test("repeated reports are deterministic",()=>{const a=buildAuditReport({ledger,baseline,studyId:"synthetic"});assert.deepEqual(a,buildAuditReport({ledger,baseline,studyId:"synthetic"}))});
