@@ -132,3 +132,34 @@ export function compareSessionEvidenceClaims(
     sessionClaim: a.sessionClaim as "open" | "closed",
   };
 }
+
+/**
+ * Manual-review preflight only. NEVER convert `readyForManualReview` into
+ * provider authorization, verified trading session, or database write access.
+ */
+export function assessResearchEvidenceBundle(input: {
+  rights: RightsEvidenceDraft;
+  calendarA: SessionEvidenceDraft;
+  calendarB: SessionEvidenceDraft;
+  request: { indexKey: unknown; use: unknown; sessionDate: unknown };
+}): { readyForManualReview: true; indexKey: string; sessionDate: string } |
+   { readyForManualReview: false; reason: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    return { readyForManualReview: false, reason: "INVALID_BUNDLE" };
+  const rights = assessClaimedRightsCoverage(input.rights, input.request);
+  if (!rights.coveredByClaim)
+    return { readyForManualReview: false, reason: "RIGHTS_CLAIM_" + rights.reason };
+  const calendar = compareSessionEvidenceClaims(input.calendarA, input.calendarB);
+  if (!calendar.consistent)
+    return { readyForManualReview: false, reason: "CALENDAR_" + calendar.reason };
+  if (calendar.indexKey !== input.request.indexKey ||
+      calendar.sessionDate !== input.request.sessionDate)
+    return { readyForManualReview: false, reason: "REQUEST_CALENDAR_MISMATCH" };
+  if (calendar.sessionClaim !== "open")
+    return { readyForManualReview: false, reason: "SESSION_NOT_CLAIMED_OPEN" };
+  return {
+    readyForManualReview: true,
+    indexKey: calendar.indexKey,
+    sessionDate: calendar.sessionDate,
+  };
+}
