@@ -197,3 +197,29 @@ test("reject unsupported status spellings and inconsistent numeric encodings", (
   reject({ value: "40000.0" }, "OBSERVATION_UNAVAILABLE");
   reject({ value: Number.NaN }, "OBSERVATION_UNAVAILABLE");
 });
+
+test("reject boxed primitive candidate inputs", () => {
+  for (const input of [new String("nikkei"), new Number(1), new Boolean(true)]) {
+    assert.deepEqual(checkFinalizationEligibility(input as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  }
+});
+
+test("reject timestamps missing ISO date/time separator or offset", () => {
+  reject({ observedAt: "2026-10-23 15:00:00+09:00" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23T15:00:00+0900" }, "TIMESTAMP_UNVERIFIED");
+});
+
+test("reject malformed evidence and source field types", () => {
+  reject({ rightsEvidenceId: [] }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ sourceRunId: [] }, "SOURCE_UNVERIFIED");
+  reject({ providerId: {} }, "SOURCE_UNVERIFIED");
+});
+
+test("return a stable separate key for each supported index", () => {
+  const nikkei = checkFinalizationEligibility({ ...candidate, indexKey: "nikkei" });
+  const topix = checkFinalizationEligibility({ ...candidate, indexKey: "topix" });
+  assert.deepEqual(nikkei, { eligible: true, key: "nikkei:2026-10-23" });
+  assert.deepEqual(topix, { eligible: true, key: "topix:2026-10-23" });
+  assert.notDeepEqual(nikkei, topix);
+});
