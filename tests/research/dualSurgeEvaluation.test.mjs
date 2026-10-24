@@ -30,3 +30,5 @@ test("string entry open price excluded",()=>{const b=structuredClone(bars);b[1].
 test("null existing entry is excluded not pending",()=>{const b=structuredClone(bars);b[1]=null;assert.equal(nextOpenReturn(b,0).status,"EXCLUDED_MISSING_DATA")});
 test("null existing exit is excluded not pending",()=>{const b=structuredClone(bars);b[5]=null;assert.equal(nextOpenReturn(b,0).status,"EXCLUDED_MISSING_DATA")});
 test("future session outside array remains pending",()=>assert.equal(nextOpenReturn(bars,6).status,"PENDING"));
+
+test("null existing future close is excluded not pending",()=>{const b=structuredClone(bars);b[5]=null;assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_MISSING_DATA")});
