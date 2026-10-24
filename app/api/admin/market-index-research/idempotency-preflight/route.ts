@@ -51,7 +51,7 @@ export async function GET() {
         `SELECT count(*)::text AS count FROM public.market_index_research_runs
          WHERE provider_id='test-fixture' AND reason='COMMIT_TEST_DELETE_ME'`);
       await client.query("ROLLBACK");
-      const runIdUnique = constraints.rows.some(c => c.columns.length === 1 && c.columns[0] === "run_id");
+      const runIdUnique = constraints.rows.some(c => { const cols = Array.isArray(c.columns) ? c.columns : typeof c.columns === "string" ? c.columns.replace(/^\\{|\\}$/g, "").split(",") : []; return cols.length === 1 && cols[0] === "run_id"; });
       return NextResponse.json({
         success: true, mode: "READ_ONLY_IDEMPOTENCY_PREFLIGHT",
         columns: columns.rows, uniqueConstraints: constraints.rows,
