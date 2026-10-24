@@ -6,11 +6,35 @@
   "study": "CURATED_20_BATCH",
   "selectedStocks": 20,
   "detectorEligibleStocks": 19,
-  "excludedStocks": [{"code":"8035","reason":"CORPORATE_ACTION_UNADJUSTED"}],
-  "eventCounts": {"independentFirstEvents":24,"maturedFiveSession":15,"positiveFiveSession":11,"negativeFiveSession":4,"pendingFiveSession":9},
-  "fiveSessionReturnBuckets": {"atOrBelowMinus5":1,"betweenMinus5AndZero":3,"zeroToBelow5":7,"fiveToBelow10":3,"atLeast10":1},
-  "signalCohorts": ["PRE_SURGE_V1","SURGE_START_V1"],
+  "excludedStocks": [
+    {
+      "code": "8035",
+      "reason": "CORPORATE_ACTION_UNADJUSTED"
+    }
+  ],
+  "eventCounts": {
+    "independentFirstEvents": 24,
+    "maturedFiveSession": 15,
+    "positiveFiveSession": 11,
+    "negativeFiveSession": 4,
+    "pendingFiveSession": 9
+  },
+  "signalCohorts": [
+    "PRE_SURGE_V1",
+    "SURGE_START_V1"
+  ],
   "basis": "signal close to future close, gross historical diagnostics",
-  "limitations": ["Curated, non-representative sample","Historical and not executable returns","No verified automated research license","Aggregates transcribed from previously inspected batch results; individual event ledger not attached","No uncertainty or out-of-time evaluation"],
-  "notFor": ["live performance claims","prospective win-rate claims","production decision thresholds"]
+  "limitations": [
+    "Curated, non-representative sample",
+    "Historical and not executable returns",
+    "No verified automated research license",
+    "Aggregates transcribed from previously inspected batch results; individual event ledger not attached",
+    "No uncertainty or out-of-time evaluation"
+  ],
+  "notFor": [
+    "live performance claims",
+    "prospective win-rate claims",
+    "production decision thresholds"
+  ],
+  "unverifiedDetail": "Five-session return bucket breakdown removed pending event-level evidence; do not reconstruct buckets from aggregate counts."
 }
