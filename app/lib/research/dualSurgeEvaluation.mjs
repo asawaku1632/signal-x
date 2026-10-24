@@ -4,16 +4,27 @@ export function adjustmentStatus(factor) {
  return factor===1?"ELIGIBLE":"EXCLUDED_CORPORATE_ACTION";
 }
 export function groupEvents(signals,sessions) {
+ if(!Array.isArray(signals)||!Array.isArray(sessions)||new Set(sessions).size!==sessions.length)throw Error("INVALID_SESSIONS");
  const indexes=new Map(sessions.map((date,i)=>[date,i]));
- const sorted=[...signals].sort((a,b)=>(indexes.get(a.date)??Infinity)-(indexes.get(b.date)??Infinity));
- const events=[];
- for(const s of sorted){
+ const seen=new Set(),sorted=[];
+ for(const s of signals){
+  if(!s||typeof s.cohort!=="string"||!s.cohort.trim())throw Error("INVALID_SIGNAL");
   const index=indexes.get(s.date);
   if(index===undefined)throw Error("UNKNOWN_SESSION");
-  const prev=events.at(-1);
-  if(prev&&prev.cohort===s.cohort&&index===prev.lastIndex+1){
-   prev.endDate=s.date;prev.lastIndex=index;prev.signalDays++;
-  }else events.push({cohort:s.cohort,startDate:s.date,endDate:s.date,firstIndex:index,lastIndex:index,signalDays:1});
+  const key=s.cohort+"|"+index;
+  if(seen.has(key))throw Error("DUPLICATE_SIGNAL");
+  seen.add(key);sorted.push({...s,index});
+ }
+ sorted.sort((a,b)=>a.index-b.index||a.cohort.localeCompare(b.cohort));
+ const events=[],lastByCohort=new Map();
+ for(const s of sorted){
+  const prev=lastByCohort.get(s.cohort);
+  if(prev&&s.index===prev.lastIndex+1){
+   prev.endDate=s.date;prev.lastIndex=s.index;prev.signalDays++;
+  }else{
+   const event={cohort:s.cohort,startDate:s.date,endDate:s.date,firstIndex:s.index,lastIndex:s.index,signalDays:1};
+   events.push(event);lastByCohort.set(s.cohort,event);
+  }
  }
  return events;
 }
