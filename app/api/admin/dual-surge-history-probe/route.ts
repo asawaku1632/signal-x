@@ -142,8 +142,29 @@ export async function GET(){
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.available===true?null:(evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE")),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
   }
+  // Cross-stock, first-event-only exploratory buckets; no predictive claims.
+  const firstEvents=results.flatMap(r=>r.firstSignalFeatures.map(e=>({code:r.code,...e})));
+  const bucketSpecs=[
+   {metric:"volumeRatio",label:"below_2x",min:-Infinity,max:2},
+   {metric:"volumeRatio",label:"2x_to_below_10x",min:2,max:10},
+   {metric:"volumeRatio",label:"10x_or_more",min:10,max:Infinity},
+   {metric:"dailyReturnPct",label:"below_5pct",min:-Infinity,max:5},
+   {metric:"dailyReturnPct",label:"5_to_below_10pct",min:5,max:10},
+   {metric:"dailyReturnPct",label:"10pct_or_more",min:10,max:Infinity},
+   {metric:"distanceFrom20DayHighPct",label:"at_or_below_0pct",min:-Infinity,max:0.000001},
+   {metric:"distanceFrom20DayHighPct",label:"above_0_to_below_5pct",min:0.000001,max:5},
+   {metric:"distanceFrom20DayHighPct",label:"5pct_or_more",min:5,max:Infinity}
+  ] as const;
+  const featureBuckets=bucketSpecs.map(spec=>{
+   const matched=firstEvents.filter(e=>{const value=e[spec.metric];return value!==null&&value>=spec.min&&value<spec.max;});
+   const matured=matched.filter(e=>e.fiveDayReturnPct!==null);
+   const average=matured.length?Number((matured.reduce((sum,e)=>sum+(e.fiveDayReturnPct as number),0)/matured.length).toFixed(3)):null;
+   return {metric:spec.metric,bucket:spec.label,events:matched.length,maturedFiveDay:matured.length,
+    positiveFiveDay:matured.filter(e=>(e.fiveDayReturnPct as number)>0).length,
+    averageFiveDayReturnPct:average,insufficientSample:matured.length<30};
+  });
   return NextResponse.json({success:true,source:"JQUANTS_V2",mode:"READ_ONLY_HISTORICAL_DIAGNOSTIC",fromDate,endDate,
-   codesChecked:codes.length,results,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
+   codesChecked:codes.length,results,firstEvents,featureBuckets,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
    note:"Historical close-to-close forward returns, not tradable returns or prospective predictions. No database writes."},{headers});
  }catch(e){
   const reason=e instanceof Error&&/^PROVIDER_HTTP_[0-9]{3}$/.test(e.message)?e.message:"PROBE_UNAVAILABLE";
