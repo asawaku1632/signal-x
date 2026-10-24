@@ -199,3 +199,34 @@ export function summarizeResearchEvidenceForManualReview(input: Parameters<typeo
     persistenceEnabled: false,
   };
 }
+
+/**
+ * Bounded, in-memory summary for a prospective admin research view.
+ * Does not fetch data, grant access, store results, or expose raw evidence.
+ * The caller must separately enforce admin authentication/authorization.
+ */
+export function summarizeResearchEvidenceBatch(
+  inputs: unknown,
+): { accepted: true; total: number; candidates: number; blocked: number;
+     reasonCounts: Record<string, number> } |
+   { accepted: false; reason: "INVALID_BATCH" | "BATCH_TOO_LARGE" } {
+  if (!Array.isArray(inputs))
+    return { accepted: false, reason: "INVALID_BATCH" };
+  if (inputs.length > 100)
+    return { accepted: false, reason: "BATCH_TOO_LARGE" };
+  const reasonCounts: Record<string, number> = Object.create(null);
+  let candidates = 0;
+  for (const input of inputs) {
+    const summary = summarizeResearchEvidenceForManualReview(
+      input as Parameters<typeof summarizeResearchEvidenceForManualReview>[0],
+    );
+    if (summary.stage === "manual_review_candidate") {
+      candidates++;
+    } else {
+      const reason = summary.reasonCode ?? "UNKNOWN";
+      reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+    }
+  }
+  return { accepted: true, total: inputs.length, candidates,
+    blocked: inputs.length - candidates, reasonCounts };
+}
