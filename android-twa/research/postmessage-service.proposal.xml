@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- RESEARCH-ONLY SNIPPET: not merged into app/src/main/AndroidManifest.xml.
+     Confirm exported service and AndroidX browser dependency compatibility
+     on a separately built/signed app before accepting real purchase data. -->
+<service
+    android:name="androidx.browser.customtabs.PostMessageService"
+    android:exported="true" />

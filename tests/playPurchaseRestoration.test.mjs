@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {decidePlayPurchaseRestoration as decide} from "../app/lib/billing/playPurchaseRestoration.ts";
+const binding={provider:"google_play",purchaseTokenFingerprint:"hash-1",signalxUserId:"member-1",productId:"premium_month"};
+test("same user restoring on a different phone succeeds",()=>assert.deepEqual(decide("member-1","hash-1","premium_month",[binding]),{kind:"restore_existing",signalxUserId:"member-1"}));
+test("different user cannot claim original purchase",()=>assert.equal(decide("member-2","hash-1","premium_month",[binding]).kind,"owner_mismatch"));
+test("unknown purchase never silently binds user",()=>assert.equal(decide("member-1","new-token","premium_month",[binding]).kind,"unknown_purchase"));
+test("duplicated binding fails closed",()=>assert.equal(decide("member-1","hash-1","premium_month",[binding,binding]).kind,"ambiguous_binding"));
+test("incorrect product cannot restore",()=>assert.equal(decide("member-1","hash-1","other",[binding]).kind,"product_mismatch"));
+test("blank session identity fails closed",()=>assert.equal(decide("","hash-1","premium_month",[binding]).kind,"invalid_input"));
+test("restore decision carries no premium grant",()=>{const result=decide("member-1","hash-1","premium_month",[binding]);assert.equal("premium" in result,false)});

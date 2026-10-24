@@ -1,0 +1,42 @@
+/*
+ * ISOLATED DEVICE SMOKE TEST (NOT the SIGNALX Google Play app).
+ * Different applicationId ensures it cannot overwrite the installed SIGNALX.
+ * Because this app is signed with a DEBUG certificate, it MUST fail the
+ * public site's production DAL use_as_origin validation. This is deliberate.
+ * No premium, Play Billing, payment or actual entitlement is shipped here.
+ */
+plugins {
+    id 'com.android.application' version '8.9.1'
+}
+android {
+    namespace 'com.signalx.bridgeprobe'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.signalx.bridgeprobe'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0-internal'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        debug {
+            // Default runner debug signing certificate: *not* the Play signing key.
+            debuggable true
+        }
+        release {
+            // Deliberately no release signing config. CI builds debug only.
+            minifyEnabled false
+        }
+    }
+}
+dependencies {
+    implementation 'androidx.browser:browser:1.9.0'
+    // AndroidX transitive graph mixes old jdk7/jdk8 Kotlin wrappers with
+    // Kotlin stdlib 1.8.22. Keep the wrappers at the same merged version.
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+}

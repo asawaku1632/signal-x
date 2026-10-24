@@ -1,0 +1,28 @@
+/*
+ * RESEARCH COMPILATION ONLY. A separate, unsigned Android LIBRARY project.
+ * It does not produce an APK/AAB, include production LauncherActivity, alter
+ * the application's Gradle project, or enable Google Play Billing.
+ * Unlike Java CI stubs, this resolves REAL AndroidX Browser and Google Play Billing AARs.
+ */
+plugins {
+    id 'com.android.library' version '8.9.1'
+}
+
+android {
+    namespace 'com.signalx.app.research.compile'
+    compileSdk 36
+    defaultConfig {
+        minSdk 21
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // Research Java files are copied into the default source root in CI.
+    // Do not use '../' as a source root: it also contains this project's build/ outputs.
+}
+
+dependencies {
+    implementation 'androidx.browser:browser:1.9.0'
+    implementation 'com.android.billingclient:billing:9.1.0'
+}

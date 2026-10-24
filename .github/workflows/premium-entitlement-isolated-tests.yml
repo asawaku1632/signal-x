@@ -1,0 +1,260 @@
+name: Premium Entitlement Isolated Checks
+
+on:
+  pull_request:
+    paths:
+      - 'app/lib/billing/premiumEntitlementCore.ts'
+      - 'scripts/migrations/20261018_create_premium_entitlements_isolated.sql'
+      - 'tests/premiumEntitlementCore.test.mjs'
+      - 'app/lib/billing/verifiedBillingEventCore.ts'
+      - 'tests/verifiedBillingEventCore.test.mjs'
+      - 'app/lib/billing/billingIngestionContract.ts'
+      - 'scripts/migrations/20261018_create_billing_event_inbox_isolated.sql'
+      - 'tests/billingIngestionContract.test.mjs'
+      - 'app/lib/billing/verificationBoundary.ts'
+      - 'tests/verificationBoundary.test.mjs'
+      - 'app/lib/billing/subscriptionOwnershipCore.ts'
+      - 'tests/subscriptionOwnershipCore.test.mjs'
+      - 'app/lib/billing/persistVerifiedBillingUpdate.ts'
+      - 'tests/persistVerifiedBillingUpdate.test.mjs'
+      - 'tests/premiumPostgresIntegration.test.mjs'
+      - 'app/lib/billing/playSubscriptionState.ts'
+      - 'tests/playSubscriptionState.test.mjs'
+      - 'app/lib/billing/playSubscriptionLookup.ts'
+      - 'tests/playSubscriptionLookup.test.mjs'
+      - 'app/lib/billing/playPurchaseRestoration.ts'
+      - 'tests/playPurchaseRestoration.test.mjs'
+      - 'scripts/migrations/20261018_create_play_purchase_bindings_isolated.sql'
+      - 'app/lib/billing/playTokenFingerprint.ts'
+      - 'tests/playPurchaseBinding.test.mjs'
+      - 'app/lib/billing/playRestorationPreflight.ts'
+      - 'tests/playRestorationPreflight.test.mjs'
+      - 'app/lib/billing/playInitialPurchaseApproval.ts'
+      - 'tests/playInitialPurchaseApproval.test.mjs'
+      - 'app/lib/billing/registerFirstPlayPurchase.ts'
+      - 'app/lib/billing/refreshRestoredPlayEntitlement.ts'
+      - 'android-twa/**'
+      - 'app/manifest.ts'
+      - 'scripts/audit-android-play-billing.mjs'
+      - 'tests/androidBillingReadiness.test.mjs'
+      - 'app/lib/billing/playAcknowledgementPolicy.ts'
+      - 'tests/playAcknowledgementPolicy.test.mjs'
+      - 'scripts/migrations/20261018_create_play_checkout_tickets_isolated.sql'
+      - 'app/lib/billing/playCheckoutTicketResearch.ts'
+      - 'tests/playCheckoutTicketResearch.test.mjs'
+      - 'app/lib/billing/googlePlayIntegrityDecoder.ts'
+      - 'tests/googlePlayIntegrityDecoder.test.mjs'
+      - 'app/lib/billing/playCheckoutSessionGate.ts'
+      - 'app/lib/billing/playCheckoutNextAuthResearch.ts'
+      - 'tests/playCheckoutSessionGate.test.mjs'
+      - 'app/lib/billing/twaPostMessageBridgeResearch.ts'
+      - 'app/lib/billing/twaWebPortReceiverResearch.ts'
+      - 'tests/twaPostMessageBridgeResearch.test.mjs'
+      - 'tests/twaWebPortReceiverResearch.test.mjs'
+      - 'scripts/audit-twa-postmessage-dal.mjs'
+      - 'tests/twaPostMessageDalReadiness.test.mjs'
+      - 'scripts/verify-play-signing-dal.mjs'
+      - 'tests/playSigningDalGate.test.mjs'
+      - 'tests/playConsoleSigningMatch.test.mjs'
+      - 'scripts/audit-live-play-dal.mjs'
+      - 'tests/livePlayDalAudit.test.mjs'
+      - 'tests/twaResearchManifest.test.mjs'
+      - 'tests/internalDeviceHarnessIsolation.test.mjs'
+      - 'docs/research/android-play-billing-readiness-20261018.md'
+      - '.github/workflows/premium-entitlement-isolated-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  premium-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated premium policy tests
+        run: node --experimental-strip-types --test tests/premiumEntitlementCore.test.mjs tests/verifiedBillingEventCore.test.mjs tests/billingIngestionContract.test.mjs tests/verificationBoundary.test.mjs tests/subscriptionOwnershipCore.test.mjs tests/persistVerifiedBillingUpdate.test.mjs tests/playSubscriptionState.test.mjs tests/playSubscriptionLookup.test.mjs tests/playPurchaseRestoration.test.mjs tests/playPurchaseBinding.test.mjs tests/playRestorationPreflight.test.mjs tests/playInitialPurchaseApproval.test.mjs tests/androidBillingReadiness.test.mjs tests/playAcknowledgementPolicy.test.mjs tests/playCheckoutTicketResearch.test.mjs tests/googlePlayIntegrityDecoder.test.mjs tests/playCheckoutSessionGate.test.mjs tests/twaPostMessageBridgeResearch.test.mjs tests/twaWebPortReceiverResearch.test.mjs tests/twaPostMessageDalReadiness.test.mjs tests/playSigningDalGate.test.mjs tests/playConsoleSigningMatch.test.mjs tests/livePlayDalAudit.test.mjs tests/twaResearchManifest.test.mjs tests/internalDeviceHarnessIsolation.test.mjs
+      - name: Verify TypeScript
+        run: |
+          npm ci --ignore-scripts
+          npx next typegen
+          npx tsc --noEmit
+
+  premium-postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated_test_only
+          POSTGRES_DB: premium_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d premium_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Verify atomic billing persistence against disposable PostgreSQL
+        env:
+          BILLING_TEST_DATABASE_URL: postgresql://postgres:isolated_test_only@localhost:5432/premium_ci
+        run: node --experimental-strip-types --test tests/premiumPostgresIntegration.test.mjs
+
+  native-play-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile and exercise isolated Java billing parameter contract (stubs only)
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-play-classes"
+          javac -d "$RUNNER_TEMP/native-play-classes" \
+            android-twa/research/ci-stubs/com/android/billingclient/api/BillingClient.java \
+            android-twa/research/ci-stubs/com/android/billingclient/api/ProductDetails.java \
+            android-twa/research/ci-stubs/com/android/billingclient/api/BillingFlowParams.java \
+            android-twa/research/PlayCheckoutParamsFactory.java \
+            android-twa/research/TwaCheckoutMessagePolicy.java \
+            android-twa/research/ci-tests/NativePlayCheckoutParamsContractTest.java \
+            android-twa/research/ci-tests/TwaCheckoutMessagePolicyTest.java \
+            android-twa/research/ci-stubs/android/net/Uri.java \
+            android-twa/research/ci-stubs/android/os/Bundle.java \
+            android-twa/research/ci-stubs/androidx/browser/customtabs/CustomTabsService.java \
+            android-twa/research/ci-stubs/androidx/browser/customtabs/CustomTabsCallback.java \
+            android-twa/research/ci-stubs/androidx/browser/customtabs/CustomTabsSession.java \
+            android-twa/research/TwaAndroidXPostMessageResearch.java \
+            android-twa/research/ci-tests/TwaAndroidXPostMessageResearchTest.java
+          java -cp "$RUNNER_TEMP/native-play-classes" com.signalx.app.research.NativePlayCheckoutParamsContractTest
+          java -cp "$RUNNER_TEMP/native-play-classes" com.signalx.app.research.TwaCheckoutMessagePolicyTest
+          java -cp "$RUNNER_TEMP/native-play-classes" com.signalx.app.research.TwaAndroidXPostMessageResearchTest
+
+  native-androidx-real-compile:
+    # Independent unsigned library compile; never builds SIGNALX APK/AAB.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Provision public Android 36 compile SDK from runner
+        run: |
+          test -n "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --licenses >/dev/null) || true
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Compile checkout and TWA bridge against REAL AndroidX 1.9.0 and Play Billing 9.1.0
+        working-directory: android-twa/research/androidx-compile
+        run: |
+          # Stage research-only Java in a clean Gradle source root on this
+          # disposable runner, never inside the published Bubblewrap app.
+          mkdir -p src/main/java/com/signalx/app/research
+          cp ../PlayCheckoutParamsFactory.java ../TwaCheckoutMessagePolicy.java ../TwaAndroidXPostMessageResearch.java src/main/java/com/signalx/app/research/
+          bash ../../gradlew --no-daemon --stacktrace processDebugManifest compileDebugJavaWithJavac
+          # Avoid false positives if a sourceSet accidentally excludes our
+          # research Java classes while Gradle still reports BUILD SUCCESSFUL.
+          for cls in PlayCheckoutParamsFactory TwaAndroidXPostMessageResearch TwaCheckoutMessagePolicy; do
+            test -n "$(find build -type f -name "$cls.class" -print -quit)"
+          done
+          # Inspect AGP-generated manifest, not just our input XML.
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          ns = '{http://schemas.android.com/apk/res/android}'
+          manifests = list(Path("build/intermediates").rglob("AndroidManifest.xml"))
+          valid = False
+          for path in manifests:
+              try:
+                  root = ET.parse(path).getroot()
+              except ET.ParseError:
+                  continue
+              for service in root.findall(".//service"):
+                  if (service.get(ns+"name") ==
+                        "androidx.browser.customtabs.PostMessageService" and
+                      service.get(ns+"exported") == "true"):
+                      valid = True
+          if not valid:
+              raise SystemExit("PostMessageService missing from research-generated manifest")
+          print("Research-generated AndroidX manifest service: VERIFIED (not shipped)")
+          PY
+
+  live-dal-observation:
+    # Read-only diagnostic, never treats an inaccessible website as verified.
+    # Does NOT deploy DAL, inspect private keys, build a release or enable billing.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Observe public Digital Asset Links status (not proof of Play device trust)
+        run: node scripts/audit-live-play-dal.mjs
+
+  internal-device-debug-probe:
+    # Builds a SEPARATE test app with com.signalx.bridgeprobe, NEVER com.signalx.app.
+    # Its disposable debug signature intentionally does not match the site's DAL.
+    # It can demonstrate failure-closed behavior only, not prove real TWA trust.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Provision Android SDK for internal probe
+        run: |
+          test -n "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --licenses >/dev/null) || true
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Assemble disconnected, non-billing, debug-signed probe APK
+        working-directory: android-twa/research/internal-device-harness
+        run: |
+          mkdir -p src/main/java/com/signalx/app/research
+          cp ../TwaCheckoutMessagePolicy.java ../TwaAndroidXPostMessageResearch.java src/main/java/com/signalx/app/research/
+          bash ../../gradlew --no-daemon --stacktrace assembleDebug
+          shopt -s nullglob
+          apks=(build/outputs/apk/debug/*.apk)
+          test "${#apks[@]}" -eq 1
+          APK="${apks[0]}"
+          test -s "$APK"
+          # A distinct application ID must never replace Google Play SIGNALX.
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.signalx.bridgeprobe'"
+          # An APK is useful for negative-test only. Do not attest website trust.
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+          # The probe MUST NOT carry the Play signing certificate. It is only
+          # an independently installable negative-test tool, not SIGNALX.
+          CERT_SHA=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
+          test -n "$CERT_SHA"
+          test "${CERT_SHA,,}" != "c0df8ce918ea73faa1255a0de47e1455f88d2b8e593a564be034b6ae564b2ed4"
+          # No permission to bill or runtime APIs that can charge a user.
+          if "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK" | grep -q "com.android.vending.BILLING"; then
+            echo "Unexpected BILLING permission in isolated probe"; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signalx-origin-probe-debug-unsafe-for-play
+          path: android-twa/research/internal-device-harness/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 3

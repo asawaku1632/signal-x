@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { projectVerifiedBillingEvent } from "../app/lib/billing/verifiedBillingEventCore.ts";
+const first = {provider:"stripe",externalSubscriptionId:"sub1",eventId:"evt1",eventAt:"2026-10-18T00:00:00Z",status:"active",validUntil:"2026-11-18T00:00:00Z"};
+const initial = projectVerifiedBillingEvent(null,first);
+test("first verified event applies",()=>assert.equal(initial.kind,"apply"));
+test("duplicate event is idempotent",()=>assert.equal(projectVerifiedBillingEvent(initial.next,first).kind,"ignore_duplicate"));
+test("older event cannot overwrite newer",()=>assert.equal(projectVerifiedBillingEvent(initial.next,{...first,eventId:"evt0",eventAt:"2026-10-17T00:00:00Z"}).kind,"ignore_stale"));
+test("same timestamp different event is not silently ordered",()=>assert.equal(projectVerifiedBillingEvent(initial.next,{...first,eventId:"evt2"}).kind,"ignore_stale"));
+test("different subscription is rejected",()=>assert.equal(projectVerifiedBillingEvent(initial.next,{...first,externalSubscriptionId:"other",eventId:"evt2",eventAt:"2026-10-19T00:00:00Z"}).kind,"reject_identity_mismatch"));
+test("new cancellation supersedes active",()=>{const r=projectVerifiedBillingEvent(initial.next,{...first,eventId:"evt2",eventAt:"2026-10-19T00:00:00Z",status:"canceled"});assert.equal(r.kind,"apply");assert.equal(r.next.status,"canceled")});
+test("recovery purchase event can restore active state",()=>{const canceled=projectVerifiedBillingEvent(initial.next,{...first,eventId:"evt2",eventAt:"2026-10-19T00:00:00Z",status:"canceled"}).next;assert.equal(projectVerifiedBillingEvent(canceled,{...first,eventId:"evt3",eventAt:"2026-10-20T00:00:00Z"}).next.status,"active")});
+test("invalid date rejects",()=>assert.equal(projectVerifiedBillingEvent(null,{...first,eventAt:"not-a-date"}).kind,"reject_invalid"));
+test("Google Play uses same projection",()=>assert.equal(projectVerifiedBillingEvent(null,{...first,provider:"google_play"}).kind,"apply"));

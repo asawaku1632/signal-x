@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ISOLATED RESEARCH AAR MANIFEST ONLY.
+  Does not modify android-twa/app/src/main/AndroidManifest.xml.
+  No signed APK/AAB is produced and billing remains disabled.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <service
+      android:name="androidx.browser.customtabs.PostMessageService"
+      android:exported="true" />
+  </application>
+</manifest>
