@@ -19,6 +19,8 @@ type ResearchStatus = {
 export default function MarketIndexResearchPage() {
   const [data, setData] = useState<ResearchStatus | null>(null);
   const [error, setError] = useState("");
+  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] } } | null>(null);
+  const [dashboardError, setDashboardError] = useState("");
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
   const runCommitTest = async () => {
@@ -45,6 +47,18 @@ export default function MarketIndexResearchPage() {
         setData(json);
       })
       .catch(e => setError(e instanceof Error ? e.message : "取得失敗"));
+  }, []);
+  useEffect(() => {
+    fetch("/api/admin/market-index-research/dashboard", { cache: "no-store", credentials: "same-origin" })
+      .then(async response => {
+        if (!response.ok) throw new Error("研究集計を取得できません");
+        const result = await response.json();
+        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only") {
+          throw new Error("研究集計の安全な状態を確認できません");
+        }
+        setDashboard(result);
+      })
+      .catch(() => setDashboardError("研究集計は確認できません。未接続のままです。"));
   }, []);
   const format = (iso: string) => new Date(iso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
   return (
@@ -86,6 +100,17 @@ export default function MarketIndexResearchPage() {
             <h2 className="font-black">過去の検証履歴</h2>
             {data.history.length === 0 ? <p className="mt-3 text-sm text-slate-500">保存された検証結果はまだありません。未実行と失敗を推測で区別しません。</p> :
               <ul className="mt-3 space-y-2 text-sm">{data.history.map(row => <li key={row.date + row.observedAt}>{row.date}｜{row.status}｜{row.ageMinutes === null ? '不明' : `${row.ageMinutes}分`}</li>)}</ul>}
+          </section>
+          <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
+            <h2 className="font-black">🔎 証拠チェック集計（研究専用）</h2>
+            <p className="mt-2 text-sm">実際の許諾証拠・取引日カレンダーは未接続。表示する件数は実市場データの検証件数ではありません。</p>
+            {dashboardError && <p role="alert" className="mt-2 text-sm text-red-700">{dashboardError}</p>}
+            {!dashboard && !dashboardError && <p className="mt-2 text-sm">集計状態を確認中…</p>}
+            {dashboard && <div className="mt-3 space-y-2 text-sm">
+              <p className="font-bold">状態：未接続（研究用）</p>
+              <p>接続済み証拠：なし ／ 集計対象：{dashboard.model.total}件 ／ 手動確認候補：{dashboard.model.manualReviewCandidates}件 ／ ブロック：{dashboard.model.blocked}件</p>
+              <ul className="list-disc pl-5">{dashboard.model.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+            </div>}
           </section>
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
