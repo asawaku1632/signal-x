@@ -147,3 +147,40 @@ test("calendar claim comparison rejects conflicts and identity mismatches", () =
     ...session, calendarSourceId: "other", sessionDate: "2026-02-30",
   }), { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
 });
+
+test("calendar comparison treats case and whitespace variants as one source", () => {
+  for (const calendarSourceId of [
+    "FIXTURE-CALENDAR",
+    " fixture-calendar ",
+    "\tFixture-Calendar\n",
+  ]) {
+    assert.deepEqual(compareSessionEvidenceClaims(session, {
+      ...session, calendarSourceId, verifierId: "independent-reviewer",
+      calendarVersion: "v2",
+    }), { consistent: false, reason: "NOT_INDEPENDENT_EVIDENCE" });
+  }
+});
+
+test("calendar comparison refuses invalid evidence even if claims agree", () => {
+  assert.deepEqual(compareSessionEvidenceClaims({
+    ...session, calendarSourceId: "",
+  }, {
+    ...session, calendarSourceId: "other",
+  }), { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
+  assert.deepEqual(compareSessionEvidenceClaims(session, {
+    ...session, calendarSourceId: "other", sessionClaim: "OPEN",
+  }), { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
+});
+
+test("claimed rights coverage includes both validity boundaries but not adjacent days", () => {
+  for (const sessionDate of ["2026-01-01", "2026-12-31"]) {
+    assert.deepEqual(assessClaimedRightsCoverage(rights, {
+      indexKey: "nikkei", use: "internal_research", sessionDate,
+    }), { coveredByClaim: true });
+  }
+  for (const sessionDate of ["2025-12-31", "2027-01-01"]) {
+    assert.deepEqual(assessClaimedRightsCoverage(rights, {
+      indexKey: "nikkei", use: "internal_research", sessionDate,
+    }), { coveredByClaim: false, reason: "DATE_NOT_COVERED" });
+  }
+});
