@@ -26,7 +26,12 @@ export async function GET() {
  } catch {
   return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
  }
- const pool=new Pool({connectionString:devUrl,ssl:{rejectUnauthorized:true},max:2,connectionTimeoutMillis:3000});
+ // A CA bundle is mandatory for the isolated development database.
+ // Do not fall back to insecure TLS or the production database.
+ const ca=process.env.DUAL_SURGE_DEV_CA_CERT?.replace(/\\n/g,"\n");
+ if (!ca || !ca.includes("-----BEGIN CERTIFICATE-----") || !ca.includes("-----END CERTIFICATE-----"))
+  return NextResponse.json({success:false,error:"RESEARCH_UNAVAILABLE"},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ const pool=new Pool({connectionString:devUrl,ssl:{ca,rejectUnauthorized:true},max:2,connectionTimeoutMillis:3000});
  try {
   const summary=await pool.query(
    "select cohort,count(*)::integer as candidates,count(distinct code)::integer as codes,min(signal_date)::text as first_date,max(signal_date)::text as last_date from public.dual_surge_shadow_candidates group by cohort order by cohort"
