@@ -24,3 +24,10 @@ Ten additional research tests compare the recovered event reference with the fro
 - STEP 140 complete: **NO**, if full CI pass and independent provider replay are required.
 
 Research-only draft PR #212 remains unmerged. No production changes, provider collection, cron, notifications or Supabase writes.
+
+## 2026-10-25 verification follow-up
+- Re-read all five original uploaded Markdown files in the local workspace and recomputed their SHA-256 hashes. Every digest matches the reference JSON.
+- Independently parsed the source JSON and asserted batch numbering 1–5, four stocks per batch, 20 unique selected stocks, 24 unique first-event identities and 15/9/11/4 outcome counts. Local source-diagnostic verification passed.
+- Strengthened the diagnostic identity test to count unique identity tuples directly, rather than comparing the event list against itself.
+- The GitHub commit workflow-run query still returned **zero** PR runs. Vercel deployment statuses were successful, but these are **not GitHub Actions test results**.
+- No authorized raw daily OHLCV rows or verified provider research license were present in the recovered five diagnostic attachments. Consequently an independent raw-bar replay was not performed. This remains a hard acceptance blocker.
