@@ -161,3 +161,34 @@ test("October 19-23 cannot enter a hypothesis frozen on October 24", () => {
   assert.equal(result.byDate[0].date, "2026-10-26");
   assert.equal(result.byDate[0].differencePp, 1);
 });
+
+test("readiness remains collecting without ten comparable future dates", () => {
+  const ts = require("typescript");
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const Module = require("node:module");
+  const filename = path.resolve(__dirname, "../app/lib/learning/watchPowerHoldoutReadiness.ts");
+  const output = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    fileName: filename,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  mod.require = function (name) {
+    if (name === "./watchPowerHoldout") return { evaluateWatchPowerHoldout };
+    return Module.prototype.require.call(this, name);
+  };
+  mod._compile(output, filename);
+  const report = mod.exports.getWatchPowerHoldoutReadiness([
+    row("2026-10-26", "A", 67, 3),
+    row("2026-10-26", "B", 72, 1),
+    row("2026-10-27", "C", 67, null),
+    row("2026-10-27", "D", 72, 2),
+  ]);
+  assert.equal(report.status, "COLLECTING");
+  assert.equal(report.comparableDates, 1);
+  assert.equal(report.remainingComparableDates, 9);
+  assert.equal(report.datesWithMissingOutcomes, 1);
+  assert.equal(report.dateEqualWeightDifferencePp, null);
+});
