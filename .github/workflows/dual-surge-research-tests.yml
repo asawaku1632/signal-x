@@ -24,4 +24,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run all isolated research tests
-        run: node --test tests/research/dualSurgeDetectors.test.mjs tests/research/dualSurgeEvaluation.test.mjs tests/research/dualSurgeLedger.test.mjs tests/research/dualSurgeComparison.test.mjs tests/research/dualSurgeQualityGates.test.mjs tests/research/dualSurgePreflight.test.mjs tests/research/dualSurgeAuditReport.test.mjs tests/research/dualSurgeRobustness.test.mjs tests/research/dualSurgeCalendar.test.mjs
+        run: node --test tests/research/dualSurgeDetectors.test.mjs tests/research/dualSurgeEvaluation.test.mjs tests/research/dualSurgeLedger.test.mjs tests/research/dualSurgeComparison.test.mjs tests/research/dualSurgeQualityGates.test.mjs tests/research/dualSurgePreflight.test.mjs tests/research/dualSurgeAuditReport.test.mjs tests/research/dualSurgeRobustness.test.mjs tests/research/dualSurgeCalendar.test.mjs tests/research/dualSurgeEvidence.test.mjs
