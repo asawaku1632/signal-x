@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {validIsoSessionDate} from "../../app/lib/research/dualSurgeCalendar.mjs";
+import {inspectProviderRows} from "../../app/lib/research/dualSurgePreflight.mjs";
+import {normalizeResearchRows} from "../../app/lib/research/dualSurgeComparison.mjs";
+test("valid leap date accepted",()=>assert.equal(validIsoSessionDate("2024-02-29"),true));
+test("non-leap February 29 rejected",()=>assert.equal(validIsoSessionDate("2026-02-29"),false));
+test("February 30 rejected",()=>assert.equal(validIsoSessionDate("2026-02-30"),false));
+test("month 13 rejected",()=>assert.equal(validIsoSessionDate("2026-13-01"),false));
+test("preflight counts impossible date",()=>assert.equal(inspectProviderRows([{Code:"37620",Date:"2026-02-30"}],"3762").counts.invalidDate,1));
+test("strict normalizer rejects impossible date",()=>assert.throws(()=>normalizeResearchRows([{Code:"37620",Date:"2026-02-30"}],"3762"),/INVALID_PROVIDER_ROW/));
