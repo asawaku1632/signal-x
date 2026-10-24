@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs"
+    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
+    "test:market-index-research": "node --experimental-strip-types --test app/lib/research/market-index-finalization-eligibility.test.ts"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.1",
