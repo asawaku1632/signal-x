@@ -15,3 +15,8 @@ test("missing study id is rejected",()=>assert.throws(()=>buildAuditReport({ledg
 test("malformed baseline rejected",()=>assert.throws(()=>reconcileBaseline(ledger,{independentFirstEvents:3}),/INVALID_BASELINE/));
 test("report includes all four horizon coverage entries per cohort",()=>assert.equal(buildAuditReport({ledger,baseline,studyId:"synthetic"}).maturity.length,8));
 test("repeated reports are deterministic",()=>{const a=buildAuditReport({ledger,baseline,studyId:"synthetic"});assert.deepEqual(a,buildAuditReport({ledger,baseline,studyId:"synthetic"}))});
+
+test("missing positive count fails closed",()=>assert.throws(()=>reconcileBaseline(ledger,{...baseline,positiveFiveSession:undefined}),/INVALID_BASELINE/));
+test("negative baseline count fails closed",()=>assert.throws(()=>reconcileBaseline(ledger,{...baseline,pendingFiveSession:-1}),/INVALID_BASELINE/));
+test("direction totals cannot exceed matured",()=>assert.throws(()=>reconcileBaseline(ledger,{...baseline,negativeFiveSession:1}),/INVALID_BASELINE/));
+test("matured and pending cannot exceed events",()=>assert.throws(()=>reconcileBaseline(ledger,{...baseline,independentFirstEvents:2}),/INVALID_BASELINE/));
