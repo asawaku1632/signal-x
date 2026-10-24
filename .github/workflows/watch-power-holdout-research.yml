@@ -26,5 +26,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --test scripts/test-watch-power-holdout.cjs
+      - name: Generate Next.js route types (no production deployment)
+        run: npx next typegen
       - name: Typecheck research integration
         run: npx tsc --noEmit --incremental false
