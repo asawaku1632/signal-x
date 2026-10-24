@@ -3,9 +3,10 @@
 import {normalizeResearchRows} from "./dualSurgeComparison.mjs";
 import {fiveDayOutcome} from "./dualSurgeEvaluation.mjs";
 import {eventIdentity} from "./dualSurgeEvidence.mjs";
+import {validIsoSessionDate} from "./dualSurgeCalendar.mjs";
 
 export function replayDiagnosticEvents({referenceEvents,providerRowsByCode,asOfDate}){
- if(!Array.isArray(referenceEvents)||!providerRowsByCode||typeof providerRowsByCode!=="object"||Array.isArray(providerRowsByCode)||typeof asOfDate!=="string")throw Error("INVALID_REPLAY_INPUT");
+ if(!Array.isArray(referenceEvents)||!providerRowsByCode||typeof providerRowsByCode!=="object"||Array.isArray(providerRowsByCode)||!validIsoSessionDate(asOfDate))throw Error("INVALID_REPLAY_INPUT");
  const seen=new Set(),rowsCache=new Map(),results=[];
  for(const event of referenceEvents){
   const id=eventIdentity(event);
