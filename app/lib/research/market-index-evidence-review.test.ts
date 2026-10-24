@@ -5,6 +5,7 @@ import {
   assessSessionEvidenceDraft,
   assessClaimedRightsCoverage,
   compareSessionEvidenceClaims,
+  assessResearchEvidenceBundle,
   type RightsEvidenceDraft,
   type SessionEvidenceDraft,
 } from "./market-index-evidence-review.ts";
@@ -183,4 +184,55 @@ test("claimed rights coverage includes both validity boundaries but not adjacent
       indexKey: "nikkei", use: "internal_research", sessionDate,
     }), { coveredByClaim: false, reason: "DATE_NOT_COVERED" });
   }
+});
+
+const bundle = {
+  rights,
+  calendarA: session,
+  calendarB: { ...session, calendarSourceId: "fixture-independent-calendar" },
+  request: { indexKey: "nikkei", use: "internal_research", sessionDate: "2026-10-23" },
+};
+
+test("synthetic bundle can be queued for manual review but is never authorized", () => {
+  assert.deepEqual(assessResearchEvidenceBundle(bundle), {
+    readyForManualReview: true, indexKey: "nikkei", sessionDate: "2026-10-23",
+  });
+});
+
+test("bundle fails closed for revoked rights, unclaimed use and stale validity", () => {
+  for (const rightsChange of [
+    { revoked: true },
+    { permittedUses: ["display"] },
+    { validUntil: "2026-10-22" },
+  ]) {
+    const result = assessResearchEvidenceBundle({
+      ...bundle, rights: { ...rights, ...rightsChange },
+    });
+    assert.equal(result.readyForManualReview, false);
+    assert.match((result as { reason: string }).reason, /^RIGHTS_CLAIM_/);
+  }
+});
+
+test("bundle rejects conflicting, closed and non-independent calendar claims", () => {
+  for (const calendarB of [
+    { ...session, calendarSourceId: "other", sessionClaim: "closed" },
+    { ...session, calendarSourceId: "other", sessionClaim: "closed" },
+    { ...session, calendarSourceId: " FIXTURE-CALENDAR " },
+  ]) {
+    assert.equal(assessResearchEvidenceBundle({ ...bundle, calendarB }).readyForManualReview, false);
+  }
+  assert.deepEqual(assessResearchEvidenceBundle({
+    ...bundle,
+    calendarA: { ...session, sessionClaim: "closed" },
+    calendarB: { ...session, calendarSourceId: "other", sessionClaim: "closed" },
+  }), { readyForManualReview: false, reason: "SESSION_NOT_CLAIMED_OPEN" });
+});
+
+test("bundle rejects request/calendar mismatch and malformed top-level input", () => {
+  assert.deepEqual(assessResearchEvidenceBundle({
+    ...bundle, request: { ...bundle.request, sessionDate: "2026-10-22" },
+  }), { readyForManualReview: false, reason: "REQUEST_CALENDAR_MISMATCH" });
+  assert.deepEqual(assessResearchEvidenceBundle(null as unknown as typeof bundle), {
+    readyForManualReview: false, reason: "INVALID_BUNDLE",
+  });
 });
