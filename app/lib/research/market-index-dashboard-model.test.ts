@@ -32,7 +32,7 @@ test("dashboard summarizes blocked inputs without including raw evidence", () =>
   assert.equal(result.model.manualReviewCandidates, 0);
   assert.equal(result.model.blockedReasons.length, 1);
   assert.equal(result.model.blockedReasons[0].count, 2);
-  assert.match(result.model.blockedReasons[0].code, /^RIGHTS_CLAIM_/);
+  assert.equal(result.model.blockedReasons[0].code, "INVALID_BUNDLE");
   assert.equal(JSON.stringify(result).includes("providerId"), false);
   assert.equal(JSON.stringify(result).includes("evidenceId"), false);
 });
