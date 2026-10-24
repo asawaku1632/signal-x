@@ -19,7 +19,7 @@ type ResearchStatus = {
 export default function MarketIndexResearchPage() {
   const [data, setData] = useState<ResearchStatus | null>(null);
   const [error, setError] = useState("");
-  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] } } | null>(null);
+  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] } } | null>(null);
   const [dashboardError, setDashboardError] = useState("");
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
@@ -53,7 +53,7 @@ export default function MarketIndexResearchPage() {
       .then(async response => {
         if (!response.ok) throw new Error("研究集計を取得できません");
         const result = await response.json();
-        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only") {
+        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items)) {
           throw new Error("研究集計の安全な状態を確認できません");
         }
         setDashboard(result);
@@ -135,6 +135,15 @@ export default function MarketIndexResearchPage() {
             </ul>
             <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-950 dark:bg-amber-950 dark:text-amber-100">判定：正式運用は保留。必要な証拠とデータ品質が確認されるまで、本番AI POWER・通知・注文には接続しません。</p>
           </section>
+          {dashboard?.readiness && <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-black">🔒 正式運用ブロッカー（STEP 361〜380）</h2>
+            <p className="mt-2 text-sm font-bold">正式保存：無効 ／ 本番接続：無効</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">研究用APIの未接続状態から作成した安全側の一覧です。外部証拠の独立確認結果ではありません。</p>
+            <ul className="mt-3 space-y-2 text-sm">{dashboard.readiness.items.map(item => <li key={item.code} className="rounded-lg border p-3 dark:border-slate-700">
+              <p className="font-bold">{item.label}：{item.state === "blocked" ? "未確認" : "設定あり・要独立検証"}</p>
+              <p className="mt-1 text-slate-600 dark:text-slate-300">{item.explanation}</p>
+            </li>)}</ul>
+          </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
             <p className="mt-2 text-sm leading-6">研究用Preview限定。開発用DBにテスト行を一時保存し、同時処理と再試行を確認して削除します。削除失敗時はテスト行が残る可能性があります。</p>
