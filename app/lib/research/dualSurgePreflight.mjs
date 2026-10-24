@@ -9,7 +9,7 @@ export function inspectProviderRows(rows,code){
  for(const r of rows){
   if(!r||typeof r.Code!=="string"||(r.Code!==code&&r.Code!==code+"0")){counts.wrongCode++;continue;}
   if(!validIsoSessionDate(r.Date)){counts.invalidDate++;continue;}
-  if(![r.O,r.H,r.L,r.C].every(validNumber)||typeof r.Vo!=="number"||!Number.isFinite(r.Vo)||r.Vo<0||r.H<Math.max(r.O,r.C,r.L)||r.L>Math.min(r.O,r.C)){counts.invalidOHLCV++;continue;}
+  if(![r.O,r.H,r.L,r.C].every(validNumber)||typeof r.Vo!=="number"||!Number.isFinite(r.Vo)||r.Vo<0||r.H<Math.max(r.O,r.C,r.L)||r.L>Math.min(r.O,r.C)||r.H<r.L){counts.invalidOHLCV++;continue;}
   if(seen.has(r.Date))counts.duplicateDates++;
   seen.add(r.Date);
   if(typeof r.AdjFactor!=="number"||!Number.isFinite(r.AdjFactor)||r.AdjFactor<=0)counts.missingAdjustment++;
@@ -38,7 +38,7 @@ export function maturityTable(ledger){
   const group=ledger.filter(e=>e.cohort===cohort);
   const tally=metric=>{
    const o=group.map(e=>e.outcomes?.[horizon]?.[metric]);
-   if(o.some(x=>!x||typeof x.status!=="string"))throw Error("INVALID_OUTCOME");
+   if(o.some(x=>!x||!["MATURED","PENDING","EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT","EXCLUDED_MISSING_DATA"].includes(x.status)))throw Error("INVALID_OUTCOME");
    return {matured:o.filter(x=>x.status==="MATURED").length,pending:o.filter(x=>x.status==="PENDING").length,
     excluded:o.filter(x=>x.status.startsWith("EXCLUDED")).length};
   };
