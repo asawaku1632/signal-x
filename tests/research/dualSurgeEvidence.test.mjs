@@ -1,0 +1,17 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {eventIdentity,compareEventIdentities,buildEvidenceGate} from "../../app/lib/research/dualSurgeEvidence.mjs";
+import {buildDualSurgeLedger} from "../../app/lib/research/dualSurgeLedger.mjs";
+const rows=Array.from({length:12},(_,i)=>({date:"2026-09-"+String(i+1).padStart(2,"0"),open:100,close:100+i,adjFactor:1}));
+const ledger=buildDualSurgeLedger({code:"3762",rows,signals:[{date:"2026-09-01",cohort:"PRE_SURGE_V1"}]});
+const reference=[{code:"3762",cohort:"PRE_SURGE_V1",startDate:"2026-09-01"}];
+test("event identity is deterministic",()=>assert.equal(eventIdentity(reference[0]),"3762|PRE_SURGE_V1|2026-09-01"));
+test("exact event identities match",()=>assert.equal(compareEventIdentities(reference,ledger).identical,true));
+test("missing events reported",()=>assert.equal(compareEventIdentities(reference,[]).missing.length,1));
+test("unexpected events reported",()=>assert.equal(compareEventIdentities([],ledger).unexpected.length,1));
+test("duplicate reference rejected",()=>assert.throws(()=>compareEventIdentities([...reference,...reference],ledger),/DUPLICATE_EVENT_IDENTITY/));
+test("impossible event date rejected",()=>assert.throws(()=>eventIdentity({...reference[0],startDate:"2026-02-30"}),/INVALID_EVENT_IDENTITY/));
+test("unrecognized cohort rejected",()=>assert.throws(()=>eventIdentity({...reference[0],cohort:"UNKNOWN"}),/INVALID_EVENT_IDENTITY/));
+test("unverified license blocks reproducibility",()=>assert.equal(buildEvidenceGate({ledger,referenceEvents:reference,sourceProvenance:{source:"manual",snapshotId:"test",licenseVerified:false},ciVerified:true}).researchReproducible,false));
+test("unverified CI blocks reproducibility",()=>assert.equal(buildEvidenceGate({ledger,referenceEvents:reference,sourceProvenance:{source:"manual",snapshotId:"test",licenseVerified:true}}).researchReproducible,false));
+test("complete synthetic evidence may pass research-only gate",()=>{const r=buildEvidenceGate({ledger,referenceEvents:reference,sourceProvenance:{source:"synthetic",snapshotId:"fixture",licenseVerified:true},ciVerified:true});assert.equal(r.researchReproducible,true);assert.equal(r.productionApproved,false)});
