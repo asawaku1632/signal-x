@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkFinalizationEligibility, type FinalizationCandidate } from "./market-index-finalization-eligibility";
+import { checkFinalizationEligibility, type FinalizationCandidate } from "./market-index-finalization-eligibility.ts";
 
 const candidate: FinalizationCandidate = {
   indexKey: "nikkei",
