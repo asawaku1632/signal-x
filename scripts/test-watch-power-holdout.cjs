@@ -192,3 +192,32 @@ test("readiness remains collecting without ten comparable future dates", () => {
   assert.equal(report.datesWithMissingOutcomes, 1);
   assert.equal(report.dateEqualWeightDifferencePp, null);
 });
+
+
+test("ten independent comparable post-freeze dates unlock review", () => {
+  const rows = [];
+  for (let day = 26; day <= 30; day++) {
+    const date = `2026-10-${day}`;
+    rows.push(row(date, `L${day}`, 60, 2), row(date, `H${day}`, 75, 1));
+  }
+  for (let day = 2; day <= 6; day++) {
+    const date = `2026-11-0${day}`;
+    rows.push(row(date, `L${day}`, 60, 2), row(date, `H${day}`, 75, 1));
+  }
+  const result = evaluateWatchPowerHoldout(rows);
+  assert.equal(result.datesComparable, 10);
+  assert.equal(result.readyForReview, true);
+  assert.equal(result.meanDateDifferencePp, 1);
+});
+
+test("conflicting duplicates block review even after ten comparable dates", () => {
+  const rows = [];
+  for (let day = 1; day <= 10; day++) {
+    const date = `2026-11-${String(day).padStart(2, "0")}`;
+    rows.push(row(date, `L${day}`, 60, 2), row(date, `H${day}`, 75, 1));
+  }
+  rows.push(row("2026-11-01", "L1", 60, 99));
+  const result = evaluateWatchPowerHoldout(rows);
+  assert.equal(result.conflictingDuplicates, 1);
+  assert.equal(result.readyForReview, false);
+});
