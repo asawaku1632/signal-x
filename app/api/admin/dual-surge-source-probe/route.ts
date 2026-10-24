@@ -25,7 +25,7 @@ export async function GET(){
   const rows=Array.isArray(payload?.data)?payload.data:null;
   if(!rows)return NextResponse.json({success:false,error:"UNEXPECTED_PROVIDER_FORMAT"},{status:502,headers});
   return NextResponse.json({success:true,source:"JQUANTS_V2",sessionDate:"2026-10-23",recordsReceived:rows.length,
-   sampleCodePresent:rows.some(x=>typeof x?.Code==="string"||typeof x?.code==="string"),
+   sampleCodePresent:rows.some((x: Record<string, unknown>)=>typeof x?.Code==="string"||typeof x?.code==="string"),
    persisted:false,licensedForAutomatedResearch:"NOT_VERIFIED"},{headers});
  }catch{
   return NextResponse.json({success:false,error:"PROVIDER_UNAVAILABLE"},{status:502,headers});
