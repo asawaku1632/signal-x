@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   assessRightsEvidenceDraft,
   assessSessionEvidenceDraft,
+  assessClaimedRightsCoverage,
   type RightsEvidenceDraft,
   type SessionEvidenceDraft,
 } from "./market-index-evidence-review.ts";
@@ -92,4 +93,30 @@ test("non-object inputs fail closed", () => {
   assert.deepEqual(assessSessionEvidenceDraft([] as unknown as SessionEvidenceDraft), {
     reviewable: false, reason: "INVALID_SESSION_EVIDENCE",
   });
+});
+
+test("claimed rights coverage matches only the explicitly requested scope", () => {
+  assert.deepEqual(assessClaimedRightsCoverage(rights, {
+    indexKey: "nikkei", use: "internal_research", sessionDate: "2026-10-23",
+  }), { coveredByClaim: true });
+  assert.deepEqual(assessClaimedRightsCoverage(rights, {
+    indexKey: "nikkei", use: "display", sessionDate: "2026-10-23",
+  }), { coveredByClaim: false, reason: "USE_NOT_COVERED" });
+  assert.deepEqual(assessClaimedRightsCoverage({ ...rights, allowedIndices: ["nikkei"] }, {
+    indexKey: "topix", use: "internal_research", sessionDate: "2026-10-23",
+  }), { coveredByClaim: false, reason: "INDEX_NOT_COVERED" });
+});
+
+test("claimed rights coverage rejects out-of-range dates and invalid requests", () => {
+  for (const sessionDate of ["2025-12-31", "2027-01-01"]) {
+    assert.deepEqual(assessClaimedRightsCoverage(rights, {
+      indexKey: "nikkei", use: "internal_research", sessionDate,
+    }), { coveredByClaim: false, reason: "DATE_NOT_COVERED" });
+  }
+  assert.deepEqual(assessClaimedRightsCoverage(rights, {
+    indexKey: "nikkei", use: "internal_research", sessionDate: "2026-02-30",
+  }), { coveredByClaim: false, reason: "INVALID_REQUEST_DATE" });
+  assert.deepEqual(assessClaimedRightsCoverage({ ...rights, revoked: true }, {
+    indexKey: "nikkei", use: "internal_research", sessionDate: "2026-10-23",
+  }), { coveredByClaim: false, reason: "EVIDENCE_NOT_REVIEWABLE" });
 });
