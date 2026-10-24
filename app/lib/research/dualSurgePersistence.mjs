@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 import {inspectDualSurge,DUAL_SURGE_VERSION} from "./dualSurgeDetectors.mjs";
+import {assessDualSurgeSourceReadiness} from "./dualSurgeReadiness.mjs";
 const dateJst=t=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
 /**
  * Build only fresh, completed-session, provider-authorized research rows.
@@ -7,10 +8,8 @@ const dateJst=t=>new Date(t*1000).toLocaleDateString("sv-SE",{timeZone:"Asia/Tok
  * exchange calendar, provider license and that the observation is being captured now.
  */
 export function prepareDualSurgeCandidates({code,candles,signalDate,completedDate,provider,licenseStatus,calendarVersion,sourceVerified}) {
- if(!/^\d{4}$/.test(code||""))throw Error("INVALID_CODE");
- if(!provider||licenseStatus!=="APPROVED"||sourceVerified!==true)throw Error("PROVIDER_NOT_APPROVED");
- if(!calendarVersion||!/^\d{4}-\d{2}-\d{2}$/.test(signalDate||"")||signalDate!==completedDate)
-  throw Error("NOT_FRESH_COMPLETED_SESSION");
+ const readiness=assessDualSurgeSourceReadiness({code,candles,signalDate,completedDate,provider,licenseStatus,calendarVersion,sourceVerified});
+ if(!readiness.ready)throw Error("SOURCE_NOT_READY:"+readiness.reasons.join(","));
  const t=candles?.length-1;
  if(!Number.isInteger(t)||t<21||dateJst(candles[t].time)!==signalDate)
   throw Error("SIGNAL_DATE_MISMATCH");
