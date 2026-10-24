@@ -156,3 +156,20 @@ test("reject numeric edge cases", () => {
   reject({ value: null }, "OBSERVATION_UNAVAILABLE");
   reject({ value: undefined }, "OBSERVATION_UNAVAILABLE");
 });
+
+test("reject misleading provider identity even if rights flags are asserted", () => {
+  reject({ providerId: "licensed-provider-pending", providerRightsVerified: true }, "SOURCE_UNVERIFIED");
+  reject({ providerId: " licensed-provider-pending ", providerRightsVerified: true }, "SOURCE_UNVERIFIED");
+});
+
+test("reject whitespace-only provider and run identifiers", () => {
+  reject({ providerId: "\t  " }, "SOURCE_UNVERIFIED");
+  reject({ sourceRunId: "\n " }, "SOURCE_UNVERIFIED");
+});
+
+test("return stable key for the same valid synthetic observation", () => {
+  const a = checkFinalizationEligibility({ ...candidate });
+  const b = checkFinalizationEligibility({ ...candidate });
+  assert.deepEqual(a, b);
+  assert.deepEqual(a, { eligible: true, key: "nikkei:2026-10-23" });
+});
