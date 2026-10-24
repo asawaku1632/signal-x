@@ -16,3 +16,9 @@ test("future corporate action invalidates label",()=>{const b=structuredClone(ba
 test("unknown factor invalidates label",()=>{const b=structuredClone(bars);delete b[3].adjFactor;assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT")});
 test("next open is distinct from signal close",()=>{const b=structuredClone(bars);b[1].open=110;assert.equal(nextOpenReturn(b,0).returnPct,Number(((105/110-1)*100).toFixed(3)));assert.equal(fiveDayOutcome(b,0).returnPct,5)});
 test("next-open pending when future unavailable",()=>assert.equal(nextOpenReturn(bars,6).status,"PENDING"));
+
+test("interleaved cohorts merge independently",()=>{const e=groupEvents([{date:"D1",cohort:"PRE"},{date:"D1",cohort:"START"},{date:"D2",cohort:"PRE"}],dates);assert.equal(e.length,2);assert.equal(e.find(x=>x.cohort==="PRE").signalDays,2)});
+test("duplicate same-cohort signal rejected",()=>assert.throws(()=>groupEvents([{date:"D1",cohort:"PRE"},{date:"D1",cohort:"PRE"}],dates),/DUPLICATE_SIGNAL/));
+test("different cohorts on same session retained",()=>assert.equal(groupEvents([{date:"D1",cohort:"PRE"},{date:"D1",cohort:"START"}],dates).length,2));
+test("invalid cohort rejected",()=>assert.throws(()=>groupEvents([{date:"D1",cohort:""}],dates),/INVALID_SIGNAL/));
+test("duplicate sessions rejected",()=>assert.throws(()=>groupEvents([],["D1","D1"]),/INVALID_SESSIONS/));
