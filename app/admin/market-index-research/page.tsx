@@ -112,6 +112,29 @@ export default function MarketIndexResearchPage() {
               <ul className="list-disc pl-5">{dashboard.model.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
             </div>}
           </section>
+          <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900" aria-labelledby="readiness-heading">
+            <h2 id="readiness-heading" className="font-black">🧭 正式運用までの確認項目（STEP 341〜360）</h2>
+            <p className="mt-2 text-sm leading-6">この一覧は接続状態を確認するための研究用チェックリストです。許諾・取引日・データ品質を自動的に証明するものではありません。</p>
+            <ul className="mt-3 space-y-3 text-sm">
+              <li className="rounded-lg border p-3 dark:border-slate-700">
+                <p className="font-bold">① 提供元の利用許諾：{data.providerRightsVerified ? "設定上は確認済み（証拠の独立検証は未実施）" : "未確認・正式利用不可"}</p>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">日経平均・TOPIXの取得、保存、再表示、商用利用について、提供元の契約・権利範囲を確認する必要があります。</p>
+              </li>
+              <li className="rounded-lg border p-3 dark:border-slate-700">
+                <p className="font-bold">② 取引日カレンダー：未検証</p>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">休場日、祝日、臨時休場、取引時間帯の根拠となる正式カレンダーは接続されていません。</p>
+              </li>
+              <li className="rounded-lg border p-3 dark:border-slate-700">
+                <p className="font-bold">③ 正式データ・鮮度：未接続</p>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">最新の研究記録があっても、status が unavailable の場合は指数値の取得成功とはみなしません。</p>
+              </li>
+              <li className="rounded-lg border p-3 dark:border-slate-700">
+                <p className="font-bold">④ 自動取得・正式保存：無効のまま維持</p>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">定時取得は{data.scheduledCaptureConfigured ? "設定あり（正式運用の証拠ではありません）" : "未設定"}。研究DBの保存設定と正式な市場データの保存許可は別です。</p>
+              </li>
+            </ul>
+            <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-950 dark:bg-amber-950 dark:text-amber-100">判定：正式運用は保留。必要な証拠とデータ品質が確認されるまで、本番AI POWER・通知・注文には接続しません。</p>
+          </section>
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
             <p className="mt-2 text-sm leading-6">研究用Preview限定。開発用DBにテスト行を一時保存し、同時処理と再試行を確認して削除します。削除失敗時はテスト行が残る可能性があります。</p>
