@@ -5,11 +5,11 @@ export function assessDualSurgeSourceReadiness({
  calendarVersion,candles,code
 }={}) {
  const reasons=[];
- if (!/^\\d{4}$/.test(code||"")) reasons.push("INVALID_CODE");
+ if (!/^\d{4}$/.test(code||"")) reasons.push("INVALID_CODE");
  if (typeof provider!=="string"||!provider.trim()) reasons.push("PROVIDER_MISSING");
  if (licenseStatus!=="APPROVED") reasons.push("LICENSE_NOT_APPROVED");
  if (sourceVerified!==true) reasons.push("SOURCE_NOT_VERIFIED");
- if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(signalDate||"")||completedDate!==signalDate)
+ if (!/^\d{4}-\d{2}-\d{2}$/.test(signalDate||"")||completedDate!==signalDate)
   reasons.push("SESSION_NOT_COMPLETED");
  if (typeof calendarVersion!=="string"||!calendarVersion.trim())
   reasons.push("CALENDAR_UNVERIFIED");
