@@ -6,6 +6,7 @@ on:
       - 'app/lib/learning/watchPowerHoldout.ts'
       - 'app/lib/learning/watchPowerHoldoutAdapter.ts'
       - 'app/lib/learning/watchPowerHoldoutReadiness.ts'
+      - 'app/admin/watch-power-holdout/page.tsx'
       - 'scripts/test-watch-power-holdout.cjs'
       - '.github/workflows/watch-power-holdout-research.yml'
   workflow_dispatch:
@@ -25,3 +26,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --test scripts/test-watch-power-holdout.cjs
+      - name: Typecheck research integration
+        run: npx tsc --noEmit --incremental false
