@@ -52,7 +52,7 @@ export async function GET(){
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),25000);
  try{
-  const results=[];
+  const results=[] as Array<{code:string;firstSignalFeatures:Array<{date:string;cohort:string;volumeRatio:number|null;dailyReturnPct:number|null;distanceFrom20DayHighPct:number|null;fiveDayReturnPct:number|null;fiveDayOutcome:string}>;events:Array<{cohort:string;startDate:string;endDate:string;signalDays:number;firstClose:number;firstReturns:Record<string,number|null>;continuationSignals:number;continuationFiveDayReturns:number[]}>;[key:string]:unknown}>;
   for(const code of codes){
    const raw=await load(code,key,controller.signal);
    const valid=raw.map(r=>convert(r,code)).filter((x):x is NonNullable<typeof x>=>x!==null).sort((a,b)=>a.date.localeCompare(b.date));
