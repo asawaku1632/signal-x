@@ -16,3 +16,8 @@ Status: BLOCKED for live prospective collection until written source authorizati
 5. Keep the live collection Cron disabled until all gates are evidenced; never set licenseStatus='APPROVED' merely because an API key works.
 
 Current state: no live collector enabled, no provider approved for this workflow, no claim of live data acquisition.
+
+## Owner decision — 2026-10-24
+The owner explicitly chose **personal research only**. Keep dual-surge signals, source OHLCV, observations and outcome metrics in owner-only research surfaces. Do not expose to subscribers, public pages, APIs, notifications, rankings, shared exports or trading automation. Restrict access at server/API and database layers; hiding UI links alone is insufficient.
+
+This scope reduces redistribution risk but does not itself establish provider license compliance. Validate personal-use terms, permitted automated fetching, storage/retention, and whether analysis within the SIGNALX infrastructure remains within private use. The live ingestion gate stays CLOSED until the actual source and rights are verified.
