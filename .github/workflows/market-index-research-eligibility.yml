@@ -8,6 +8,7 @@ on:
       - "app/lib/research/market-index-finalization-eligibility.ts"
       - "app/lib/research/market-index-finalization-eligibility.test.ts"
       - ".github/workflows/market-index-research-eligibility.yml"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
@@ -23,4 +24,4 @@ jobs:
         with:
           node-version: "22"
       - name: Run isolated TypeScript eligibility tests
-        run: node --experimental-strip-types --test app/lib/research/market-index-finalization-eligibility.test.ts
+        run: npm run test:market-index-research
