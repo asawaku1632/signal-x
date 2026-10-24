@@ -163,3 +163,39 @@ export function assessResearchEvidenceBundle(input: {
     sessionDate: calendar.sessionDate,
   };
 }
+
+/**
+ * Safe, minimal admin-facing summary. Deliberately excludes evidence IDs,
+ * verifier identities, provider details, and raw observation data.
+ * This is a pure function: no admin route, API, persistence, or authorization.
+ */
+export function summarizeResearchEvidenceForManualReview(input: Parameters<typeof assessResearchEvidenceBundle>[0]): {
+  stage: "manual_review_candidate" | "blocked";
+  indexKey: "nikkei" | "topix" | null;
+  sessionDate: string | null;
+  reasonCode: string | null;
+  authorized: false;
+  tradingSessionVerified: false;
+  persistenceEnabled: false;
+} {
+  const result = assessResearchEvidenceBundle(input);
+  if (!result.readyForManualReview)
+    return {
+      stage: "blocked",
+      indexKey: null,
+      sessionDate: null,
+      reasonCode: result.reason,
+      authorized: false,
+      tradingSessionVerified: false,
+      persistenceEnabled: false,
+    };
+  return {
+    stage: "manual_review_candidate",
+    indexKey: result.indexKey as "nikkei" | "topix",
+    sessionDate: result.sessionDate,
+    reasonCode: null,
+    authorized: false,
+    tradingSessionVerified: false,
+    persistenceEnabled: false,
+  };
+}
