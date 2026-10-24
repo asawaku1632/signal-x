@@ -288,3 +288,29 @@ test("batch aggregation counts manual candidates and rejects oversize", () => {
     accepted: false, reason: "BATCH_TOO_LARGE",
   });
 });
+
+test("batch aggregate groups blocked reasons and never includes raw identifiers", () => {
+  const result = summarizeResearchEvidenceBatch([
+    bundle,
+    { ...bundle, rights: { ...rights, revoked: true } },
+    { ...bundle, rights: { ...rights, revoked: true } },
+  ]);
+  assert.equal(result.accepted, true);
+  if (!result.accepted) return;
+  assert.equal(result.total, 3);
+  assert.equal(result.candidates, 1);
+  assert.equal(result.blocked, 2);
+  assert.equal(result.reasonCounts.RIGHTS_CLAIM_EVIDENCE_NOT_REVIEWABLE, 2);
+  assert.equal(JSON.stringify(result).includes("fixture-provider"), false);
+  assert.equal(JSON.stringify(result).includes("fixture-evidence"), false);
+});
+
+test("empty batch has zero counts", () => {
+  const result = summarizeResearchEvidenceBatch([]);
+  assert.equal(result.accepted, true);
+  if (!result.accepted) return;
+  assert.equal(result.total, 0);
+  assert.equal(result.candidates, 0);
+  assert.equal(result.blocked, 0);
+  assert.equal(Object.keys(result.reasonCounts).length, 0);
+});
