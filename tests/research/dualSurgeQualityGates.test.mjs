@@ -12,3 +12,7 @@ test("overlap is flagged without deleting an event",()=>{const flags=overlapFlag
 test("cohort comparison retains separate means",()=>{const old=summarizeLedger(ledger,{metric:"legacyCloseToClose"});const next=summarizeLedger(ledger,{metric:"nextOpenToFutureClose"});const result=compareCohortSummaries(old,next);assert.equal(result.length,2);assert.ok(result.every(x=>x.events>0))});
 test("cohort mismatches fail closed",()=>assert.throws(()=>compareCohortSummaries([{cohort:"PRE",events:1}],[{cohort:"START",events:1}]),/COHORT_MISMATCH/));
 test("unsupported horizon rejected",()=>assert.throws(()=>overlapFlags(ledger,2),/INVALID_HORIZON/));
+
+test("negative signal index rejected",()=>{const bad=structuredClone(ledger);bad[0].signalSessionIndex=-1;assert.throws(()=>validateLedger(bad),/INVALID_EVENT/)});
+test("fractional signal index rejected",()=>{const bad=structuredClone(ledger);bad[0].signalSessionIndex=1.5;assert.throws(()=>validateLedger(bad),/INVALID_EVENT/)});
+test("unsafe signal index rejected",()=>{const bad=structuredClone(ledger);bad[0].signalSessionIndex=Number.MAX_SAFE_INTEGER+1;assert.throws(()=>validateLedger(bad),/INVALID_EVENT/)});
