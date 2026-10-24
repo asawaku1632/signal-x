@@ -125,3 +125,8 @@ test("rejects each missing field independently", () => {
     assert.deepEqual(checkFinalizationEligibility(missing as FinalizationCandidate), { eligible: false, reason }, field);
   }
 });
+
+test("placeholder provider never becomes eligible from asserted flags alone", () => {
+  reject({ providerId: "licensed-provider-pending" }, "SOURCE_UNVERIFIED");
+  reject({ providerId: " licensed-provider-pending " }, "SOURCE_UNVERIFIED");
+});
