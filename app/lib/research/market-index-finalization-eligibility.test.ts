@@ -223,3 +223,31 @@ test("return a stable separate key for each supported index", () => {
   assert.deepEqual(topix, { eligible: true, key: "topix:2026-10-23" });
   assert.notDeepEqual(nikkei, topix);
 });
+
+test("reject pending provider IDs irrespective of ASCII case and surrounding whitespace", () => {
+  for (const providerId of [
+    "LICENSED-PROVIDER-PENDING",
+    "Licensed-Provider-Pending",
+    " licensed-PROVIDER-pending ",
+    "\tlicensed-provider-pending\n",
+  ]) {
+    reject({ providerId }, "SOURCE_UNVERIFIED");
+  }
+});
+
+test("reject a zero-length or whitespace-only evidence identifier", () => {
+  for (const rightsEvidenceId of ["", " ", "\n\t"]) {
+    reject({ rightsEvidenceId }, "PROVIDER_RIGHTS_UNVERIFIED");
+  }
+});
+
+test("do not confuse index names differing by ASCII case", () => {
+  reject({ indexKey: "NIKKEI" }, "INVALID_INDEX");
+  reject({ indexKey: "Topix" }, "INVALID_INDEX");
+});
+
+test("reject zero, negative, and non-finite observation values", () => {
+  for (const value of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    reject({ value }, "OBSERVATION_UNAVAILABLE");
+  }
+});
