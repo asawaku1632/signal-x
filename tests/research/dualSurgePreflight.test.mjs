@@ -18,3 +18,6 @@ test("maturity table separates pending from excluded",()=>{
  const t=maturityTable(ledger).find(x=>x.horizon===5);
  assert.equal(t.events,1);assert.equal(t.legacy.pending,1);assert.equal(t.legacy.excluded,0);
 });
+
+test("inverted high-low range rejected",()=>{const r=structuredClone(source);r[0].H=99;r[0].L=100;assert.equal(inspectProviderRows(r,"3762").counts.invalidOHLCV,1)});
+test("unknown outcome status rejected by maturity table",()=>{const rows=Array.from({length:8},(_,i)=>({date:"D"+i,open:100,close:100+i,adjFactor:1}));const l=buildDualSurgeLedger({code:"3762",rows,signals:[{date:"D0",cohort:"PRE"}]});l[0].outcomes[5].legacyCloseToClose={status:"UNKNOWN",returnPct:null};assert.throws(()=>maturityTable(l),/INVALID_OUTCOME/)});
