@@ -130,3 +130,29 @@ test("placeholder provider never becomes eligible from asserted flags alone", ()
   reject({ providerId: "licensed-provider-pending" }, "SOURCE_UNVERIFIED");
   reject({ providerId: " licensed-provider-pending " }, "SOURCE_UNVERIFIED");
 });
+
+test("reject invalid calendar boundaries and malformed session dates", () => {
+  reject({ sessionDate: "2026-00-01" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-12-32" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-04-31" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026-1-02" }, "SESSION_UNVERIFIED");
+  reject({ sessionDate: "2026/10/23" }, "SESSION_UNVERIFIED");
+});
+
+test("accept valid leap day only with asserted external session verification", () => {
+  assert.deepEqual(checkFinalizationEligibility({ ...candidate, sessionDate: "2028-02-29" }), { eligible: true, key: "nikkei:2028-02-29" });
+  reject({ sessionDate: "2028-02-29", exchangeSessionVerified: false }, "SESSION_UNVERIFIED");
+});
+
+test("reject invalid observedAt offsets and dates", () => {
+  reject({ observedAt: "2026-10-23T15:00:00+99:99" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-02-30T15:00:00+09:00" }, "TIMESTAMP_UNVERIFIED");
+  reject({ observedAt: "2026-10-23T15:00:00Z trailing" }, "TIMESTAMP_UNVERIFIED");
+});
+
+test("reject numeric edge cases", () => {
+  reject({ value: Number.NEGATIVE_INFINITY }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: -0 }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: null }, "OBSERVATION_UNAVAILABLE");
+  reject({ value: undefined }, "OBSERVATION_UNAVAILABLE");
+});
