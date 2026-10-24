@@ -7,7 +7,10 @@ import {inspectDualSurge} from "@/app/lib/research/dualSurgeDetectors.mjs";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const headers={"Cache-Control":"private, no-store"};
-const codes=["3762","3996","9684"] as const;
+// Fixed, intentionally selected research sample (NOT random or representative).
+// Each manual request fetches at most four stocks; no automatic scheduling or storage.
+const researchCodes=["3762","3996","9684","7203","6758","6501","8306","9984","7974","9432","8058","6861","8035","6098","4063","4519","6981","9101","4661","4502"] as const;
+const defaultCodes=["3762","3996","9684"] as const;
 const endDate="2026-10-23";
 const fromDate="2026-09-01";
 type ProviderRow={Code?:unknown;Date?:unknown;O?:unknown;H?:unknown;L?:unknown;C?:unknown;Vo?:unknown;AdjFactor?:unknown};
@@ -42,7 +45,11 @@ async function load(code:string,key:string,signal:AbortSignal){
  }
  throw Error("PAGINATION_INCOMPLETE");
 }
-export async function GET(){
+export async function GET(request:Request){
+ const batchParam=new URL(request.url).searchParams.get("batch");
+ if(batchParam!==null&&!/^[1-5]$/.test(batchParam))return NextResponse.json({success:false,error:"INVALID_BATCH"},{status:400,headers});
+ const batch=batchParam===null?null:Number(batchParam);
+ const codes=batch===null?[...defaultCodes]:researchCodes.slice((batch-1)*4,batch*4);
  const {isOwner}=await getLearningOwnerSession();
  if(!isOwner)return NextResponse.json({success:false,error:"OWNER_ONLY"},{status:403,headers});
  if(process.env.VERCEL_ENV!=="preview"||process.env.JQUANTS_RESEARCH_PROBE_ENABLED!=="true")
@@ -179,7 +186,7 @@ export async function GET(){
     averageFiveDayReturnPct:average,insufficientSample:matured.length<30};
   });
   return NextResponse.json({success:true,source:"JQUANTS_V2",mode:"READ_ONLY_HISTORICAL_DIAGNOSTIC",fromDate,endDate,
-   codesChecked:codes.length,results,firstEvents,featureBuckets,continuationStudy,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
+   codesChecked:codes.length,studyScope:batch===null?"BASELINE_3":"CURATED_20_BATCH",batch,batchCount:5,selectedCodes:codes,nonRepresentativeSample:true,results,firstEvents,featureBuckets,continuationStudy,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
    note:"Historical close-to-close forward returns, not tradable returns or prospective predictions. No database writes."},{headers});
  }catch(e){
   const reason=e instanceof Error&&/^PROVIDER_HTTP_[0-9]{3}$/.test(e.message)?e.message:"PROBE_UNAVAILABLE";
