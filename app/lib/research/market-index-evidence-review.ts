@@ -75,3 +75,31 @@ export function assessSessionEvidenceDraft(d: SessionEvidenceDraft):
     return { reviewable: false, reason: "INVALID_SESSION_CLAIM" };
   return { reviewable: true, indexKey: d.indexKey, sessionDate: d.sessionDate };
 }
+
+/**
+ * Checks whether a syntactically reviewable rights draft CLAIMS to cover a
+ * requested index/use/date. This is NOT an authorization or license verifier.
+ * The caller must independently authenticate the provider, evidence, and scope.
+ */
+export function assessClaimedRightsCoverage(
+  d: RightsEvidenceDraft,
+  request: { indexKey: unknown; use: unknown; sessionDate: unknown },
+): { coveredByClaim: true } | { coveredByClaim: false; reason: string } {
+  if (!assessRightsEvidenceDraft(d).reviewable)
+    return { coveredByClaim: false, reason: "EVIDENCE_NOT_REVIEWABLE" };
+  if (!request || typeof request !== "object" || Array.isArray(request))
+    return { coveredByClaim: false, reason: "INVALID_REQUEST" };
+  if (request.indexKey !== "nikkei" && request.indexKey !== "topix")
+    return { coveredByClaim: false, reason: "INVALID_REQUEST_INDEX" };
+  if (request.use !== "internal_research" && request.use !== "retain" && request.use !== "display")
+    return { coveredByClaim: false, reason: "INVALID_REQUEST_USE" };
+  if (!validDay(request.sessionDate))
+    return { coveredByClaim: false, reason: "INVALID_REQUEST_DATE" };
+  if (!(d.allowedIndices as string[]).includes(request.indexKey))
+    return { coveredByClaim: false, reason: "INDEX_NOT_COVERED" };
+  if (!(d.permittedUses as string[]).includes(request.use))
+    return { coveredByClaim: false, reason: "USE_NOT_COVERED" };
+  if (request.sessionDate < (d.validFrom as string) || request.sessionDate > (d.validUntil as string))
+    return { coveredByClaim: false, reason: "DATE_NOT_COVERED" };
+  return { coveredByClaim: true };
+}
