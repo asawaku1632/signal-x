@@ -72,14 +72,40 @@ export async function GET(){
     if(result.signals.some((s:{cohort:string})=>s.cohort==="PRE_SURGE_V1"))historical.preSurgeHits++;
     if(result.signals.some((s:{cohort:string})=>s.cohort==="SURGE_START_V1"))historical.surgeStartHits++;
    }
-   results.push({code,historical,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
+   const horizons=[1,3,5,10] as const;
+   const forward={signals:[] as Array<{date:string;cohort:string;signalClose:number;returns:Record<string,number|null>;matured:Record<string,boolean>}>,summary:[] as Array<{cohort:string;horizon:number;matured:number;positive:number;averageReturnPct:number|null}>};
+   for(let i=21;i<unique.length;i++){
+    const sample=unique.slice(i-21,i+1);
+    if(sample.some(x=>x.split))continue;
+    const outcome=inspectDualSurge(sample.map(x=>x.bar));
+    if(!outcome.available)continue;
+    for(const signal of outcome.signals as Array<{cohort:string}>){
+     const returns:Record<string,number|null>={};
+     const matured:Record<string,boolean>={};
+     for(const h of horizons){
+      const future=unique[i+h];
+      const safe=Boolean(future)&&!unique.slice(i+1,i+h+1).some(x=>x.split);
+      matured[String(h)]=safe;
+      returns[String(h)]=safe?Number(((future.bar.close/unique[i].bar.close-1)*100).toFixed(3)):null;
+     }
+     forward.signals.push({date:unique[i].date,cohort:signal.cohort,signalClose:unique[i].bar.close,returns,matured});
+    }
+   }
+   for(const cohort of ["PRE_SURGE_V1","SURGE_START_V1"]){
+    for(const horizon of horizons){
+     const values=forward.signals.filter(x=>x.cohort===cohort).map(x=>x.returns[String(horizon)]).filter((x):x is number=>x!==null);
+     forward.summary.push({cohort,horizon,matured:values.length,positive:values.filter(x=>x>0).length,
+      averageReturnPct:values.length?Number((values.reduce((sum,x)=>sum+x,0)/values.length).toFixed(3)):null});
+    }
+   }
+   results.push({code,historical,forward,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
     latestDate:unique.at(-1)?.date||null,has22CompletedSessions:complete,corporateActionInWindow:split,
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.available===true?null:(evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE")),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
   }
   return NextResponse.json({success:true,source:"JQUANTS_V2",mode:"READ_ONLY_HISTORICAL_DIAGNOSTIC",fromDate,endDate,
    codesChecked:codes.length,results,persisted:false,licenseForAutomatedResearch:"NOT_VERIFIED",
-   note:"Historical detector checks are NOT prospective saved signals."},{headers});
+   note:"Historical close-to-close forward returns, not tradable returns or prospective predictions. No database writes."},{headers});
  }catch(e){
   const reason=e instanceof Error&&/^PROVIDER_HTTP_[0-9]{3}$/.test(e.message)?e.message:"PROBE_UNAVAILABLE";
   return NextResponse.json({success:false,error:reason,persisted:false},{status:502,headers});
