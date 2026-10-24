@@ -22,3 +22,7 @@ test("duplicate same-cohort signal rejected",()=>assert.throws(()=>groupEvents([
 test("different cohorts on same session retained",()=>assert.equal(groupEvents([{date:"D1",cohort:"PRE"},{date:"D1",cohort:"START"}],dates).length,2));
 test("invalid cohort rejected",()=>assert.throws(()=>groupEvents([{date:"D1",cohort:""}],dates),/INVALID_SIGNAL/));
 test("duplicate sessions rejected",()=>assert.throws(()=>groupEvents([],["D1","D1"]),/INVALID_SESSIONS/));
+
+test("null intermediate bar excluded instead of throwing",()=>{const b=structuredClone(bars);b[3]=null;assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_MISSING_DATA");assert.equal(nextOpenReturn(b,0).status,"EXCLUDED_MISSING_DATA")});
+test("string close price excluded",()=>{const b=structuredClone(bars);b[5].close="105";assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_MISSING_DATA")});
+test("string entry open price excluded",()=>{const b=structuredClone(bars);b[1].open="101";assert.equal(nextOpenReturn(b,0).status,"EXCLUDED_MISSING_DATA")});
