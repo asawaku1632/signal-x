@@ -4,15 +4,14 @@ on:
   push:
     branches:
       - research/market-index-shadow-20261021
-    paths:
-      - "app/lib/research/market-index-finalization-eligibility.ts"
-      - "app/lib/research/market-index-finalization-eligibility.test.ts"
-      - ".github/workflows/market-index-research-eligibility.yml"
-      - "package.json"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: market-index-eligibility-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   eligibility:
