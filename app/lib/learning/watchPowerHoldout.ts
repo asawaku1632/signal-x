@@ -1,8 +1,8 @@
 /** Research-only frozen WATCH hypothesis. No database access or trading actions. */
 export const WATCH_POWER_HYPOTHESIS = {
-  version: "watch-power-low-vs-high-20261024-v1",
+  version: "watch-power-low-vs-high-20261024-v2",
   frozenOn: "2026-10-24",
-  trainingEndDate: "2026-10-16",
+  trainingEndDate: "2026-10-24",
   lowPowerExclusive: 68,
   highPowerInclusive: 71,
   horizonTradingDays: 5,
