@@ -1,3 +1,4 @@
+import {validIsoSessionDate} from "./dualSurgeCalendar.mjs";
 // Research-only chronological partitions and non-overlapping samples.
 // Index-based embargo uses completed trading-session indices, not calendar days.
 export function embargoEvents(ledger,{horizon=5}={}){
@@ -13,13 +14,13 @@ export function embargoEvents(ledger,{horizon=5}={}){
  return {horizon,accepted,suppressed,acceptedCount:accepted.length,suppressedCount:suppressed.length};
 }
 export function chronologicalHoldout(ledger,{cutoffDate,embargoCalendarDays=10}={}){
- if(!Array.isArray(ledger)||typeof cutoffDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(cutoffDate)||!Number.isInteger(embargoCalendarDays)||embargoCalendarDays<0||embargoCalendarDays>365)throw Error("INVALID_SPLIT");
+ if(!Array.isArray(ledger)||!validIsoSessionDate(cutoffDate)||!Number.isInteger(embargoCalendarDays)||embargoCalendarDays<0||embargoCalendarDays>365)throw Error("INVALID_SPLIT");
  const cutoff=Date.parse(cutoffDate+"T00:00:00Z");
  if(!Number.isFinite(cutoff))throw Error("INVALID_SPLIT");
  const train=[],holdout=[],embargoed=[];
  for(const e of ledger){
   const t=Date.parse(e.startDate+"T00:00:00Z");
-  if(!Number.isFinite(t))throw Error("INVALID_EVENT_DATE");
+  if(!validIsoSessionDate(e.startDate)||!Number.isFinite(t))throw Error("INVALID_EVENT_DATE");
   if(t<cutoff-embargoCalendarDays*86400000)train.push(e);
   else if(t>=cutoff)holdout.push(e);
   else embargoed.push(e);
