@@ -7,6 +7,7 @@ import {
   compareSessionEvidenceClaims,
   assessResearchEvidenceBundle,
   summarizeResearchEvidenceForManualReview,
+  summarizeResearchEvidenceBatch,
   type RightsEvidenceDraft,
   type SessionEvidenceDraft,
 } from "./market-index-evidence-review.ts";
@@ -270,4 +271,20 @@ test("manual review summary excludes raw evidence and provider identifiers", () 
   for (const sensitive of ["fixture-provider", "fixture-evidence", "fixture-verifier", "fixture-calendar"]) {
     assert.equal(serialized.includes(sensitive), false);
   }
+});
+
+test("batch aggregation counts manual candidates and rejects oversize", () => {
+  const result = summarizeResearchEvidenceBatch([bundle]);
+  assert.equal(result.accepted, true);
+  if (result.accepted) {
+    assert.equal(result.total, 1);
+    assert.equal(result.candidates, 1);
+    assert.equal(result.blocked, 0);
+  }
+  assert.deepEqual(summarizeResearchEvidenceBatch({}), {
+    accepted: false, reason: "INVALID_BATCH",
+  });
+  assert.deepEqual(summarizeResearchEvidenceBatch(Array(101).fill(bundle)), {
+    accepted: false, reason: "BATCH_TOO_LARGE",
+  });
 });
