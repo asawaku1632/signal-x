@@ -103,3 +103,33 @@ export function assessClaimedRightsCoverage(
     return { coveredByClaim: false, reason: "DATE_NOT_COVERED" };
   return { coveredByClaim: true };
 }
+
+/**
+ * Compare two syntactically reviewable calendar claims. This does not verify
+ * exchange holidays, authenticate a calendar provider, or authorize storage.
+ * Any disagreement fails closed for the purposes of manual research review.
+ */
+export function compareSessionEvidenceClaims(
+  a: SessionEvidenceDraft,
+  b: SessionEvidenceDraft,
+): { consistent: true; indexKey: string; sessionDate: string; sessionClaim: "open" | "closed" } |
+   { consistent: false; reason: string } {
+  const first = assessSessionEvidenceDraft(a);
+  const second = assessSessionEvidenceDraft(b);
+  if (!first.reviewable || !second.reviewable)
+    return { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" };
+  if (first.indexKey !== second.indexKey || first.sessionDate !== second.sessionDate)
+    return { consistent: false, reason: "SESSION_IDENTITY_MISMATCH" };
+  if (a.calendarSourceId === b.calendarSourceId &&
+      a.calendarVersion === b.calendarVersion &&
+      a.verifierId === b.verifierId)
+    return { consistent: false, reason: "NOT_INDEPENDENT_EVIDENCE" };
+  if (a.sessionClaim !== b.sessionClaim)
+    return { consistent: false, reason: "SESSION_CLAIM_CONFLICT" };
+  return {
+    consistent: true,
+    indexKey: first.indexKey,
+    sessionDate: first.sessionDate,
+    sessionClaim: a.sessionClaim as "open" | "closed",
+  };
+}
