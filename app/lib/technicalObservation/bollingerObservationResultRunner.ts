@@ -1,3 +1,4 @@
+import { PHASE7_RESULT_CODES, PHASE7_PENDING_SQL } from "./bollingerShadowQueries.ts";
 import { fetchDailyCandleDatasets } from "./dailyData.ts";
 import { DAILY_DATASET_REQUIREMENTS } from "./datasets.ts";
 import { completedCandlesAsOf } from "./timeframeFoundation.ts";
@@ -14,9 +15,9 @@ type QueryResult = { rows: Record<string, unknown>[] };
 export type BollingerResultRunnerDatabase = BollingerResultDatabase & {
   query(text: string, values?: unknown[]): Promise<QueryResult>;
 };
-export type PendingBollingerEvent = { eventId: number; code: string; timeframe: "1D" | "1W";
+export type PendingBollingerEvent = { eventId: number; snapshotId?: number; code: string; timeframe: "1D" | "1W";
   side: "LOWER" | "UPPER"; sigmaLevel: 2 | 3; eventType: "TOUCH" | "CROSS" | "CONTINUATION" | "RETURN_INSIDE";
-  close: number; observationDate: string; barEndAt: string | Date };
+  close: number; observationDate: string; barEndAt: string | Date; phase7Provenance?: boolean };
 
 export type BollingerResultCalendarResolution = {
   observationDate: string;
@@ -113,23 +114,15 @@ async function defaultDatabase(): Promise<BollingerResultRunnerDatabase> {
   return pool as unknown as BollingerResultRunnerDatabase;
 }
 
-export async function selectPendingBollingerEvents(database: BollingerResultRunnerDatabase, limit: number) {
+export async function selectPendingBollingerEvents(database: BollingerResultRunnerDatabase, limit: number, phase7Only = false) {
   const result = await database.query(
-    `SELECT e.id event_id,e.side,e.sigma_level,e.event_type,s.code,s.timeframe,s.close,
-            s.observation_date,s.bar_end_at
-       FROM technical_bb_observation_events e
-       JOIN technical_bb_observation_snapshots s ON s.id=e.snapshot_id
-      WHERE s.timeframe='1D' AND s.detector_version='BB_OBSERVATION_V1'
-        AND EXISTS (SELECT 1 FROM unnest(ARRAY[1,3,5]) h
-          WHERE NOT EXISTS (SELECT 1 FROM technical_bb_observation_results r
-            WHERE r.event_id=e.id AND r.horizon=h AND r.horizon_unit='TRADING_DAY'
-              AND r.result_version='BB_OBSERVATION_RESULT_V1' AND r.result_quality='COMPLETE'))
-      ORDER BY s.observation_date,e.id LIMIT $1`, [limit]);
-  return result.rows.map((row) => ({ eventId: Number(row.event_id), code: String(row.code),
+    PHASE7_PENDING_SQL, [limit, phase7Only, phase7Only ? [...PHASE7_RESULT_CODES] : []]);
+  if (phase7Only && result.rows.some(row => !PHASE7_RESULT_CODES.includes(String(row.code)))) throw new Error("INVALID_PROVENANCE");
+  return result.rows.map((row) => ({ eventId: Number(row.event_id), snapshotId: Number(row.snapshot_id), code: String(row.code),
     timeframe: String(row.timeframe) as "1D", side: String(row.side) as "LOWER" | "UPPER",
     sigmaLevel: Number(row.sigma_level) as 2 | 3, eventType: String(row.event_type) as PendingBollingerEvent["eventType"],
     close: Number(row.close), observationDate: normalizeDateOnly(row.observation_date) ?? "INVALID_DATE",
-    barEndAt: row.bar_end_at as string | Date }));
+    barEndAt: row.bar_end_at as string | Date, phase7Provenance: row.phase7_provenance === true }));
 }
 
 export async function runBollingerResultBatch(options: BollingerResultRunnerOptions) {
@@ -175,7 +168,10 @@ export async function runBollingerResultBatch(options: BollingerResultRunnerOpti
         completedHorizons: results.map((result) => result.horizon), calendar, calendarDiagnostics });
     } catch (error) {
       failedEvents += 1; const message = error instanceof Error ? error.message : "RESULT_EVALUATION_FAILED";
-      if (options.stopOnCanonicalMismatch && message.startsWith("CANONICAL_RESULT_MISMATCH")) throw error;
+      if (options.stopOnCanonicalMismatch && (error as { code?: string })?.code === "INVALID_PROVENANCE") throw error;
+      if (options.stopOnCanonicalMismatch && (message.startsWith("CANONICAL_RESULT_MISMATCH")
+        || message === "PHASE7_LEASE_LOST" || message === "INVALID_PHASE7_LEASE"
+        || message === "PHASE7_LEASE_CHECK_FAILED")) throw error;
       outcomes.push({ eventId: event.eventId, code: event.code, status: "EVALUATION_FAILED",
         reason: message.startsWith("CANONICAL_RESULT_MISMATCH") ? message : "RESULT_EVALUATION_FAILED",
         calendar, calendarDiagnostics });

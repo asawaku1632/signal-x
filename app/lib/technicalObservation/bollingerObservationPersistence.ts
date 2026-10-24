@@ -1,3 +1,7 @@
+import {
+  PHASE7_BEGIN_SQL, PHASE7_COMMIT_SQL, PHASE7_ROLLBACK_SQL, SNAPSHOT_COLUMNS, PHASE7_SNAPSHOT_SELECT_SQL, PHASE7_SNAPSHOT_INSERT_SQL, PHASE7_EVENT_INSERT_SQL,
+} from "./bollingerShadowQueries.ts";
+import { assertPhase7LeaseForSave, type Phase7LeaseOwner } from "./bollingerShadowLeaseFence.ts";
 import type {
   BollingerObservationCalculation,
   BollingerObservationEvent,
@@ -42,15 +46,6 @@ type QueryResult = { rows: Record<string, unknown>[]; rowCount: number | null };
 type QueryClient = { query(text: string, values?: unknown[]): Promise<QueryResult>; release(): void };
 export type BollingerObservationDatabase = { connect(): Promise<QueryClient> };
 
-const SNAPSHOT_COLUMNS = [
-  "code", "observation_date", "timeframe", "close", "bb_period", "bb_middle",
-  "standard_deviation", "bb_upper_1", "bb_upper_2", "bb_upper_3", "bb_lower_1",
-  "bb_lower_2", "bb_lower_3", "bb_sigma_position", "detector_version", "provider",
-  "provider_timestamp", "bar_start_at", "bar_end_at", "timezone", "rsi14", "macd",
-  "macd_signal", "macd_histogram", "macd_cross", "ema20", "ema75", "ema200", "atr14",
-  "volume_ratio_20", "rsi_availability", "macd_availability", "ema_availability",
-  "atr_availability", "volume_ratio_availability", "metadata",
-] as const;
 
 const NUMERIC_COLUMNS = new Set([
   "close", "bb_period", "bb_middle", "standard_deviation", "bb_upper_1", "bb_upper_2",
@@ -241,15 +236,16 @@ async function defaultDatabase(): Promise<BollingerObservationDatabase> {
 export async function saveBollingerObservation(
   input: BollingerObservationPersistenceInput,
   database?: BollingerObservationDatabase,
+  lease?: Phase7LeaseOwner,
 ) {
   const snapshot = mapBollingerObservationSnapshot(input);
   validateEvents(input.events);
   const client = await (database ?? await defaultDatabase()).connect();
   try {
-    await client.query("BEGIN");
+    await client.query(PHASE7_BEGIN_SQL);
+    if (lease) await assertPhase7LeaseForSave(client, lease);
     let selected = await client.query(
-      `SELECT id, ${SNAPSHOT_COLUMNS.join(", ")} FROM technical_bb_observation_snapshots
-       WHERE code=$1 AND timeframe=$2 AND bar_end_at=$3 AND detector_version=$4 FOR UPDATE`,
+      PHASE7_SNAPSHOT_SELECT_SQL,
       [snapshot.code, snapshot.timeframe, snapshot.bar_end_at, snapshot.detector_version],
     );
     let snapshotId: number;
@@ -262,18 +258,14 @@ export async function saveBollingerObservation(
       const values = SNAPSHOT_COLUMNS.map((column) =>
         column === "metadata" ? JSON.stringify(snapshot[column]) : snapshot[column]);
       const inserted = await client.query(
-        `INSERT INTO technical_bb_observation_snapshots (${SNAPSHOT_COLUMNS.join(", ")})
-         VALUES (${values.map((_, index) => `$${index + 1}${index === values.length - 1 ? "::jsonb" : ""}`).join(", ")})
-         ON CONFLICT ON CONSTRAINT technical_bb_observation_snapshots_idempotency_key DO NOTHING
-         RETURNING id`, values,
+        PHASE7_SNAPSHOT_INSERT_SQL, values,
       );
       if (inserted.rows[0]) {
         snapshotId = Number(inserted.rows[0].id);
         snapshotCreated = true;
       } else {
         selected = await client.query(
-          `SELECT id, ${SNAPSHOT_COLUMNS.join(", ")} FROM technical_bb_observation_snapshots
-           WHERE code=$1 AND timeframe=$2 AND bar_end_at=$3 AND detector_version=$4 FOR UPDATE`,
+          PHASE7_SNAPSHOT_SELECT_SQL,
           [snapshot.code, snapshot.timeframe, snapshot.bar_end_at, snapshot.detector_version],
         );
         if (!selected.rows[0]) throw new Error("SNAPSHOT_CONFLICT_NOT_FOUND");
@@ -286,17 +278,15 @@ export async function saveBollingerObservation(
     let eventsCreated = 0;
     for (const event of input.events) {
       const inserted = await client.query(
-        `INSERT INTO technical_bb_observation_events (snapshot_id,side,sigma_level,event_type)
-         VALUES ($1,$2,$3,$4)
-         ON CONFLICT ON CONSTRAINT technical_bb_observation_events_idempotency_key DO NOTHING`,
+        PHASE7_EVENT_INSERT_SQL,
         [snapshotId, event.side, event.sigmaLevel, event.type],
       );
       eventsCreated += inserted.rowCount ?? 0;
     }
-    await client.query("COMMIT");
+    await client.query(PHASE7_COMMIT_SQL);
     return { snapshotId, snapshotCreated, eventsCreated };
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query(PHASE7_ROLLBACK_SQL);
     throw error;
   } finally {
     client.release();

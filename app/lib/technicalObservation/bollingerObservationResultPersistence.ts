@@ -1,4 +1,8 @@
+import {
+  PHASE7_BEGIN_SQL, PHASE7_COMMIT_SQL, PHASE7_ROLLBACK_SQL, RESULT_COLUMNS, PHASE7_RESULT_SELECT_SQL, PHASE7_RESULT_INSERT_SQL,
+} from "./bollingerShadowQueries.ts";
 import { canonicalNumericEqual, normalizeDateOnly } from "./bollingerObservationPersistence.ts";
+import { assertPhase7LeaseForSave, type Phase7LeaseOwner } from "./bollingerShadowLeaseFence.ts";
 import { BOLLINGER_OBSERVATION_RESULT_VERSION } from "./bollingerObservationTypes.ts";
 import type { BollingerCompletedFutureResult } from "./bollingerObservationResultTypes.ts";
 
@@ -10,12 +14,6 @@ type QueryResult = { rows: Record<string, unknown>[]; rowCount: number | null };
 type QueryClient = { query(text: string, values?: unknown[]): Promise<QueryResult>; release(): void };
 export type BollingerResultDatabase = { connect(): Promise<QueryClient> };
 
-const RESULT_COLUMNS = [
-  "event_id", "horizon", "horizon_unit", "entry_price", "future_close", "return_percent",
-  "max_rise_percent", "max_drawdown_percent", "max_rise_trade_date",
-  "max_drawdown_trade_date", "evaluated_trade_date", "window_candle_count", "result_quality",
-  "result_version",
-] as const;
 const NUMERIC_RESULT_COLUMNS = new Set([
   "event_id", "horizon", "entry_price", "future_close", "return_percent", "max_rise_percent",
   "max_drawdown_percent", "window_candle_count",
@@ -76,7 +74,9 @@ async function defaultDatabase(): Promise<BollingerResultDatabase> {
 
 export async function saveBollingerObservationResults(
   inputs: readonly BollingerResultPersistenceInput[],
-  options: { database?: BollingerResultDatabase; evaluatedAt?: Date } = {},
+  options: { database?: BollingerResultDatabase; evaluatedAt?: Date;
+    validateParent?: (client: QueryClient, eventId: number) => Promise<void>;
+    lease?: Phase7LeaseOwner } = {},
 ) {
   if (inputs.length === 0) return { created: 0, existing: 0 };
   inputs.forEach(validateResult);
@@ -90,12 +90,14 @@ export async function saveBollingerObservationResults(
   let created = 0;
   let existing = 0;
   try {
-    await client.query("BEGIN");
+    await client.query(PHASE7_BEGIN_SQL);
+    if (options.lease) await assertPhase7LeaseForSave(client, options.lease);
+    // Phase 7 validates and locks provenance in the same transaction as the result INSERTs.
+    if (options.validateParent) await options.validateParent(client, eventId);
     for (const input of [...inputs].sort((a, b) => a.horizon - b.horizon)) {
       const expected = resultRow(input);
       let selected = await client.query(
-        `SELECT id, ${RESULT_COLUMNS.join(", ")} FROM technical_bb_observation_results
-         WHERE event_id=$1 AND horizon=$2 AND horizon_unit=$3 AND result_version=$4 FOR UPDATE`,
+        PHASE7_RESULT_SELECT_SQL,
         [input.eventId, input.horizon, input.horizonUnit, input.resultVersion],
       );
       if (selected.rows[0]) {
@@ -106,18 +108,14 @@ export async function saveBollingerObservationResults(
       }
       const values = RESULT_COLUMNS.map((column) => expected[column]);
       const inserted = await client.query(
-        `INSERT INTO technical_bb_observation_results (${RESULT_COLUMNS.join(", ")}, evaluated_at)
-         VALUES (${values.map((_, index) => `$${index + 1}`).join(", ")}, $${values.length + 1})
-         ON CONFLICT ON CONSTRAINT technical_bb_observation_results_idempotency_key DO NOTHING
-         RETURNING id`, [...values, evaluatedAt.toISOString()],
+        PHASE7_RESULT_INSERT_SQL, [...values, evaluatedAt.toISOString()],
       );
       if (inserted.rows[0]) {
         created += 1;
         continue;
       }
       selected = await client.query(
-        `SELECT id, ${RESULT_COLUMNS.join(", ")} FROM technical_bb_observation_results
-         WHERE event_id=$1 AND horizon=$2 AND horizon_unit=$3 AND result_version=$4 FOR UPDATE`,
+        PHASE7_RESULT_SELECT_SQL,
         [input.eventId, input.horizon, input.horizonUnit, input.resultVersion],
       );
       if (!selected.rows[0]) throw new Error("RESULT_CONFLICT_NOT_FOUND");
@@ -125,10 +123,10 @@ export async function saveBollingerObservationResults(
       if (mismatch) throw new Error(`CANONICAL_RESULT_MISMATCH:${mismatch}`);
       existing += 1;
     }
-    await client.query("COMMIT");
+    await client.query(PHASE7_COMMIT_SQL);
     return { created, existing };
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query(PHASE7_ROLLBACK_SQL);
     throw error;
   } finally {
     client.release();
