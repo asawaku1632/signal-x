@@ -3,6 +3,9 @@
  * This module does not query a provider, write to a DB or activate a scheduler.
  * A rights flag alone is never sufficient: documented evidence and an
  * exchange-session calendar verdict must both be provided by trusted code.
+ * IMPORTANT: this pure function only validates caller-supplied assertions;
+ * it does NOT authenticate rights evidence, provider identity, or exchange
+ * calendar decisions. Never use it as a standalone permission to write data.
  */
 export type FinalizationCandidate = {
   indexKey: unknown;
