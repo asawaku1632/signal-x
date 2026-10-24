@@ -52,7 +52,7 @@ export function checkFinalizationEligibility(c: FinalizationCandidate): Finaliza
     return { eligible: false, reason: "TIMESTAMP_UNVERIFIED" };
   if (typeof c.sourceRunId !== "string" || !c.sourceRunId.trim() ||
       typeof c.providerId !== "string" || !c.providerId.trim() ||
-      c.providerId.trim() === "licensed-provider-pending")
+      c.providerId.trim().toLowerCase() === "licensed-provider-pending")
     return { eligible: false, reason: "SOURCE_UNVERIFIED" };
   return { eligible: true, key: c.indexKey + ":" + c.sessionDate };
 }
