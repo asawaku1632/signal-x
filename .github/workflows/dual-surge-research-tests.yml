@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/lib/research/**'
       - 'tests/research/**'
+      - 'docs/research/dual-surge-frozen-baseline-20261024.json'
       - '.github/workflows/dual-surge-research-tests.yml'
   pull_request:
     paths:
@@ -29,4 +30,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run all isolated research tests
-        run: node --test tests/research/dualSurgeDetectors.test.mjs tests/research/dualSurgeEvaluation.test.mjs tests/research/dualSurgeLedger.test.mjs tests/research/dualSurgeComparison.test.mjs tests/research/dualSurgeQualityGates.test.mjs tests/research/dualSurgePreflight.test.mjs tests/research/dualSurgeAuditReport.test.mjs tests/research/dualSurgeRobustness.test.mjs tests/research/dualSurgeCalendar.test.mjs tests/research/dualSurgeEvidence.test.mjs tests/research/dualSurgeIntegrity.test.mjs
+        run: node --test tests/research/dualSurgeDetectors.test.mjs tests/research/dualSurgeEvaluation.test.mjs tests/research/dualSurgeLedger.test.mjs tests/research/dualSurgeComparison.test.mjs tests/research/dualSurgeQualityGates.test.mjs tests/research/dualSurgePreflight.test.mjs tests/research/dualSurgeAuditReport.test.mjs tests/research/dualSurgeRobustness.test.mjs tests/research/dualSurgeCalendar.test.mjs tests/research/dualSurgeEvidence.test.mjs tests/research/dualSurgeIntegrity.test.mjs tests/research/dualSurgeFrozenBaseline.test.mjs
