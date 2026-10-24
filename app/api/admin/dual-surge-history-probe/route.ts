@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 // Research-only JS detector is intentionally independent of production TS analysis.
-// @ts-expect-error Research-only .mjs module has no generated declaration.
+// @ts-ignore Research-only .mjs module has no generated declaration.
 import {inspectDualSurge} from "@/app/lib/research/dualSurgeDetectors.mjs";
 
 export const runtime="nodejs";
@@ -12,7 +12,7 @@ const endDate="2026-10-23";
 const fromDate="2026-09-01";
 type ProviderRow={Code?:unknown;Date?:unknown;O?:unknown;H?:unknown;L?:unknown;C?:unknown;Vo?:unknown;AdjFactor?:unknown};
 type Candle={time:number;open:number;high:number;low:number;close:number;volume:number};
-const positive=(v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>0;
+const positive=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v)&&v>0;
 function convert(row:ProviderRow,code:string):{date:string;bar:Candle;split:boolean}|null{
  if(typeof row.Code!=="string"||!row.Code.startsWith(code)||typeof row.Date!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.Date))return null;
  const {O,H,L,C,Vo}=row;
