@@ -8,6 +8,7 @@ on:
       - 'app/lib/learning/watchPowerHoldoutReadiness.ts'
       - 'app/admin/watch-power-holdout/page.tsx'
       - 'scripts/test-watch-power-holdout.cjs'
+      - 'scripts/test-watch-power-owner-page.cjs'
       - '.github/workflows/watch-power-holdout-research.yml'
   workflow_dispatch:
 
@@ -25,7 +26,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test scripts/test-watch-power-holdout.cjs
+      - run: node --test scripts/test-watch-power-holdout.cjs scripts/test-watch-power-owner-page.cjs
       - name: Generate Next.js route types
         run: npx next typegen
       - name: Typecheck research integration
