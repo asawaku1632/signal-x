@@ -5,7 +5,7 @@ import {maturityTable} from "./dualSurgePreflight.mjs";
 export const AUDIT_VERSION="DUAL_SURGE_AUDIT_V1";
 export function reconcileBaseline(ledger,baseline){
  validateLedger(ledger);
- if(!baseline||!Number.isInteger(baseline.independentFirstEvents)||!Number.isInteger(baseline.maturedFiveSession)||!Number.isInteger(baseline.pendingFiveSession))throw Error("INVALID_BASELINE");
+ if(!baseline||["independentFirstEvents","maturedFiveSession","pendingFiveSession","positiveFiveSession","negativeFiveSession"].some(k=>!Number.isSafeInteger(baseline[k])||baseline[k]<0)||baseline.maturedFiveSession+baseline.pendingFiveSession>baseline.independentFirstEvents||baseline.positiveFiveSession+baseline.negativeFiveSession>baseline.maturedFiveSession)throw Error("INVALID_BASELINE");
  const counts={events:ledger.length,matured:0,pending:0,excluded:0,positive:0,negative:0,flat:0};
  for(const e of ledger){
   const outcome=e.outcomes[5].legacyCloseToClose;
