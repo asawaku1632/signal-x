@@ -57,12 +57,12 @@ export async function GET(){
    const raw=await load(code,key,controller.signal);
    const valid=raw.map(r=>convert(r,code)).filter((x):x is NonNullable<typeof x>=>x!==null).sort((a,b)=>a.date.localeCompare(b.date));
    const unique=valid.filter((x,i)=>i===0||x.date!==valid[i-1].date);
-   const window=unique.slice(-21);
-   const complete=window.length===21&&window.at(-1)?.date===endDate;
+   const window=unique.slice(-22);
+   const complete=window.length===22&&window.at(-1)?.date===endDate;
    const split=window.some(x=>x.split);
    const evaluated=complete&&!split?inspectDualSurge(window.map(x=>x.bar)):null;
    results.push({code,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
-    latestDate:unique.at(-1)?.date||null,has21CompletedSessions:complete,corporateActionInWindow:split,
+    latestDate:unique.at(-1)?.date||null,has22CompletedSessions:complete,corporateActionInWindow:split,
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE"),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
   }
