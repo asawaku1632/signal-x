@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {inspectProviderRows,studyCoverage,maturityTable} from "../../app/lib/research/dualSurgePreflight.mjs";
+import {buildDualSurgeLedger} from "../../app/lib/research/dualSurgeLedger.mjs";
+const source=Array.from({length:24},(_,i)=>({Code:"37620",Date:"2026-09-"+String(i+1).padStart(2,"0"),O:100,H:101,L:99,C:100,Vo:1000,AdjFactor:1}));
+test("clean 24-session sample eligible",()=>assert.equal(inspectProviderRows(source,"3762").eligibleForStrictComparison,true));
+test("short sample is not eligible",()=>assert.equal(inspectProviderRows(source.slice(0,21),"3762").eligibleForStrictComparison,false));
+test("wrong stock code is counted",()=>{const r=structuredClone(source);r[0].Code="37629";assert.equal(inspectProviderRows(r,"3762").counts.wrongCode,1)});
+test("invalid price is counted",()=>{const r=structuredClone(source);r[0].H=1;assert.equal(inspectProviderRows(r,"3762").counts.invalidOHLCV,1)});
+test("duplicate date is counted",()=>{const r=structuredClone(source);r[1].Date=r[0].Date;assert.equal(inspectProviderRows(r,"3762").counts.duplicateDates,1)});
+test("missing adjustment is counted",()=>{const r=structuredClone(source);delete r[0].AdjFactor;assert.equal(inspectProviderRows(r,"3762").counts.missingAdjustment,1)});
+test("corporate action is counted",()=>{const r=structuredClone(source);r[0].AdjFactor=.5;assert.equal(inspectProviderRows(r,"3762").counts.corporateAction,1)});
+test("coverage lists excluded stocks",()=>{const a=inspectProviderRows(source,"3762");const b=inspectProviderRows(source.slice(0,21),"3996");const x=studyCoverage([a,b]);assert.equal(x.comparisonEligibleStocks,1);assert.equal(x.excludedStocks[0].code,"3996")});
+test("duplicate stock summaries are rejected",()=>{const a=inspectProviderRows(source,"3762");assert.throws(()=>studyCoverage([a,a]),/DUPLICATE_OR_INVALID_STUDY/)});
+test("maturity table separates pending from excluded",()=>{
+ const rows=Array.from({length:8},(_,i)=>({date:"D"+i,open:100,close:100+i,adjFactor:1}));
+ const ledger=buildDualSurgeLedger({code:"3762",rows,signals:[{date:"D6",cohort:"PRE"}]});
+ const t=maturityTable(ledger).find(x=>x.horizon===5);
+ assert.equal(t.events,1);assert.equal(t.legacy.pending,1);assert.equal(t.legacy.excluded,0);
+});
