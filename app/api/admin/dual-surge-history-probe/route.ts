@@ -126,7 +126,18 @@ export async function GET(){
      continuationFiveDayMatured:continuationFive.length,
      continuationFiveDayAveragePct:continuationFive.length?Number((continuationFive.reduce((a,b)=>a+b,0)/continuationFive.length).toFixed(3)):null};
    });
-   results.push({code,historical,forward,events,eventSummary,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
+   const firstSignalFeatures=events.map(event=>{
+    const index=unique.findIndex(x=>x.date===event.startDate);
+    const inspected=inspectDualSurge(unique.slice(index-21,index+1).map(x=>x.bar));
+    const fiveDay=event.firstReturns["5"];
+    return {date:event.startDate,cohort:event.cohort,
+     volumeRatio:inspected.features?Number(inspected.features.volumeRatio.toFixed(3)):null,
+     dailyReturnPct:inspected.features?Number(inspected.features.dailyReturn.toFixed(3)):null,
+     distanceFrom20DayHighPct:inspected.features?Number(inspected.features.highDistance.toFixed(3)):null,
+     fiveDayReturnPct:fiveDay,
+     fiveDayOutcome:fiveDay===null?"PENDING":fiveDay>0?"UP":fiveDay<0?"DOWN":"FLAT"};
+   });
+   results.push({code,historical,forward,events,eventSummary,firstSignalFeatures,recordsReceived:raw.length,validOHLCV:valid.length,invalidOrMissingOHLCV:raw.length-valid.length,
     latestDate:unique.at(-1)?.date||null,has22CompletedSessions:complete,corporateActionInWindow:split,
     detectorAvailable:evaluated?.available===true,detectorReason:evaluated?.available===true?null:(evaluated?.reason||(!complete?"INSUFFICIENT_FRESH_HISTORY":split?"CORPORATE_ACTION_UNADJUSTED":"UNAVAILABLE")),
     cohorts:evaluated?.available===true?evaluated.signals.map((s:{cohort:string})=>s.cohort):[]});
