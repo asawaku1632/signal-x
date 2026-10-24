@@ -44,7 +44,8 @@ export function checkFinalizationEligibility(c: FinalizationCandidate): Finaliza
       !/(Z|[+-]\d{2}:\d{2})$/.test(c.observedAt))
     return { eligible: false, reason: "TIMESTAMP_UNVERIFIED" };
   if (typeof c.sourceRunId !== "string" || !c.sourceRunId.trim() ||
-      typeof c.providerId !== "string" || !c.providerId.trim())
+      typeof c.providerId !== "string" || !c.providerId.trim() ||
+      c.providerId.trim() === "licensed-provider-pending")
     return { eligible: false, reason: "SOURCE_UNVERIFIED" };
   return { eligible: true, key: c.indexKey + ":" + c.sessionDate };
 }
