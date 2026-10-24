@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {buildDualSurgeLedger,summarizeLedger} from "../../app/lib/research/dualSurgeLedger.mjs";
+const rows=Array.from({length:12},(_,i)=>({date:"D"+String(i).padStart(2,"0"),open:100+i,close:100+i,adjFactor:1}));
+const signals=[{date:"D00",cohort:"PRE_SURGE_V1"},{date:"D01",cohort:"PRE_SURGE_V1"},{date:"D04",cohort:"SURGE_START_V1"}];
+test("one event for consecutive same-cohort days",()=>{const ledger=buildDualSurgeLedger({code:"TEST",rows,signals});assert.equal(ledger.length,2);assert.equal(ledger[0].signalDays,2)});
+test("legacy close and next-open outcomes remain distinct",()=>{const ledger=buildDualSurgeLedger({code:"TEST",rows,signals});assert.equal(ledger[0].outcomes[5].legacyCloseToClose.returnPct,5);assert.notEqual(ledger[0].outcomes[5].nextOpenToFutureClose.returnPct,5)});
+test("summaries separate cohorts and metrics",()=>{const ledger=buildDualSurgeLedger({code:"TEST",rows,signals});assert.equal(summarizeLedger(ledger).length,2);assert.equal(summarizeLedger(ledger,{metric:"legacyCloseToClose"})[0].metric,"legacyCloseToClose")});
+test("pending is not counted as a loss",()=>{const ledger=buildDualSurgeLedger({code:"TEST",rows,signals:[{date:"D10",cohort:"PRE_SURGE_V1"}]});const summary=summarizeLedger(ledger)[0];assert.equal(summary.pending,1);assert.equal(summary.matured,0);assert.equal(summary.positive,0)});
+test("unknown adjustment excludes instead of fabricating return",()=>{const bad=structuredClone(rows);delete bad[2].adjFactor;const ledger=buildDualSurgeLedger({code:"TEST",rows:bad,signals:[{date:"D00",cohort:"PRE_SURGE_V1"}]});assert.equal(summarizeLedger(ledger)[0].excluded,1)});
+test("duplicate sessions are rejected",()=>{const bad=structuredClone(rows);bad[1].date=bad[0].date;assert.throws(()=>buildDualSurgeLedger({code:"TEST",rows:bad,signals}),/INVALID_SESSIONS/)});
+test("out-of-order sessions are rejected",()=>{const bad=[...rows].reverse();assert.throws(()=>buildDualSurgeLedger({code:"TEST",rows:bad,signals}),/INVALID_SESSIONS/)});
+test("invalid metric is rejected",()=>assert.throws(()=>summarizeLedger([],{metric:"wrong"}),/INVALID_SUMMARY/));
