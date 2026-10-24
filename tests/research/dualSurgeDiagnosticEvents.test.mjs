@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {compareEventIdentities} from "../../app/lib/research/dualSurgeEvidence.mjs";
+import {eventIdentity} from "../../app/lib/research/dualSurgeEvidence.mjs";
 
 const read=path=>JSON.parse(readFileSync(new URL(path,import.meta.url),"utf8"));
 const reference=read("../../docs/research/dual-surge-user-diagnostic-events-20261025.json");
@@ -10,7 +10,7 @@ const events=reference.events;
 const matured=events.filter(e=>e.status==="MATURED");
 const pending=events.filter(e=>e.status==="PENDING");
 test("all 24 event identities are present",()=>assert.equal(events.length,baseline.eventCounts.independentFirstEvents));
-test("all event identities are unique",()=>assert.equal(compareEventIdentities(events,events).identical,true));
+test("all event identities are unique",()=>assert.equal(new Set(events.map(eventIdentity)).size,events.length));
 test("matured events match frozen count",()=>assert.equal(matured.length,baseline.eventCounts.maturedFiveSession));
 test("pending events match frozen count",()=>assert.equal(pending.length,baseline.eventCounts.pendingFiveSession));
 test("positive matured returns match frozen count",()=>assert.equal(matured.filter(e=>e.returnPct>0).length,baseline.eventCounts.positiveFiveSession));
