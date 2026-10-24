@@ -82,7 +82,7 @@ test("accept explicit UTC timestamps and reject timezone-free ones", () => {
 });
 
 test("fail closed for structurally invalid input objects", () => {
-  assert.deepEqual(checkFinalizationEligibility([] as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  assert.deepEqual(checkFinalizationEligibility([] as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
   assert.deepEqual(checkFinalizationEligibility({} as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
 });
 
