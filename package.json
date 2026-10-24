@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test:market-index-research && next build",
     "start": "next start",
     "lint": "eslint",
     "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
