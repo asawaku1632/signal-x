@@ -17,3 +17,6 @@ test("calendar embargo is explicit",()=>{const x=chronologicalHoldout(events,{cu
 test("signal-date aggregation clusters stocks",()=>{const x=aggregateBySignalDate(events);assert.equal(x.find(r=>r.date==="2026-09-03").events,2)});
 test("unsupported horizon rejected",()=>assert.throws(()=>aggregateBySignalDate(events,{horizon:2}),/INVALID_INPUT/));
 test("empty holdout is not falsely complete",()=>assert.equal(chronologicalHoldout(events,{cutoffDate:"2027-01-01"}).hasBothPartitions,false));
+
+test("invalid cutoff date rejected",()=>assert.throws(()=>chronologicalHoldout(events,{cutoffDate:"2026-02-30"}),/INVALID_SPLIT/));
+test("invalid event date rejected",()=>assert.throws(()=>chronologicalHoldout([{...events[0],startDate:"2026-02-30"}],{cutoffDate:"2026-10-01"}),/INVALID_EVENT_DATE/));
