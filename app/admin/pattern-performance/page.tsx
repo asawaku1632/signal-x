@@ -1,3 +1,4 @@
+import pool from "@/app/lib/postgres";
 import { getAdminSession } from "@/app/lib/admin";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import {
@@ -37,11 +38,67 @@ export default async function PatternPerformancePage() {
     );
   }
 
-  const stats = await getPatternForwardStats();
+  const [stats, mixedDirections, detectionCohorts] = await Promise.all([
+    getPatternForwardStats(),
+    pool.query<{
+      pattern_id: string;
+      directions: string;
+      samples: number;
+      breakdown: Array<{ direction: string; detected: number; completed: number; hits: number }>;
+    }>(`
+      WITH per_direction AS (
+        SELECT pattern_id, direction,
+               COUNT(*)::int AS detected,
+               COUNT(return_5d)::int AS completed,
+               COUNT(*) FILTER (WHERE success_5d IS TRUE)::int AS hits
+        FROM public.pattern_forward_observations
+        GROUP BY pattern_id, direction
+      )
+      SELECT pattern_id,
+             STRING_AGG(direction, ', ' ORDER BY direction) AS directions,
+             SUM(detected)::int AS samples,
+             JSON_AGG(
+               JSON_BUILD_OBJECT('direction', direction, 'detected', detected,
+                                 'completed', completed, 'hits', hits)
+               ORDER BY direction
+             ) AS breakdown
+      FROM per_direction
+      GROUP BY pattern_id
+      HAVING COUNT(*) > 1
+      ORDER BY SUM(detected) DESC
+      LIMIT 20
+    `),
+    pool.query<{ detection_date: string; detected: number; completed_5d: number; stocks: number; later_saved_sessions: number }>(`
+      WITH recent_cohorts AS (
+        SELECT trade_date,
+               COUNT(*)::int AS detected,
+               COUNT(return_5d)::int AS completed_5d,
+               COUNT(DISTINCT code)::int AS stocks
+        FROM public.pattern_forward_observations
+        GROUP BY trade_date
+        ORDER BY trade_date DESC
+        LIMIT 15
+      ),
+      available_sessions AS (
+        SELECT DISTINCT date::date AS session_date
+        FROM public.daily_stock_results
+        WHERE date::date > (SELECT MIN(trade_date) FROM recent_cohorts)
+      )
+      SELECT cohort.trade_date::text AS detection_date,
+             cohort.detected, cohort.completed_5d, cohort.stocks,
+             COUNT(session.session_date)::int AS later_saved_sessions
+      FROM recent_cohorts cohort
+      LEFT JOIN available_sessions session ON session.session_date > cohort.trade_date
+      GROUP BY cohort.trade_date, cohort.detected, cohort.completed_5d, cohort.stocks
+      ORDER BY cohort.trade_date DESC
+    `),
+  ]);
+  const mixedDirectionIds = new Set(mixedDirections.rows.map((row) => row.pattern_id));
   const byId = new Map(stats.map((item) => [item.patternId, item]));
   const totalSamples = stats.reduce((sum, item) => sum + item.sampleCount, 0);
   const completed5d = stats.reduce((sum, item) => sum + item.completed5dCount, 0);
   const validated = stats.filter((item) => item.validationStatus === "VALIDATED").length;
+  const completedRate = totalSamples > 0 ? (completed5d / totalSamples * 100).toFixed(1) : null;
   const promising = stats.filter((item) => item.validationStatus === "PROMISING").length;
 
   return (
@@ -52,11 +109,35 @@ export default async function PatternPerformancePage() {
         BUYは上昇、SELLは下落を「的中」として集計し、コマなどNEUTRALは勝敗を付けず値動きだけ記録します。
       </p>
 
+      <p style={{ marginTop: 10, color: "#92400e", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 12, lineHeight: 1.7 }}>
+        勝率は観測した全件ではなく、該当営業日まで追跡が完了した方向判定可能な件数を母数とします。
+        「発生」と「5日確定」は異なります。追跡率は検出記録のうち5日後まで確定した割合で、的中率ではありません。SELLの「方向補正」は株価下落をプラス評価する研究指標であり、
+        実際の買い持ち損益とは異なります。必ず隣の「5日平均(株価)」と併せて確認してください。
+      </p>
+
+      {mixedDirections.rows.length > 0 && (
+        <p style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fff7ed", border: "1px solid #fdba74", lineHeight: 1.7 }}>
+          ⚠ 同一パターンIDに複数の売買方向が混在しています。方向別に分けない集計の勝率・平均・AI反映評価は参考値です。
+          {mixedDirections.rows.map((row) => (
+            <span key={row.pattern_id} style={{ display: "block" }}>
+              {row.pattern_id}: {row.directions}（{row.samples}件）
+              {row.breakdown.map((part) => (
+                <span key={part.direction} style={{ display: "block", paddingLeft: 14 }}>
+                  {part.direction}: 検出{part.detected}件 / 5日確定{part.completed}件 / {part.direction === "NEUTRAL" ? "的中判定なし" : `的中${part.hits}件${part.completed > 0 ? `（${(part.hits / part.completed * 100).toFixed(1)}%）` : ""}`}
+                </span>
+              ))}
+            </span>
+          ))}
+          既存の売買判定はこの画面から変更しません。
+        </p>
+      )}
+
       <section style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
         {[
           ["対象パターン", chartPatternCatalog.length],
           ["検出記録", totalSamples],
           ["5日後確定", completed5d],
+          ["5日後追跡率", completedRate === null ? "—" : `${completedRate}%`],
           ["検証済み", validated],
           ["有望", promising],
         ].map(([label, value]) => (
@@ -67,11 +148,50 @@ export default async function PatternPerformancePage() {
         ))}
       </section>
 
+      <p style={{ marginTop: 12, color: "#334155", lineHeight: 1.7 }}>
+        {validated === 0
+          ? "現在、検証済みパターンは0件です。検証済みパターン由来のAI POWER加点・減点は発生しません。"
+          : "検証済みパターンがあります。既存のAI POWER自動反映経路の影響を別途監査してください。"}
+      </p>
+
+      <section style={{ marginTop: 18, padding: 14, border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 900 }}>📅 検出日別・5営業日後の追跡状況</h2>
+        <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
+          検出日ごとの保存件数と5日後確定件数です。未確定は未到達または追跡処理待ちを含みます。後続の保存営業日が5日以上ある未確定分は、追跡漏れの可能性として要確認です（銘柄別の欠損もあり得ます）。
+        </p>
+        <div style={{ overflowX: "auto", marginTop: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 690 }}>
+            <thead><tr style={{ background: "#f8fafc" }}>
+              {["検出日", "検出件数", "銘柄数", "5日確定", "未確定", "後続保存日数", "状態"].map((heading) => (
+                <th key={heading} style={{ padding: 9, textAlign: "left", fontSize: 12 }}>{heading}</th>
+              ))}
+            </tr></thead>
+            <tbody>{detectionCohorts.rows.map((cohort) => (
+              <tr key={cohort.detection_date}>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detection_date}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detected}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.stocks}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.completed_5d}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.detected - cohort.completed_5d}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb" }}>{cohort.later_saved_sessions}</td>
+                <td style={{ padding: 9, borderTop: "1px solid #e5e7eb", fontWeight: 800 }}>
+                  {cohort.later_saved_sessions >= 5 && cohort.completed_5d < cohort.detected
+                    ? "⚠ 追跡要確認"
+                    : cohort.completed_5d === cohort.detected
+                      ? "✅ 全件確定"
+                      : "⏳ 5日未到達"}
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </section>
+
       <section style={{ marginTop: 18, overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
           <thead>
             <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-              {["ID", "パターン", "方向", "状態", "AI反映", "発生", "1日勝率", "3日勝率", "5日勝率", "5日平均", "5日中央値", "銘柄数", "日数"].map((heading) => (
+              {["ID", "パターン", "方向", "状態", "AI反映", "発生", "5日確定", "1日勝率", "3日勝率", "5日勝率", "5日平均(方向補正)", "5日平均(株価)", "5日中央値(方向補正)", "銘柄数", "日数"].map((heading) => (
                 <th key={heading} style={{ padding: "12px 10px", borderBottom: "1px solid #e5e7eb", fontSize: 12 }}>{heading}</th>
               ))}
             </tr>
@@ -80,22 +200,25 @@ export default async function PatternPerformancePage() {
             {chartPatternCatalog.map((pattern) => {
               const item = byId.get(pattern.id);
               const status = item?.validationStatus ?? "NOT_SEEN";
+              const mixedDirection = mixedDirectionIds.has(pattern.id);
               return (
                 <tr key={pattern.id}>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontFamily: "monospace" }}>{pattern.id}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{pattern.name}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{pattern.direction}</td>
-                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{statusLabel(status)}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{mixedDirection ? "⚠ 方向混在・要分離" : statusLabel(status)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>
-                    {item && calculateValidatedPatternStatBonus(item) !== 0
+                    {!mixedDirection && item && calculateValidatedPatternStatBonus(item) !== 0
                       ? `${calculateValidatedPatternStatBonus(item) > 0 ? "+" : ""}${calculateValidatedPatternStatBonus(item)}`
                       : "—"}
                   </td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.sampleCount ?? 0}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{item?.completed5dCount ?? 0}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate1d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{percent(item?.winRate3d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9", fontWeight: 900 }}>{percent(item?.winRate5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.avgDirectionalReturn5d ?? null)}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.avgRawReturn5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{signed(item?.medianDirectionalReturn5d ?? null)}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.distinctCodes ?? 0}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f1f5f9" }}>{item?.distinctDates ?? 0}</td>

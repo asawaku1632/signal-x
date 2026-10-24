@@ -220,13 +220,16 @@ export default async function GoldenZonePage() {
                   <span>100株最悪例 <b className="tabular-nums">{ready ? signedYen(row.worstHundredSharePnl) : "—"}</b></span>
                 </div>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-300">
+                  暫定参考：上昇 {row.up}/{row.judged}件（{row.judged ? pct(100 * row.up / row.judged) : "—"}）・±2%方向一致 {row.wins}/{row.wins + row.losses}件（{pct(rate(row.wins, row.losses))}、HOLD除外）。{ready ? "必要日数を満たしています。" : "観測日数が不足しているため優劣は未判定です。"}
+                </p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-300">
                   WIN {row.wins} / LOSE {row.losses} / HOLD {row.holds} ・AI POWER 80以上:
                   {row.highAiJudged}件（±2%勝率 {row.highAiJudged >= 30 && ready ? pct(rate(row.highAiWins, row.highAiLosses)) : "収集中"}）
                 </p>
               </div>;
             })}
           </div>
-          <p className="mt-3 text-xs leading-5 text-slate-500">100株損益は観測価格と翌営業日の保存価格の差を100倍した仮定の数値で、実際に約定できる価格・利益ではありません。手数料・税金・スリッページは未考慮。サンプルはスキャン上位最大30銘柄で無作為抽出ではなく、同じ銘柄の複数時刻観測も含むため独立した試行ではありません。過去実績は将来の成績を保証しません。</p>
+          <p className="mt-3 text-xs leading-5 text-slate-500">「上昇率」は翌営業日の保存参考価格が観測価格を上回った件数の割合で、±2%勝率とは異なります。暫定参考値は研究条件の採用根拠にしません。100株損益は観測価格と翌営業日の保存価格の差を100倍した仮定の数値で、実際に約定できる価格・利益ではありません。手数料・税金・スリッページは未考慮。サンプルはスキャン上位最大30銘柄で無作為抽出ではなく、同じ銘柄の複数時刻観測も含むため独立した試行ではありません。過去実績は将来の成績を保証しません。</p>
           <p className="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">観測は既存の幅広いスキャンの保存データを再利用します。新鮮なスキャンが存在しない時刻や休場日は自動でスキップするため、スケジュール追加後も空欄になることがあります。売買・通知・AI POWERへの反映はありません。</p>
         </section>
       </div>
