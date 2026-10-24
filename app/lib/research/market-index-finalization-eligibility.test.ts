@@ -62,3 +62,8 @@ test("reject malformed calendar days and negative observations", () => {
   reject({ value: -100 }, "OBSERVATION_UNAVAILABLE");
   reject({ value: "40000" }, "OBSERVATION_UNAVAILABLE");
 });
+
+test("fail closed on malformed top-level input", () => {
+  assert.deepEqual(checkFinalizationEligibility(null as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+  assert.deepEqual(checkFinalizationEligibility(undefined as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_CANDIDATE" });
+});
