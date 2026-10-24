@@ -1,0 +1,26 @@
+name: Market index research eligibility tests
+
+on:
+  push:
+    branches:
+      - research/market-index-shadow-20261021
+    paths:
+      - "app/lib/research/market-index-finalization-eligibility.ts"
+      - "app/lib/research/market-index-finalization-eligibility.test.ts"
+      - ".github/workflows/market-index-research-eligibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eligibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run isolated TypeScript eligibility tests
+        run: node --experimental-strip-types --test app/lib/research/market-index-finalization-eligibility.test.ts
