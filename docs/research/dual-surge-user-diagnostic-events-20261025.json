@@ -1,0 +1,210 @@
+{
+  "schemaVersion": "DUAL_SURGE_USER_DIAGNOSTIC_EVENT_REFERENCE_V1",
+  "study": "CURATED_20_BATCH",
+  "asOfDate": "2026-10-23",
+  "source": "USER_PROVIDED_JQUANTS_V2_READ_ONLY_HISTORICAL_DIAGNOSTICS",
+  "sourceFiles": [
+    {
+      "batch": 1,
+      "filename": "貼り付けたMarkdown(3).md",
+      "sha256": "70d790f8597b322a65bbdec56ff383c4c4a4c4dbcf0de833bf4eabb92d488224"
+    },
+    {
+      "batch": 2,
+      "filename": "貼り付けたMarkdown(4).md",
+      "sha256": "f505d54fdd8d38d176e2943040ff64f7addb6a4cfaf74f87141b9c43bc0cb07e"
+    },
+    {
+      "batch": 3,
+      "filename": "貼り付けたMarkdown(5).md",
+      "sha256": "6f2e45909d2370918325525905ef4b1fcf70c2202918baf08e7a60b614a88ccf"
+    },
+    {
+      "batch": 4,
+      "filename": "貼り付けたMarkdown(6).md",
+      "sha256": "178a68330fb15e3212861845a57a633e72bd452d401af5e1f97038ab0482fa03"
+    },
+    {
+      "batch": 5,
+      "filename": "貼り付けたMarkdown(7).md",
+      "sha256": "beceee12f6457ed8277c281ad41f58e8807936507beac2496570728dfa583d0c"
+    }
+  ],
+  "metric": "legacyCloseToClose",
+  "horizon": 5,
+  "events": [
+    {
+      "code": "3762",
+      "cohort": "SURGE_START_V1",
+      "startDate": "2026-10-06",
+      "status": "MATURED",
+      "returnPct": 22.476
+    },
+    {
+      "code": "3762",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-22",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "3996",
+      "cohort": "SURGE_START_V1",
+      "startDate": "2026-10-13",
+      "status": "MATURED",
+      "returnPct": -1.961
+    },
+    {
+      "code": "9684",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-16",
+      "status": "MATURED",
+      "returnPct": -1.684
+    },
+    {
+      "code": "9684",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-22",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "7203",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-15",
+      "status": "MATURED",
+      "returnPct": 1.816
+    },
+    {
+      "code": "6758",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-09",
+      "status": "MATURED",
+      "returnPct": 3.828
+    },
+    {
+      "code": "6758",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-19",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "6758",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-21",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "6758",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-23",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "6501",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-13",
+      "status": "MATURED",
+      "returnPct": 0.798
+    },
+    {
+      "code": "6501",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-16",
+      "status": "MATURED",
+      "returnPct": -3.605
+    },
+    {
+      "code": "6501",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-21",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "7974",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-16",
+      "status": "MATURED",
+      "returnPct": 0.708
+    },
+    {
+      "code": "9432",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-13",
+      "status": "MATURED",
+      "returnPct": 2.193
+    },
+    {
+      "code": "6098",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-15",
+      "status": "MATURED",
+      "returnPct": 4.325
+    },
+    {
+      "code": "4519",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-23",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "6981",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-06",
+      "status": "MATURED",
+      "returnPct": -15.041
+    },
+    {
+      "code": "9101",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-08",
+      "status": "MATURED",
+      "returnPct": 0.457
+    },
+    {
+      "code": "4661",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-15",
+      "status": "MATURED",
+      "returnPct": 5.196
+    },
+    {
+      "code": "4661",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-23",
+      "status": "PENDING",
+      "returnPct": null
+    },
+    {
+      "code": "4502",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-08",
+      "status": "MATURED",
+      "returnPct": 6.998
+    },
+    {
+      "code": "4502",
+      "cohort": "SURGE_START_V1",
+      "startDate": "2026-10-15",
+      "status": "MATURED",
+      "returnPct": 2.669
+    },
+    {
+      "code": "4502",
+      "cohort": "PRE_SURGE_V1",
+      "startDate": "2026-10-22",
+      "status": "PENDING",
+      "returnPct": null
+    }
+  ],
+  "limitations": [
+    "Extracted from five user-provided diagnostic outputs, not independently fetched J-Quants OHLCV.",
+    "No independent provider license verification or raw price-row replay.",
+    "Historical gross signal-close to future-close diagnostic; not executable or predictive."
+  ]
+}
