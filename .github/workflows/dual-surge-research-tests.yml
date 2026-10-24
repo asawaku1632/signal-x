@@ -7,6 +7,11 @@ on:
       - 'app/lib/research/**'
       - 'tests/research/**'
       - '.github/workflows/dual-surge-research-tests.yml'
+  pull_request:
+    paths:
+      - 'app/lib/research/**'
+      - 'tests/research/**'
+      - '.github/workflows/dual-surge-research-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
