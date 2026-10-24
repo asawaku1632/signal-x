@@ -20,14 +20,38 @@ export default function MyPage() {
   const [favoriteCount, setFavoriteCount] = useState(0);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("signalx-favorites");
-      const favorites: string[] = saved ? JSON.parse(saved) : [];
-      setFavoriteCount(Array.isArray(favorites) ? favorites.length : 0);
-    } catch {
+    if (status !== "authenticated") {
       setFavoriteCount(0);
+      return;
     }
-  }, []);
+
+    const controller = new AbortController();
+    const refreshFavoriteCount = async () => {
+      try {
+        const response = await fetch("/api/favorites", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("お気に入り件数の取得に失敗しました");
+        const data: { success?: boolean; count?: number; favorites?: unknown[] } = await response.json();
+        if (!data.success) throw new Error("お気に入り件数の取得に失敗しました");
+        if (!controller.signal.aborted) {
+          setFavoriteCount(
+            typeof data.count === "number"
+              ? data.count
+              : Array.isArray(data.favorites) ? data.favorites.length : 0
+          );
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("favorite count load error:", error);
+        }
+      }
+    };
+
+    void refreshFavoriteCount();
+    return () => controller.abort();
+  }, [status]);
 
   const accountName = session?.user?.name ?? "ユーザー";
   const accountEmail = session?.user?.email ?? "メールアドレス未取得";
