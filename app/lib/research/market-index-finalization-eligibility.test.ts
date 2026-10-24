@@ -80,3 +80,28 @@ test("accept explicit UTC timestamps and reject timezone-free ones", () => {
   assert.deepEqual(checkFinalizationEligibility({ ...candidate, observedAt: "2026-10-23T06:00:00Z" }), { eligible: true, key: "nikkei:2026-10-23" });
   reject({ observedAt: "2026-10-23T06:00:00" }, "TIMESTAMP_UNVERIFIED");
 });
+
+test("fail closed for structurally invalid input objects", () => {
+  assert.deepEqual(checkFinalizationEligibility([] as unknown as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+  assert.deepEqual(checkFinalizationEligibility({} as FinalizationCandidate), { eligible: false, reason: "INVALID_INDEX" });
+});
+
+test("reject non-boolean rights and session verification", () => {
+  reject({ providerRightsVerified: 1 }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ providerRightsVerified: null }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ exchangeSessionVerified: "true" }, "SESSION_UNVERIFIED");
+  reject({ exchangeSessionVerified: null }, "SESSION_UNVERIFIED");
+});
+
+test("reject non-string provenance and unsupported status", () => {
+  reject({ rightsEvidenceId: 123 }, "PROVIDER_RIGHTS_UNVERIFIED");
+  reject({ providerId: 123 }, "SOURCE_UNVERIFIED");
+  reject({ sourceRunId: "  " }, "SOURCE_UNVERIFIED");
+  reject({ status: "pending" }, "OBSERVATION_UNAVAILABLE");
+});
+
+test("does not mutate the input candidate", () => {
+  const frozen = Object.freeze({ ...candidate });
+  assert.deepEqual(checkFinalizationEligibility(frozen), { eligible: true, key: "nikkei:2026-10-23" });
+  assert.deepEqual(frozen, candidate);
+});
