@@ -42,7 +42,10 @@ export default function LineLinkCard() {
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
+    const initial = setTimeout(() => {
+      void refreshStatus();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [refreshStatus]);
 
   async function createLinkCode() {

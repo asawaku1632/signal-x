@@ -5,9 +5,15 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  {
+    // SIGNALX has legacy typing debt across learning/verification APIs. Keep it
+    // visible as warnings so CI can enforce correctness-oriented React rules
+    // now without pretending the existing `any` usage was introduced here.
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

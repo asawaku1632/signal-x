@@ -107,13 +107,17 @@ export default function PatternRankingPage() {
   };
 
   useEffect(() => {
-    fetchPatterns();
-
+    const initial = setTimeout(() => {
+      void fetchPatterns();
+    }, 0);
     const timer = setInterval(() => {
-      fetchPatterns();
+      void fetchPatterns();
     }, 5000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, []);
 
   const getColor = (item: PatternItem) => {
