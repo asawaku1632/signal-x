@@ -120,9 +120,7 @@ export function compareSessionEvidenceClaims(
     return { consistent: false, reason: "EVIDENCE_NOT_REVIEWABLE" };
   if (first.indexKey !== second.indexKey || first.sessionDate !== second.sessionDate)
     return { consistent: false, reason: "SESSION_IDENTITY_MISMATCH" };
-  if (a.calendarSourceId === b.calendarSourceId &&
-      a.calendarVersion === b.calendarVersion &&
-      a.verifierId === b.verifierId)
+  if (a.calendarSourceId === b.calendarSourceId)
     return { consistent: false, reason: "NOT_INDEPENDENT_EVIDENCE" };
   if (a.sessionClaim !== b.sessionClaim)
     return { consistent: false, reason: "SESSION_CLAIM_CONFLICT" };
