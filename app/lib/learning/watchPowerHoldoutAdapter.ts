@@ -40,6 +40,6 @@ export function evaluateFrozenSwingHoldout(rows: FrozenSwingRow[]) {
 /** Suggested read-only server-side SQL, to be executed only in owner-authorized context:
  * SELECT code, trade_date, decision_status, ai_power, return_5d
  * FROM public.swing_universe_observations
- * WHERE trade_date > DATE '2026-10-16' AND decision_status = 'WATCH'
+ * WHERE trade_date > DATE '2026-10-24' AND decision_status = 'WATCH'
  * ORDER BY trade_date, code;
  */
