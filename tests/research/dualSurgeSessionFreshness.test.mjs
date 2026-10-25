@@ -14,3 +14,12 @@ test("date mismatch blocks",()=>assert.ok(assessSessionFreshness({...valid(),ses
 test("invalid calendar date blocks",()=>assert.ok(assessSessionFreshness({...valid(),exchangeDate:"2026-02-30"}).reasons.includes("SESSION_DATE_MISMATCH")));
 test("source from other session blocks",()=>assert.ok(assessSessionFreshness({...valid(),sourceTimestamp:"2026-10-22T06:10:00Z"}).reasons.includes("SOURCE_SESSION_DATE_MISMATCH")));
 test("invalid freshness threshold blocks",()=>assert.ok(assessSessionFreshness({...valid(),maximumAgeMinutes:0}).reasons.includes("INVALID_FRESHNESS_LIMIT")));
+
+test("Tokyo session date accepts previous UTC calendar day",()=>{
+ const r=assessSessionFreshness({...valid(),exchangeDate:"2026-10-24",sessionDate:"2026-10-24",sourceTimestamp:"2026-10-23T23:50:00Z",asOf:"2026-10-24T00:00:00Z"});
+ assert.equal(r.available,true);
+});
+test("Tokyo session date rejects next-day mismatch",()=>{
+ const r=assessSessionFreshness({...valid(),sourceTimestamp:"2026-10-23T23:50:00Z",asOf:"2026-10-24T00:00:00Z"});
+ assert.ok(r.reasons.includes("SOURCE_SESSION_DATE_MISMATCH"));
+});
