@@ -34,4 +34,18 @@ jobs:
         with:
           node-version: '22'
       - name: Offline research safety tests
+        id: audit
         run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs
+      - name: Record audit evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Dual Surge research safety audit'
+            echo ''
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- Offline test step: ${{ steps.audit.outcome }}"
+            echo '- Production approval: NO'
+            echo '- J-Quants provider permission: UNVERIFIED'
+          } >> "$GITHUB_STEP_SUMMARY"
