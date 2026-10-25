@@ -3,6 +3,7 @@ import { getAdminSession } from "@/app/lib/admin";
 import { buildResearchDashboardModel } from "@/app/lib/research/market-index-dashboard-model";
 import { summarizeMarketIndexReadiness } from "@/app/lib/research/market-index-readiness";
 import { reviewProviderDraft } from "@/app/lib/research/market-index-provider-review";
+import { assessLicenseResponseDraft } from "@/app/lib/research/market-index-license-response";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,13 @@ export async function GET() {
     sourceState: "NO_CONNECTED_EVIDENCE",
     hasLiveEvidence: false,
     model: result.model,
+    licenseResponse: assessLicenseResponseDraft({
+      indexKey: null, providerId: "", contractReference: "",
+      verifiedSigner: false, rightsForDisplay: false,
+      rightsForAutomatedProcessing: false, rightsForRetention: false,
+      rightsForRedistribution: false, rightsForPaidUsers: false,
+      effectiveFrom: "", effectiveUntil: "", revocationChecked: false,
+    }),
     providerReview: reviewProviderDraft({
       providerName: "", coveredIndices: [], dataRedistributionAllowed: false,
       retentionAllowed: false, commercialDisplayAllowed: false,
