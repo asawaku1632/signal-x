@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessProviderScope} from "../../app/lib/research/dualSurgeProviderScope.mjs";
+const asOf="2026-10-25T00:00:00Z";
+const fixture=()=>({provider:"TEST_PROVIDER",product:"TEST_FEED",status:"APPROVED",approvalReference:"synthetic-reference",approvedBy:"test-reviewer",expiresAt:"2026-11-25T00:00:00Z",permissions:{research:true,storage:true,derivedDisplay:true,retention:true}});
+test("missing provider license is blocked",()=>assert.equal(assessProviderScope({},asOf).allowed,false));
+test("synthetic full scope passes precheck but never approves production",()=>{const r=assessProviderScope(fixture(),asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
+test("missing research permission blocks",()=>{const f=fixture();f.permissions.research=false;assert.ok(assessProviderScope(f,asOf).reasons.includes("SCOPE_NOT_APPROVED_research"));});
+test("missing storage permission blocks",()=>{const f=fixture();delete f.permissions.storage;assert.equal(assessProviderScope(f,asOf).allowed,false);});
+test("missing display permission blocks",()=>{const f=fixture();f.permissions.derivedDisplay=false;assert.equal(assessProviderScope(f,asOf).allowed,false);});
+test("missing retention permission blocks",()=>{const f=fixture();f.permissions.retention=false;assert.equal(assessProviderScope(f,asOf).allowed,false);});
+test("revocation blocks",()=>assert.equal(assessProviderScope({...fixture(),revoked:true},asOf).allowed,false));
+test("expired approval blocks",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-10-24T00:00:00Z"},asOf).allowed,false));
+test("approval without reviewer or reference blocks",()=>assert.equal(assessProviderScope({...fixture(),approvedBy:"",approvalReference:""},asOf).allowed,false));
+test("unknown approval state blocks",()=>assert.equal(assessProviderScope({...fixture(),status:"PENDING"},asOf).allowed,false));
