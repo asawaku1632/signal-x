@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/research/dualSurge*'
       - 'app/admin/dual-surge-shadow/**'
+      - 'scripts/dual-surge-offline-replay.mjs'
       - 'app/lib/learningOwner*'
       - 'app/lib/research/dualSurge*'
       - 'docs/research/dual-surge-user-diagnostic-events-20261025.json'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'tests/research/dualSurge*'
       - 'app/admin/dual-surge-shadow/**'
+      - 'scripts/dual-surge-offline-replay.mjs'
       - 'app/lib/learningOwner*'
       - 'app/lib/research/dualSurge*'
       - 'docs/research/dual-surge-user-diagnostic-events-20261025.json'
@@ -43,7 +45,7 @@ jobs:
       - name: Offline research safety tests
         if: always() && steps.install.outcome == 'success' && !cancelled()
         id: audit
-        run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs tests/research/dualSurgeVerifiedDisplay.test.mjs
+        run: node --test tests/research/dualSurge*.test.mjs
       - name: Record audit evidence
         if: always()
         shell: bash
