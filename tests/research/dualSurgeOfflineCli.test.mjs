@@ -24,3 +24,28 @@ test("offline CLI rejects malformed JSON without provider access",()=>{
   const r=run(file);assert.equal(r.status,2);assert.match(r.stderr,/Unexpected token|Expected property name|JSON/);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test("offline CLI rejects a licensed-looking snapshot with an incomplete event reference",()=>{
+ const dir=mkdtempSync(join(tmpdir(),"dual-surge-reference-"));
+ try{
+  const snapshot=join(dir,"snapshot.json"),reference=join(dir,"reference.json");
+  writeFileSync(snapshot,JSON.stringify({source:"JQUANTS_V2",snapshotId:"fixture",licenseVerified:true,asOfDate:"2026-10-23",providerRowsByCode:{}}));
+  writeFileSync(reference,JSON.stringify({source:"USER_PROVIDED_JQUANTS_V2_READ_ONLY_HISTORICAL_DIAGNOSTICS",events:[]}));
+  const r=run(snapshot,reference);
+  assert.equal(r.status,2);
+  assert.match(r.stderr,/INVALID_EVENT_REFERENCE/);
+  assert.equal(r.stdout,"");
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test("offline CLI rejects wrong provider source even when license flag is true",()=>{
+ const dir=mkdtempSync(join(tmpdir(),"dual-surge-provider-"));
+ try{
+  const snapshot=join(dir,"snapshot.json"),reference=join(dir,"reference.json");
+  writeFileSync(snapshot,JSON.stringify({source:"UNKNOWN",snapshotId:"fixture",licenseVerified:true,asOfDate:"2026-10-23",providerRowsByCode:{}}));
+  writeFileSync(reference,JSON.stringify({source:"USER_PROVIDED_JQUANTS_V2_READ_ONLY_HISTORICAL_DIAGNOSTICS",events:[]}));
+  const r=run(snapshot,reference);
+  assert.equal(r.status,2);
+  assert.match(r.stderr,/UNVERIFIED_LICENSE_OR_SNAPSHOT/);
+  assert.equal(r.stdout,"");
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
