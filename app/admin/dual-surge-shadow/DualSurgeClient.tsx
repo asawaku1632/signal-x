@@ -4,13 +4,14 @@ type Summary={cohort:string;candidates:number;codes:number;first_date:string;las
 type Outcome={cohort:string;horizon:number;completed:number;mean_return_percent:string|null};
 type Report={success:boolean;error?:string;summary?:Summary[];outcomes?:Outcome[]};
 const names:Record<string,string>={PRE_SURGE_V1:"急騰前兆",SURGE_START_V1:"急騰開始"};
-export default function DualSurgeClient(){
+type Readiness={verified:boolean;productionApproved:boolean;groups:{id:string;verdict:string;checks:{key:string;verdict:string}[]}[]};
+export default function DualSurgeClient({readiness}:{readiness:Readiness}){
  const [data,setData]=useState<Report|null>(null);
  useEffect(()=>{const controller=new AbortController();fetch("/api/admin/dual-surge-shadow",{cache:"no-store",signal:controller.signal})
   .then(async r=>{const j=await r.json() as Report;if(!r.ok)throw Error(j.error||"取得不可");return j;})
   .then(setData).catch(e=>{if(!controller.signal.aborted)setData({success:false,error:String(e.message||"取得不可")});});
   return ()=>controller.abort();},[]);
- const readiness=<section className="mt-6 rounded-lg border border-amber-300 p-4" aria-label="研究利用の確認状況"><h2 className="font-bold">STEP 581〜600｜正式利用の確認状況</h2><p className="mt-2 text-sm">現在：BLOCKED（正式利用未承認）</p><p className="mt-2 text-sm text-slate-600">データ提供元の利用許可、鮮度、検証証拠、環境分離、CIと承認記録がすべて確認されるまで本番利用しません。これは保存済み証拠の自動判定結果ではありません。</p></section>;
+ const readiness=<section className="mt-6 rounded-lg border border-amber-300 p-4" aria-label="研究利用の確認状況"><h2 className="font-bold">STEP 581〜600｜正式利用の確認状況</h2><p className="mt-2 text-sm">現在：{readiness.verified?"確認項目PASS（本番利用は未承認）":"BLOCKED（確認項目未完了）"}</p><p className="mt-2 text-sm text-slate-600">データ提供元の利用許可、鮮度、検証証拠、環境分離、CIと承認記録がすべて確認されるまで本番利用しません。現在の評価はサーバー側の証拠チェック機能によるものです。証拠台帳は未接続のため、証拠なしとして判定しています。</p><ul className="mt-3 space-y-1 text-sm">{readiness.groups.map(group=><li key={group.id}>STEP {group.id}：{group.verdict}（確認済み {group.checks.filter(check=>check.verdict==="PASS").length}/{group.checks.length}）</li>)}</ul></section>;
  if(!data)return <>{readiness}<p className="mt-6 text-slate-600">研究記録を確認中…</p></>;
  if(!data.success)return <>{readiness}<section className="mt-6 rounded-lg border p-4"><p className="font-bold">研究データは現在利用できません</p><p className="mt-2 text-sm text-slate-600">{data.error==="RESEARCH_DISABLED"?"研究はまだ有効化されていません。架空の実績は表示しません。":"安全のため集計を表示できません。"}</p></section></>;
  return <>{readiness}<div className="mt-6 space-y-5">{(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
