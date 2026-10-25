@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {GATES,evaluateReadiness} from "../../app/lib/research/dualSurgeReadiness.mjs";
+const valid=()=>Object.fromEntries(GATES.flatMap(g=>g.keys.map(key=>[key,{verified:true,evidenceUrl:"https://example.org/evidence/"+key,reviewedAt:"2026-10-25T00:00:00Z",reviewer:"research-reviewer"}])));
+test("missing evidence is blocked, not passed",()=>{const r=evaluateReadiness({});assert.equal(r.verified,false);assert.equal(r.groups.length,5);assert.ok(r.groups.every(x=>x.verdict==="BLOCKED"));});
+test("partial evidence remains blocked",()=>{const e=valid();delete e.licenseScope;const r=evaluateReadiness(e);assert.equal(r.verified,false);assert.equal(r.groups[0].verdict,"BLOCKED");});
+test("claims without URLs and reviewer are blocked",()=>{const e=valid();e.ciEvidence={verified:true};assert.equal(evaluateReadiness(e).verified,false);});
+test("explicit negative verification is blocked",()=>{const e=valid();e.rlsVerified.verified=false;assert.equal(evaluateReadiness(e).groups[3].verdict,"BLOCKED");});
+test("complete synthetic evidence passes checklist but never approves production",()=>{const r=evaluateReadiness(valid());assert.equal(r.verified,true);assert.equal(r.productionApproved,false);assert.equal(r.readOnly,true);});
+test("invalid evidence rejected",()=>{assert.throws(()=>evaluateReadiness(null),/INVALID_READINESS_EVIDENCE/);assert.throws(()=>evaluateReadiness([]),/INVALID_READINESS_EVIDENCE/);});
