@@ -22,8 +22,9 @@ export function assessSessionFreshness({
  if(sessionCompleted!==true)reasons.push("SESSION_INCOMPLETE");
  if(missing===true)reasons.push("MISSING_DATA");
  if(duplicate===true)reasons.push("DUPLICATE_DATA");
- const source=typeof sourceTimestamp==="string"?Date.parse(sourceTimestamp):NaN;
- const now=typeof asOf==="string"?Date.parse(asOf):NaN;
+ const ISO_WITH_ZONE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+ const source=typeof sourceTimestamp==="string"&&ISO_WITH_ZONE.test(sourceTimestamp)?Date.parse(sourceTimestamp):NaN;
+ const now=typeof asOf==="string"&&ISO_WITH_ZONE.test(asOf)?Date.parse(asOf):NaN;
  if(!Number.isFinite(source)||!Number.isFinite(now))reasons.push("TIMESTAMP_UNAVAILABLE");
  else {
   if(source>now)reasons.push("FUTURE_TIMESTAMP");
