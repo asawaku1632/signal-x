@@ -1,6 +1,9 @@
 // Pure, offline session freshness validator for Dual Surge research.
 // No provider calls, persistence, synthetic quote substitution or trading.
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
+function tokyoDate(timestamp) {
+ return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(timestamp));
+}
 function validDate(value) {
  if(typeof value!=="string"||!DATE.test(value))return false;
  const d=new Date(value+"T00:00:00Z");
@@ -24,7 +27,7 @@ export function assessSessionFreshness({
   if(source>now)reasons.push("FUTURE_TIMESTAMP");
   if(!Number.isFinite(maximumAgeMinutes)||maximumAgeMinutes<=0)reasons.push("INVALID_FRESHNESS_LIMIT");
   else if(now-source>maximumAgeMinutes*60000)reasons.push("STALE_DATA");
-  if(validDate(exchangeDate)&&new Date(source).toISOString().slice(0,10)!==exchangeDate)
+  if(validDate(exchangeDate)&&tokyoDate(source)!==exchangeDate)
    reasons.push("SOURCE_SESSION_DATE_MISMATCH");
  }
  return {available:reasons.length===0,reasons,readOnly:true,productionApproved:false};
