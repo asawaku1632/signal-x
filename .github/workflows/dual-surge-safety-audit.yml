@@ -33,6 +33,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: TypeScript compile check
+        id: types
+        run: npx tsc --noEmit --pretty false
       - name: Offline research safety tests
         id: audit
         run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs tests/research/dualSurgeVerifiedDisplay.test.mjs
@@ -45,6 +50,7 @@ jobs:
             echo ''
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- TypeScript check: ${{ steps.types.outcome }}"
             echo "- Offline test step: ${{ steps.audit.outcome }}"
             echo '- Production approval: NO'
             echo '- J-Quants provider permission: UNVERIFIED'
