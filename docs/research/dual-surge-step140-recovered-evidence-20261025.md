@@ -31,3 +31,10 @@ Research-only draft PR #212 remains unmerged. No production changes, provider co
 - Strengthened the diagnostic identity test to count unique identity tuples directly, rather than comparing the event list against itself.
 - The GitHub commit workflow-run query still returned **zero** PR runs. Vercel deployment statuses were successful, but these are **not GitHub Actions test results**.
 - No authorized raw daily OHLCV rows or verified provider research license were present in the recovered five diagnostic attachments. Consequently an independent raw-bar replay was not performed. This remains a hard acceptance blocker.
+
+## GitHub Actions audit #80 — verified from user-shared run listing (2026-10-25)
+- Workflow: `Dual Surge Research Safety Audit`, run **#80**, commit `80d95d8`, status **completed successfully**, duration 30 seconds, on the research branch.
+- This supersedes the older statement above that no full CI pass was verified. The workflow includes dependency installation, `npx tsc --noEmit --pretty false`, and `node --test tests/research/dualSurge*.test.mjs`. The user-shared overall successful status establishes the workflow result; individual test counts were not independently retrieved.
+- The observed 11 positive / 15 matured (73.3%) is a **retrospective positive-outcome fraction in a curated sample**, **not** a predictive win rate, validated precision, expected profit, or statistically representative estimate. The 9 pending records must not be silently counted as wins or losses.
+- Remaining STEP 140 blockers: independently licensed raw OHLCV source rows, explicit permission/provenance, reproducible independent replay, and prospective out-of-sample validation. **STEP 140 NOT COMPLETE; production approval NO.**
+- Do not merge this Draft PR, schedule collection, place trades, or activate notifications based on the audit pass.
