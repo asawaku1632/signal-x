@@ -1,4 +1,5 @@
 // Research-only display gate. Never treats a client-supplied report as independently verified.
+import {summarizeReplayResults} from "./dualSurgeRawReplay.mjs";
 export function verifiedReplayDisplay({report,evidence}={}){
  const blocked={available:false,reason:"INDEPENDENT_REPLAY_NOT_VERIFIED",summary:null};
  if(!report||!evidence||evidence.licenseVerified!==true||evidence.independentReplayVerified!==true||
@@ -7,7 +8,10 @@ export function verifiedReplayDisplay({report,evidence}={}){
     report.productionApproved!==false||report.providerRequests!==0||
     report.readOnly!==true||report.allMatched!==true||!Array.isArray(report.results)||
     report.results.length===0||report.eventCount!==report.results.length)return blocked;
+ let computed;
+ try{computed=summarizeReplayResults(report.results);}catch{return blocked;}
  const s=report.summary;
+ if(!s||Object.keys(computed).some(key=>s[key]!==computed[key]))return blocked;
  if(!s||s.total!==report.eventCount||s.unverified!==0||
     s.matched!==s.total||!Number.isInteger(s.pending)||
     !Number.isInteger(s.maturedPositive)||!Number.isInteger(s.maturedNegative)||
