@@ -25,3 +25,16 @@ test("display rejects unlicensed or production-approved reports",()=>{
  assert.equal(verifiedReplayDisplay({report,evidence:{...evidence,licenseVerified:false}}).available,false);
  assert.equal(verifiedReplayDisplay({report:{...report,productionApproved:true},evidence}).available,false);
 });
+
+test("display rejects forged summary even when totals still balance",()=>{
+ const forged={...report,summary:{...report.summary,maturedPositive:0,maturedNegative:1}};
+ assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
+});
+test("display rejects forged positive return for a negative outcome",()=>{
+ const forged={...report,results:[{status:"MATURED",matches:true,calculatedReturnPct:-3},report.results[1]]};
+ assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
+});
+test("display rejects unknown statuses even if supplied totals look valid",()=>{
+ const forged={...report,results:[{status:"SUCCESS",matches:true},report.results[1]]};
+ assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
+});
