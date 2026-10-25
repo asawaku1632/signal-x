@@ -25,10 +25,10 @@ export default function DualSurgeClient({readiness,replayDisplay}:{readiness:Rea
    <div><dt className="font-semibold">0件</dt><dd className="text-slate-600">検証成功ではなく、未検証として扱う</dd></div>
   </dl>
  </section>;
- const readiness=<section className="mt-6 rounded-lg border border-amber-300 p-4" aria-label="研究利用の確認状況"><h2 className="font-bold">STEP 581〜600｜正式利用の確認状況</h2><p className="mt-2 text-sm">現在：{readiness.verified?"確認項目PASS（本番利用は未承認）":"BLOCKED（確認項目未完了）"}</p><p className="mt-2 text-sm text-slate-600">データ提供元の利用許可、鮮度、検証証拠、環境分離、CIと承認記録がすべて確認されるまで本番利用しません。現在の評価はサーバー側の証拠チェック機能によるものです。証拠台帳は未接続のため、証拠なしとして判定しています。</p><ul className="mt-3 space-y-1 text-sm">{readiness.groups.map(group=><li key={group.id}>STEP {group.id}：{group.verdict}（確認済み {group.checks.filter(check=>check.verdict==="PASS").length}/{group.checks.length}）</li>)}</ul></section>;
- if(!data)return <>{readiness}{replayStatus}{replayLegend}<p className="mt-6 text-slate-600">研究記録を確認中…</p></>;
- if(!data.success)return <>{readiness}{replayStatus}{replayLegend}<section className="mt-6 rounded-lg border p-4"><p className="font-bold">研究データは現在利用できません</p><p className="mt-2 text-sm text-slate-600">{data.error==="RESEARCH_DISABLED"?"研究はまだ有効化されていません。架空の実績は表示しません。":"安全のため集計を表示できません。"}</p></section></>;
- return <>{readiness}{replayStatus}{replayLegend}<div className="mt-6 space-y-5">{(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
+ const readinessPanel=<section className="mt-6 rounded-lg border border-amber-300 p-4" aria-label="研究利用の確認状況"><h2 className="font-bold">STEP 581〜600｜正式利用の確認状況</h2><p className="mt-2 text-sm">現在：{readiness.verified?"確認項目PASS（本番利用は未承認）":"BLOCKED（確認項目未完了）"}</p><p className="mt-2 text-sm text-slate-600">データ提供元の利用許可、鮮度、検証証拠、環境分離、CIと承認記録がすべて確認されるまで本番利用しません。現在の評価はサーバー側の証拠チェック機能によるものです。証拠台帳は未接続のため、証拠なしとして判定しています。</p><ul className="mt-3 space-y-1 text-sm">{readiness.groups.map(group=><li key={group.id}>STEP {group.id}：{group.verdict}（確認済み {group.checks.filter(check=>check.verdict==="PASS").length}/{group.checks.length}）</li>)}</ul></section>;
+ if(!data)return <>{readinessPanel}{replayStatus}{replayLegend}<p className="mt-6 text-slate-600">研究記録を確認中…</p></>;
+ if(!data.success)return <>{readinessPanel}{replayStatus}{replayLegend}<section className="mt-6 rounded-lg border p-4"><p className="font-bold">研究データは現在利用できません</p><p className="mt-2 text-sm text-slate-600">{data.error==="RESEARCH_DISABLED"?"研究はまだ有効化されていません。架空の実績は表示しません。":"安全のため集計を表示できません。"}</p></section></>;
+ return <>{readinessPanel}{replayStatus}{replayLegend}<div className="mt-6 space-y-5">{(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
   const s=data.summary?.find(x=>x.cohort===cohort);const results=data.outcomes?.filter(x=>x.cohort===cohort)||[];
   return <section key={cohort} className="rounded-xl border p-4"><h2 className="text-lg font-bold">{names[cohort]}</h2>
    <p className="mt-2 text-sm">候補 {s?.candidates??0}件 ／ 対象 {s?.codes??0}銘柄</p>
