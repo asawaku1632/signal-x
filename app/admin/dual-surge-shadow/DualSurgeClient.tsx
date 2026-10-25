@@ -15,7 +15,7 @@ export default function DualSurgeClient({readiness,replayDisplay}:{readiness:Rea
  const replayStatus=<section className="mt-6 rounded-xl border p-4" aria-label="独立照合の表示状態"><h2 className="font-bold">STEP 140｜独立照合の結果</h2>{!replayDisplay.available||!replayDisplay.summary?<p className="mt-2 text-sm text-slate-600">未検証：許可済みデータと独立照合の証拠が揃っていません。勝率・成功件数は表示しません。</p>:<><p className="mt-2 text-sm">照合対象 {replayDisplay.summary.total}件 ／ 上昇 {replayDisplay.summary.positive}件 ／ 下落 {replayDisplay.summary.negative}件 ／ 横ばい {replayDisplay.summary.flat}件 ／ 未確定 {replayDisplay.summary.pending}件</p><p className="mt-2 text-xs text-slate-500">独立照合済み・研究専用。スナップショット {replayDisplay.snapshotId} ／ コミット {replayDisplay.commitSha}</p></>}</section>;
  const replayLegend=<section className="mt-6 rounded-xl border p-4" aria-label="独立再計算の判定区分">
   <h2 className="font-bold">STEP 140｜独立再計算の判定区分</h2>
-  <p className="mt-2 text-sm text-slate-600">この欄は判定ルールの説明です。実行済みの再計算結果ではありません。許可済みの独立した株価スナップショットがないため、成功率や実績件数は表示しません。</p>
+  <p className="mt-2 text-sm text-slate-600">この欄は判定ルールの説明であり、実行済みの再計算結果ではありません。独立照合の実績は、必要な証拠が揃った場合に限り上の結果欄に表示します。</p>
   <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
    <div><dt className="font-semibold">上昇・下落・横ばい</dt><dd className="text-slate-600">5営業日後まで揃った銘柄だけを、実際の騰落率の符号で分類</dd></div>
    <div><dt className="font-semibold">未確定</dt><dd className="text-slate-600">5営業日分が揃っていない。成功・失敗に算入しない</dd></div>
@@ -27,8 +27,8 @@ export default function DualSurgeClient({readiness,replayDisplay}:{readiness:Rea
  </section>;
  const readiness=<section className="mt-6 rounded-lg border border-amber-300 p-4" aria-label="研究利用の確認状況"><h2 className="font-bold">STEP 581〜600｜正式利用の確認状況</h2><p className="mt-2 text-sm">現在：{readiness.verified?"確認項目PASS（本番利用は未承認）":"BLOCKED（確認項目未完了）"}</p><p className="mt-2 text-sm text-slate-600">データ提供元の利用許可、鮮度、検証証拠、環境分離、CIと承認記録がすべて確認されるまで本番利用しません。現在の評価はサーバー側の証拠チェック機能によるものです。証拠台帳は未接続のため、証拠なしとして判定しています。</p><ul className="mt-3 space-y-1 text-sm">{readiness.groups.map(group=><li key={group.id}>STEP {group.id}：{group.verdict}（確認済み {group.checks.filter(check=>check.verdict==="PASS").length}/{group.checks.length}）</li>)}</ul></section>;
  if(!data)return <>{readiness}{replayStatus}{replayLegend}<p className="mt-6 text-slate-600">研究記録を確認中…</p></>;
- if(!data.success)return <>{readiness}{replayLegend}<section className="mt-6 rounded-lg border p-4"><p className="font-bold">研究データは現在利用できません</p><p className="mt-2 text-sm text-slate-600">{data.error==="RESEARCH_DISABLED"?"研究はまだ有効化されていません。架空の実績は表示しません。":"安全のため集計を表示できません。"}</p></section></>;
- return <>{readiness}{replayLegend}<div className="mt-6 space-y-5">{(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
+ if(!data.success)return <>{readiness}{replayStatus}{replayLegend}<section className="mt-6 rounded-lg border p-4"><p className="font-bold">研究データは現在利用できません</p><p className="mt-2 text-sm text-slate-600">{data.error==="RESEARCH_DISABLED"?"研究はまだ有効化されていません。架空の実績は表示しません。":"安全のため集計を表示できません。"}</p></section></>;
+ return <>{readiness}{replayStatus}{replayLegend}<div className="mt-6 space-y-5">{(["PRE_SURGE_V1","SURGE_START_V1"] as const).map(cohort=>{
   const s=data.summary?.find(x=>x.cohort===cohort);const results=data.outcomes?.filter(x=>x.cohort===cohort)||[];
   return <section key={cohort} className="rounded-xl border p-4"><h2 className="text-lg font-bold">{names[cohort]}</h2>
    <p className="mt-2 text-sm">候補 {s?.candidates??0}件 ／ 対象 {s?.codes??0}銘柄</p>
