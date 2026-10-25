@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
-    "test:market-index-research": "node --experimental-strip-types --test app/lib/research/market-index-finalization-eligibility.test.ts app/lib/research/market-index-evidence-review.test.ts app/lib/research/market-index-dashboard-model.test.ts app/lib/research/market-index-dashboard-route.test.ts app/lib/research/market-index-readiness.test.ts app/lib/research/market-index-provider-review.test.ts"
+    "test:market-index-research": "node --experimental-strip-types --test app/lib/research/market-index-finalization-eligibility.test.ts app/lib/research/market-index-evidence-review.test.ts app/lib/research/market-index-dashboard-model.test.ts app/lib/research/market-index-dashboard-route.test.ts app/lib/research/market-index-readiness.test.ts app/lib/research/market-index-provider-review.test.ts app/lib/research/market-index-license-response.test.ts"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.1",
