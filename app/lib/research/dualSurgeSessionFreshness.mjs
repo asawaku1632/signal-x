@@ -22,14 +22,14 @@ export function assessSessionFreshness({
  if(sessionCompleted!==true)reasons.push("SESSION_INCOMPLETE");
  if(missing===true)reasons.push("MISSING_DATA");
  if(duplicate===true)reasons.push("DUPLICATE_DATA");
+ if(!Number.isFinite(maximumAgeMinutes)||maximumAgeMinutes<=0)reasons.push("INVALID_FRESHNESS_LIMIT");
  const ISO_WITH_ZONE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
  const source=typeof sourceTimestamp==="string"&&ISO_WITH_ZONE.test(sourceTimestamp)?Date.parse(sourceTimestamp):NaN;
  const now=typeof asOf==="string"&&ISO_WITH_ZONE.test(asOf)?Date.parse(asOf):NaN;
  if(!Number.isFinite(source)||!Number.isFinite(now))reasons.push("TIMESTAMP_UNAVAILABLE");
  else {
   if(source>now)reasons.push("FUTURE_TIMESTAMP");
-  if(!Number.isFinite(maximumAgeMinutes)||maximumAgeMinutes<=0)reasons.push("INVALID_FRESHNESS_LIMIT");
-  else if(now-source>maximumAgeMinutes*60000)reasons.push("STALE_DATA");
+  if(Number.isFinite(maximumAgeMinutes)&&maximumAgeMinutes>0&&now-source>maximumAgeMinutes*60000)reasons.push("STALE_DATA");
   if(validDate(exchangeDate)&&tokyoDate(source)!==exchangeDate)
    reasons.push("SOURCE_SESSION_DATE_MISMATCH");
  }
