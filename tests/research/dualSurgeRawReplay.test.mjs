@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {replayDiagnosticEvents} from "../../app/lib/research/dualSurgeRawReplay.mjs";
+import {replayDiagnosticEvents,summarizeReplayResults} from "../../app/lib/research/dualSurgeRawReplay.mjs";
 const dates=Array.from({length:8},(_,i)=>"2026-10-"+String(i+1).padStart(2,"0"));
 const bars=dates.map((Date,i)=>({Code:"37620",Date,O:100,H:i===5?111:101,L:99,C:i===5?110:100,Vo:1000,AdjFactor:1}));
 const matured=[{code:"3762",cohort:"PRE_SURGE_V1",startDate:dates[0],status:"MATURED",returnPct:10}];
@@ -42,4 +42,29 @@ test("replay refuses to verify a signal after the as-of cutoff",()=>{
 });
 test("replay rejects duplicated provider session dates",()=>{
  assert.throws(()=>replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":[...bars,bars[0]]},asOfDate:dates[7]}),/DUPLICATE_PROVIDER_DATE/);
+});
+
+test("replay summary separates positive, negative, flat, pending and missing without counting pending as success",()=>{
+ const results=[
+  {status:"MATURED",calculatedReturnPct:4,matches:true},
+  {status:"MATURED",calculatedReturnPct:-3,matches:false},
+  {status:"MATURED",calculatedReturnPct:0,matches:true},
+  {status:"PENDING",matches:true},
+  {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",matches:false},
+  {status:"MISSING_PROVIDER_ROWS",matches:false}
+ ];
+ assert.deepEqual(summarizeReplayResults(results),{
+  total:6,maturedPositive:1,maturedNegative:1,maturedFlat:1,
+  pending:1,excluded:1,missing:1,mismatched:1,matched:3,unverified:3
+ });
+});
+test("replay summary rejects unknown statuses and invalid matured returns",()=>{
+ assert.throws(()=>summarizeReplayResults([{status:"SUCCESS",matches:true}]),/UNKNOWN_REPLAY_STATUS/);
+ assert.throws(()=>summarizeReplayResults([{status:"MATURED",matches:true,calculatedReturnPct:null}]),/INVALID_MATURED_RETURN/);
+});
+test("empty replay summary reports zero observations, not a verified win",()=>{
+ const r=replayDiagnosticEvents({referenceEvents:[],providerRowsByCode:{},asOfDate:dates[7]});
+ assert.equal(r.summary.total,0);
+ assert.equal(r.summary.maturedPositive,0);
+ assert.equal(r.allMatched,false);
 });
