@@ -18,3 +18,8 @@ test("license expiry without timezone is blocked",()=>assert.equal(assessProvide
 test("audit cutoff without timezone is blocked",()=>assert.equal(assessProviderScope(fixture(),"2026-10-25T00:00:00").allowed,false));
 test("date-only expiry is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25"},asOf).allowed,false));
 test("valid explicit offset expiry passes shape precheck only",()=>{const r=assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00+09:00"},asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
+
+test("impossible February 30 expiry is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2027-02-30T00:00:00Z"},asOf).allowed,false));
+test("invalid hour expiry is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T25:00:00Z"},asOf).allowed,false));
+test("impossible cutoff date is blocked",()=>assert.equal(assessProviderScope(fixture(),"2026-02-30T00:00:00Z").allowed,false));
+test("out of range timezone offset is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00+15:00"},asOf).allowed,false));
