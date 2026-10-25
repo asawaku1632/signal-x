@@ -13,3 +13,8 @@ test("revocation blocks",()=>assert.equal(assessProviderScope({...fixture(),revo
 test("expired approval blocks",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-10-24T00:00:00Z"},asOf).allowed,false));
 test("approval without reviewer or reference blocks",()=>assert.equal(assessProviderScope({...fixture(),approvedBy:"",approvalReference:""},asOf).allowed,false));
 test("unknown approval state blocks",()=>assert.equal(assessProviderScope({...fixture(),status:"PENDING"},asOf).allowed,false));
+
+test("license expiry without timezone is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T00:00:00"},asOf).allowed,false));
+test("audit cutoff without timezone is blocked",()=>assert.equal(assessProviderScope(fixture(),"2026-10-25T00:00:00").allowed,false));
+test("date-only expiry is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25"},asOf).allowed,false));
+test("valid explicit offset expiry passes shape precheck only",()=>{const r=assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00+09:00"},asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
