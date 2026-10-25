@@ -8,6 +8,17 @@ export function verifiedReplayDisplay({report,evidence}={}){
     report.productionApproved!==false||report.providerRequests!==0||
     report.readOnly!==true||report.allMatched!==true||!Array.isArray(report.results)||
     report.results.length===0||report.eventCount!==report.results.length)return blocked;
+ // Validate each claimed match, not just aggregate counts.
+ // Evidence flags alone do not establish provenance.
+ if(report.results.some(r=>
+   !r||r.matches!==true||
+   (r.status==="MATURED"&&(
+     !Number.isFinite(r.calculatedReturnPct)||
+     !Number.isFinite(r.referenceReturnPct)||
+     Math.abs(r.calculatedReturnPct-r.referenceReturnPct)>0.001
+   ))||
+   (r.status==="PENDING"&&(r.calculatedReturnPct!==null||r.referenceReturnPct!==null))
+ ))return blocked;
  let computed;
  try{computed=summarizeReplayResults(report.results);}catch{return blocked;}
  const s=report.summary;
