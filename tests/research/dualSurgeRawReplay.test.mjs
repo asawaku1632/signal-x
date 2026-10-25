@@ -15,3 +15,11 @@ test("replay excludes rows after as-of date",()=>assert.equal(replayDiagnosticEv
 test("replay is always read only and not production approved",()=>{const r=replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":bars},asOfDate:dates[7]});assert.equal(r.providerRequests,0);assert.equal(r.productionApproved,false)});
 
 test("replay rejects impossible as-of date",()=>assert.throws(()=>replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":bars},asOfDate:"2026-02-30"}),/INVALID_REPLAY_INPUT/));
+
+test("replay does not count an empty reference set as successful verification",()=>{
+ const r=replayDiagnosticEvents({referenceEvents:[],providerRowsByCode:{},asOfDate:dates[7]});
+ assert.equal(r.eventCount,0);
+ assert.equal(r.checked,0);
+ assert.equal(r.allMatched,false);
+ assert.equal(r.productionApproved,false);
+});
