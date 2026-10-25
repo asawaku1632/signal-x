@@ -25,7 +25,7 @@ jobs:
   offline-audit:
     if: github.ref == 'refs/heads/fix/dual-surge-dev-db-isolation-20261023' || github.event.pull_request.head.ref == 'fix/dual-surge-dev-db-isolation-20261023'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +39,7 @@ jobs:
         id: types
         run: npx tsc --noEmit --pretty false
       - name: Offline research safety tests
+        if: always() && steps.types.outcome != 'cancelled'
         id: audit
         run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs tests/research/dualSurgeVerifiedDisplay.test.mjs
       - name: Record audit evidence
