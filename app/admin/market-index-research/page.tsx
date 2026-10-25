@@ -154,6 +154,14 @@ export default function MarketIndexResearchPage() {
               <li>契約書・利用許諾の証拠：未確認</li>
               <li>正式な取引日カレンダー：未確認</li>
             </ul>
+            <div className="mt-3 rounded-lg border p-3 text-sm dark:border-slate-700">
+              <p className="font-bold">公式の利用条件・確認先</p>
+              <ul className="mt-2 list-disc space-y-2 pl-5">
+                <li><a href="https://indexes.nikkei.co.jp/nkave/license/index.en.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">日経平均：日経指数のライセンス案内</a>（許諾未取得）</li>
+                <li><a href="https://www.jpx.co.jp/markets/indices/licence/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">TOPIX：JPX総研の指数ライセンス案内</a>（許諾未取得）</li>
+              </ul>
+              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">アプリ内表示だけでなく、自動処理・保存・派生分析・有料配信の可否をそれぞれ確認する必要があります。公開情報は契約証拠ではありません。</p>
+            </div>
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
