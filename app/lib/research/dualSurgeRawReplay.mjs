@@ -28,5 +28,5 @@ export function replayDiagnosticEvents({referenceEvents,providerRowsByCode,asOfD
   const returnMatches=outcome.status==="MATURED"?typeof event.returnPct==="number"&&Math.abs(outcome.returnPct-event.returnPct)<=0.001:event.returnPct===null;
   results.push({id,status:outcome.status,calculatedReturnPct:outcome.returnPct,referenceReturnPct:event.returnPct,matches:statusMatches&&returnMatches});
  }
- return {eventCount:referenceEvents.length,checked:results.filter(x=>x.matches).length,allMatched:results.length===referenceEvents.length&&results.every(x=>x.matches),results,readOnly:true,providerRequests:0,productionApproved:false};
+ return {eventCount:referenceEvents.length,checked:results.filter(x=>x.matches).length,allMatched:referenceEvents.length>0&&results.length===referenceEvents.length&&results.every(x=>x.matches),results,readOnly:true,providerRequests:0,productionApproved:false};
 }
