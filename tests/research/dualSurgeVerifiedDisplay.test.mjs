@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {verifiedReplayDisplay} from "../../app/lib/research/dualSurgeVerifiedDisplay.mjs";
 const evidence={licenseVerified:true,independentReplayVerified:true,snapshotId:"licensed-offline-fixture",commitSha:"a".repeat(40)};
 const report={productionApproved:false,providerRequests:0,readOnly:true,allMatched:true,eventCount:2,
- results:[{status:"MATURED",matches:true,calculatedReturnPct:3},{status:"PENDING",matches:true,calculatedReturnPct:null}],
+ results:[{status:"MATURED",matches:true,calculatedReturnPct:3,referenceReturnPct:3},{status:"PENDING",matches:true,calculatedReturnPct:null,referenceReturnPct:null}],
  summary:{total:2,matched:2,unverified:0,pending:1,maturedPositive:1,maturedNegative:0,maturedFlat:0,excluded:0,missing:0,mismatched:0}};
 test("display remains blocked when evidence is absent",()=>{
  assert.equal(verifiedReplayDisplay({report}).available,false);
@@ -31,10 +31,19 @@ test("display rejects forged summary even when totals still balance",()=>{
  assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
 });
 test("display rejects forged positive return for a negative outcome",()=>{
- const forged={...report,results:[{status:"MATURED",matches:true,calculatedReturnPct:-3},report.results[1]]};
+ const forged={...report,results:[{status:"MATURED",matches:true,calculatedReturnPct:-3,referenceReturnPct:-3},report.results[1]]};
  assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
 });
 test("display rejects unknown statuses even if supplied totals look valid",()=>{
  const forged={...report,results:[{status:"SUCCESS",matches:true},report.results[1]]};
+ assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
+});
+
+test("display blocks a per-event reference mismatch even when summary balances",()=>{
+ const forged={...report,results:[{...report.results[0],referenceReturnPct:2},report.results[1]]};
+ assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
+});
+test("display blocks pending cases with a claimed future return",()=>{
+ const forged={...report,results:[report.results[0],{...report.results[1],referenceReturnPct:5}]};
  assert.equal(verifiedReplayDisplay({report:forged,evidence}).available,false);
 });
