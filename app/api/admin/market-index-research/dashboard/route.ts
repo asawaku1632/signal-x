@@ -6,6 +6,7 @@ import { reviewProviderDraft } from "@/app/lib/research/market-index-provider-re
 import { assessLicenseResponseDraft } from "@/app/lib/research/market-index-license-response";
 import { buildIndexConnectionPlan } from "@/app/lib/research/market-index-connection-plan";
 import { auditIndexResearchSafety } from "@/app/lib/research/market-index-safety-audit";
+import { explainResearchSafetyFindings } from "@/app/lib/research/market-index-safety-explanations";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,21 @@ export async function GET() {
     sourceState: "NO_CONNECTED_EVIDENCE",
     hasLiveEvidence: false,
     model: result.model,
+    safetyExplanations: explainResearchSafetyFindings(auditIndexResearchSafety({
+      connection: {
+        indexKey: null, providerId: "", authenticatedLicense: false,
+        authenticatedCalendar: false, licensedFeedConfigured: false,
+        validatedObservation: false, retentionScopeConfirmed: false,
+        redistributionScopeConfirmed: false, operatorApproval: false,
+      },
+      license: {
+        indexKey: null, providerId: "", contractReference: "",
+        verifiedSigner: false, rightsForDisplay: false,
+        rightsForAutomatedProcessing: false, rightsForRetention: false,
+        rightsForRedistribution: false, rightsForPaidUsers: false,
+        effectiveFrom: "", effectiveUntil: "", revocationChecked: false,
+      },
+    })),
     safetyAudit: auditIndexResearchSafety({
       connection: {
         indexKey: null, providerId: "", authenticatedLicense: false,
