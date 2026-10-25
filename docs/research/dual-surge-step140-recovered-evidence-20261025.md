@@ -53,3 +53,18 @@ Official public references reviewed:
 - Data availability: https://jpx-jquants.com/ja/spec/data-spec (historical daily OHLCV is plan-dependent; availability does not confer redistribution rights).
 
 **Research gate:** Personal-plan entitlement is NOT evidence of authorization for SIGNALX's multi-user service. No automated fetching, raw-data import, redistribution, publication, or production enablement is approved here. Seek explicit applicable commercial/provider permission and document the permitted fields, derived-output use, retention, user audience and fees before any independent replay using provider data. This is a terms review, not a legal determination or provider approval.
+
+## Provider authorization decision checklist — 2026-10-25
+
+**Status: unanswered; no provider has granted permission.** Before using any vendor data for the SIGNALX multi-user product, obtain a written response to all of the following:
+
+1. Does the license permit an application serving multiple third-party end users, including paid subscriptions?
+2. Can the service calculate and display derived stock rankings, signal labels, charts, return summaries and notifications from licensed daily bars? Specify whether any derived output counts as redistribution.
+3. May raw OHLCV be retained in a private research database, and for how long? May historical samples be used for backtesting and reproducibility?
+4. Are delayed quotes, adjusted OHLCV, exchange calendars and corporate-action data included? What attribution and display restrictions apply?
+5. Are there per-user, per-symbol, request-rate, caching, audit-log, and geographic restrictions? What pricing or separate commercial contract applies?
+6. Does permission cover an internal read-only independent replay of the frozen 24 diagnostic event identities? If yes, document allowed data source, timeframe and reviewer.
+
+Record the exact contract version, vendor contact, response date, permitted use, prohibitions, expiry and evidence location. If any answer is absent or ambiguous, mark **BLOCKED**, do not infer permission from API credentials, and do not activate data fetching or product display.
+
+**Next authorized action:** request a written licensing determination from the data provider. This checklist is preparation only; no inquiry has been sent and no contract has been signed.
