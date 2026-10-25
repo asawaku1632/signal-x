@@ -7,6 +7,7 @@ import { assessLicenseResponseDraft } from "@/app/lib/research/market-index-lice
 import { buildIndexConnectionPlan } from "@/app/lib/research/market-index-connection-plan";
 import { auditIndexResearchSafety } from "@/app/lib/research/market-index-safety-audit";
 import { explainResearchSafetyFindings } from "@/app/lib/research/market-index-safety-explanations";
+import { assessIndexEvidenceChecklist } from "@/app/lib/research/market-index-evidence-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export async function GET() {
     sourceState: "NO_CONNECTED_EVIDENCE",
     hasLiveEvidence: false,
     model: result.model,
+    evidenceChecklist: assessIndexEvidenceChecklist({}),
     safetyExplanations: explainResearchSafetyFindings(auditIndexResearchSafety({
       connection: {
         indexKey: null, providerId: "", authenticatedLicense: false,
