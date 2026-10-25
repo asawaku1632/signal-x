@@ -19,7 +19,7 @@ type ResearchStatus = {
 export default function MarketIndexResearchPage() {
   const [data, setData] = useState<ResearchStatus | null>(null);
   const [error, setError] = useState("");
-  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] } } | null>(null);
+  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] }; providerReview: { status: string; eligibleForProduction: boolean; evidenceAuthenticated: boolean; issues: string[]; questions: Array<{ key: string; label: string }> } } | null>(null);
   const [dashboardError, setDashboardError] = useState("");
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
@@ -53,7 +53,7 @@ export default function MarketIndexResearchPage() {
       .then(async response => {
         if (!response.ok) throw new Error("研究集計を取得できません");
         const result = await response.json();
-        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items)) {
+        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items) || result.providerReview?.eligibleForProduction !== false || result.providerReview?.evidenceAuthenticated !== false || !Array.isArray(result.providerReview?.questions)) {
           throw new Error("研究集計の安全な状態を確認できません");
         }
         setDashboard(result);
@@ -143,6 +143,18 @@ export default function MarketIndexResearchPage() {
               <p className="font-bold">{item.label}：{item.state === "blocked" ? "未確認" : "設定あり・要独立検証"}</p>
               <p className="mt-1 text-slate-600 dark:text-slate-300">{item.explanation}</p>
             </li>)}</ul>
+          </section>}
+          {dashboard?.providerReview && <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-black">📋 データ提供元・利用条件の確認（STEP 381〜400）</h2>
+            <p className="mt-2 text-sm font-bold">提供元：未選定 ／ 契約証拠：未接続 ／ 本番利用：不可</p>
+            <p className="mt-1 text-sm">正式な日経平均・TOPIXデータの利用には、提供元との契約条件を人が確認する必要があります。下記は確認項目であり、許諾済みという意味ではありません。</p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm">
+              <li>日経平均・TOPIXの両指数を対象にできるか</li>
+              {dashboard.providerReview.questions.map(q => <li key={q.key}>{q.label}：未確認</li>)}
+              <li>契約書・利用許諾の証拠：未確認</li>
+              <li>正式な取引日カレンダー：未確認</li>
+            </ul>
+            <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
