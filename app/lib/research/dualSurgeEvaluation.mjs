@@ -34,7 +34,7 @@ export function fiveDayOutcome(bars,index,horizon=5){
  if(!signal)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(index+horizon>=bars.length)return {status:"PENDING",returnPct:null};
  if(!future)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
- const window=bars.slice(index,index+horizon+1);
+ const window=Array.from({length:horizon+1},(_,offset)=>bars[index+offset]);
  if(window.some(b=>!b||typeof b!=="object"))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(window.some(b=>adjustmentStatus(b.adjFactor)!=="ELIGIBLE"))return {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",returnPct:null};
  if(window.some(b=>typeof b.close!=="number"||!Number.isFinite(b.close)||b.close<=0))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
@@ -45,7 +45,7 @@ export function nextOpenReturn(bars,index,horizon=5){
  const entry=bars[index+1],exit=bars[index+horizon];
  if(index+1>=bars.length||index+horizon>=bars.length)return {status:"PENDING",returnPct:null};
  if(!entry||!exit)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
- const window=bars.slice(index,index+horizon+1);
+ const window=Array.from({length:horizon+1},(_,offset)=>bars[index+offset]);
  if(window.some(b=>!b||typeof b!=="object"))return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
  if(window.some(b=>adjustmentStatus(b.adjFactor)!=="ELIGIBLE"))return {status:"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT",returnPct:null};
  if(typeof entry.open!=="number"||!Number.isFinite(entry.open)||entry.open<=0||typeof exit.close!=="number"||!Number.isFinite(exit.close)||exit.close<=0)return {status:"EXCLUDED_MISSING_DATA",returnPct:null};
