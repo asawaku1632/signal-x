@@ -23,3 +23,7 @@ test("Tokyo session date rejects next-day mismatch",()=>{
  const r=assessSessionFreshness({...valid(),sourceTimestamp:"2026-10-23T23:50:00Z",asOf:"2026-10-24T00:00:00Z"});
  assert.ok(r.reasons.includes("SOURCE_SESSION_DATE_MISMATCH"));
 });
+
+test("timezone-less source timestamp is rejected",()=>{const r=assessSessionFreshness({...valid(),sourceTimestamp:"2026-10-23T15:10:00"});assert.ok(r.reasons.includes("TIMESTAMP_UNAVAILABLE"));});
+test("timezone-less cutoff is rejected",()=>{const r=assessSessionFreshness({...valid(),asOf:"2026-10-23T15:20:00"});assert.ok(r.reasons.includes("TIMESTAMP_UNAVAILABLE"));});
+test("explicit JST offsets are accepted",()=>{const r=assessSessionFreshness({...valid(),sourceTimestamp:"2026-10-23T15:10:00+09:00",asOf:"2026-10-23T15:20:00+09:00"});assert.equal(r.available,true);});
