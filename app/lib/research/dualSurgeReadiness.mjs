@@ -1,3 +1,4 @@
+import {validateEvidenceEntry} from "./dualSurgeEvidenceValidation.mjs";
 // Read-only readiness gate for prospective dual-surge research.
 // This module never fetches market data or writes observations.
 export function assessDualSurgeSourceReadiness({
@@ -30,7 +31,7 @@ export function evaluateReadiness(evidence){
  const groups=GATES.map(group=>{
   const checks=group.keys.map(key=>{
    const entry=Object.hasOwn(evidence,key)?evidence[key]:null;
-   const valid=entry&&typeof entry==="object"&&!Array.isArray(entry)&&entry.verified===true&&typeof entry.evidenceUrl==="string"&&/^https:\/\//.test(entry.evidenceUrl)&&typeof entry.reviewedAt==="string"&&!Number.isNaN(Date.parse(entry.reviewedAt))&&typeof entry.reviewer==="string"&&entry.reviewer.trim().length>0;
+   const valid=validateEvidenceEntry(entry);
    return {key,verdict:valid?"PASS":"BLOCKED"};
   });
   return {id:group.id,verdict:checks.every(x=>x.verdict==="PASS")?"PASS":"BLOCKED",checks};
