@@ -19,7 +19,7 @@ type ResearchStatus = {
 export default function MarketIndexResearchPage() {
   const [data, setData] = useState<ResearchStatus | null>(null);
   const [error, setError] = useState("");
-  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] }; providerReview: { status: string; eligibleForProduction: boolean; evidenceAuthenticated: boolean; issues: string[]; questions: Array<{ key: string; label: string }> } } | null>(null);
+  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] }; providerReview: { status: string; eligibleForProduction: boolean; evidenceAuthenticated: boolean; issues: string[]; questions: Array<{ key: string; label: string }> }; licenseResponse: { status: string; authenticated: boolean; authorizedForProduction: boolean; missingOrUnverified: string[] } } | null>(null);
   const [dashboardError, setDashboardError] = useState("");
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
@@ -53,7 +53,7 @@ export default function MarketIndexResearchPage() {
       .then(async response => {
         if (!response.ok) throw new Error("研究集計を取得できません");
         const result = await response.json();
-        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items) || result.providerReview?.eligibleForProduction !== false || result.providerReview?.evidenceAuthenticated !== false || !Array.isArray(result.providerReview?.questions)) {
+        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items) || result.providerReview?.eligibleForProduction !== false || result.providerReview?.evidenceAuthenticated !== false || !Array.isArray(result.providerReview?.questions) || result.licenseResponse?.authenticated !== false || result.licenseResponse?.authorizedForProduction !== false || !Array.isArray(result.licenseResponse?.missingOrUnverified)) {
           throw new Error("研究集計の安全な状態を確認できません");
         }
         setDashboard(result);
@@ -187,6 +187,12 @@ export default function MarketIndexResearchPage() {
               <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">契約書や返信の原文を公開リポジトリに登録しないでください。</p>
             </div>
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
+          </section>}
+          {dashboard?.licenseResponse && <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-black">📨 ライセンス回答確認（STEP 461〜480）</h2>
+            <p className="mt-2 text-sm font-bold">回答：未受領 ／ 契約証拠：未確認 ／ 正式利用：不可</p>
+            <p className="mt-1 text-sm">返信が届いた場合も、署名権限、対象指数、表示・自動処理・保存・再配信・有料利用、契約期間、失効状況の独立確認が必要です。</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">未確認条件：{dashboard.licenseResponse.missingOrUnverified.length}項目。研究用の固定未接続状態を表示しています。メールや契約書を取得・保存する機能ではありません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
