@@ -162,6 +162,17 @@ export default function MarketIndexResearchPage() {
               </ul>
               <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">アプリ内表示だけでなく、自動処理・保存・派生分析・有料配信の可否をそれぞれ確認する必要があります。公開情報は契約証拠ではありません。</p>
             </div>
+            <div className="mt-3 rounded-lg border p-3 text-sm dark:border-slate-700">
+              <p className="font-bold">問い合わせ前の確認（STEP 421〜440）</p>
+              <p className="mt-1">日経平均は表示利用と機械処理の利用条件を分けて確認。TOPIXは第三者提供・商用利用の条件を確認します。</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                <li>Web・Androidの無料／有料表示と再配信</li>
+                <li>AI分析への入力、派生指標、研究利用</li>
+                <li>履歴保存・保持期間・データ取得方法と費用</li>
+                <li>取引日カレンダー、出典表示、契約終了時の取り扱い</li>
+              </ul>
+              <p className="mt-2 font-bold">問い合わせ：未送信 ／ 契約：未締結 ／ 正式取得：無効</p>
+            </div>
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
