@@ -179,6 +179,13 @@ export default function MarketIndexResearchPage() {
               <p className="mt-2 font-bold">返信：未受領 ／ 契約証拠：未確認 ／ 正式保存：無効</p>
               <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">回答を受領しても、表示・非表示利用、保存、再配信、有料提供、派生分析の許諾範囲が確認できるまでは正式運用を開始しません。</p>
             </div>
+            <div className="mt-3 rounded-lg border p-3 text-sm dark:border-slate-700">
+              <p className="font-bold">✉️ 問い合わせ文案（STEP 441〜460）</p>
+              <p className="mt-1">日経平均とTOPIX、それぞれの権利元向けに別々の問い合わせ文案を用意しました。送信先・担当者・料金・契約条件は未確認です。</p>
+              <a href="https://github.com/asawaku1632/signal-x/blob/research/market-index-shadow-20261021/docs/research/market-index-step441-460-license-inquiry-drafts.md" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-blue-600 underline">研究用の問い合わせ文案を見る（GitHub）</a>
+              <p className="mt-2 font-bold">送信：未実施 ／ 回答：未受領 ／ 許諾：未確認</p>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">契約書や返信の原文を公開リポジトリに登録しないでください。</p>
+            </div>
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
