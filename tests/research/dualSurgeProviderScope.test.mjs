@@ -23,3 +23,7 @@ test("impossible February 30 expiry is blocked",()=>assert.equal(assessProviderS
 test("invalid hour expiry is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T25:00:00Z"},asOf).allowed,false));
 test("impossible cutoff date is blocked",()=>assert.equal(assessProviderScope(fixture(),"2026-02-30T00:00:00Z").allowed,false));
 test("out of range timezone offset is blocked",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00+15:00"},asOf).allowed,false));
+
+test("fractional seconds and JST offset accepted",()=>{const r=assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00.123+09:00"},asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
+test("fractional seconds Z accepted",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T00:00:00.123Z"},asOf).allowed,true));
+test("invalid fractional timestamp offset rejected",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00.123+15:00"},asOf).allowed,false));
