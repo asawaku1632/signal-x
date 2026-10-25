@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessDualSurgeSample} from "../../app/lib/research/dualSurgeStatisticalAudit.mjs";
+const mature=(n,wins)=>Array.from({length:n},(_,i)=>({status:"MATURED",returnPct:i<wins?1:-1}));
+test("small sample blocked",()=>assert.equal(assessDualSurgeSample({outcomes:mature(5,4),baselineOutcomes:mature(5,2)}).sufficient,false));
+test("adequate synthetic samples report baseline and no production approval",()=>{const r=assessDualSurgeSample({outcomes:mature(40,24),baselineOutcomes:mature(40,20)});assert.equal(r.sufficient,true);assert.equal(r.observedDifference,0.1);assert.equal(r.productionApproved,false);});
+test("pending outcomes excluded from denominator",()=>{const r=assessDualSurgeSample({outcomes:[...mature(30,15),{status:"PENDING"}],baselineOutcomes:mature(30,15)});assert.equal(r.signal.matured,30);assert.equal(r.signal.pending,1);});
+test("excluded outcomes excluded from denominator",()=>{const r=assessDualSurgeSample({outcomes:[...mature(30,15),{status:"EXCLUDED"}],baselineOutcomes:mature(30,15)});assert.equal(r.signal.matured,30);assert.equal(r.signal.excluded,1);});
+test("missing baseline blocked",()=>assert.ok(assessDualSurgeSample({outcomes:mature(40,20),baselineOutcomes:[]}).reasons.includes("INSUFFICIENT_BASELINE_SAMPLE")));
+test("missing signal sample blocked",()=>assert.ok(assessDualSurgeSample({outcomes:[],baselineOutcomes:mature(40,20)}).reasons.includes("INSUFFICIENT_SIGNAL_SAMPLE")));
+test("invalid return rejected",()=>assert.throws(()=>assessDualSurgeSample({outcomes:[{status:"MATURED",returnPct:NaN}],baselineOutcomes:[]}),/INVALID_STATISTICAL_OUTCOME/));
+test("unknown status rejected",()=>assert.throws(()=>assessDualSurgeSample({outcomes:[{status:"WIN"}],baselineOutcomes:[]}),/INVALID_STATISTICAL_OUTCOME/));
+test("non array rejected",()=>assert.throws(()=>assessDualSurgeSample({outcomes:null,baselineOutcomes:[]}),/INVALID_STATISTICAL_INPUT/));
+test("Wilson intervals bounded",()=>{const r=assessDualSurgeSample({outcomes:mature(30,30),baselineOutcomes:mature(30,0)});assert.ok(r.signalWilson95.lower>=0&&r.signalWilson95.upper<=1);});
+test("invalid minimum threshold blocked",()=>assert.equal(assessDualSurgeSample({outcomes:mature(40,20),baselineOutcomes:mature(40,20),minimumMatured:0}).sufficient,false));
