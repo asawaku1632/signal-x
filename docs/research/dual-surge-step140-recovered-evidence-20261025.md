@@ -44,3 +44,12 @@ Research-only draft PR #212 remains unmerged. No production changes, provider co
 Audit #80 passed, but independent price-data verification is still blocked. Required evidence: (1) documented provider research-use permission and its restrictions; (2) immutable authorized daily OHLCV files with provenance and SHA-256; (3) five-trading-session return calculation from those original bars, including corporate-action adjustment and market calendar rules; (4) event-by-event comparison against the frozen 24-event reference, with nine pending outcomes kept pending; and (5) later out-of-sample validation before performance claims.
 
 Do not substitute simulated prices or the saved diagnostic returns for independent input. Until these checks pass, STEP 140 remains incomplete and production approval remains NO.
+
+## Provider terms review — 2026-10-25
+
+Official public references reviewed:
+- J-Quants personal API terms: https://jpx-jquants.com/ja/termsofservice?lang=ja (Article 8 limits use to registered user's private use and excludes third-party access, commercial and academic purposes).
+- J-Quants FAQ: https://jpx-jquants.com/ja?lang=ja (prohibits redistribution of raw data and repeated third-party delivery of investment-analysis results derived from personal API data).
+- Data availability: https://jpx-jquants.com/ja/spec/data-spec (historical daily OHLCV is plan-dependent; availability does not confer redistribution rights).
+
+**Research gate:** Personal-plan entitlement is NOT evidence of authorization for SIGNALX's multi-user service. No automated fetching, raw-data import, redistribution, publication, or production enablement is approved here. Seek explicit applicable commercial/provider permission and document the permitted fields, derived-output use, retention, user audience and fees before any independent replay using provider data. This is a terms review, not a legal determination or provider approval.
