@@ -173,6 +173,12 @@ export default function MarketIndexResearchPage() {
               </ul>
               <p className="mt-2 font-bold">問い合わせ：未送信 ／ 契約：未締結 ／ 正式取得：無効</p>
             </div>
+            <div className="mt-3 rounded-lg border p-3 text-sm dark:border-slate-700">
+              <p className="font-bold">✉ 問い合わせ準備（STEP 441〜460）</p>
+              <p className="mt-2">日経平均・TOPIXそれぞれの問い合わせ文案を研究資料として保存しました。送信や契約は行っていません。</p>
+              <p className="mt-2 font-bold">返信：未受領 ／ 契約証拠：未確認 ／ 正式保存：無効</p>
+              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">回答を受領しても、表示・非表示利用、保存、再配信、有料提供、派生分析の許諾範囲が確認できるまでは正式運用を開始しません。</p>
+            </div>
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">このチェックリストは研究用の表示のみ。外部データ取得・自動保存・本番反映は行いません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
