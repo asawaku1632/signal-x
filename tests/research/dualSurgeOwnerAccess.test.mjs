@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessDualSurgeOwnerAccess} from "../../app/lib/research/dualSurgeOwnerAccess.mjs";
+const valid=()=>({isAuthenticated:true,isOwner:true,sessionExpired:false,scope:"dual-surge-research",action:"read",rlsVerified:true,csrfVerified:true});
+test("synthetic owner read policy passes but never authorizes production",()=>{const r=assessDualSurgeOwnerAccess(valid());assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
+test("anonymous denied",()=>assert.ok(assessDualSurgeOwnerAccess({...valid(),isAuthenticated:false}).reasons.includes("UNAUTHENTICATED")));
+test("non-owner denied",()=>assert.ok(assessDualSurgeOwnerAccess({...valid(),isOwner:false}).reasons.includes("NOT_OWNER")));
+test("expired session denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),sessionExpired:true}).allowed,false));
+test("missing expiry attestation denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),sessionExpired:undefined}).allowed,false));
+test("wrong scope denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),scope:"other"}).allowed,false));
+test("write denied",()=>assert.ok(assessDualSurgeOwnerAccess({...valid(),action:"write"}).reasons.includes("ACTION_NOT_ALLOWED")));
+test("delete denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),action:"delete"}).allowed,false));
+test("unverified RLS denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),rlsVerified:false}).allowed,false));
+test("unverified request integrity denied",()=>assert.equal(assessDualSurgeOwnerAccess({...valid(),csrfVerified:false}).allowed,false));
+test("empty request denied",()=>assert.equal(assessDualSurgeOwnerAccess({}).allowed,false));
