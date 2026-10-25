@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {auditForwardOutcomes} from "../../app/lib/research/dualSurgeForwardAudit.mjs";
+const bars=Array.from({length:12},(_,i)=>({date:"2026-10-"+String(i+1).padStart(2,"0"),close:100+i,adjFactor:1}));
+const input=()=>({bars,signalDate:"2026-10-01",asOfDate:"2026-10-12"});
+test("all four horizons mature on synthetic complete sessions",()=>{const r=auditForwardOutcomes(input());assert.equal(r.matured,4);assert.deepEqual(r.outcomes.map(x=>x.horizon),[1,3,5,10]);assert.equal(r.productionApproved,false);});
+test("as-of cutoff prevents future leakage",()=>{const r=auditForwardOutcomes({...input(),asOfDate:"2026-10-04"});assert.equal(r.matured,2);assert.equal(r.pending,2);});
+test("no signal session is not a success",()=>assert.equal(auditForwardOutcomes({...input(),signalDate:"2026-09-30"}).status,"MISSING_SIGNAL_SESSION"));
+test("duplicate sessions rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),bars:[bars[0],bars[0]]}),/UNSORTED_OR_DUPLICATE_SESSIONS/));
+test("unsorted sessions rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),bars:[bars[1],bars[0]]}),/UNSORTED_OR_DUPLICATE_SESSIONS/));
+test("invalid as-of rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),asOfDate:"2026-09-30"}),/INVALID_FORWARD_AUDIT/));
+test("duplicate horizons rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),horizons:[1,1]}),/INVALID_HORIZONS/));
+test("unknown horizon rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),horizons:[2]}),/INVALID_HORIZONS/));
+test("corporate adjustment excludes affected horizon",()=>{const modified=bars.map(x=>({...x}));modified[2].adjFactor=2;const r=auditForwardOutcomes({...input(),bars:modified});assert.equal(r.outcomes.find(x=>x.horizon===3).status,"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT");});
+test("missing close excludes affected horizon",()=>{const modified=bars.map(x=>({...x}));modified[1].close=null;const r=auditForwardOutcomes({...input(),bars:modified});assert.equal(r.outcomes.find(x=>x.horizon===1).status,"EXCLUDED_MISSING_DATA");});
