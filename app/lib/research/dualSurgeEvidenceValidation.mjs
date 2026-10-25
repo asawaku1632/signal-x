@@ -1,5 +1,5 @@
 // Offline-only evidence validation. Does not grant permission to use a provider.
-export function validateEvidenceEntry(entry, asOf = "2026-10-25T00:00:00Z") {
+export function validateEvidenceEntry(entry, asOf = new Date().toISOString()) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
   if (entry.verified !== true || entry.revoked === true) return false;
   if (entry.status === "REJECTED" || entry.status === "EXPIRED") return false;
