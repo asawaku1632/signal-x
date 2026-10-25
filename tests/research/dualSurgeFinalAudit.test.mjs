@@ -11,3 +11,7 @@ test("complete synthetic forward outcomes pass only forward gate",()=>{const bar
 
 test("custom one-day-only horizons cannot bypass required forward windows",()=>{const bars=Array.from({length:3},(_,i)=>({date:"2026-10-0"+(i+1),close:100+i,adjFactor:1}));const r=auditDualSurgeRelease({forward:{bars,signalDate:"2026-10-01",asOfDate:"2026-10-03",horizons:[1]}});assert.equal(r.checks.forward,false);assert.ok(r.blocked.includes("forward"));});
 test("custom subset of mature horizons cannot bypass ten-day window",()=>{const bars=Array.from({length:7},(_,i)=>({date:"2026-10-0"+(i+1),close:100+i,adjFactor:1}));const r=auditDualSurgeRelease({forward:{bars,signalDate:"2026-10-01",asOfDate:"2026-10-07",horizons:[1,3,5]}});assert.equal(r.checks.forward,false);});
+
+test("invalid statistical rows fail closed without throwing",()=>{const r=auditDualSurgeRelease({outcomes:[{status:"MATURED",returnPct:NaN}],baselineOutcomes:[]});assert.equal(r.checks.statistics,false);assert.ok(r.blocked.includes("statistics"));assert.equal(r.productionApproved,false);});
+test("non-array statistical input fails closed without throwing",()=>{const r=auditDualSurgeRelease({outcomes:{status:"MATURED"},baselineOutcomes:[]});assert.equal(r.checks.statistics,false);assert.equal(r.releaseApproved,false);});
+test("null final audit input remains blocked",()=>{const r=auditDualSurgeRelease(null);assert.equal(r.allOfflineChecksPass,false);assert.equal(r.productionApproved,false);});
