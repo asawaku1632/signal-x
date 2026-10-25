@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
 import { buildResearchDashboardModel } from "@/app/lib/research/market-index-dashboard-model";
 import { summarizeMarketIndexReadiness } from "@/app/lib/research/market-index-readiness";
+import { reviewProviderDraft } from "@/app/lib/research/market-index-provider-review";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,12 @@ export async function GET() {
     sourceState: "NO_CONNECTED_EVIDENCE",
     hasLiveEvidence: false,
     model: result.model,
+    providerReview: reviewProviderDraft({
+      providerName: "", coveredIndices: [], dataRedistributionAllowed: false,
+      retentionAllowed: false, commercialDisplayAllowed: false,
+      derivedAnalyticsAllowed: false, automatedFetchAllowed: false,
+      contractualEvidenceReference: "", exchangeCalendarSource: "", rateLimitDocumented: false,
+    }),
     readiness: summarizeMarketIndexReadiness({
       providerRightsVerified: false,
       licensedEvidenceAuthenticated: false,
