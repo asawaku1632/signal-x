@@ -27,3 +27,6 @@ test("out of range timezone offset is blocked",()=>assert.equal(assessProviderSc
 test("fractional seconds and JST offset accepted",()=>{const r=assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00.123+09:00"},asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
 test("fractional seconds Z accepted",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T00:00:00.123Z"},asOf).allowed,true));
 test("invalid fractional timestamp offset rejected",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00.123+15:00"},asOf).allowed,false));
+
+test("fractional seconds with JST timezone pass shape precheck",()=>{const r=assessProviderScope({...fixture(),expiresAt:"2026-11-25T09:00:00.123+09:00"},asOf);assert.equal(r.allowed,true);assert.equal(r.productionApproved,false);});
+test("fractional seconds with UTC timezone pass shape precheck",()=>assert.equal(assessProviderScope({...fixture(),expiresAt:"2026-11-25T00:00:00.123Z"},asOf).allowed,true));
