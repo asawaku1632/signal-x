@@ -15,3 +15,7 @@ test("custom subset of mature horizons cannot bypass ten-day window",()=>{const 
 test("invalid statistical rows fail closed without throwing",()=>{const r=auditDualSurgeRelease({outcomes:[{status:"MATURED",returnPct:NaN}],baselineOutcomes:[]});assert.equal(r.checks.statistics,false);assert.ok(r.blocked.includes("statistics"));assert.equal(r.productionApproved,false);});
 test("non-array statistical input fails closed without throwing",()=>{const r=auditDualSurgeRelease({outcomes:{status:"MATURED"},baselineOutcomes:[]});assert.equal(r.checks.statistics,false);assert.equal(r.releaseApproved,false);});
 test("null final audit input remains blocked",()=>{const r=auditDualSurgeRelease(null);assert.equal(r.allOfflineChecksPass,false);assert.equal(r.productionApproved,false);});
+
+test("null evidence fails closed instead of throwing",()=>{const r=auditDualSurgeRelease({evidence:null});assert.equal(r.checks.evidence,false);assert.equal(r.productionApproved,false);});
+test("malformed readiness evidence fails closed instead of throwing",()=>{const r=auditDualSurgeRelease({evidence:[]});assert.equal(r.checks.evidence,false);assert.ok(r.blocked.includes("evidence"));});
+test("invalid provider input cannot crash the release audit",()=>{const r=auditDualSurgeRelease({provider:{status:"APPROVED",permissions:Symbol("bad")}});assert.equal(r.releaseApproved,false);assert.equal(r.productionApproved,false);});
