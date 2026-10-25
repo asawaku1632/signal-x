@@ -35,7 +35,7 @@ jobs:
           node-version: '22'
       - name: Offline research safety tests
         id: audit
-        run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs
+        run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs tests/research/dualSurgeVerifiedDisplay.test.mjs
       - name: Record audit evidence
         if: always()
         shell: bash
