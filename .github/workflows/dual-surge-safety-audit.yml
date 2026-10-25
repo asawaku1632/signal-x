@@ -1,5 +1,15 @@
 name: Dual Surge Research Safety Audit
 on:
+  push:
+    branches:
+      - fix/dual-surge-dev-db-isolation-20261023
+    paths:
+      - 'tests/research/dualSurge*'
+      - 'app/admin/dual-surge-shadow/**'
+      - 'app/lib/learningOwner*'
+      - 'app/lib/research/dualSurge*'
+      - 'docs/research/dual-surge-user-diagnostic-events-20261025.json'
+      - '.github/workflows/dual-surge-safety-audit.yml'
   workflow_dispatch:
   pull_request:
     paths:
@@ -13,7 +23,7 @@ permissions:
   contents: read
 jobs:
   offline-audit:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'fix/dual-surge-dev-db-isolation-20261023'
+    if: github.ref == 'refs/heads/fix/dual-surge-dev-db-isolation-20261023' || github.event.pull_request.head.ref == 'fix/dual-surge-dev-db-isolation-20261023'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
