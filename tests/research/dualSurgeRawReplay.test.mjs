@@ -23,3 +23,23 @@ test("replay does not count an empty reference set as successful verification",(
  assert.equal(r.allMatched,false);
  assert.equal(r.productionApproved,false);
 });
+
+test("replay excludes corporate-action-adjusted sessions instead of counting a match",()=>{
+ const adjusted=bars.map((b,i)=>i===2?{...b,AdjFactor:0.5}:b);
+ const r=replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":adjusted},asOfDate:dates[7]});
+ assert.equal(r.results[0].status,"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT");
+ assert.equal(r.results[0].matches,false);
+ assert.equal(r.allMatched,false);
+});
+test("replay rejects invalid source OHLCV rather than silently dropping the bar",()=>{
+ const invalid=bars.map((b,i)=>i===1?{...b,H:90}:b);
+ assert.throws(()=>replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":invalid},asOfDate:dates[7]}),/INVALID_PROVIDER_OHLCV/);
+});
+test("replay refuses to verify a signal after the as-of cutoff",()=>{
+ const r=replayDiagnosticEvents({referenceEvents:pending,providerRowsByCode:{"3762":bars},asOfDate:dates[3]});
+ assert.equal(r.results[0].status,"OUTSIDE_AS_OF_DATE");
+ assert.equal(r.allMatched,false);
+});
+test("replay rejects duplicated provider session dates",()=>{
+ assert.throws(()=>replayDiagnosticEvents({referenceEvents:matured,providerRowsByCode:{"3762":[...bars,bars[0]]},asOfDate:dates[7]}),/DUPLICATE_PROVIDER_DATE/);
+});
