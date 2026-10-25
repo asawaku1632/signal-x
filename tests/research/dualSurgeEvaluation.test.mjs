@@ -32,3 +32,6 @@ test("null existing exit is excluded not pending",()=>{const b=structuredClone(b
 test("future session outside array remains pending",()=>assert.equal(nextOpenReturn(bars,6).status,"PENDING"));
 
 test("null existing future close is excluded not pending",()=>{const b=structuredClone(bars);b[5]=null;assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_MISSING_DATA")});
+
+test("sparse missing intermediate bar excludes five-day close outcome",()=>{const b=structuredClone(bars);delete b[3];assert.equal(fiveDayOutcome(b,0).status,"EXCLUDED_MISSING_DATA")});
+test("sparse missing intermediate bar excludes next-open outcome",()=>{const b=structuredClone(bars);delete b[3];assert.equal(nextOpenReturn(b,0).status,"EXCLUDED_MISSING_DATA")});
