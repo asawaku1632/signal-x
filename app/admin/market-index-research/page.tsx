@@ -19,7 +19,7 @@ type ResearchStatus = {
 export default function MarketIndexResearchPage() {
   const [data, setData] = useState<ResearchStatus | null>(null);
   const [error, setError] = useState("");
-  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] }; providerReview: { status: string; eligibleForProduction: boolean; evidenceAuthenticated: boolean; issues: string[]; questions: Array<{ key: string; label: string }> }; licenseResponse: { status: string; authenticated: boolean; authorizedForProduction: boolean; missingOrUnverified: string[] }; connectionPlan: { mode: string; readiness: string; allowNetworkFetch: boolean; allowDatabaseWrite: boolean; allowCron: boolean; allowProductionIntegration: boolean; blockers: string[] } } | null>(null);
+  const [dashboard, setDashboard] = useState<{ sourceState: string; hasLiveEvidence: boolean; model: { status: string; total: number; manualReviewCandidates: number; blocked: number; warnings: string[] }; readiness: { mode: string; productionEnabled: boolean; officialPersistenceEnabled: boolean; items: Array<{ code: string; label: string; state: string; explanation: string }>; blockers: string[] }; providerReview: { status: string; eligibleForProduction: boolean; evidenceAuthenticated: boolean; issues: string[]; questions: Array<{ key: string; label: string }> }; licenseResponse: { status: string; authenticated: boolean; authorizedForProduction: boolean; missingOrUnverified: string[] }; connectionPlan: { mode: string; readiness: string; allowNetworkFetch: boolean; allowDatabaseWrite: boolean; allowCron: boolean; allowProductionIntegration: boolean; blockers: string[] }; safetyAudit: { mode: string; state: string; mayFetch: boolean; mayPersist: boolean; maySchedule: boolean; mayUseInProduction: boolean; findings: string[] } } | null>(null);
   const [dashboardError, setDashboardError] = useState("");
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
@@ -53,7 +53,7 @@ export default function MarketIndexResearchPage() {
       .then(async response => {
         if (!response.ok) throw new Error("研究集計を取得できません");
         const result = await response.json();
-        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items) || result.providerReview?.eligibleForProduction !== false || result.providerReview?.evidenceAuthenticated !== false || !Array.isArray(result.providerReview?.questions) || result.licenseResponse?.authenticated !== false || result.licenseResponse?.authorizedForProduction !== false || !Array.isArray(result.licenseResponse?.missingOrUnverified) || result.connectionPlan?.allowNetworkFetch !== false || result.connectionPlan?.allowDatabaseWrite !== false || result.connectionPlan?.allowCron !== false || result.connectionPlan?.allowProductionIntegration !== false || !Array.isArray(result.connectionPlan?.blockers)) {
+        if (result.success !== true || result.sourceState !== "NO_CONNECTED_EVIDENCE" || result.hasLiveEvidence !== false || result.model?.status !== "research_only" || result.readiness?.productionEnabled !== false || result.readiness?.officialPersistenceEnabled !== false || !Array.isArray(result.readiness?.items) || result.providerReview?.eligibleForProduction !== false || result.providerReview?.evidenceAuthenticated !== false || !Array.isArray(result.providerReview?.questions) || result.licenseResponse?.authenticated !== false || result.licenseResponse?.authorizedForProduction !== false || !Array.isArray(result.licenseResponse?.missingOrUnverified) || result.connectionPlan?.allowNetworkFetch !== false || result.connectionPlan?.allowDatabaseWrite !== false || result.connectionPlan?.allowCron !== false || result.connectionPlan?.allowProductionIntegration !== false || !Array.isArray(result.connectionPlan?.blockers) || result.safetyAudit?.state !== "blocked" || result.safetyAudit?.mayFetch !== false || result.safetyAudit?.mayPersist !== false || result.safetyAudit?.maySchedule !== false || result.safetyAudit?.mayUseInProduction !== false || !Array.isArray(result.safetyAudit?.findings)) {
           throw new Error("研究集計の安全な状態を確認できません");
         }
         setDashboard(result);
@@ -199,6 +199,12 @@ export default function MarketIndexResearchPage() {
             <p className="mt-2 text-sm font-bold">外部取得：無効 ／ DB正式保存：無効 ／ 定時実行：無効 ／ 本番連携：無効</p>
             <p className="mt-1 text-sm">契約証拠・営業日・正規フィード・品質・保存範囲・再配信・運用承認の各条件が必要です。条件がすべて入力されても、この研究用ロジックは接続を許可しません。</p>
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">未確認の接続条件：{dashboard.connectionPlan.blockers.length}件。APIが返す研究用の固定未接続状態であり、契約や取得の証拠ではありません。</p>
+          </section>}
+          {dashboard?.safetyAudit && <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-black">🛡️ 研究用安全監査（STEP 501〜520）</h2>
+            <p className="mt-2 text-sm font-bold">取得・保存・定時実行・本番連携：すべて無効</p>
+            <p className="mt-1 text-sm">契約回答と接続設定の矛盾を確認する読み取り専用の監査です。現在は未接続の固定状態で評価しています。</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">未解決・要確認事項：{dashboard.safetyAudit.findings.length}件。入力した条件がすべて揃っても、この監査結果だけで運用は開始できません。</p>
           </section>}
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 開発用DB・保存確定と再試行テスト</h2>
