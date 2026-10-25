@@ -13,3 +13,7 @@ test("duplicate horizons rejected",()=>assert.throws(()=>auditForwardOutcomes({.
 test("unknown horizon rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),horizons:[2]}),/INVALID_HORIZONS/));
 test("corporate adjustment excludes affected horizon",()=>{const modified=bars.map(x=>({...x}));modified[2].adjFactor=2;const r=auditForwardOutcomes({...input(),bars:modified});assert.equal(r.outcomes.find(x=>x.horizon===3).status,"EXCLUDED_CORPORATE_OR_UNKNOWN_ADJUSTMENT");});
 test("missing close excludes affected horizon",()=>{const modified=bars.map(x=>({...x}));modified[1].close=null;const r=auditForwardOutcomes({...input(),bars:modified});assert.equal(r.outcomes.find(x=>x.horizon===1).status,"EXCLUDED_MISSING_DATA");});
+
+test("impossible signal date is rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),signalDate:"2026-02-30"}),/INVALID_FORWARD_AUDIT/));
+test("impossible cutoff date is rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),asOfDate:"2026-02-30"}),/INVALID_FORWARD_AUDIT/));
+test("impossible bar session date is rejected",()=>assert.throws(()=>auditForwardOutcomes({...input(),bars:[{...bars[0],date:"2026-02-30"},...bars.slice(1)]}),/UNSORTED_OR_DUPLICATE_SESSIONS/));
