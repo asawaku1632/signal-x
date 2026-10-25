@@ -1,0 +1,16 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessDevDatabaseIsolation} from "../../app/lib/research/dualSurgeDevDatabaseGuard.mjs";
+const good=()=>({devUrl:"https://devproject.supabase.co",productionUrl:"https://prodproject.supabase.co",environment:"test",expectedDevProjectRef:"devproject",ownerVerified:true});
+test("distinct synthetic project identities pass offline check only",()=>{const r=assessDevDatabaseIsolation(good());assert.equal(r.isolated,true);assert.equal(r.productionApproved,false);});
+test("same project is blocked",()=>assert.ok(assessDevDatabaseIsolation({...good(),productionUrl:good().devUrl}).reasons.includes("DEV_EQUALS_PRODUCTION")));
+test("missing production identity is blocked",()=>assert.equal(assessDevDatabaseIsolation({...good(),productionUrl:undefined}).isolated,false));
+test("missing development identity is blocked",()=>assert.equal(assessDevDatabaseIsolation({...good(),devUrl:undefined}).isolated,false));
+test("expected development identity mismatch blocks",()=>assert.equal(assessDevDatabaseIsolation({...good(),expectedDevProjectRef:"wrong"}).isolated,false));
+test("production environment blocks",()=>assert.ok(assessDevDatabaseIsolation({...good(),environment:"production"}).reasons.includes("NON_DEVELOPMENT_ENVIRONMENT")));
+test("service role use blocks",()=>assert.equal(assessDevDatabaseIsolation({...good(),serviceRoleUsed:true}).isolated,false));
+test("writes block",()=>assert.ok(assessDevDatabaseIsolation({...good(),writeRequested:true}).reasons.includes("WRITE_NOT_PERMITTED")));
+test("unverified owner blocks",()=>assert.equal(assessDevDatabaseIsolation({...good(),ownerVerified:false}).isolated,false));
+test("URL credentials block",()=>assert.equal(assessDevDatabaseIsolation({...good(),devUrl:"https://user:pass@devproject.supabase.co"}).isolated,false));
+test("lookalike hostname blocks",()=>assert.equal(assessDevDatabaseIsolation({...good(),devUrl:"https://devproject.supabase.co.evil.com"}).isolated,false));
+test("non HTTPS blocks",()=>assert.equal(assessDevDatabaseIsolation({...good(),devUrl:"http://devproject.supabase.co"}).isolated,false));
