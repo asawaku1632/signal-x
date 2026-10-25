@@ -1,0 +1,16 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {assessReplayProvenance} from "../../app/lib/research/dualSurgeReplayProvenance.mjs";
+const good=()=>({sourceId:"test-source",sourceVersion:"v1",rawSha256:"a".repeat(64),calculationVersion:"v1",asOfDate:"2026-10-23",signalDate:"2026-10-20",immutableSource:true,sourceAuthorized:true,replayMatched:true,outcomeStatus:"MATURED"});
+test("complete synthetic provenance passes shape checks but not production approval",()=>{const r=assessReplayProvenance(good());assert.equal(r.verified,true);assert.equal(r.productionApproved,false);});
+test("missing source identity blocks",()=>assert.equal(assessReplayProvenance({...good(),sourceId:""}).verified,false));
+test("missing source version blocks",()=>assert.equal(assessReplayProvenance({...good(),sourceVersion:""}).verified,false));
+test("invalid hash blocks",()=>assert.ok(assessReplayProvenance({...good(),rawSha256:"bad"}).reasons.includes("RAW_HASH_INVALID")));
+test("missing calculation version blocks",()=>assert.equal(assessReplayProvenance({...good(),calculationVersion:""}).verified,false));
+test("as-of before signal blocks",()=>assert.ok(assessReplayProvenance({...good(),asOfDate:"2026-10-19"}).reasons.includes("AS_OF_INVALID")));
+test("invalid calendar day blocks",()=>assert.equal(assessReplayProvenance({...good(),asOfDate:"2026-02-30"}).verified,false));
+test("mutable source blocks",()=>assert.equal(assessReplayProvenance({...good(),immutableSource:false}).verified,false));
+test("unlicensed source blocks",()=>assert.ok(assessReplayProvenance({...good(),sourceAuthorized:false}).reasons.includes("SOURCE_NOT_AUTHORIZED")));
+test("replay mismatch blocks",()=>assert.equal(assessReplayProvenance({...good(),replayMatched:false}).verified,false));
+test("pending outcome cannot be counted as verified matured",()=>assert.equal(assessReplayProvenance({...good(),outcomeStatus:"PENDING"}).verified,false));
+test("unknown outcome status blocks",()=>assert.equal(assessReplayProvenance({...good(),outcomeStatus:"UNKNOWN"}).verified,false));
