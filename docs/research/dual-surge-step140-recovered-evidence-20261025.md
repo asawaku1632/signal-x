@@ -38,3 +38,9 @@ Research-only draft PR #212 remains unmerged. No production changes, provider co
 - The observed 11 positive / 15 matured (73.3%) is a **retrospective positive-outcome fraction in a curated sample**, **not** a predictive win rate, validated precision, expected profit, or statistically representative estimate. The 9 pending records must not be silently counted as wins or losses.
 - Remaining STEP 140 blockers: independently licensed raw OHLCV source rows, explicit permission/provenance, reproducible independent replay, and prospective out-of-sample validation. **STEP 140 NOT COMPLETE; production approval NO.**
 - Do not merge this Draft PR, schedule collection, place trades, or activate notifications based on the audit pass.
+
+## Independent replay prerequisites (2026-10-25)
+
+Audit #80 passed, but independent price-data verification is still blocked. Required evidence: (1) documented provider research-use permission and its restrictions; (2) immutable authorized daily OHLCV files with provenance and SHA-256; (3) five-trading-session return calculation from those original bars, including corporate-action adjustment and market calendar rules; (4) event-by-event comparison against the frozen 24-event reference, with nine pending outcomes kept pending; and (5) later out-of-sample validation before performance claims.
+
+Do not substitute simulated prices or the saved diagnostic returns for independent input. Until these checks pass, STEP 140 remains incomplete and production approval remains NO.
