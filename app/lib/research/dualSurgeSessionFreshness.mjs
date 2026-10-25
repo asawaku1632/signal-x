@@ -2,7 +2,9 @@
 // No provider calls, persistence, synthetic quote substitution or trading.
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 function tokyoDate(timestamp) {
- return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(timestamp));
+ const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(timestamp));
+ const fields=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+ return `${fields.year}-${fields.month}-${fields.day}`;
 }
 function validDate(value) {
  if(typeof value!=="string"||!DATE.test(value))return false;
