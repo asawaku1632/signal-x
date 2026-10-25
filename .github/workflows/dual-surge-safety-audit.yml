@@ -34,4 +34,4 @@ jobs:
         with:
           node-version: '22'
       - name: Offline research safety tests
-        run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs
+        run: node --test tests/research/dualSurgeStep140SafetyAudit.test.mjs tests/research/dualSurgeOwnerBoundaryAudit.test.mjs tests/research/dualSurgeRawReplay.test.mjs tests/research/dualSurgeOfflineCli.test.mjs
