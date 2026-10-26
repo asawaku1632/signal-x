@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
@@ -108,6 +109,15 @@ export async function GET(req: Request) {
       stopLoss,
     });
     if (monitor) {
+      await recordFavoriteAlertAudit({
+        monitorId: monitor.id,
+        code: monitor.code,
+        quoteTimestamp: quoteTime as string,
+        snapshotUpdatedAt: typeof scanJson?.updatedAt === "string" && !Number.isNaN(Date.parse(scanJson.updatedAt)) ? scanJson.updatedAt : null,
+        decisionAt: new Date().toISOString(),
+        referencePrice: price,
+        aiPower: score,
+      });
       await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "DISARMED");
       let lineSent = false;
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
