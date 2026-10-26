@@ -1,0 +1,26 @@
+name: Owner Real Trade Research Safety
+on:
+  pull_request:
+    paths:
+      - "lib/research/realTradeCalculations.ts"
+      - "lib/research/realTradeSummary.ts"
+      - "tests/research/realTradeCalculations.test.mjs"
+      - "tests/research/realTradeSummary.test.mjs"
+      - "app/admin/post-sale-audit/**"
+      - ".github/workflows/owner-real-trade-research-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/research/realTradeCalculations.test.mjs tests/research/realTradeSummary.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
