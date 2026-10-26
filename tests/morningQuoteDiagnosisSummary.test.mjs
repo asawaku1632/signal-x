@@ -19,3 +19,10 @@ test("counts observed upstream errors distinctly",()=>{
  assert.equal(x.counts.UPSTREAM_HTTP_ERROR,1);assert.equal(x.counts.UPSTREAM_TIMEOUT,1);
 });
 test("rejects non-array inputs",()=>assert.throws(()=>summarize({}),TypeError));
+
+test("generic upstream fetch failure is counted rather than discarded",()=>{
+ const x=summarize([row("UPSTREAM_FETCH_ERROR",{stage:"upstream_failure"})]);
+ assert.equal(x.accepted,1);assert.equal(x.rejected,0);
+ assert.equal(x.counts.UPSTREAM_FETCH_ERROR,1);
+ assert.equal(x.rootCauseConfirmed,false);
+});
