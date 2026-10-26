@@ -18,6 +18,8 @@ on:
       - 'tests/morningQuoteShadowActivation.test.mjs'
       - 'tests/morningQuoteFailureMetadata.test.mjs'
       - 'app/lib/research/morningQuoteFailureMetadata.mjs'
+      - 'app/lib/research/morningQuoteOfflinePipeline.mjs'
+      - 'tests/morningQuoteOfflinePipeline.test.mjs'
       - 'research/MORNING_0905_SHADOW_ACTIVATION_GATES_20261026.md'
       - 'research/sql/morning_0905_dev_diagnostic_draft.sql'
       - '.github/workflows/morning-quote-metadata-research.yml'
@@ -37,4 +39,4 @@ jobs:
       - name: Typecheck research branch
         run: npx tsc --noEmit --incremental false
       - name: Run offline metadata unit tests
-        run: node --test tests/morningQuoteMetadata.test.mjs tests/morningQuoteIntegration.test.mjs tests/morningQuoteSqlSecurity.test.mjs tests/morningQuoteSafeRecord.test.mjs tests/morningQuoteDiagnosisSummary.test.mjs tests/morningQuoteShadowActivation.test.mjs tests/morningQuoteFailureMetadata.test.mjs
+        run: node --test tests/morningQuoteMetadata.test.mjs tests/morningQuoteIntegration.test.mjs tests/morningQuoteSqlSecurity.test.mjs tests/morningQuoteSafeRecord.test.mjs tests/morningQuoteDiagnosisSummary.test.mjs tests/morningQuoteShadowActivation.test.mjs tests/morningQuoteFailureMetadata.test.mjs tests/morningQuoteOfflinePipeline.test.mjs
