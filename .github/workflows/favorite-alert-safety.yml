@@ -1,0 +1,34 @@
+name: Favorite Alert Safety
+on:
+  pull_request:
+    paths:
+      - 'app/lib/favoriteQuoteFreshness.ts'
+      - 'app/lib/favoriteAlertAuditSafety.ts'
+      - 'app/lib/favoriteOutcomeQuoteGuard.ts'
+      - 'app/lib/favoriteQuoteLicenseGuard.ts'
+      - 'tests/favoriteQuoteLicenseGuard.test.mjs'
+      - 'tests/favoriteQuoteDispatchBoundary.test.mjs'
+      - 'tests/favoriteNotificationRouteSafety.test.mjs'
+      - 'tests/momentumMemoryNotificationSafety.test.mjs'
+      - 'app/api/cron/favorite-ai-check/route.ts'
+      - 'app/lib/push/priceTargetWatcher.ts'
+      - 'app/lib/learning/momentumMemoryNotification.ts'
+      - 'tests/favoriteOutcomeQuoteGuard.test.mjs'
+      - 'tests/favoriteAlertAuditSafety.test.mjs'
+      - 'app/lib/marketScanGuard.ts'
+      - 'app/api/cron/favorite-ai-monitor/route.ts'
+      - 'tests/favoriteQuoteFreshness.test.mjs'
+      - 'tests/favoriteAlertQuoteTimestamp.test.mjs'
+      - '.github/workflows/favorite-alert-safety.yml'
+  workflow_dispatch:
+jobs:
+  quote-safety:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --experimental-strip-types --test tests/favoriteQuoteFreshness.test.mjs tests/favoriteAlertQuoteTimestamp.test.mjs tests/favoriteAlertAuditSafety.test.mjs tests/favoriteOutcomeQuoteGuard.test.mjs tests/favoriteQuoteLicenseGuard.test.mjs tests/favoriteQuoteDispatchBoundary.test.mjs tests/favoriteNotificationRouteSafety.test.mjs tests/momentumMemoryNotificationSafety.test.mjs

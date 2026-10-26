@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
+import { favoriteQuoteLicenseGuard } from "@/app/lib/favoriteQuoteLicenseGuard";
+import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
+import { persistFavoriteAuditOrCancel } from "@/app/lib/favoriteAlertAuditSafety";
+import { quoteDateJst } from "@/app/lib/marketScanGuard";
+import { favoriteQuoteFreshness } from "@/app/lib/favoriteQuoteFreshness";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
   claimFavoriteActivationNotification,
+  completeFavoriteAiMonitor,
   getAllFavorites,
   getFavoriteAiWatchState,
   markFavoriteActivationNotified,
@@ -24,6 +30,8 @@ type Stock = {
   aiPower?: number;
   takeProfit?: number;
   stopLoss?: number;
+  latestBarTimestamp?: number | string | null;
+  dataSource?: string | null;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
@@ -55,6 +63,7 @@ export async function GET(req: Request) {
 
   const scanJson = await scanRes.json();
   const stocks: Stock[] = Array.isArray(scanJson?.stocks) ? scanJson.stocks : [];
+  const marketDate = session.date;
   const started = [];
   const waiting = [];
 
@@ -65,6 +74,27 @@ export async function GET(req: Request) {
 
     if (!stock || price <= 0) {
       waiting.push({ code: favorite.code, score, reason: !stock ? "not_found" : "price_missing" });
+      continue;
+    }
+
+    const license = favoriteQuoteLicenseGuard(stock.dataSource);
+    if (!license.ok) {
+      waiting.push({ code: favorite.code, score, reason: license.reason });
+      continue;
+    }
+
+    // A fresh scan snapshot does not imply a fresh underlying market quote.
+    // Fail closed when the per-stock quote date is missing or not today.
+    const quoteTime = stock.latestBarTimestamp;
+    const quoteDate = quoteDateJst(quoteTime);
+    if (quoteDate !== marketDate) {
+      waiting.push({ code: favorite.code, score, reason: "quote_not_confirmed_today", quoteDate, marketDate });
+      continue;
+    }
+
+    const freshness = favoriteQuoteFreshness(quoteTime);
+    if (!freshness.ok) {
+      waiting.push({ code: favorite.code, score, reason: freshness.reason, quoteAgeSeconds: freshness.ageSeconds });
       continue;
     }
 
@@ -95,6 +125,23 @@ export async function GET(req: Request) {
       stopLoss,
     });
     if (monitor) {
+      const auditResult = await persistFavoriteAuditOrCancel(
+        monitor.id,
+        () => recordFavoriteAlertAudit({
+          monitorId: monitor.id,
+          code: monitor.code,
+          quoteTimestamp: new Date(Number(quoteTime) * 1000).toISOString(),
+          snapshotUpdatedAt: typeof scanJson?.updatedAt === "string" && !Number.isNaN(Date.parse(scanJson.updatedAt)) ? scanJson.updatedAt : null,
+          decisionAt: new Date().toISOString(),
+          referencePrice: price,
+          aiPower: score,
+        }),
+        (id) => completeFavoriteAiMonitor(id, "CANCELLED"),
+      );
+      if (auditResult === "cancelled") {
+        waiting.push({ code: favorite.code, score, reason: "audit_persist_failed" });
+        continue;
+      }
       await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "DISARMED");
       let lineSent = false;
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
@@ -116,7 +163,7 @@ export async function GET(req: Request) {
       const webPush = score >= PRIME_SIGNAL_SCORE
         ? { ok: false, sent: 0, failed: 0, reason: "PRIME_SIGNAL_PRIORITY" as const }
         : await pushWebToUser(monitor.userEmail, {
-            title: "🔵 SIGNALX 買い条件成立",
+            title: "🔵 SIGNALX 高評価・監視候補",
             body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
             url: `/analysis/${monitor.code}`,
             tag: `signalx-buy-${monitor.id}`,

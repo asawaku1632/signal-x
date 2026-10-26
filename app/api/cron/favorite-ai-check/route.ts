@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { favoriteQuoteLicenseGuard } from "@/app/lib/favoriteQuoteLicenseGuard";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { favoriteOutcomeQuoteGuard } from "@/app/lib/favoriteOutcomeQuoteGuard";
 import {
   claimFavoriteActivationNotification,
   claimFavoriteResultNotification,
@@ -17,7 +19,7 @@ import { pushWebToUser } from "@/app/lib/push/userPush";
 import { checkUserPriceTargets } from "@/app/lib/push/priceTargetWatcher";
 import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
-type Stock = { code: string; price?: number };
+type Stock = { code: string; price?: number; latestBarTimestamp?: number | string | null; dataSource?: string | null };
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
 
 function resultAlertUrl(monitor: {
@@ -79,6 +81,29 @@ export async function GET(req: Request) {
     const stock = stocks.find((item) => String(item.code) === monitor.code);
     const currentPrice = Number(stock?.price ?? 0);
 
+    if (currentPrice <= 0) {
+      active.push({ ...monitor, currentPrice: 0, state: "PRICE_MISSING" });
+      continue;
+    }
+
+    // Result thresholds must never be evaluated against stale or unverified quotes.
+    const license = favoriteQuoteLicenseGuard(stock?.dataSource);
+    if (!license.ok) {
+      active.push({ ...monitor, currentPrice, state: "QUOTE_SOURCE_UNLICENSED", reason: license.reason });
+      continue;
+    }
+
+    const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
+    if (!quoteGuard.ok) {
+      active.push({
+        ...monitor,
+        currentPrice,
+        state: "QUOTE_NOT_VERIFIED",
+        reason: quoteGuard.reason,
+      });
+      continue;
+    }
+
     if (!monitor.activationNotifiedAt) {
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       if (lineDeliveryEnabled && lineUserId) {
@@ -89,11 +114,6 @@ export async function GET(req: Request) {
           else await releaseFavoriteActivationNotification(monitor.id);
         }
       }
-    }
-
-    if (currentPrice <= 0) {
-      active.push({ ...monitor, currentPrice: 0, state: "PRICE_MISSING" });
-      continue;
     }
 
     const outcome =
@@ -113,6 +133,12 @@ export async function GET(req: Request) {
   const notifications = [];
 
   for (const monitor of pending) {
+    // Existing pending results lack verified licensed quote provenance.
+    // Do not replay historical buy/sell alerts until the source is approved.
+    if (!favoriteQuoteLicenseGuard(null).ok) {
+      notifications.push({ id: monitor.id, code: monitor.code, state: "QUOTE_SOURCE_UNLICENSED" });
+      continue;
+    }
     const currentPrice = monitor.resultPrice;
     if (currentPrice == null) continue;
 
@@ -125,7 +151,7 @@ export async function GET(req: Request) {
     const result = monitor.status === "WIN" ? "WIN" : "LOSE";
     const webPush = await pushWebToUser(monitor.userEmail, {
       title: result === "WIN" ? "🟢 SIGNALX 利確ライン到達" : "🔴 SIGNALX 損切りライン到達",
-      body: `${monitor.code} ${monitor.name}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 現在 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
+      body: `${monitor.code} ${monitor.name}｜監視基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 判定参考 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
       url: resultAlertUrl(monitor),
       tag: `signalx-result-${monitor.id}`,
     }, result === "WIN" ? "take_profit" : "stop_loss");

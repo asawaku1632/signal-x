@@ -1,20 +1,6 @@
 import pool from "@/app/lib/postgres";
 import { pushWebToUser } from "@/app/lib/push/userPush";
-import YahooFinance from "yahoo-finance2";
 
-const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
-
-async function captureNotificationPrice(code: string) {
-  try {
-    const quote = await yahooFinance.quote(`${code}.T`);
-    const price = Number(quote.regularMarketPrice);
-    if (!Number.isFinite(price) || price <= 0) return null;
-    return { price, capturedAt: new Date(), source: "YAHOO_FINANCE_QUOTE" };
-  } catch (error) {
-    console.error(`Momentum Memory quote capture failed for ${code}:`, error);
-    return null;
-  }
-}
 
 function adminEmails() {
   return [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAILS]
@@ -61,7 +47,7 @@ export async function notifyMomentumMemoryCandidates(targetDate: string) {
   for (const row of result.rows) {
     const type = row.profile_key === "EXPLOSIVE_REBOUND" ? "爆発反発型" : "安定反発型";
     const title = `🚀 爆益前兆通知：${type}`;
-    const snapshot = await captureNotificationPrice(row.code);
+    // Research-only alert: do not fetch or persist an unlicensed market quote.
     const body = `${row.name ?? row.code} (${row.code})で爆益につながる可能性のある前兆を検出 / AI ${Number(row.current_ai_power).toFixed(1)} / 3日平均 ${Number(row.prev3_avg_ai_power).toFixed(1)} / 落差 ${Number(row.ai_power_drop_from_peak).toFixed(1)}`;
     let sent = false;
     for (const email of admins) {
@@ -83,9 +69,9 @@ export async function notifyMomentumMemoryCandidates(targetDate: string) {
          ON CONFLICT (observation_id,channel) DO NOTHING`,
         [
           row.id,
-          snapshot?.price ?? null,
-          snapshot?.capturedAt ?? null,
-          snapshot?.source ?? null,
+          null,
+          null,
+          null,
           row.profile_key,
           row.current_ai_power,
           row.prev3_avg_ai_power,
