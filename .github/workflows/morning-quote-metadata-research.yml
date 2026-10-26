@@ -10,6 +10,8 @@ on:
       - 'app/learning/patterns/**/page.tsx'
       - 'tests/morningQuoteMetadata.test.mjs'
       - 'tests/morningQuoteIntegration.test.mjs'
+      - 'tests/morningQuoteSqlSecurity.test.mjs'
+      - 'research/sql/morning_0905_dev_diagnostic_draft.sql'
       - '.github/workflows/morning-quote-metadata-research.yml'
   workflow_dispatch:
 permissions:
@@ -27,4 +29,4 @@ jobs:
       - name: Typecheck research branch
         run: npx tsc --noEmit --incremental false
       - name: Run offline metadata unit tests
-        run: node --test tests/morningQuoteMetadata.test.mjs tests/morningQuoteIntegration.test.mjs
+        run: node --test tests/morningQuoteMetadata.test.mjs tests/morningQuoteIntegration.test.mjs tests/morningQuoteSqlSecurity.test.mjs
