@@ -26,3 +26,13 @@ test("no fixtures do not establish a diagnosis",()=>{
  assert.equal(x.accepted,0);assert.equal(x.rootCauseConfirmed,false);
 });
 test("reject non-array input",()=>assert.throws(()=>analyze({}),TypeError));
+
+test("successful HTTP and empty fixtures are not counted as failures",()=>{
+ const x=analyze([{tradeDate:"2026-10-26",httpStatus:200},
+  {tradeDate:"2026-10-26",httpStatus:204},
+  {tradeDate:"2026-10-26"},
+  {tradeDate:"2026-10-26",httpStatus:503}]);
+ assert.equal(x.accepted,1);assert.equal(x.rejected,3);
+ assert.equal(x.counts.UPSTREAM_HTTP_ERROR,1);
+ assert.equal(x.counts.UPSTREAM_FETCH_ERROR,0);
+});
