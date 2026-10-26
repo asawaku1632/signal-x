@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { summarizeRealizedResults } from "@/lib/research/realTradeSummary";
 
 type Outcome = { days: number; date: string | null; price: number | null; extraYen: number | null };
 type Case = { id: string; code: string; name: string; saleDate: string; buyPrice: number; salePrice: number;
@@ -52,6 +53,8 @@ export default function PostSaleClient() {
     finally { setBusy(false); }
   }
 
+  const tradeStats = report ? summarizeRealizedResults([...report.items].reverse().map(item => ({ profitYen: item.realizedProfitYen }))) : null;
+
   const field = (key: keyof typeof sample, title: string, kind: string = "text") =>
     <label className="block text-sm font-bold text-slate-700" key={key}>{title}
       <input required type={kind} min={key === "quantity" ? "1" : kind === "number" ? "0.01" : undefined}
@@ -81,6 +84,20 @@ export default function PostSaleClient() {
       {error && <p role="alert" className="mt-3 text-sm font-bold text-red-700">{error}</p>}
     </section>
 
+    {tradeStats && <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="font-black text-slate-900">実売買の成績（税・手数料前）</h2>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+        <p>記録件数：<strong>{tradeStats.count}件</strong></p>
+        <p>勝率：<strong>{tradeStats.winRate === null ? "未評価" : tradeStats.winRate.toFixed(1) + "%"}</strong></p>
+        <p>累積損益：<strong>{yen(tradeStats.total)}</strong></p>
+        <p>1件平均：<strong>{tradeStats.expectancy === null ? "未評価" : yen(tradeStats.expectancy)}</strong></p>
+        <p>平均利益：<strong>{tradeStats.averageWin === null ? "未評価" : yen(tradeStats.averageWin)}</strong></p>
+        <p>平均損失：<strong>{tradeStats.averageLoss === null ? "未評価" : yen(tradeStats.averageLoss)}</strong></p>
+        <p className="col-span-2">最大ドローダウン（記録順）：<strong>{yen(tradeStats.maxDrawdown)}</strong></p>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">表示対象は直近最大150件。最大ドローダウンはこの表示対象を登録日の新しい順に取得した記録の売却日順で計算する参考値で、口座全体の損失を示しません。</p>
+      {tradeStats.insufficientSample && <p className="mt-2 text-xs font-bold text-amber-700">30件未満の少数サンプルです。勝率・期待値の再現性は未確認です。</p>}
+    </section>}
     <section className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-black text-slate-900">売却後の研究結果</h2>
