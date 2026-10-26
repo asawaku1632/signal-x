@@ -1,0 +1,24 @@
+name: Morning Quote Metadata Research Tests
+on:
+  push:
+    branches:
+      - research/morning-quote-metadata-diagnostics-20261026
+    paths:
+      - 'app/lib/research/morningQuoteMetadata.ts'
+      - 'tests/morningQuoteMetadata.test.mjs'
+      - '.github/workflows/morning-quote-metadata-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-metadata-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Run offline metadata unit tests
+        run: node --test tests/morningQuoteMetadata.test.mjs
