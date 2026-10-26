@@ -15,6 +15,7 @@ test("rejects sale date mismatch, invalid clock and price", () => {
   const base = { executedAtJst: null, limitPrice: null, reason: null, unableToMonitor: false };
   assert.notEqual(validateExecutionNotes({ ...base, executedAtJst: "2026-10-25T14:19" }, "2026-10-26"), null);
   assert.notEqual(validateExecutionNotes({ ...base, executedAtJst: "2026-10-26T25:19" }, "2026-10-26"), null);
+  assert.notEqual(validateExecutionNotes({ ...base, executedAtJst: "2026-02-30T14:19" }, "2026-02-30"), null);
   assert.notEqual(validateExecutionNotes({ ...base, limitPrice: -1 }, "2026-10-26"), null);
   assert.notEqual(validateExecutionNotes({ ...base, reason: "x".repeat(501) }, "2026-10-26"), null);
 });
