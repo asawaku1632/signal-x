@@ -1,5 +1,6 @@
 import pool from "@/app/lib/postgres";
 import { pushWebToUser } from "./userPush";
+import { favoriteQuoteLicenseGuard } from "@/app/lib/favoriteQuoteLicenseGuard";
 
 type ScanStock = { code?: string | number; name?: string; price?: number };
 type PendingPriceTarget = {
@@ -14,6 +15,10 @@ export async function checkUserPriceTargets(
   stocks: ScanStock[],
   scanMetadata: { status?: string; updatedAt?: string; marketClosed?: boolean },
 ) {
+  // A recently generated scan is not evidence of licensed, executable quotes.
+  const license = favoriteQuoteLicenseGuard(null);
+  if (!license.ok) return { skipped: license.reason, checked: 0, notified: 0 };
+
   const scannedAt = Date.parse(scanMetadata.updatedAt ?? "");
   const ageMs = Date.now() - scannedAt;
   // Never turn a stale or partial research scan into a user's stock-price alert.
