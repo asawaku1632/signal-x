@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
+import { persistFavoriteAuditOrCancel } from "@/app/lib/favoriteAlertAuditSafety";
 import { quoteDateJst } from "@/app/lib/marketScanGuard";
 import { favoriteQuoteFreshness } from "@/app/lib/favoriteQuoteFreshness";
 import { requireCronAuth } from "@/app/lib/cronAuth";
@@ -116,8 +117,9 @@ export async function GET(req: Request) {
       stopLoss,
     });
     if (monitor) {
-      try {
-        await recordFavoriteAlertAudit({
+      const auditResult = await persistFavoriteAuditOrCancel(
+        monitor.id,
+        () => recordFavoriteAlertAudit({
           monitorId: monitor.id,
           code: monitor.code,
           quoteTimestamp: new Date(Number(quoteTime) * 1000).toISOString(),
@@ -125,13 +127,11 @@ export async function GET(req: Request) {
           decisionAt: new Date().toISOString(),
           referencePrice: price,
           aiPower: score,
-        });
-      } catch (error) {
-        // Never deliver an alert when its quote provenance cannot be recorded.
-        // Cancel the newly created monitor so the next cron can retry safely.
-        await completeFavoriteAiMonitor(monitor.id, "CANCELLED");
+        }),
+        (id) => completeFavoriteAiMonitor(id, "CANCELLED"),
+      );
+      if (auditResult === "cancelled") {
         waiting.push({ code: favorite.code, score, reason: "audit_persist_failed" });
-        console.error("favorite alert audit failed", { code: favorite.code, error });
         continue;
       }
       await setFavoriteAiWatchState(favorite.userEmail, favorite.code, "DISARMED");
