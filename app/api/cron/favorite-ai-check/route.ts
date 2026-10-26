@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { favoriteQuoteLicenseGuard } from "@/app/lib/favoriteQuoteLicenseGuard";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { favoriteOutcomeQuoteGuard } from "@/app/lib/favoriteOutcomeQuoteGuard";
 import {
@@ -18,7 +19,7 @@ import { pushWebToUser } from "@/app/lib/push/userPush";
 import { checkUserPriceTargets } from "@/app/lib/push/priceTargetWatcher";
 import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
-type Stock = { code: string; price?: number; latestBarTimestamp?: number | string | null };
+type Stock = { code: string; price?: number; latestBarTimestamp?: number | string | null; dataSource?: string | null };
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
 
 function resultAlertUrl(monitor: {
@@ -98,6 +99,12 @@ export async function GET(req: Request) {
     }
 
     // Result thresholds must never be evaluated against stale or unverified quotes.
+    const license = favoriteQuoteLicenseGuard(stock?.dataSource);
+    if (!license.ok) {
+      active.push({ ...monitor, currentPrice, state: "QUOTE_SOURCE_UNLICENSED", reason: license.reason });
+      continue;
+    }
+
     const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
     if (!quoteGuard.ok) {
       active.push({
