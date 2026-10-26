@@ -4,7 +4,11 @@ on:
     branches:
       - test/alphanumeric-swing-codes-20261026
     paths:
+      - "app/lib/learning/swingStockCode.ts"
+      - "app/lib/learning/swingUniverseAudit.ts"
+      - "app/api/swing-universe-audit/route.ts"
       - "tests/swingAlphanumericCodes.test.mjs"
+      - "tests/swingUniverseAudit.test.mjs"
       - ".github/workflows/alphanumeric-swing-research-ci.yml"
   workflow_dispatch:
 permissions:
@@ -18,4 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - run: node --test tests/swingAlphanumericCodes.test.mjs
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/swingAlphanumericCodes.test.mjs tests/swingUniverseAudit.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
