@@ -26,3 +26,12 @@ test("both present does not claim valid prices",()=>{
   assert.equal(result.has0905,true);
   assert.equal("price" in result,false);
 });
+
+test("invalid HTTP status fails closed",()=>{
+  assert.equal(classify({},NaN,"2026-10-26").reason,"UPSTREAM_HTTP_ERROR");
+  assert.equal(classify({},0,"2026-10-26").reason,"UPSTREAM_HTTP_ERROR");
+});
+test("previous trading date bars are not mistaken for today's opening",()=>{
+  const previous=Math.floor(Date.parse("2026-10-23T09:00:00+09:00")/1000);
+  assert.equal(classify(chart([previous]),200,"2026-10-26").reason,"MISSING_0900_BAR");
+});
