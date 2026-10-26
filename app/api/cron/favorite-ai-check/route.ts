@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
+import { favoriteQuoteFreshness } from "@/app/lib/favoriteQuoteFreshness";
+import { quoteDateJst } from "@/app/lib/marketScanGuard";
 import {
   claimFavoriteActivationNotification,
   claimFavoriteResultNotification,
@@ -17,7 +19,7 @@ import { pushWebToUser } from "@/app/lib/push/userPush";
 import { checkUserPriceTargets } from "@/app/lib/push/priceTargetWatcher";
 import { getTseCashSessionStatus } from "@/app/lib/technicalObservation/tseMarketCalendar";
 
-type Stock = { code: string; price?: number };
+type Stock = { code: string; price?: number; latestBarTimestamp?: number | string | null };
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
 
 function resultAlertUrl(monitor: {
@@ -96,6 +98,19 @@ export async function GET(req: Request) {
       continue;
     }
 
+    // Result thresholds must never be evaluated against stale or unverified quotes.
+    const quoteDate = quoteDateJst(stock?.latestBarTimestamp);
+    const freshness = favoriteQuoteFreshness(stock?.latestBarTimestamp);
+    if (quoteDate !== session.date || !freshness.ok) {
+      active.push({
+        ...monitor,
+        currentPrice,
+        state: "QUOTE_NOT_VERIFIED",
+        reason: quoteDate !== session.date ? "quote_not_confirmed_today" : freshness.reason,
+      });
+      continue;
+    }
+
     const outcome =
       currentPrice >= monitor.takeProfit ? "WIN" :
       currentPrice <= monitor.stopLoss ? "LOSE" : null;
@@ -125,7 +140,7 @@ export async function GET(req: Request) {
     const result = monitor.status === "WIN" ? "WIN" : "LOSE";
     const webPush = await pushWebToUser(monitor.userEmail, {
       title: result === "WIN" ? "🟢 SIGNALX 利確ライン到達" : "🔴 SIGNALX 損切りライン到達",
-      body: `${monitor.code} ${monitor.name}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 現在 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
+      body: `${monitor.code} ${monitor.name}｜監視基準 ${Math.round(monitor.entryPrice).toLocaleString()}円 → 判定参考 ${Math.round(currentPrice).toLocaleString()}円｜${result === "WIN" ? "利確" : "損切"}ライン到達`,
       url: resultAlertUrl(monitor),
       tag: `signalx-result-${monitor.id}`,
     }, result === "WIN" ? "take_profit" : "stop_loss");
