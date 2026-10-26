@@ -36,6 +36,12 @@ export async function POST(request: Request) {
       buyPrice: Number(body.buyPrice),
       salePrice: Number(body.salePrice),
       quantity: Number(body.quantity),
+      executionNotes: {
+        executedAtJst: typeof body.executedAtJst === "string" && body.executedAtJst ? body.executedAtJst : null,
+        limitPrice: body.limitPrice === "" || body.limitPrice == null ? null : Number(body.limitPrice),
+        reason: typeof body.saleReason === "string" && body.saleReason ? body.saleReason.trim() : null,
+        unableToMonitor: body.unableToMonitor === true,
+      },
     };
     const result = await registerPostSale(email, input);
     return NextResponse.json({ success: true, ...result },

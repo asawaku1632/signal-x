@@ -1,4 +1,5 @@
 import pool from "@/app/lib/postgres";
+import { validateExecutionNotes, type ExecutionNotes } from "@/lib/research/realTradeExecutionNotes";
 import { getForwardCandles } from "@/app/lib/emaForwardShadowStore";
 import { getJstDateString } from "@/app/lib/learning/learningSaveStatus";
 import { isTseTradingDate, isTseTargetDateReady, resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
@@ -12,6 +13,7 @@ type Row = {
   id: number | string; owner_email: string; code: string; name: string;
   sale_date: Date | string; buy_price: Price; sale_price: Price; quantity: number;
   cohort: "FORWARD" | "LATE_REGISTERED"; created_at: Date | string;
+  executed_at_jst?: Date | string | null; limit_price?: Price; sale_reason?: string | null; unable_to_monitor?: boolean;
   outcome_1d_date: Date | string | null; outcome_1d_price: Price;
   outcome_3d_date: Date | string | null; outcome_3d_price: Price;
   outcome_5d_date: Date | string | null; outcome_5d_price: Price;
@@ -21,6 +23,7 @@ const validPrice = (v: Price) => v != null && Number.isFinite(Number(v)) && Numb
 
 export type NewSale = {
   code: string; name: string; saleDate: string; buyPrice: number; salePrice: number; quantity: number;
+  executionNotes?: ExecutionNotes;
 };
 
 export function validatePostSale(input: NewSale, today = getJstDateString()): string | null {
@@ -38,14 +41,20 @@ export function validatePostSale(input: NewSale, today = getJstDateString()): st
 export async function registerPostSale(ownerEmail: string, input: NewSale) {
   const problem = validatePostSale(input);
   if (problem) throw new Error(problem);
+  if (input.executionNotes) {
+    const noteProblem = validateExecutionNotes(input.executionNotes, input.saleDate);
+    if (noteProblem) throw new Error(noteProblem);
+  }
   const cohort = input.saleDate === getJstDateString() ? "FORWARD" : "LATE_REGISTERED";
   const result = await pool.query<{ id: number | string }>(
     "INSERT INTO public.owner_post_sale_audits " +
-    "(owner_email, code, name, sale_date, buy_price, sale_price, quantity, cohort) " +
-    "VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8) " +
+    "(owner_email, code, name, sale_date, buy_price, sale_price, quantity, cohort, executed_at_jst, limit_price, sale_reason, unable_to_monitor) " +
+    "VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8,$9::timestamp,$10,$11,$12) " +
     "ON CONFLICT ON CONSTRAINT owner_post_sale_unique_trade DO NOTHING RETURNING id",
     [ownerEmail.toLowerCase(), input.code, input.name, input.saleDate, input.buyPrice,
-     input.salePrice, input.quantity, cohort],
+     input.salePrice, input.quantity, cohort, input.executionNotes?.executedAtJst ?? null,
+     input.executionNotes?.limitPrice ?? null, input.executionNotes?.reason ?? null,
+     input.executionNotes?.unableToMonitor ?? false],
   );
   return { created: result.rowCount === 1, id: result.rows[0]?.id ?? null, cohort };
 }
@@ -131,6 +140,10 @@ export async function getPostSaleReport(ownerEmail: string) {
     return { id: String(row.id), code: row.code, name: row.name, saleDate: dateOnly(row.sale_date),
       buyPrice: buy, salePrice: sell, quantity: row.quantity, cohort: row.cohort,
       createdAt: new Date(row.created_at).toISOString(),
+      executionNotes: { executedAtJst: row.executed_at_jst == null ? null :
+        (row.executed_at_jst instanceof Date ? row.executed_at_jst.toISOString().slice(0, 19) : String(row.executed_at_jst).replace(" ", "T").slice(0, 19)),
+        limitPrice: validPrice(row.limit_price ?? null), reason: row.sale_reason ?? null,
+        unableToMonitor: row.unable_to_monitor ?? false },
       realizedProfitYen: Math.round((sell - buy) * row.quantity), outcomes };
   });
   const cohorts = (["FORWARD", "LATE_REGISTERED"] as const).map(cohort => ({

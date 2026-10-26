@@ -41,7 +41,7 @@ test("3762 known realized and hypothetical results stay separate", () => {
   assert.equal((sell - buy) * quantity, 2000);
   assert.equal((sampleIntraday - buy) * quantity, 5500);
   assert.equal((sampleIntraday - sell) * quantity, 3500);
-  assert.match(read("app/admin/post-sale-audit/PostSaleClient.tsx"), /saleDate: "2026-10-14"/);
+  assert.match(read("app/admin/post-sale-audit/PostSaleClient.tsx"), /saleDate: ""/);
   assert.match(read("app/lib/research/ownerPostSaleAudit.ts"), /"LATE_REGISTERED"/);
   assert.match(read("app/admin/learning-hub/page.tsx"), /\/admin\/post-sale-audit/);
 });
@@ -50,7 +50,8 @@ test("the stock-quantity input accepts exactly 100 shares and all positive integ
   const component = read("app/admin/post-sale-audit/PostSaleClient.tsx");
   assert.match(component, /min=\{key === "quantity" \? "1"/);
   assert.match(component, /key === "quantity" \? "1" : "0\.01"/);
-  assert.match(component, /quantity: "100"/);
+  assert.match(component, /quantity: ""/);
+  assert.match(component, /field\("quantity", "株数", "number"\)/);
   // HTML number-input constraint formula: (value - min) / step must be integral.
   const min = 1, step = 1;
   assert.equal((100 - min) % step, 0);

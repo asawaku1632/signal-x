@@ -1,0 +1,32 @@
+name: Owner Real Trade Research Safety
+on:
+  pull_request:
+    paths:
+      - "lib/research/realTradeCalculations.ts"
+      - "lib/research/realTradeSummary.ts"
+      - "lib/research/realTradeExecutionNotes.ts"
+      - "tests/research/realTradeCalculations.test.mjs"
+      - "tests/research/realTradeSummary.test.mjs"
+      - "tests/research/realTradeExecutionNotes.test.mjs"
+      - "app/admin/post-sale-audit/**"
+      - "app/lib/research/ownerPostSaleAudit.ts"
+      - "app/api/admin/post-sale-audit/**"
+      - "tests/ownerPostSaleAudit.test.mjs"
+      - "supabase/migrations/20261026_owner_post_sale_execution_notes.sql"
+      - ".github/workflows/owner-real-trade-research-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/research/realTradeCalculations.test.mjs tests/research/realTradeSummary.test.mjs tests/research/realTradeExecutionNotes.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

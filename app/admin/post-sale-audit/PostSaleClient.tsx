@@ -1,15 +1,16 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { summarizeRealizedResults } from "@/lib/research/realTradeSummary";
 
 type Outcome = { days: number; date: string | null; price: number | null; extraYen: number | null };
 type Case = { id: string; code: string; name: string; saleDate: string; buyPrice: number; salePrice: number;
-  quantity: number; cohort: "FORWARD" | "LATE_REGISTERED"; realizedProfitYen: number; outcomes: Outcome[] };
+  quantity: number; executionNotes?: { executedAtJst: string | null; limitPrice: number | null; reason: string | null; unableToMonitor: boolean }; cohort: "FORWARD" | "LATE_REGISTERED"; realizedProfitYen: number; outcomes: Outcome[] };
 type Summary = { cohort: Case["cohort"]; total: number; summary: {
   days: number; evaluated: number; earlySaleCount: number; protectedCount: number; earlySaleRate: number | null }[] };
 type Report = { items: Case[]; cohorts: Summary[]; note: string };
 const yen = (n: number) => (n > 0 ? "+" : "") + Math.round(n).toLocaleString("ja-JP") + "円";
-const sample = { code: "3762", name: "テクマトリックス", saleDate: "2026-10-14",
-  buyPrice: "3195", salePrice: "3215", quantity: "100" };
+const sample = { code: "", name: "", saleDate: "",
+  buyPrice: "", salePrice: "", quantity: "", executedAtJst: "", limitPrice: "", saleReason: "", unableToMonitor: false };
 
 export default function PostSaleClient() {
   const [report, setReport] = useState<Report | null>(null);
@@ -52,7 +53,15 @@ export default function PostSaleClient() {
     finally { setBusy(false); }
   }
 
-  const field = (key: keyof typeof sample, title: string, kind: string = "text") =>
+  const tradeStats = report ? (["FORWARD", "LATE_REGISTERED"] as const).map(cohort => ({
+    cohort,
+    stats: summarizeRealizedResults(
+      [...report.items].filter(item => item.cohort === cohort).reverse()
+        .map(item => ({ profitYen: item.realizedProfitYen })),
+    ),
+  })) : null;
+
+  const field = (key: "code" | "name" | "saleDate" | "quantity" | "buyPrice" | "salePrice", title: string, kind: string = "text") =>
     <label className="block text-sm font-bold text-slate-700" key={key}>{title}
       <input required type={kind} min={key === "quantity" ? "1" : kind === "number" ? "0.01" : undefined}
         step={kind === "number" ? (key === "quantity" ? "1" : "0.01") : undefined}
@@ -64,7 +73,7 @@ export default function PostSaleClient() {
   return <div className="mt-5 space-y-5">
     <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
       <h2 className="font-black text-slate-900">実取引を登録する</h2>
-      <p className="my-2 text-xs leading-5 text-slate-600">今回の3762の数字を入力済み。取引日・価格・数量を確認して登録してください。証券口座への注文や接続は行いません。</p>
+      <p className="my-2 text-xs leading-5 text-slate-600">実際の約定履歴を確認して入力してください。注文や証券口座への接続は行いません。</p>
       <form className="grid grid-cols-2 gap-3" onSubmit={submit}>
         {field("code", "銘柄コード")}
         {field("name", "銘柄名")}
@@ -72,6 +81,10 @@ export default function PostSaleClient() {
         {field("quantity", "株数", "number")}
         {field("buyPrice", "購入約定単価", "number")}
         {field("salePrice", "売却約定単価", "number")}
+        <label className="col-span-2 text-sm font-bold text-slate-700">約定日時（日本時間・任意）<input type="datetime-local" step="1" value={form.executedAtJst} onChange={e => setForm(old => ({...old, executedAtJst: e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>
+        <label className="text-sm font-bold text-slate-700">指値（任意）<input type="number" min="0.01" step="0.01" value={form.limitPrice} onChange={e => setForm(old => ({...old, limitPrice: e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={form.unableToMonitor} onChange={e => setForm(old => ({...old, unableToMonitor: e.target.checked}))} />売却後は監視できなかった</label>
+        <label className="col-span-2 text-sm font-bold text-slate-700">売却理由（任意・500文字以内）<textarea maxLength={500} value={form.saleReason} onChange={e => setForm(old => ({...old, saleReason: e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>
         <button disabled={busy} type="submit"
           className="col-span-2 rounded-xl bg-blue-600 py-3 font-black text-white disabled:opacity-50">
           {busy ? "登録中…" : "売却済みの取引を登録"}
@@ -81,6 +94,20 @@ export default function PostSaleClient() {
       {error && <p role="alert" className="mt-3 text-sm font-bold text-red-700">{error}</p>}
     </section>
 
+    {tradeStats?.map(({ cohort, stats: tradeStats }) => <section key={cohort} className="rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="font-black text-slate-900">実売買の成績（税・手数料前）— {cohort === "FORWARD" ? "当日登録" : "過去分登録"}</h2>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+        <p>記録件数：<strong>{tradeStats.count}件</strong></p>
+        <p>勝率：<strong>{tradeStats.winRate === null ? "未評価" : tradeStats.winRate.toFixed(1) + "%"}</strong></p>
+        <p>累積損益：<strong>{yen(tradeStats.total)}</strong></p>
+        <p>1件平均：<strong>{tradeStats.expectancy === null ? "未評価" : yen(tradeStats.expectancy)}</strong></p>
+        <p>平均利益：<strong>{tradeStats.averageWin === null ? "未評価" : yen(tradeStats.averageWin)}</strong></p>
+        <p>平均損失：<strong>{tradeStats.averageLoss === null ? "未評価" : yen(tradeStats.averageLoss)}</strong></p>
+        <p className="col-span-2">最大ドローダウン（記録順）：<strong>{yen(tradeStats.maxDrawdown)}</strong></p>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">表示対象は直近最大150件。最大ドローダウンは対象記録を売却日順に並べた参考値で、口座全体の損失を示しません。過去分登録は後知恵を含むため当日登録と分けて表示しています。</p>
+      {tradeStats.insufficientSample && <p className="mt-2 text-xs font-bold text-amber-700">30件未満の少数サンプルです。勝率・期待値の再現性は未確認です。</p>}
+    </section>)}
     <section className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-black text-slate-900">売却後の研究結果</h2>
@@ -106,6 +133,7 @@ export default function PostSaleClient() {
               {yen(item.realizedProfitYen)}
             </span>
           </p>
+          {item.executionNotes && (item.executionNotes.executedAtJst || item.executionNotes.limitPrice || item.executionNotes.reason || item.executionNotes.unableToMonitor) && <p className="mt-2 text-xs text-slate-600">約定日時：{item.executionNotes.executedAtJst || "未記録"} / 指値：{item.executionNotes.limitPrice?.toLocaleString() ?? "未記録"} / 監視不可：{item.executionNotes.unableToMonitor ? "はい" : "いいえ"} / 理由：{item.executionNotes.reason || "未記録"}</p>}
           <div className="mt-3 grid grid-cols-3 gap-2">
             {item.outcomes.map(outcome =>
               <div key={outcome.days} className="rounded-xl bg-slate-50 p-2 text-center">
