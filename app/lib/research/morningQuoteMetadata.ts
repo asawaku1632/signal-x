@@ -34,7 +34,7 @@ export function classifyFiveMinuteMetadata(
   const httpStatusClass = Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599
     ? `${Math.floor(httpStatus / 100)}xx` : "unknown";
   const base = {httpStatusClass, timestampCount: null, has0900: null, has0905: null};
-  if (httpStatus < 200 || httpStatus >= 300)
+  if (!Number.isInteger(httpStatus) || httpStatus < 200 || httpStatus >= 300)
     return {...base, reason: "UPSTREAM_HTTP_ERROR"};
   const chart = (payload as {chart?: unknown} | null)?.chart;
   if (!chart || typeof chart !== "object") return {...base, reason: "NO_RESULT"};
