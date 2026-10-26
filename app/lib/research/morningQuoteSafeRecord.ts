@@ -19,7 +19,7 @@ export type MorningQuoteSafeRecord = Readonly<{
 export function safeMorningQuoteRecord(
   payload: unknown, httpStatus: number, tradeDate: string,
 ): MorningQuoteSafeRecord | null {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(tradeDate)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)) return null;
   try {
     const m = classifyFiveMinuteMetadata(payload, httpStatus, tradeDate);
     const count = m.timestampCount === null ? null
