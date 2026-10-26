@@ -81,7 +81,10 @@ function StarRating({ value }: { value: number }) {
 export default async function ChartPatternDetailPage({
   params,
   searchParams,
-}: PageProps<"/learning/patterns/[patternId]">) {
+}: {
+  params: Promise<{ patternId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { patternId } = await params;
   const query = await searchParams;
   const pattern = getChartPatternCatalogItem(patternId);
