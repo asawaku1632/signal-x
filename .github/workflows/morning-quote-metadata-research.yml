@@ -8,6 +8,7 @@ on:
       - 'app/lib/research/morningQuoteDiagnosticAdapter.ts'
       - 'app/lib/research/morningFinalCheckRunner.ts'
       - 'tests/morningQuoteMetadata.test.mjs'
+      - 'tests/morningQuoteIntegration.test.mjs'
       - '.github/workflows/morning-quote-metadata-research.yml'
   workflow_dispatch:
 permissions:
@@ -25,4 +26,4 @@ jobs:
       - name: Typecheck research branch
         run: npx tsc --noEmit --incremental false
       - name: Run offline metadata unit tests
-        run: node --test tests/morningQuoteMetadata.test.mjs
+        run: node --test tests/morningQuoteMetadata.test.mjs tests/morningQuoteIntegration.test.mjs
