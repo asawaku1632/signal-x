@@ -29,3 +29,18 @@ test("capture and private report API use the same research-only validator", () =
 test("590A is registered in the stock universe", () => {
   assert.match(stocks, /successorCode: "590A"/);
 });
+
+test("existing research rows remain immutable and missing outcomes are not fabricated", () => {
+  assert.match(capture, /ON CONFLICT \(trade_date, code\) DO NOTHING/);
+  assert.match(capture, /obs\.code = future\.code/);
+  assert.match(capture, /future\.date = targets\.price_date/);
+  assert.match(capture, /obs\.outcome_\$\{days\}d_date IS NULL/);
+  assert.match(capture, /future\.price > 0/);
+  assert.doesNotMatch(capture, /ON CONFLICT \(trade_date, code\) DO UPDATE/);
+});
+
+test("research-only code helper does not alter live stock decision modules", () => {
+  const helper = read("app/lib/learning/swingStockCode.ts");
+  assert.match(helper, /Research-only ticker validation/);
+  assert.match(helper, /\^\(\?:\[0-9\]\{4\}\|\[0-9\]\{3\}\[A-Z\]\)\$/);
+});
