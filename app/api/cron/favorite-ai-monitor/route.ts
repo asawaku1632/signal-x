@@ -24,6 +24,7 @@ type Stock = {
   aiPower?: number;
   takeProfit?: number;
   stopLoss?: number;
+  latestBarTimestamp?: string | null;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
 
   const scanJson = await scanRes.json();
   const stocks: Stock[] = Array.isArray(scanJson?.stocks) ? scanJson.stocks : [];
+  const marketDate = session.date;
   const started = [];
   const waiting = [];
 
@@ -65,6 +67,17 @@ export async function GET(req: Request) {
 
     if (!stock || price <= 0) {
       waiting.push({ code: favorite.code, score, reason: !stock ? "not_found" : "price_missing" });
+      continue;
+    }
+
+    // A fresh scan snapshot does not imply a fresh underlying market quote.
+    // Fail closed when the per-stock quote date is missing or not today.
+    const quoteTime = stock.latestBarTimestamp;
+    const quoteDate = typeof quoteTime === "string" && !Number.isNaN(Date.parse(quoteTime))
+      ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(quoteTime))
+      : null;
+    if (quoteDate !== marketDate) {
+      waiting.push({ code: favorite.code, score, reason: "quote_not_confirmed_today", quoteDate, marketDate });
       continue;
     }
 
@@ -116,7 +129,7 @@ export async function GET(req: Request) {
       const webPush = score >= PRIME_SIGNAL_SCORE
         ? { ok: false, sent: 0, failed: 0, reason: "PRIME_SIGNAL_PRIORITY" as const }
         : await pushWebToUser(monitor.userEmail, {
-            title: "🔵 SIGNALX 買い条件成立",
+            title: "🔵 SIGNALX 高評価・監視候補",
             body: `${monitor.code} ${monitor.name}｜AI ${monitor.aiPower}｜基準 ${Math.round(monitor.entryPrice).toLocaleString()}円｜利確 ${Math.round(monitor.takeProfit).toLocaleString()}円｜損切 ${Math.round(monitor.stopLoss).toLocaleString()}円`,
             url: `/analysis/${monitor.code}`,
             tag: `signalx-buy-${monitor.id}`,
