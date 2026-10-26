@@ -8,6 +8,7 @@ on:
       - 'app/lib/favoriteQuoteLicenseGuard.ts'
       - 'tests/favoriteQuoteLicenseGuard.test.mjs'
       - 'tests/favoriteQuoteDispatchBoundary.test.mjs'
+      - 'tests/favoriteNotificationRouteSafety.test.mjs'
       - 'app/api/cron/favorite-ai-check/route.ts'
       - 'app/lib/push/priceTargetWatcher.ts'
       - 'app/lib/learning/momentumMemoryNotification.ts'
@@ -29,4 +30,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --experimental-strip-types --test tests/favoriteQuoteFreshness.test.mjs tests/favoriteAlertQuoteTimestamp.test.mjs tests/favoriteAlertAuditSafety.test.mjs tests/favoriteOutcomeQuoteGuard.test.mjs tests/favoriteQuoteLicenseGuard.test.mjs tests/favoriteQuoteDispatchBoundary.test.mjs
+      - run: node --experimental-strip-types --test tests/favoriteQuoteFreshness.test.mjs tests/favoriteAlertQuoteTimestamp.test.mjs tests/favoriteAlertAuditSafety.test.mjs tests/favoriteOutcomeQuoteGuard.test.mjs tests/favoriteQuoteLicenseGuard.test.mjs tests/favoriteQuoteDispatchBoundary.test.mjs tests/favoriteNotificationRouteSafety.test.mjs
