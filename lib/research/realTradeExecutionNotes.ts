@@ -11,8 +11,10 @@ export function validateExecutionNotes(input: ExecutionNotes, saleDate: string):
       return "約定日時は日本時間で入力してください";
     }
     const [date, time] = input.executedAtJst.split("T");
+    const [year, month, day] = date.split("-").map(Number);
+    const normalizedDate = new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
     const [hour, minute, second = "0"] = time.split(":").map(Number);
-    if (date !== saleDate || hour > 23 || minute > 59 || Number(second) > 59) {
+    if (normalizedDate !== date || date !== saleDate || hour > 23 || minute > 59 || Number(second) > 59) {
       return "約定日時と売却日を確認してください";
     }
   }
