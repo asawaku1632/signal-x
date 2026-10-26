@@ -35,3 +35,41 @@ test("previous trading date bars are not mistaken for today's opening",()=>{
   const previous=Math.floor(Date.parse("2026-10-23T09:00:00+09:00")/1000);
   assert.equal(classify(chart([previous]),200,"2026-10-26").reason,"MISSING_0900_BAR");
 });
+
+
+test("HTTP failure classes stay metadata-only",()=>{
+  for(const [status, expectedClass] of [[401,"4xx"],[429,"4xx"],[503,"5xx"]]){
+    const result=classify({chart:{result:[{timestamp:[epoch(9,0),epoch(9,5)]}]}},status,"2026-10-26");
+    assert.equal(result.reason,"UPSTREAM_HTTP_ERROR");
+    assert.equal(result.httpStatusClass,expectedClass);
+    assert.equal(result.timestampCount,null);
+  }
+});
+test("malformed response shapes fail closed",()=>{
+  for(const payload of [null,{}, {chart:null}, {chart:[]}, {chart:{result:[]}}, {chart:{result:[null]}}]){
+    assert.equal(classify(payload,200,"2026-10-26").reason,"NO_RESULT");
+  }
+});
+test("empty quote array is not treated as missing 09:05",()=>{
+  const result=classify({chart:{result:[{timestamp:[epoch(9,0),epoch(9,5)],indicators:{quote:[]}}]}},200,"2026-10-26");
+  assert.equal(result.reason,"NO_QUOTE_ARRAY");
+  assert.equal(result.has0905,null);
+});
+test("timestamp count does not imply a valid opening price",()=>{
+  const result=classify(chart([epoch(9,0),epoch(9,5)]),200,"2026-10-26");
+  assert.equal(result.timestampCount,2);
+  assert.equal(result.reason,"BARS_PRESENT_NOT_PRICE_VALIDATED");
+  assert.equal("open" in result,false);
+  assert.equal("close" in result,false);
+});
+test("Tokyo trading date handles UTC day boundary",()=>{
+  const previousEvening=Math.floor(Date.parse("2026-10-25T23:55:00Z")/1000);
+  const result=classify(chart([previousEvening,epoch(9,5)]),200,"2026-10-26");
+  assert.equal(result.has0900,false);
+  assert.equal(result.has0905,true);
+});
+test("non-numeric timestamps do not count as opening candles",()=>{
+  const result=classify(chart(["2026-10-26T09:00:00+09:00",null,epoch(9,5)]),200,"2026-10-26");
+  assert.equal(result.reason,"MISSING_0900_BAR");
+  assert.equal(result.timestampCount,3);
+});
