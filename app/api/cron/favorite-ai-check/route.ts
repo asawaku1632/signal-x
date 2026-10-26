@@ -81,18 +81,6 @@ export async function GET(req: Request) {
     const stock = stocks.find((item) => String(item.code) === monitor.code);
     const currentPrice = Number(stock?.price ?? 0);
 
-    if (!monitor.activationNotifiedAt) {
-      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
-      if (lineDeliveryEnabled && lineUserId) {
-        const claimed = await claimFavoriteActivationNotification(monitor.id);
-        if (claimed) {
-          const line = await pushLineToUser(lineUserId, favoriteBuyMessage(monitor, baseUrl));
-          if (line.ok) await markFavoriteActivationNotified(monitor.id);
-          else await releaseFavoriteActivationNotification(monitor.id);
-        }
-      }
-    }
-
     if (currentPrice <= 0) {
       active.push({ ...monitor, currentPrice: 0, state: "PRICE_MISSING" });
       continue;
@@ -103,6 +91,18 @@ export async function GET(req: Request) {
     if (!license.ok) {
       active.push({ ...monitor, currentPrice, state: "QUOTE_SOURCE_UNLICENSED", reason: license.reason });
       continue;
+    }
+
+    if (!monitor.activationNotifiedAt) {
+      const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
+      if (lineDeliveryEnabled && lineUserId) {
+        const claimed = await claimFavoriteActivationNotification(monitor.id);
+        if (claimed) {
+          const line = await pushLineToUser(lineUserId, favoriteBuyMessage(monitor, baseUrl));
+          if (line.ok) await markFavoriteActivationNotified(monitor.id);
+          else await releaseFavoriteActivationNotification(monitor.id);
+        }
+      }
     }
 
     const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
@@ -133,6 +133,12 @@ export async function GET(req: Request) {
   const notifications = [];
 
   for (const monitor of pending) {
+    // Existing pending results lack verified licensed quote provenance.
+    // Do not replay historical buy/sell alerts until the source is approved.
+    if (!favoriteQuoteLicenseGuard(null).ok) {
+      notifications.push({ id: monitor.id, code: monitor.code, state: "QUOTE_SOURCE_UNLICENSED" });
+      continue;
+    }
     const currentPrice = monitor.resultPrice;
     if (currentPrice == null) continue;
 
