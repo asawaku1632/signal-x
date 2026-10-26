@@ -41,10 +41,10 @@ export function favoriteResultMessage(
   return withSingleLineBrand(
     `${win ? "🎯 利確到達" : "🛡 損切到達"}\n\n` +
     `${monitor.code} ${monitor.name}\n\n` +
-    `【買い条件成立時】${yen(monitor.entryPrice)}\n` +
-    `【現在値】${yen(currentPrice)}\n` +
+    `【監視開始時の参考価格】${yen(monitor.entryPrice)}\n` +
+    `【判定に使用した参考価格】${yen(currentPrice)}\n` +
     `【${win ? "利確" : "損切"}ライン】${yen(win ? monitor.takeProfit : monitor.stopLoss)}\n\n` +
-    `【100株換算】${win ? "+" : "-"}${yen(amount)}\n\n` +
+    `【100株換算・参考差額】${win ? "+" : "-"}${yen(amount)}\n\n` +
     `👇 個別AI解析\n${publicUrl}/analysis/${monitor.code}`
   );
 }
