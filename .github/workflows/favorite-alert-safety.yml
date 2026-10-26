@@ -4,6 +4,9 @@ on:
     paths:
       - 'app/lib/favoriteQuoteFreshness.ts'
       - 'app/lib/favoriteAlertAuditSafety.ts'
+      - 'app/lib/favoriteOutcomeQuoteGuard.ts'
+      - 'app/api/cron/favorite-ai-check/route.ts'
+      - 'tests/favoriteOutcomeQuoteGuard.test.mjs'
       - 'tests/favoriteAlertAuditSafety.test.mjs'
       - 'app/lib/marketScanGuard.ts'
       - 'app/api/cron/favorite-ai-monitor/route.ts'
@@ -21,4 +24,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --experimental-strip-types --test tests/favoriteQuoteFreshness.test.mjs tests/favoriteAlertQuoteTimestamp.test.mjs tests/favoriteAlertAuditSafety.test.mjs
+      - run: node --experimental-strip-types --test tests/favoriteQuoteFreshness.test.mjs tests/favoriteAlertQuoteTimestamp.test.mjs tests/favoriteAlertAuditSafety.test.mjs tests/favoriteOutcomeQuoteGuard.test.mjs
