@@ -7,6 +7,7 @@ on:
       - 'app/lib/research/morningQuoteMetadata.ts'
       - 'app/lib/research/morningQuoteDiagnosticAdapter.ts'
       - 'app/lib/research/morningFinalCheckRunner.ts'
+      - 'app/learning/patterns/[[]patternId[]]/page.tsx'
       - 'tests/morningQuoteMetadata.test.mjs'
       - 'tests/morningQuoteIntegration.test.mjs'
       - '.github/workflows/morning-quote-metadata-research.yml'
