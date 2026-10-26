@@ -26,3 +26,21 @@ test("diagnostic result is not yet persisted or used for trading decisions", () 
   assert.match(runner, /void diagnostic;/);
   assert.doesNotMatch(runner, /quoteDiagnostic\s*:/);
 });
+
+
+test("diagnostic reads only already-fetched response and never makes extra requests",()=>{
+  assert.match(runner,/const payload=await response\.json\(\)/);
+  assert.match(runner,/diagnoseExistingMorningResponse\(payload,response\.status,/);
+  assert.match(runner,/void diagnostic;/);
+  assert.doesNotMatch(adapter,/\bfetch\s*\(|\bconsole\.|\bpool\./);
+});
+test("provider request remains capped and without automatic retries",()=>{
+  assert.match(runner,/const MAX_CODES=5;/);
+  assert.match(runner,/run\.cohort\.slice\(0,MAX_CODES\)/);
+  assert.match(runner,/no automatic retries/);
+});
+test("metadata-only diagnostics do not change persisted score or morning observations",()=>{
+  assert.match(runner,/JSON\.stringify\(snapshots\)/);
+  assert.match(runner,/const observation=decideAtNineOhFive\(c,bars,date,new Date\(\)\)/);
+  assert.doesNotMatch(runner,/JSON\.stringify\(diagnostic\)/);
+});
