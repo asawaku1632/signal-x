@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
 import { quoteDateJst } from "@/app/lib/marketScanGuard";
+import { favoriteQuoteFreshness } from "@/app/lib/favoriteQuoteFreshness";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
@@ -79,6 +80,12 @@ export async function GET(req: Request) {
     const quoteDate = quoteDateJst(quoteTime);
     if (quoteDate !== marketDate) {
       waiting.push({ code: favorite.code, score, reason: "quote_not_confirmed_today", quoteDate, marketDate });
+      continue;
+    }
+
+    const freshness = favoriteQuoteFreshness(quoteTime);
+    if (!freshness.ok) {
+      waiting.push({ code: favorite.code, score, reason: freshness.reason, quoteAgeSeconds: freshness.ageSeconds });
       continue;
     }
 
