@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/app/lib/cronAuth";
-import { favoriteQuoteFreshness } from "@/app/lib/favoriteQuoteFreshness";
-import { quoteDateJst } from "@/app/lib/marketScanGuard";
+import { favoriteOutcomeQuoteGuard } from "@/app/lib/favoriteOutcomeQuoteGuard";
 import {
   claimFavoriteActivationNotification,
   claimFavoriteResultNotification,
@@ -99,14 +98,13 @@ export async function GET(req: Request) {
     }
 
     // Result thresholds must never be evaluated against stale or unverified quotes.
-    const quoteDate = quoteDateJst(stock?.latestBarTimestamp);
-    const freshness = favoriteQuoteFreshness(stock?.latestBarTimestamp);
-    if (quoteDate !== session.date || !freshness.ok) {
+    const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
+    if (!quoteGuard.ok) {
       active.push({
         ...monitor,
         currentPrice,
         state: "QUOTE_NOT_VERIFIED",
-        reason: quoteDate !== session.date ? "quote_not_confirmed_today" : freshness.reason,
+        reason: quoteGuard.reason,
       });
       continue;
     }
