@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { favoriteQuoteLicenseGuard } from "@/app/lib/favoriteQuoteLicenseGuard";
 import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
 import { persistFavoriteAuditOrCancel } from "@/app/lib/favoriteAlertAuditSafety";
 import { quoteDateJst } from "@/app/lib/marketScanGuard";
@@ -30,6 +31,7 @@ type Stock = {
   takeProfit?: number;
   stopLoss?: number;
   latestBarTimestamp?: number | string | null;
+  dataSource?: string | null;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
@@ -72,6 +74,12 @@ export async function GET(req: Request) {
 
     if (!stock || price <= 0) {
       waiting.push({ code: favorite.code, score, reason: !stock ? "not_found" : "price_missing" });
+      continue;
+    }
+
+    const license = favoriteQuoteLicenseGuard(stock.dataSource);
+    if (!license.ok) {
+      waiting.push({ code: favorite.code, score, reason: license.reason });
       continue;
     }
 
