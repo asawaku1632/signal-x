@@ -13,7 +13,10 @@ export function analyzeMorningFailureFixtures(fixtures) {
   const records = [];
   let rejectedInput = 0;
   for (const fixture of fixtures) {
-    if (!fixture || typeof fixture !== "object" || !validDate(fixture.tradeDate)) {
+    if (!fixture || typeof fixture !== "object" || !validDate(fixture.tradeDate) ||
+      !(fixture.error instanceof Error) && !(Number.isInteger(fixture.httpStatus) &&
+        fixture.httpStatus >= 100 && fixture.httpStatus <= 599 &&
+        (fixture.httpStatus < 200 || fixture.httpStatus >= 300))) {
       rejectedInput++;
       continue;
     }
