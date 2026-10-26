@@ -8,6 +8,7 @@ on:
       - 'app/lib/favoriteQuoteLicenseGuard.ts'
       - 'tests/favoriteQuoteLicenseGuard.test.mjs'
       - 'app/api/cron/favorite-ai-check/route.ts'
+      - 'app/lib/push/priceTargetWatcher.ts'
       - 'tests/favoriteOutcomeQuoteGuard.test.mjs'
       - 'tests/favoriteAlertAuditSafety.test.mjs'
       - 'app/lib/marketScanGuard.ts'
