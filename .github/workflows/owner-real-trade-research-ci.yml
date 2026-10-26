@@ -4,8 +4,10 @@ on:
     paths:
       - "lib/research/realTradeCalculations.ts"
       - "lib/research/realTradeSummary.ts"
+      - "lib/research/realTradeExecutionNotes.ts"
       - "tests/research/realTradeCalculations.test.mjs"
       - "tests/research/realTradeSummary.test.mjs"
+      - "tests/research/realTradeExecutionNotes.test.mjs"
       - "app/admin/post-sale-audit/**"
       - ".github/workflows/owner-real-trade-research-ci.yml"
   workflow_dispatch:
@@ -21,6 +23,6 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: node --test tests/research/realTradeCalculations.test.mjs tests/research/realTradeSummary.test.mjs
+      - run: node --test tests/research/realTradeCalculations.test.mjs tests/research/realTradeSummary.test.mjs tests/research/realTradeExecutionNotes.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
