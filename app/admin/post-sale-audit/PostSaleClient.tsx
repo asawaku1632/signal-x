@@ -61,7 +61,7 @@ export default function PostSaleClient() {
     ),
   })) : null;
 
-  const field = (key: keyof typeof sample, title: string, kind: string = "text") =>
+  const field = (key: "code" | "name" | "saleDate" | "quantity" | "buyPrice" | "salePrice", title: string, kind: string = "text") =>
     <label className="block text-sm font-bold text-slate-700" key={key}>{title}
       <input required type={kind} min={key === "quantity" ? "1" : kind === "number" ? "0.01" : undefined}
         step={kind === "number" ? (key === "quantity" ? "1" : "0.01") : undefined}
