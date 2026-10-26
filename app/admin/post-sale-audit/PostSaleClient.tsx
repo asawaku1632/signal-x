@@ -53,7 +53,13 @@ export default function PostSaleClient() {
     finally { setBusy(false); }
   }
 
-  const tradeStats = report ? summarizeRealizedResults([...report.items].reverse().map(item => ({ profitYen: item.realizedProfitYen }))) : null;
+  const tradeStats = report ? (["FORWARD", "LATE_REGISTERED"] as const).map(cohort => ({
+    cohort,
+    stats: summarizeRealizedResults(
+      [...report.items].filter(item => item.cohort === cohort).reverse()
+        .map(item => ({ profitYen: item.realizedProfitYen })),
+    ),
+  })) : null;
 
   const field = (key: keyof typeof sample, title: string, kind: string = "text") =>
     <label className="block text-sm font-bold text-slate-700" key={key}>{title}
@@ -84,8 +90,8 @@ export default function PostSaleClient() {
       {error && <p role="alert" className="mt-3 text-sm font-bold text-red-700">{error}</p>}
     </section>
 
-    {tradeStats && <section className="rounded-2xl border border-slate-200 bg-white p-4">
-      <h2 className="font-black text-slate-900">実売買の成績（税・手数料前）</h2>
+    {tradeStats?.map(({ cohort, stats: tradeStats }) => <section key={cohort} className="rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="font-black text-slate-900">実売買の成績（税・手数料前）— {cohort === "FORWARD" ? "当日登録" : "過去分登録"}</h2>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
         <p>記録件数：<strong>{tradeStats.count}件</strong></p>
         <p>勝率：<strong>{tradeStats.winRate === null ? "未評価" : tradeStats.winRate.toFixed(1) + "%"}</strong></p>
@@ -95,9 +101,9 @@ export default function PostSaleClient() {
         <p>平均損失：<strong>{tradeStats.averageLoss === null ? "未評価" : yen(tradeStats.averageLoss)}</strong></p>
         <p className="col-span-2">最大ドローダウン（記録順）：<strong>{yen(tradeStats.maxDrawdown)}</strong></p>
       </div>
-      <p className="mt-2 text-xs leading-5 text-slate-600">表示対象は直近最大150件。最大ドローダウンはこの表示対象を登録日の新しい順に取得した記録の売却日順で計算する参考値で、口座全体の損失を示しません。</p>
+      <p className="mt-2 text-xs leading-5 text-slate-600">表示対象は直近最大150件。最大ドローダウンは対象記録を売却日順に並べた参考値で、口座全体の損失を示しません。過去分登録は後知恵を含むため当日登録と分けて表示しています。</p>
       {tradeStats.insufficientSample && <p className="mt-2 text-xs font-bold text-amber-700">30件未満の少数サンプルです。勝率・期待値の再現性は未確認です。</p>}
-    </section>}
+    </section>)}
     <section className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-black text-slate-900">売却後の研究結果</h2>
