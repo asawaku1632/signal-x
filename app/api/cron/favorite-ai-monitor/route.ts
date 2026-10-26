@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordFavoriteAlertAudit } from "@/app/lib/favoriteAlertAudit";
+import { quoteDateJst } from "@/app/lib/marketScanGuard";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import {
   FAVORITE_BUY_SCORE,
@@ -25,7 +26,7 @@ type Stock = {
   aiPower?: number;
   takeProfit?: number;
   stopLoss?: number;
-  latestBarTimestamp?: string | null;
+  latestBarTimestamp?: number | string | null;
 };
 
 const lineDeliveryEnabled = process.env.FAVORITE_LINE_ALERTS_ENABLED === "true";
@@ -74,9 +75,7 @@ export async function GET(req: Request) {
     // A fresh scan snapshot does not imply a fresh underlying market quote.
     // Fail closed when the per-stock quote date is missing or not today.
     const quoteTime = stock.latestBarTimestamp;
-    const quoteDate = typeof quoteTime === "string" && !Number.isNaN(Date.parse(quoteTime))
-      ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(quoteTime))
-      : null;
+    const quoteDate = quoteDateJst(quoteTime);
     if (quoteDate !== marketDate) {
       waiting.push({ code: favorite.code, score, reason: "quote_not_confirmed_today", quoteDate, marketDate });
       continue;
@@ -112,7 +111,7 @@ export async function GET(req: Request) {
       await recordFavoriteAlertAudit({
         monitorId: monitor.id,
         code: monitor.code,
-        quoteTimestamp: quoteTime as string,
+        quoteTimestamp: new Date(Number(quoteTime) * 1000).toISOString(),
         snapshotUpdatedAt: typeof scanJson?.updatedAt === "string" && !Number.isNaN(Date.parse(scanJson.updatedAt)) ? scanJson.updatedAt : null,
         decisionAt: new Date().toISOString(),
         referencePrice: price,
