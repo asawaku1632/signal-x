@@ -9,6 +9,9 @@ on:
       - "tests/research/realTradeSummary.test.mjs"
       - "tests/research/realTradeExecutionNotes.test.mjs"
       - "app/admin/post-sale-audit/**"
+      - "app/lib/research/ownerPostSaleAudit.ts"
+      - "app/api/admin/post-sale-audit/**"
+      - "supabase/migrations/20261026_owner_post_sale_execution_notes.sql"
       - ".github/workflows/owner-real-trade-research-ci.yml"
   workflow_dispatch:
 jobs:
