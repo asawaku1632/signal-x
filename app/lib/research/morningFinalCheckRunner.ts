@@ -1,5 +1,6 @@
 import "server-only";
 import pool from "@/app/lib/postgres";
+import {diagnoseExistingMorningResponse} from "./morningQuoteDiagnosticAdapter";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {nightMorningTradingDates} from "./nightMorningWatch.mjs";
 import {
@@ -46,6 +47,11 @@ async function openingBars(code:string):Promise<Bar[]> {
     signal:AbortSignal.timeout(YAHOO_TIMEOUT_MS)});
   if(!response.ok)throw Error("OPENING_QUOTE_UNAVAILABLE");
   const payload=await response.json();
+  const diagnostic=diagnoseExistingMorningResponse(payload,response.status,
+    new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()));
+  // Research-only inspection: never log raw response, prices, or identifiers.
+  // Preserve existing decisions and errors until integration tests pass.
+  void diagnostic;
   const data=payload?.chart?.result?.[0];
   const times:number[]=data?.timestamp;
   const q=data?.indicators?.quote?.[0];
