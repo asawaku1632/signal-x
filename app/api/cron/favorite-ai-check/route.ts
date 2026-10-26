@@ -93,6 +93,17 @@ export async function GET(req: Request) {
       continue;
     }
 
+    const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
+    if (!quoteGuard.ok) {
+      active.push({
+        ...monitor,
+        currentPrice,
+        state: "QUOTE_NOT_VERIFIED",
+        reason: quoteGuard.reason,
+      });
+      continue;
+    }
+
     if (!monitor.activationNotifiedAt) {
       const lineUserId = await getLineUserIdByEmail(monitor.userEmail);
       if (lineDeliveryEnabled && lineUserId) {
@@ -103,17 +114,6 @@ export async function GET(req: Request) {
           else await releaseFavoriteActivationNotification(monitor.id);
         }
       }
-    }
-
-    const quoteGuard = favoriteOutcomeQuoteGuard(stock?.latestBarTimestamp, session.date);
-    if (!quoteGuard.ok) {
-      active.push({
-        ...monitor,
-        currentPrice,
-        state: "QUOTE_NOT_VERIFIED",
-        reason: quoteGuard.reason,
-      });
-      continue;
     }
 
     const outcome =
