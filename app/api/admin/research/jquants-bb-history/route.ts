@@ -26,7 +26,7 @@ function devDb() {
 }
 async function researchQuery(sql:string, params:unknown[] = []) {
  const pool = new Pool({connectionString:process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL,ssl:{rejectUnauthorized:false},max:1,connectionTimeoutMillis:8000});
- try{return await researchQuery(sql,params);}finally{await pool.end();}
+ try{return await pool.query(sql,params);}finally{await pool.end();}
 }
 export async function GET() {
  if (!(await getLearningOwnerSession()).isOwner) return fail("OWNER_ONLY");
