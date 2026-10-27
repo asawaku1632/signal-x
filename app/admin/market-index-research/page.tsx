@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Step27OfflinePanel from "./step27-offline-panel";
 import { useEffect, useState } from "react";
 
 type ResearchStatus = {
@@ -70,6 +71,7 @@ export default function MarketIndexResearchPage() {
           <h1 className="mt-1 text-2xl font-black">📊 日経平均・データ取得検証</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">STEP 27｜市場データの鮮度・取得履歴を確認するための管理者専用画面</p>
         </div>
+        <Step27OfflinePanel />
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-sm">研究状態を確認中…</p>}
         {data && <>
