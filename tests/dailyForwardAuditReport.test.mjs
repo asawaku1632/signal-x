@@ -36,3 +36,14 @@ test("missing trusted chain head or history blocks report",()=>{
  assert.equal(buildForwardResearchAuditReport({...args,trustedReviewHead:null}).status,"AUDIT_BLOCKED");
  assert.equal(buildForwardResearchAuditReport({...args,sealedReviewHistory:[]}).status,"AUDIT_BLOCKED");
 });
+
+test("review of a different dataset cannot authorize current proposal review",()=>{
+ const wrong=sealForwardReviewHistory([{sequence:1,proposalId:id,reviewerId:"researcher",
+   reviewedAt:"2026-10-27T10:00:00Z",decision:"REVIEW_HOLD",
+   reason:"Reviewed another dataset",evidenceSha256:"b".repeat(64),
+   productionApproval:false,autoApply:false}]);
+ const result=buildForwardResearchAuditReport({...args,sealedReviewHistory:wrong,trustedReviewHead:wrong[0].recordHash});
+ assert.equal(result.status,"AUDIT_BLOCKED");
+ assert.equal(result.findings[0].matchingReviewEvidence,false);
+ assert.ok(result.findings[0].reasons.includes("REVIEW_EVIDENCE_HASH_MISMATCH"));
+});
