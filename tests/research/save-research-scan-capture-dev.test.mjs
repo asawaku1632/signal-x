@@ -31,7 +31,7 @@ test("inserts once and skips conflict",async()=>enabled(async()=>{
  assert.equal(first.inserted,1);assert.equal(second.duplicates,1);
 }));
 test("quarantined record stays marked",async()=>enabled(async()=>{
- const client={query:async(_sql,values)=>{assert.equal(values[15],"QUARANTINED");return {rowCount:1};}};
+ const client={query:async(_sql,values)=>{assert.equal(values[15],"QUARANTINED");assert.equal(values[16],"MISSING_OR_INVALID_TIMESTAMP");return {rowCount:1};}};
  const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{stocks:[{...stock,latestBarTimestamp:null}]}});
  assert.equal(result.quarantined,1);
 }));
