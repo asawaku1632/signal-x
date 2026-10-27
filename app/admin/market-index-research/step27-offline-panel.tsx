@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-// @ts-expect-error Research-only JavaScript module is covered by node:test.
 import { evaluateN225Chart } from "../../lib/research/step27-n225-offline-evaluator.mjs";
 
 type Scenario = "fresh" | "stale" | "invalid";
