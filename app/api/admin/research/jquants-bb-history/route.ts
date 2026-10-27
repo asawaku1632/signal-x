@@ -3,7 +3,7 @@ import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchBbResearchJquantsBars } from "@/app/lib/research/dailyForwardBbJquantsResearchFetcher.mjs";
 import { summarizeBbJquantsComparisons } from "@/app/lib/research/dailyForwardBbJquantsBatchAudit.mjs";
 import { observations } from "@/app/lib/research/bbJquantsPinnedObservations.mjs";
-import pool from "@/app/lib/postgres";
+import { Pool } from "pg";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,10 +19,14 @@ function allowed() {
 }
 function devDb() {
  try {
-  const url=new URL(process.env.DATABASE_URL??"");
+  const url=new URL(process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL??"");
   return url.hostname==="db.jdtqwryiyxeuoraecorw.supabase.co" ||
     (url.hostname.endsWith(".pooler.supabase.com") && url.username.includes("jdtqwryiyxeuoraecorw"));
  } catch {return false;}
+}
+async function researchQuery(sql:string, params:unknown[] = []) {
+ const pool = new Pool({connectionString:process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL,ssl:{rejectUnauthorized:false},max:1,connectionTimeoutMillis:8000});
+ try{return await researchQuery(sql,params);}finally{await pool.end();}
 }
 export async function GET() {
  if (!(await getLearningOwnerSession()).isOwner) return fail("OWNER_ONLY");
