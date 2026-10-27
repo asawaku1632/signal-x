@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+function load(path, requireFn=()=>{}) {
+ const js=ts.transpileModule(fs.readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+ const exports={};
+ vm.runInNewContext(js,{exports,require:requireFn,Date,Number});
+ return exports;
+}
+const gate=load("app/lib/research/marketRelativeProspectiveSnapshot.ts");
+const plan=load("app/lib/research/marketRelativeSnapshotInsertPlan.ts",()=>gate);
+const conflict=load("app/lib/research/marketRelativeSnapshotConflict.ts");
+const {persistResearchSnapshot}=load("app/lib/research/marketRelativeSnapshotPersistence.ts",name=>name.includes("InsertPlan")?plan:conflict);
+const input={signalId:"sig-1",code:"9684",aiPower:93,price:3000,priceObservedAt:"2026-10-21T09:05:00+09:00",signalObservedAt:"2026-10-21T09:05:10+09:00",capturedAt:"2026-10-21T09:05:15+09:00",source:"synthetic",version:"v1"};
+const stored={signal_id:"sig-1",code:"9684",ai_power:93,price:3000,price_observed_at:input.priceObservedAt,signal_observed_at:input.signalObservedAt,captured_at:input.capturedAt,source:"synthetic",version:"v1"};
+let checks=0;
+const check=x=>{assert.ok(x);checks++;};
+const storage=rows=>({calls:[],async query(sql,params){this.calls.push({sql,params});return {rows:rows[this.calls.length-1]??[]};}});
+const fresh=storage([[{signal_id:"sig-1"}]]);
+check((await persistResearchSnapshot(fresh,input)).status==="inserted");
+check(fresh.calls.length===1);
+const retry=storage([[],[stored]]);
+check((await persistResearchSnapshot(retry,input)).status==="duplicate");
+check(retry.calls.length===2);
+check(retry.calls[1].params[0]==="sig-1");
+const changed=storage([[],[{...stored,ai_power:10}]]);
+check((await persistResearchSnapshot(changed,input)).status==="conflict");
+const missing=storage([[],[]]);
+check((await persistResearchSnapshot(missing,input)).status==="conflict");
+const invalid=storage([]);
+check((await persistResearchSnapshot(invalid,{...input,aiPower:101})).status==="rejected");
+check(invalid.calls.length===0);
+const unexpected=storage([[{signal_id:"a"},{signal_id:"b"}]]);
+check((await persistResearchSnapshot(unexpected,input)).status==="conflict");
+console.log("PASS: "+checks+" snapshot persistence orchestration checks");
