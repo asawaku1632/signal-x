@@ -25,3 +25,12 @@ test("provider failures and pagination fail closed without partial results",asyn
  const paginated=async()=>({ok:true,json:async()=>({data:[],pagination_key:"next"})});
  assert.equal((await fetchBars({enabled:true,apiKey:"x",fetchImpl:paginated})).reason,"PAGINATION_UNSUPPORTED");
 });
+
+test("five-character common-stock provider codes normalize to research four-digit codes",async()=>{
+ const fake=async(url)=>({ok:true,json:async()=>({data:[{
+  Code:new URL(url).searchParams.get("code")+"0",Date:"2026-08-28",C:105
+ }]})});
+ const result=await fetchBars({enabled:true,apiKey:"test-only",fetchImpl:fake});
+ assert.equal(result.status,"RESEARCH_ONLY_BARS_FETCHED");
+ assert.equal(result.barsByCode["9432"][0].Code,"9432");
+});
