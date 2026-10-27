@@ -85,3 +85,18 @@ test("repeated code within a Scan is skipped before SQL",async()=>enabled(async(
  assert.equal(result.duplicates,1);
  assert.equal(result.quarantined,2);
 }));
+
+test("empty Scan payload fails before any query",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}};
+ for(const scanResponse of [null,{}, {stocks:[]}]){
+  await assert.rejects(saveResearchScanCaptureDev(client,{...input,scanResponse}),/INVALID_RESEARCH_RUN_METADATA/);
+ }
+ assert.equal(calls,0);
+}));
+test("non-string run identifier fails before query",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}};
+ await assert.rejects(saveResearchScanCaptureDev(client,{...input,scanRunId:1234}),/INVALID_RESEARCH_RUN_METADATA/);
+ assert.equal(calls,0);
+}));
