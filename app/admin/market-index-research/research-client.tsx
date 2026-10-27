@@ -51,6 +51,7 @@ export default function MarketIndexResearchClient() {
     investigation?: { state: "NO_DATA" | "INVESTIGATE" | "NO_BASELINE" | "REVIEW_CHANGES" | "STABLE"; items: Array<{ code: string; key?: string; action: string }> };
     historyAnalysis?: { snapshotCount: number; comparableTransitions: number; status: "INSUFFICIENT_HISTORY" | "REPEATED_ISSUES" | "NO_REPEATED_ISSUES_OBSERVED"; repeated: Array<{ key: string; count: number }>; note: string };
     nextStep?: { state: "INVESTIGATE" | "INSUFFICIENT_EVIDENCE" | "REVIEW_CHANGES" | "CONTINUE_MONITORING"; reason: string; action: string };
+    researchPriorities?: { status: string; recommendedFirst: string; tasks: Array<{ id: string; priority: number; title: string; action: string; status: string }>; note: string };
   } | null>(null);
   const runDuplicateAudit = async (save = false) => {
     if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
@@ -217,6 +218,14 @@ export default function MarketIndexResearchClient() {
                   <p className="mt-1">根拠：{auditResult.nextStep.reason}</p>
                   <p className="mt-1">次の行動：{auditResult.nextStep.action}</p>
                   <p className="mt-2 text-xs">管理者向けの研究上の案内です。自動保存・自動修正・本番AI・売買判定・通知には接続しません。</p>
+                </div>}
+                {auditResult.researchPriorities && <div className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
+                  <p className="font-bold">STEP27-F｜研究課題の優先順位（管理者向け）</p>
+                  <p className="mt-1">最優先：指数データの利用許諾確認</p>
+                  <ol className="mt-2 space-y-2">{auditResult.researchPriorities.tasks.map(task =>
+                    <li key={task.id}><strong>{task.priority}. {task.title}</strong> ／ {task.status}<p className="text-sm">{task.action}</p></li>
+                  )}</ol>
+                  <p className="mt-2 text-xs">{auditResult.researchPriorities.note} 自動取得・保存・本番接続は行いません。</p>
                 </div>}
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
                   <ul className="space-y-1">{auditResult.history?.map((h, i) =>
