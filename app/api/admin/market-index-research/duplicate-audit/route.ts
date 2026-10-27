@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { prioritizeMarketIndexResearch } from "@/app/lib/step27-research-priorities.mjs";
 import { decideAuditNextStep } from "@/app/lib/step27-audit-decision.mjs";
 import { analyzeAuditHistory } from "@/app/lib/step27-audit-history.mjs";
 import { compareAuditGroups, classifyAuditInvestigation, type AuditGroup } from "@/app/lib/step27-audit-comparison.mjs";
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
       const investigation = classifyAuditInvestigation(comparisonResult, groups);
       const historyAnalysis = analyzeAuditHistory(history.rows);
       const nextStep = decideAuditNextStep(investigation, historyAnalysis);
+      const researchPriorities = prioritizeMarketIndexResearch(nextStep);
       const todayJst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
       const todaySaved = history.rows.some(h => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(h.audited_at)) === todayJst);
       await client.query("COMMIT");
@@ -74,6 +76,7 @@ export async function GET(request: Request) {
         investigation,
         historyAnalysis,
         nextStep,
+        researchPriorities,
         todayAuditStatus: todaySaved ? "SAVED_TODAY" : "NOT_SAVED_TODAY",
         asOf: new Date().toISOString(), groups, groupCount: groups.length, duplicateGroups,
         decision,
