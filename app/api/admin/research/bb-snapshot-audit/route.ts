@@ -21,7 +21,16 @@ export async function GET() {
     const date = [part("year"),part("month"),part("day")].join("-");
     const checked = stocks.slice(0,1000).map(stock=>inspectBbSourceStock(stock,updatedAt,date));
     const reasons:Record<string,number> = {};
+    const sourceModes:Record<string,number> = {};
+    const signalSides:Record<string,number> = {};
+    const mismatches = checked.filter(row=>row.reasons.includes("TRADE_DATE_MISMATCH")).map(row=>({code:row.code,signalDate:row.signalDate,quoteAt:row.quoteAt,snapshotUpdatedAt:row.snapshotUpdatedAt,sourceMode:row.sourceMode}));
+    for(const row of checked){
+      const mode = row.sourceMode ?? "UNKNOWN";
+      sourceModes[mode] = (sourceModes[mode] ?? 0) + 1;
+      const side = typeof row.signalSide === "string" ? row.signalSide : "UNKNOWN";
+      signalSides[side] = (signalSides[side] ?? 0) + 1;
+    }
     for(const row of checked) for(const reason of row.reasons) reasons[reason]=(reasons[reason]??0)+1;
-    return NextResponse.json({success:true,mode:"READ_ONLY_BB_SNAPSHOT_AUDIT",saved:false,productionApplied:false,snapshotUpdatedAt:updatedAt,inspected:checked.length,total:stocks.length,eligible:0,reasonCounts:reasons,sample:checked.slice(0,5)},{headers});
+    return NextResponse.json({success:true,mode:"READ_ONLY_BB_SNAPSHOT_AUDIT",saved:false,productionApplied:false,snapshotUpdatedAt:updatedAt,inspected:checked.length,total:stocks.length,eligible:0,reasonCounts:reasons,sourceModes,signalSides,dateMismatches:mismatches,sample:checked.slice(0,5)},{headers});
   } catch {return NextResponse.json({success:false,reason:"SNAPSHOT_READ_FAILED"},{status:503,headers});}
 }
