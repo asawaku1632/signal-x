@@ -60,3 +60,16 @@ test("alphanumeric stock code can reach quarantine-only insert",async()=>enabled
  const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{cached:false,stocks:[{...stock,code:"590A"}]}});
  assert.equal(calls,1);assert.equal(result.inserted,1);
 }));
+
+test("invalid research run date is rejected without writes",async()=>enabled(async()=>{
+ let queries=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{queries++;return {rowCount:1};}};
+ await assert.rejects(saveResearchScanCaptureDev(client,{...input,tradeDate:"2026-02-30"}),/INVALID_RESEARCH_RUN_METADATA/);
+ assert.equal(queries,0);
+}));
+test("missing Scan received time is rejected without writes",async()=>enabled(async()=>{
+ let queries=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{queries++;return {rowCount:1};}};
+ await assert.rejects(saveResearchScanCaptureDev(client,{...input,scanReceivedAt:null}),/INVALID_RESEARCH_RUN_METADATA/);
+ assert.equal(queries,0);
+}));
