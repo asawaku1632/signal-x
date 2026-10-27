@@ -13,6 +13,15 @@ export async function saveResearchScanCaptureDev(client, input) {
   if (host !== "db.jdtqwryiyxeuoraecorw.supabase.co") {
     throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
   }
+  // Reject invalid run metadata before any INSERT. Do not silently lose rows.
+  const received = typeof input?.scanReceivedAt === "string" ? Date.parse(input.scanReceivedAt) : NaN;
+  const tradeDate = input?.tradeDate;
+  const validDate = typeof tradeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tradeDate)
+    && !Number.isNaN(Date.parse(tradeDate + "T00:00:00Z"))
+    && new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) === tradeDate;
+  if (!Number.isFinite(received) || !validDate || !input?.scanRunId?.trim()) {
+    throw new Error("INVALID_RESEARCH_RUN_METADATA");
+  }
   const rows = prepareScanFeatureCaptures(input);
   // The development schema permits only quarantined or candidate rows.
   if (rows.some(row => row.capture_status !== 'QUARANTINED')) throw new Error('UNSAFE_RESEARCH_CAPTURE_STATUS');
