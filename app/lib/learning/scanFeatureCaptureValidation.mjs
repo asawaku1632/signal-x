@@ -2,7 +2,7 @@
 export function validateScanFeatureCapture(input) {
   if (!input || typeof input !== "object") return { eligible: false, reason: "INVALID_INPUT" };
   const { code, scanRunId, scanReceivedAt, sourceBarAt, aiPower, entryPrice, cached } = input;
-  if (typeof code !== "string" || !/^\\d{4,5}$/.test(code) ||
+  if (typeof code !== "string" || !/^[0-9]{4,5}$/.test(code) ||
       typeof scanRunId !== "string" || !scanRunId.trim())
     return { eligible: false, reason: "INVALID_IDENTITY" };
   const received = Date.parse(scanReceivedAt);
