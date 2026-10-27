@@ -8,8 +8,12 @@ export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedA
   const seen = new Set();
   for (const stock of stocks) {
     const code = typeof stock?.code === "string" ? stock.code : String(stock?.code ?? "");
-    const sourceBarAt = Number.isFinite(stock?.latestBarTimestamp)
-      ? new Date(stock.latestBarTimestamp < 1e11 ? stock.latestBarTimestamp * 1000 : stock.latestBarTimestamp).toISOString()
+    const rawBarTime = stock?.latestBarTimestamp;
+    const barMillis = typeof rawBarTime === "number" && Number.isFinite(rawBarTime)
+      ? (rawBarTime < 1e11 ? rawBarTime * 1000 : rawBarTime)
+      : NaN;
+    const sourceBarAt = Number.isFinite(barMillis) && Number.isFinite(new Date(barMillis).getTime())
+      ? new Date(barMillis).toISOString()
       : null;
     const aiPower = stock?.aiPower ?? stock?.score;
     const entryPrice = stock?.price;
