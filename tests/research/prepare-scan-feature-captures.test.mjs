@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { prepareScanFeatureCaptures } from "../../app/lib/learning/prepareScanFeatureCaptures.mjs";
 const base={scanRunId:"run1",tradeDate:"2026-10-27",scanReceivedAt:"2026-10-27T06:35:00Z"};
 const stock={code:"9984",price:5000,aiPower:78,latestBarTimestamp:Date.parse("2026-10-27T06:30:00Z")/1000,patternLearning:{rsiBand:"MID",trendKey:"UP"}};
-test("maps Scan stock into candidate with features",()=>{
+test("preserves Scan features but quarantines unproven as-of data",()=>{
  const [row]=prepareScanFeatureCaptures({...base,scanResponse:{stocks:[stock],cached:false}});
- assert.equal(row.capture_status,"ASOF_CANDIDATE");assert.equal(row.rsi_band,"MID");assert.equal(row.trend_key,"UP");
+ assert.equal(row.capture_status,"QUARANTINED");assert.equal(row.audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");assert.equal(row.rsi_band,"MID");assert.equal(row.trend_key,"UP");
 });
 test("quarantines cached Scan",()=>{
  const [row]=prepareScanFeatureCaptures({...base,scanResponse:{stocks:[stock],cached:true}});
@@ -18,4 +18,10 @@ test("quarantines missing bar timestamp",()=>{
 test("quarantines duplicate stock codes",()=>{
  const rows=prepareScanFeatureCaptures({...base,scanResponse:{stocks:[stock,stock]}});
  assert.equal(rows[1].audit_reason,"DUPLICATE_CODE");
+});
+
+test("unknown cache state is quarantined",()=>{
+ const [row]=prepareScanFeatureCaptures({...base,scanResponse:{stocks:[stock]}});
+ assert.equal(row.capture_status,"QUARANTINED");
+ assert.equal(row.audit_reason,"CACHED_SCAN");
 });
