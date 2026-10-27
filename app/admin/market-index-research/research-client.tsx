@@ -49,6 +49,7 @@ export default function MarketIndexResearchClient() {
     todayAuditStatus?: "SAVED_TODAY" | "NOT_SAVED_TODAY";
     comparison?: { baselineAt: string | null; status: "NO_BASELINE" | "UNCHANGED" | "CHANGED"; changes: Array<{ key: string; type: string; before: number | null; after: number | null }> };
     investigation?: { state: "NO_DATA" | "INVESTIGATE" | "NO_BASELINE" | "REVIEW_CHANGES" | "STABLE"; items: Array<{ code: string; key?: string; action: string }> };
+    historyAnalysis?: { snapshotCount: number; comparableTransitions: number; status: "INSUFFICIENT_HISTORY" | "REPEATED_ISSUES" | "NO_REPEATED_ISSUES_OBSERVED"; repeated: Array<{ key: string; count: number }>; note: string };
   } | null>(null);
   const runDuplicateAudit = async (save = false) => {
     if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
@@ -190,6 +191,19 @@ export default function MarketIndexResearchClient() {
                     <li key={item.code + "-" + (item.key ?? i)}>{item.key ? item.key + " ／ " : ""}{item.code}：{item.action}</li>
                   )}</ul>}
                   <p className="mt-2 text-xs">研究用の調査案内です。株価品質・売買判断・本番AIへの反映を承認するものではありません。自動修正・自動保存は行いません。</p>
+                </div>}
+                {auditResult.historyAnalysis && <div className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
+                  <p className="font-bold">STEP27-D｜保存済み監査履歴の再発分析</p>
+                  <p className="mt-1">保存スナップショット：{auditResult.historyAnalysis.snapshotCount}件 ／ 比較可能な遷移：{auditResult.historyAnalysis.comparableTransitions}件</p>
+                  <p className="mt-1">判定：{({
+                    INSUFFICIENT_HISTORY: "履歴不足・再発判定不可",
+                    REPEATED_ISSUES: "同じ問題の繰り返しを検出・要調査",
+                    NO_REPEATED_ISSUES_OBSERVED: "保存履歴内で繰り返し未検出",
+                  } as Record<string, string>)[auditResult.historyAnalysis.status] ?? "不明"}</p>
+                  {auditResult.historyAnalysis.repeated.length > 0 && <ul className="mt-2 space-y-1">{auditResult.historyAnalysis.repeated.map(item =>
+                    <li key={item.key}>{item.key} ／ {item.count}回</li>
+                  )}</ul>}
+                  <p className="mt-2 text-xs">{auditResult.historyAnalysis.note} 市場データの正確性や正式利用の許諾を示すものではありません。</p>
                 </div>}
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
                   <ul className="space-y-1">{auditResult.history?.map((h, i) =>
