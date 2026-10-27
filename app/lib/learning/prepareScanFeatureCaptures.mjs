@@ -3,7 +3,7 @@ import { validateScanFeatureCapture } from "./scanFeatureCaptureValidation.mjs";
 // Research-only preparation; does not query or write any database.
 export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedAt, scanResponse }) {
   const stocks = Array.isArray(scanResponse?.stocks) ? scanResponse.stocks : [];
-  const cached = scanResponse?.cached === true;
+  // Unknown cache state is not evidence of a fresh Scan.\n  const cached = scanResponse?.cached !== false;
   const rows = [];
   const seen = new Set();
   for (const stock of stocks) {
@@ -17,7 +17,7 @@ export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedA
       : null;
     const aiPower = stock?.aiPower ?? stock?.score;
     const entryPrice = stock?.price;
-    const result = validateScanFeatureCapture({ code, scanRunId, scanReceivedAt, sourceBarAt, aiPower, entryPrice, cached });
+    const result = validateScanFeatureCapture({ code, scanRunId, scanReceivedAt, sourceBarAt, aiPower, entryPrice, cached });\n    // Even fresh bars do not prove that derived features existed at scan time.\n    // Keep them quarantined until independently timestamped provenance exists.\n    const reason = result.eligible ? "UNVERIFIED_FEATURE_ASOF_AND_PROVIDER" : result.reason;
     const duplicate = seen.has(code);
     seen.add(code);
     rows.push({
@@ -36,8 +36,8 @@ export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedA
       vwap_key: stock?.patternLearning?.vwapKey ?? null,
       macd_key: stock?.patternLearning?.macdKey ?? null,
       pattern_key: stock?.patternLearning?.patternKey ?? stock?.patternKey ?? null,
-      capture_status: !duplicate && result.eligible ? "ASOF_CANDIDATE" : "QUARANTINED",
-      audit_reason: duplicate ? "DUPLICATE_CODE" : result.reason,
+      capture_status: "QUARANTINED",
+      audit_reason: duplicate ? "DUPLICATE_CODE" : reason,
     });
   }
   return rows;
