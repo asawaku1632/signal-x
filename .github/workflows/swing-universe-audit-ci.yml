@@ -24,5 +24,6 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --test tests/swingUniverseAudit.test.mjs
+      - run: node --test tests/swingUniverseDateGuard.test.cjs
       - run: npx next typegen
       - run: npx tsc --noEmit
