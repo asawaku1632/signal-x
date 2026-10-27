@@ -1,0 +1,26 @@
+name: Research Stage146-150 Read-Only Quality
+on:
+  pull_request:
+    paths:
+      - 'tests/stage146-150-research-quality.test.cjs'
+      - 'app/lib/learning/researchQualitySummary.ts'
+      - 'app/simulation/universe-check/page.tsx'
+      - 'app/api/swing-universe-audit/route.ts'
+      - '.github/workflows/research-stage146-150-quality.yml'
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage146-150-research-quality.test.cjs
+      - run: npx tsc --noEmit
