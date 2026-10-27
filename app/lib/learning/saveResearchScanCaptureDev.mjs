@@ -26,7 +26,16 @@ export async function saveResearchScanCaptureDev(client, input) {
   // The development schema permits only quarantined or candidate rows.
   if (rows.some(row => row.capture_status !== 'QUARANTINED')) throw new Error('UNSAFE_RESEARCH_CAPTURE_STATUS');
   const summary = { attempted: rows.length, inserted: 0, duplicates: 0, quarantined: 0 };
+  const seen = new Set();
   for (const row of rows) {
+    // Never send repeated identities to SQL; avoid ambiguous first-write semantics.
+    const identity = JSON.stringify([row.scan_run_id, row.code]);
+    if (seen.has(identity)) {
+      summary.duplicates++;
+      summary.quarantined++;
+      continue;
+    }
+    seen.add(identity);
     // Invalid identifiers cannot be safely inserted under the unique key.
     if (!/^(?:[0-9]{4,5}|[0-9]{3}[A-Z])$/.test(row.code) || !row.scan_run_id || !Number.isFinite(Date.parse(row.scan_received_at)) || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.trade_date)) {
       summary.quarantined++;
