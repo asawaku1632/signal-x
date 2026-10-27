@@ -53,11 +53,27 @@ export async function GET(request: Request) {
           [groups.length, duplicateGroups, decision, JSON.stringify(groups)]
         );
       }
-      const history = await client.query<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string }>(
-        "SELECT audited_at, group_count, duplicate_group_count, decision FROM public.market_index_research_audit_history ORDER BY audited_at DESC LIMIT 20"
+      const history = await client.query<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string; details: unknown }>(
+        "SELECT audited_at, group_count, duplicate_group_count, decision, details FROM public.market_index_research_audit_history ORDER BY audited_at DESC, audit_id DESC LIMIT 20"
       );
+      const previous = history.rows[save ? 1 : 0] ?? null;
+      type AuditGroup = { jst_date: string; index_key: string; saved_count: number };
+      const oldGroups: AuditGroup[] = previous && Array.isArray(previous.details) ? previous.details as AuditGroup[] : [];
+      const keyOf = (g: AuditGroup) => g.jst_date + ":" + g.index_key;
+      const oldMap = new Map(oldGroups.map(g => [keyOf(g), g.saved_count]));
+      const newMap = new Map(groups.map(g => [keyOf(g), g.saved_count]));
+      const changes = previous ? [
+        ...groups.filter(g => !oldMap.has(keyOf(g))).map(g => ({ key: keyOf(g), type: "ADDED", before: null, after: g.saved_count })),
+        ...groups.filter(g => oldMap.has(keyOf(g)) && oldMap.get(keyOf(g)) !== g.saved_count)
+          .map(g => ({ key: keyOf(g), type: "COUNT_CHANGED", before: oldMap.get(keyOf(g)), after: g.saved_count })),
+        ...oldGroups.filter(g => !newMap.has(keyOf(g))).map(g => ({ key: keyOf(g), type: "MISSING", before: g.saved_count, after: null })),
+      ] : [];
+      const todayJst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const todaySaved = history.rows.some(h => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(h.audited_at)) === todayJst);
       await client.query("COMMIT");
-      return NextResponse.json({ success: true, mode: save ? "PREVIEW_DEV_MANUAL_AUDIT_SAVED" : "PREVIEW_DEV_READ_ONLY_AUDIT", saved: save, history: history.rows,
+      return NextResponse.json({ success: true, mode: save ? "PREVIEW_DEV_MANUAL_AUDIT_SAVED" : "PREVIEW_DEV_READ_ONLY_AUDIT", saved: save, history: history.rows.map(({ details, ...h }) => h),
+        comparison: { baselineAt: previous?.audited_at ?? null, status: previous ? changes.length ? "CHANGED" : "UNCHANGED" : "NO_BASELINE", changes },
+        todayAuditStatus: todaySaved ? "SAVED_TODAY" : "NOT_SAVED_TODAY",
         asOf: new Date().toISOString(), groups, groupCount: groups.length, duplicateGroups,
         decision,
         marketDataCaptured: false, scheduledCaptureConfigured: false },
