@@ -25,3 +25,9 @@ test('invalid scores are rejected before forward outcome analysis',()=>{
   assert.equal(result.rejected[0].reason,'INVALID_AI_POWER');
  }
 });
+
+test('duplicate captures cannot multiply performance results',()=>{
+ const result=compareForwardResults([capture,{...capture}],[outcome]);
+ assert.equal(result.accepted.length,0);
+ assert.deepEqual(result.rejected.map(x=>x.reason),['DUPLICATE_CAPTURE','DUPLICATE_CAPTURE']);
+});
