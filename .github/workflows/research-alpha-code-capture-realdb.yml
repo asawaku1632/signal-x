@@ -1,0 +1,50 @@
+name: Research Alpha-Code Capture Real-DB (isolated)
+on:
+  pull_request:
+    paths:
+      - 'tests/alpha-code-capture-realdb.test.cjs'
+      - '.github/workflows/research-alpha-code-capture-realdb.yml'
+permissions:
+  contents: read
+jobs:
+  capture-realdb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_only
+          POSTGRES_PASSWORD: ephemeral_test_password
+          POSTGRES_DB: signalx_alpha217_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_only -d signalx_alpha217_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out PR 217 source under test
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/217/head
+          persist-credentials: false
+      - name: Check out test harness from PR 218 branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/alpha-code-pg-contract
+          path: test-harness
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Validate and execute real capture against disposable PostgreSQL
+        env:
+          SIGNALX_E2E_DATABASE_URL: postgres://test_only:ephemeral_test_password@127.0.0.1:5432/signalx_alpha217_ci
+        run: |
+          cp test-harness/tests/alpha-code-capture-realdb.test.cjs tests/alpha-code-capture-realdb.test.cjs
+          node tests/alpha-code-capture-realdb.test.cjs
