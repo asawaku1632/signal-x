@@ -6,7 +6,7 @@ import { join } from "node:path";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const { isAdmin } = await getAdminSession();
   if (!isAdmin || process.env.VERCEL_ENV !== "preview") {
     return NextResponse.json({ success: false, reason: "PREVIEW_ADMIN_ONLY" }, { status: 403 });
@@ -32,8 +32,9 @@ export async function GET() {
       ssl: { rejectUnauthorized: true, ca: readFileSync(join(process.cwd(),
         "app/api/admin/bollinger-breakout-shadow/dev-connection-check/supabase-root-2021-ca.crt"), "utf8") } });
     const client = await pool.connect();
+    const save = request.method === "POST";
     try {
-      await client.query("BEGIN READ ONLY");
+      await client.query(save ? "BEGIN" : "BEGIN READ ONLY");
       await client.query("SET LOCAL statement_timeout = 5000");
       const result = await client.query<{ jst_date: string; index_key: string; saved_count: string; result: string }>(
         `SELECT (checked_at AT TIME ZONE 'Asia/Tokyo')::date::text AS jst_date,
@@ -43,12 +44,22 @@ export async function GET() {
          WHERE reason = 'PROVIDER_APPROVAL_REQUIRED'
          GROUP BY 1, 2 ORDER BY 1 DESC, 2`
       );
-      await client.query("COMMIT");
       const groups = result.rows.map(row => ({ ...row, saved_count: Number(row.saved_count) }));
       const duplicateGroups = groups.filter(row => row.result === "DUPLICATE").length;
-      return NextResponse.json({ success: true, mode: "PREVIEW_DEV_READ_ONLY_AUDIT",
+      const decision = groups.length === 0 ? "NO_DATA" : duplicateGroups > 0 ? "DUPLICATE_DETECTED" : "PASS";
+      if (save) {
+        await client.query(
+          "INSERT INTO public.market_index_research_audit_history (group_count, duplicate_group_count, decision, details) VALUES ($1,$2,$3,$4::jsonb)",
+          [groups.length, duplicateGroups, decision, JSON.stringify(groups)]
+        );
+      }
+      const history = await client.query<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string }>(
+        "SELECT audited_at, group_count, duplicate_group_count, decision FROM public.market_index_research_audit_history ORDER BY audited_at DESC LIMIT 20"
+      );
+      await client.query("COMMIT");
+      return NextResponse.json({ success: true, mode: save ? "PREVIEW_DEV_MANUAL_AUDIT_SAVED" : "PREVIEW_DEV_READ_ONLY_AUDIT", saved: save, history: history.rows,
         asOf: new Date().toISOString(), groups, groupCount: groups.length, duplicateGroups,
-        decision: groups.length === 0 ? "NO_DATA" : duplicateGroups > 0 ? "DUPLICATE_DETECTED" : "PASS",
+        decision,
         marketDataCaptured: false, scheduledCaptureConfigured: false },
         { headers: { "Cache-Control": "no-store" } });
     } catch {
@@ -58,4 +69,11 @@ export async function GET() {
   } catch {
     return NextResponse.json({ success: false, reason: "DEV_DB_READ_FAILED" }, { status: 503 });
   } finally { await pool?.end().catch(() => {}); }
+}
+
+export async function POST(request: Request) {
+  if (request.headers.get("origin") !== new URL(request.url).origin) {
+    return NextResponse.json({ success: false, reason: "ORIGIN_MISMATCH" }, { status: 403 });
+  }
+  return GET(request);
 }
