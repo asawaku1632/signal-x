@@ -1,0 +1,22 @@
+name: Daily Forward Research Offline Tests
+on:
+  push:
+    branches:
+      - research/morning-quote-metadata-diagnostics-20261026
+    paths:
+      - 'app/lib/research/dailyForwardEvaluation.mjs'
+      - 'tests/dailyForwardEvaluation.test.mjs'
+      - '.github/workflows/daily-forward-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-forward-evaluation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run pure offline forward-evaluation tests
+        run: node --test tests/dailyForwardEvaluation.test.mjs
