@@ -55,6 +55,8 @@ on:
       - 'tests/dailyForwardExperimentRisk.test.mjs'
       - 'app/lib/research/dailyForwardExperimentTriage.mjs'
       - 'tests/dailyForwardExperimentTriage.test.mjs'
+      - 'app/lib/research/dailyForwardExperimentPipeline.mjs'
+      - 'tests/dailyForwardExperimentPipeline.test.mjs'
       - '.github/workflows/daily-forward-research.yml'
   workflow_dispatch:
 permissions:
@@ -68,4 +70,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure offline forward-evaluation tests
-        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs tests/dailyOfficialCloseBaseline.test.mjs tests/jquantsDailyBarAdapter.test.mjs tests/jquantsDailyBatchGate.test.mjs tests/gatedJquantsForwardResearch.test.mjs tests/dailyForwardScoreBands.test.mjs tests/dailyForwardStability.test.mjs tests/dailyForwardChronologicalHoldout.test.mjs tests/dailyForwardEvidenceDecision.test.mjs tests/dailyForwardImprovementProposals.test.mjs tests/dailyForwardEvidenceManifest.test.mjs tests/dailyForwardDatasetIntegrity.test.mjs tests/dailyForwardProposalEvidenceGate.test.mjs tests/dailyForwardReviewHistory.test.mjs tests/dailyForwardReviewChain.test.mjs tests/dailyForwardAuditReport.test.mjs tests/dailyForwardCandidateShortlist.test.mjs tests/dailyForwardAuditToShortlistIntegration.test.mjs tests/dailyForwardExperimentPlans.test.mjs tests/dailyForwardExperimentComparison.test.mjs tests/dailyForwardExperimentUncertainty.test.mjs tests/dailyForwardExperimentRisk.test.mjs tests/dailyForwardExperimentTriage.test.mjs
+        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs tests/dailyOfficialCloseBaseline.test.mjs tests/jquantsDailyBarAdapter.test.mjs tests/jquantsDailyBatchGate.test.mjs tests/gatedJquantsForwardResearch.test.mjs tests/dailyForwardScoreBands.test.mjs tests/dailyForwardStability.test.mjs tests/dailyForwardChronologicalHoldout.test.mjs tests/dailyForwardEvidenceDecision.test.mjs tests/dailyForwardImprovementProposals.test.mjs tests/dailyForwardEvidenceManifest.test.mjs tests/dailyForwardDatasetIntegrity.test.mjs tests/dailyForwardProposalEvidenceGate.test.mjs tests/dailyForwardReviewHistory.test.mjs tests/dailyForwardReviewChain.test.mjs tests/dailyForwardAuditReport.test.mjs tests/dailyForwardCandidateShortlist.test.mjs tests/dailyForwardAuditToShortlistIntegration.test.mjs tests/dailyForwardExperimentPlans.test.mjs tests/dailyForwardExperimentComparison.test.mjs tests/dailyForwardExperimentUncertainty.test.mjs tests/dailyForwardExperimentRisk.test.mjs tests/dailyForwardExperimentTriage.test.mjs tests/dailyForwardExperimentPipeline.test.mjs
