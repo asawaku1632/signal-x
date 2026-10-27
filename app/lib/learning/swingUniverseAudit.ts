@@ -127,7 +127,7 @@ export async function captureSwingUniverseDay(targetDate: string, now = new Date
   const prepared = rows.rows.flatMap((row) => {
     const price = validPrice(row.price);
     const aiPower = validPower(row.score);
-    if (!/^[0-9]{4}$/.test(row.code) || !row.name || price == null || aiPower == null) return [];
+    if (!/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(row.code) || !row.name || price == null || aiPower == null) return [];
     const decision = getSwingEntryDecision({ aiPower });
     return [{ code: row.code, name: row.name, price, aiPower, decision }];
   });
