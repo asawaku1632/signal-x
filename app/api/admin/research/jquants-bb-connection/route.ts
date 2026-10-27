@@ -26,8 +26,10 @@ export async function POST(request: Request) {
   // Browser requests must be same-origin. No cross-site execution.
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host || new URL(origin).protocol !== "https:")
-    return fail("SAME_ORIGIN_REQUIRED");
+  let sameOrigin = false;
+  try { const parsed = new URL(origin ?? ""); sameOrigin = parsed.host === host && parsed.protocol === "https:"; }
+  catch { /* fail closed */ }
+  if (!sameOrigin) return fail("SAME_ORIGIN_REQUIRED");
   let body: unknown;
   try { body = await request.json(); } catch { return fail("INVALID_BODY", 400); }
   if (!body || typeof body !== "object" || Array.isArray(body) ||
