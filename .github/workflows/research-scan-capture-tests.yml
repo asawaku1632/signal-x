@@ -1,0 +1,22 @@
+name: Scan Research Capture Tests
+
+on:
+  push:
+    branches:
+      - research/scan-capture-validation-20261027
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated research tests
+        run: node --test tests/research/scan-feature-capture-validation.test.mjs tests/research/prepare-scan-feature-captures.test.mjs tests/research/save-research-scan-capture-dev.test.mjs
