@@ -46,6 +46,8 @@ export default function MarketIndexResearchClient() {
     asOf?: string; reason?: string;
     groups?: Array<{ jst_date: string; index_key: string; saved_count: number; result: string }>;
     saved?: boolean; history?: Array<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string }>;
+    todayAuditStatus?: "SAVED_TODAY" | "NOT_SAVED_TODAY";
+    comparison?: { baselineAt: string | null; status: "NO_BASELINE" | "UNCHANGED" | "CHANGED"; changes: Array<{ key: string; type: string; before: number | null; after: number | null }> };
   } | null>(null);
   const runDuplicateAudit = async (save = false) => {
     if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
@@ -163,6 +165,17 @@ export default function MarketIndexResearchClient() {
               {auditResult.success ? <>
                 <p className="mt-1">対象グループ：{auditResult.groupCount} ／ 重複グループ：{auditResult.duplicateGroups} ／ 確認時刻：{auditResult.asOf ? new Date(auditResult.asOf).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}</p>
                 <p className="mt-1">{auditResult.saved ? "今回の監査結果を開発用DBに保存しました。" : "今回は読み取りのみで、監査履歴は保存していません。"}</p>
+                <div className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
+                  <p className="font-bold">前回保存結果との比較</p>
+                  <p className="mt-1">当日の保存状況：{auditResult.todayAuditStatus === "SAVED_TODAY" ? "保存済み" : "未実行（本日分の保存履歴なし）"}</p>
+                  <p className="mt-1">比較結果：{auditResult.comparison?.status === "NO_BASELINE" ? "比較元なし（初回）" : auditResult.comparison?.status === "UNCHANGED" ? "前回から変化なし" : "前回から変化あり・確認が必要"}</p>
+                  {auditResult.comparison?.baselineAt && <p className="mt-1">比較元：{new Date(auditResult.comparison.baselineAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p>}
+                  {auditResult.comparison?.changes?.length ? <ul className="mt-2 space-y-1">{auditResult.comparison.changes.map(c =>
+                    <li key={c.key + c.type}>{c.key} ／ {c.type === "ADDED" ? "新規" : c.type === "MISSING" ? "前回記録から消失" : "件数変更"} ／ {c.before ?? "なし"} → {c.after ?? "なし"}</li>
+                  )}</ul> : null}
+                  {auditResult.decision === "DUPLICATE_DETECTED" && <p className="mt-2 font-bold text-red-600">重複あり：追加の保存テストを停止し、対象日付・指数の記録を調査してください。自動削除は行いません。</p>}
+                  <p className="mt-2 text-xs">「未実行」は当日の保存履歴がない意味です。読み取り監査を実施したかどうかは判定できません。差分は保存済み監査時点との比較で、市場データの品質判定ではありません。</p>
+                </div>
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
                   <ul className="space-y-1">{auditResult.history?.map((h, i) =>
                     <li key={h.audited_at + "-" + i}>{new Date(h.audited_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} ／ {h.decision} ／ {h.group_count}グループ ／ 重複{h.duplicate_group_count}</li>
