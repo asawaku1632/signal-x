@@ -1,0 +1,25 @@
+name: Research Stage151-155 Approval Gate (no production)
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchApprovalGate.ts'
+      - 'tests/stage151-155-approval-gate.test.cjs'
+      - '.github/workflows/research-stage151-155-approval.yml'
+permissions:
+  contents: read
+jobs:
+  review-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage151-155-approval-gate.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
