@@ -16,7 +16,7 @@ export function compareForwardResults(captures, outcomes) {
     if (matches.length !== 1) { reject('MISSING_OR_AMBIGUOUS_OUTCOME'); continue; }
     const outcome = matches[0];
     if (outcome.independent_source_verified !== true || !validTime(outcome.observed_at) || Date.parse(outcome.observed_at) <= Date.parse(capture.scan_received_at) || !Number.isFinite(outcome.return_pct)) { reject('UNVERIFIED_FUTURE_OUTCOME'); continue; }
-    if (outcome.horizon_days !== 5 || outcome.outcome_version !== 'forward-v1') { reject('MISMATCHED_HORIZON'); continue; }
+    if (outcome.horizon_days !== 5 || outcome.outcome_version !== 'forward-v1' || outcome.horizon_verified !== true) { reject('MISMATCHED_HORIZON'); continue; }
     accepted.push({ scan_run_id: capture.scan_run_id, code: capture.code, ai_power: capture.ai_power, return_pct: outcome.return_pct, horizon_days: 5 });
   }
   return { accepted, rejected };
