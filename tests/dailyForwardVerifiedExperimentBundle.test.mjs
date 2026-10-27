@@ -14,7 +14,11 @@ for(let d=1;d<=20;d++)for(let c=0;c<20;c++){
 }
 for(let d=1;d<=30;d++){
  const date=`2026-12-${String(d).padStart(2,"0")}`;
- bundle.hypotheticalTrades.push({id:String(d),startDate:date,endDate:date,grossReturnPct:1,verified:true});
+ const code=String(1000+(d%20));
+ bundle.baselineRows.push({code,date,horizon:5,status:"VERIFIED",priceBasisVerified:true,returnPct:1});
+ bundle.experimentalRows.push({code,date,horizon:5,status:"VERIFIED",priceBasisVerified:true,returnPct:2});
+ bundle.pairedRows.push({code,date,horizon:5,baselineReturnPct:1,experimentalReturnPct:2});
+ bundle.hypotheticalTrades.push({id:String(d),code,signalDate:date,horizon:5,startDate:date,endDate:date,grossReturnPct:1,verified:true,priceBasisVerified:true,executionBasisVerified:true});
 }
 const encode=(v)=>Buffer.from(JSON.stringify(v));
 const digest=(b)=>createHash("sha256").update(b).digest("hex");
@@ -43,4 +47,18 @@ test("forged paired differences blocked even if attacker rehashes bundle",()=>{
 test("invalid JSON is rejected after hash verification",()=>{
  const bytes=Buffer.from("not-json");
  assert.ok(runVerifiedForwardExperimentBundle({datasetBytes:bytes,trustedExpectedSha256:digest(bytes)}).reasons.includes("DATASET_JSON_INVALID"));
+});
+
+test("trade with unmatched prediction blocks verified pipeline",()=>{
+ const altered=structuredClone(bundle);altered.hypotheticalTrades[0].code="9999";
+ const bytes=encode(altered);
+ const result=runVerifiedForwardExperimentBundle({datasetBytes:bytes,trustedExpectedSha256:digest(bytes)});
+ assert.equal(result.status,"BLOCKED");
+ assert.ok(result.reasons.includes("PREDICTION_TRADE_LINKAGE_FAILED"));
+});
+test("unverified trade execution blocks verified pipeline",()=>{
+ const altered=structuredClone(bundle);altered.hypotheticalTrades[0].executionBasisVerified=false;
+ const bytes=encode(altered);
+ const result=runVerifiedForwardExperimentBundle({datasetBytes:bytes,trustedExpectedSha256:digest(bytes)});
+ assert.equal(result.status,"BLOCKED");
 });
