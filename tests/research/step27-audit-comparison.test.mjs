@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareAuditGroups } from "./step27-audit-comparison.mjs";
+import { compareAuditGroups } from "../../app/lib/step27-audit-comparison.mjs";
 
 const baseline = [{ jst_date: "2026-10-27", index_key: "nikkei", saved_count: 1 }];
 const extra = { jst_date: "2026-10-27", index_key: "topix", saved_count: 1 };
