@@ -12,6 +12,7 @@ export function compareForwardResults(captures, outcomes) {
     const reject = reason => rejected.push({ scan_run_id: capture?.scan_run_id ?? null, code: capture?.code ?? null, reason });
     if (!capture || capture.capture_status !== 'ASOF_VERIFIED' || capture.provenance_verified !== true) { reject('UNVERIFIED_CAPTURE'); continue; }
     if (!validTime(capture.scan_received_at) || !validTime(capture.source_bar_at) || !validTime(capture.features_computed_at) || Date.parse(capture.source_bar_at) > Date.parse(capture.scan_received_at) || Date.parse(capture.features_computed_at) > Date.parse(capture.scan_received_at)) { reject('INVALID_ASOF_TIMING'); continue; }
+    if (typeof capture.ai_power !== 'number' || !Number.isFinite(capture.ai_power) || capture.ai_power < 0 || capture.ai_power > 100) { reject('INVALID_AI_POWER'); continue; }
     const matches = indexed.get(`${capture.scan_run_id}|${capture.code}`) ?? [];
     if (matches.length !== 1) { reject('MISSING_OR_AMBIGUOUS_OUTCOME'); continue; }
     const outcome = matches[0];
