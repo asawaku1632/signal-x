@@ -46,3 +46,18 @@ export async function POST(request: Request) {
   } catch { return fail("DEV_WRITE_FAILED", 503); }
   finally { await pool.end(); }
 }
+
+export async function GET() {
+  if (!(await getLearningOwnerSession()).isOwner) return fail("OWNER_ONLY");
+  if (!allowed()) return fail("RESEARCH_PREVIEW_ONLY");
+  if (!verifiedDb()) return fail("DEV_DB_NOT_VERIFIED", 503);
+  const pool = new Pool({ connectionString: process.env.MARKET_INDEX_RESEARCH_DEV_DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 1, connectionTimeoutMillis: 8000 });
+  try {
+    const [summary, rows] = await Promise.all([
+      pool.query("SELECT count(*)::int AS total, count(*) FILTER (WHERE production_applied)::int AS production_applied FROM public.bb_prospective_research_intake"),
+      pool.query("SELECT id,code,signal_label,claimed_price::text,claimed_provider,claimed_quote_at,model_version,received_at,evidence_status,production_applied FROM public.bb_prospective_research_intake ORDER BY received_at DESC,id DESC LIMIT 20")
+    ]);
+    return NextResponse.json({ success:true, mode:"UNVERIFIED_RESEARCH_INTAKE", saved:false, productionApplied:false, summary:summary.rows[0], records:rows.rows }, { headers });
+  } catch { return fail("DEV_READ_FAILED",503); }
+  finally { await pool.end(); }
+}
