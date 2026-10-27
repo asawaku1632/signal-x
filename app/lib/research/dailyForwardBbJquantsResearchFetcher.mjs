@@ -24,7 +24,7 @@ export async function fetchBbResearchJquantsBars({
    const payload=await response.json();
    if(!Array.isArray(payload?.data)||payload.pagination_key)
      return {status:"BLOCKED",reason:payload?.pagination_key?"PAGINATION_UNSUPPORTED":"INVALID_PROVIDER_RESPONSE",barsByCode:{}};
-   const normalized=payload.data.filter(b=>b?.Code===code&&typeof b.Date==="string"&&b.Date>=START&&b.Date<=END);
+   const normalized=payload.data.filter(b=>\n    (b?.Code===code||b?.Code===`${code}0`)&&\n    typeof b.Date==="string"&&b.Date>=START&&b.Date<=END\n   ).map(b=>({...b,Code:code}));
    if(normalized.length!==payload.data.length)
      return {status:"BLOCKED",reason:"UNEXPECTED_PROVIDER_RECORD",barsByCode:{}};
    barsByCode[code]=normalized;
