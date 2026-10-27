@@ -11,7 +11,7 @@ export async function saveResearchScanCaptureDev(client, input) {
   const summary = { attempted: rows.length, inserted: 0, duplicates: 0, quarantined: 0 };
   for (const row of rows) {
     // Invalid identifiers cannot be safely inserted under the unique key.
-    if (!/^[0-9]{4,5}$/.test(row.code) || !row.scan_run_id || !/^\\d{4}-\\d{2}-\\d{2}$/.test(row.trade_date)) {
+    if (!/^[0-9]{4,5}$/.test(row.code) || !row.scan_run_id || !Number.isFinite(Date.parse(row.scan_received_at)) || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.trade_date)) {
       summary.quarantined++;
       continue;
     }
