@@ -94,7 +94,7 @@ async function main(){
     await pool.query('TRUNCATE public.swing_universe_observations');
     const routeSource=fs.readFileSync(path.resolve('app/api/cron/swing-universe-audit/route.ts'),'utf8');
     assert.match(routeSource,/NON_CURRENT_TRADE_DATE/,'Expected PR #222 route');
-    const stripped=routeSource.replace(/^import .*;\\r?\\n/gm,'')
+    const stripped=routeSource.replace(/^import .*;\r?\n/gm,'')
       .replace(/export const /g,'const ')
       .replace(/export async function GET/g,'async function GET');
     const routeJs=ts.transpileModule(stripped,{
@@ -104,7 +104,7 @@ async function main(){
       let captureCalls=0, outcomeCalls=0;
       const GET=new Function('NextResponse','requireCronAuth','resolveTargetTradeDate',
         'captureSwingUniverseDay','updateSwingUniverseOutcomes','console',
-        routeJs+'\\nreturn GET;')(
+        routeJs+'\nreturn GET;')(
         {json:(data,opts)=>({data,opts})},
         ()=>auth?{status:401}:null,
         ()=>({targetTradeDate:date,targetTradeDateReason:reason}),
