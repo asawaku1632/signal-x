@@ -45,14 +45,16 @@ export default function MarketIndexResearchClient() {
     success: boolean; decision?: string; groupCount?: number; duplicateGroups?: number;
     asOf?: string; reason?: string;
     groups?: Array<{ jst_date: string; index_key: string; saved_count: number; result: string }>;
+    saved?: boolean; history?: Array<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string }>;
   } | null>(null);
-  const runDuplicateAudit = async () => {
+  const runDuplicateAudit = async (save = false) => {
+    if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
     if (auditRunning) return;
     setAuditRunning(true);
     setAuditResult(null);
     try {
       const response = await fetch("/api/admin/market-index-research/duplicate-audit", {
-        cache: "no-store", credentials: "same-origin",
+        method: save ? "POST" : "GET", cache: "no-store", credentials: "same-origin",
       });
       const result = await response.json();
       setAuditResult(response.ok ? result : { success: false, reason: result.reason ?? "AUDIT_FAILED" });
@@ -148,14 +150,24 @@ export default function MarketIndexResearchClient() {
           <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h2 className="font-black">🔎 開発用DB・重複監査（読み取り専用）</h2>
             <p className="mt-2 text-sm">日経平均・TOPIXの取得不可ステータスだけを日付別に集計します。外部市場データの取得・DB書き込み・自動実行はありません。</p>
-            <button type="button" onClick={runDuplicateAudit} disabled={auditRunning}
+            <button type="button" onClick={() => runDuplicateAudit(false)} disabled={auditRunning}
               className="mt-3 rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
               {auditRunning ? "監査中…" : "保存履歴の重複を確認する"}
+            </button>
+            <button type="button" onClick={() => runDuplicateAudit(true)} disabled={auditRunning}
+              className="ml-2 mt-3 rounded-xl border border-slate-400 px-4 py-3 text-sm font-bold disabled:opacity-50">
+              {auditRunning ? "処理中…" : "監査して履歴に保存（確認あり）"}
             </button>
             {auditResult && <div role="status" className="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-900 dark:bg-slate-800 dark:text-white">
               <p className="font-bold">{!auditResult.success ? "監査失敗・判定不可" : auditResult.decision === "PASS" ? "監査PASS（対象の重複なし）" : auditResult.decision === "NO_DATA" ? "対象データなし・判定保留" : "重複を検出・要調査"}</p>
               {auditResult.success ? <>
                 <p className="mt-1">対象グループ：{auditResult.groupCount} ／ 重複グループ：{auditResult.duplicateGroups} ／ 確認時刻：{auditResult.asOf ? new Date(auditResult.asOf).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}</p>
+                <p className="mt-1">{auditResult.saved ? "今回の監査結果を開発用DBに保存しました。" : "今回は読み取りのみで、監査履歴は保存していません。"}</p>
+                <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
+                  <ul className="space-y-1">{auditResult.history?.map((h, i) =>
+                    <li key={h.audited_at + "-" + i}>{new Date(h.audited_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} ／ {h.decision} ／ {h.group_count}グループ ／ 重複{h.duplicate_group_count}</li>
+                  )}</ul>
+                </div>
                 <ul className="mt-2 space-y-1">{auditResult.groups?.map((row) =>
                   <li key={row.jst_date + "-" + row.index_key}>{row.jst_date} ／ {row.index_key} ／ {row.saved_count}件 ／ {row.result}</li>
                 )}</ul>
