@@ -10,7 +10,7 @@ const proposal={proposalId:id,researchDecision:"IMPROVEMENT_CANDIDATE",evidence:
   priceBasisReview:"VERIFIED",licenseReview:"VERIFIED",
 }};
 const history=sealForwardReviewHistory([{sequence:1,proposalId:id,reviewerId:"researcher",
-  reviewedAt:"2026-10-27T10:00:00Z",decision:"REVIEW_HOLD",reason:"Await independent validation",
+  reviewedAt:"2026-10-27T10:00:00Z",decision:"RESEARCH_CANDIDATE",reason:"Independent review candidate only",
   evidenceSha256:hashResearchDatasetBytes(bytes),productionApproval:false,autoApply:false}]);
 const args={researchVersion:"offline-fixture-v1",proposals:[proposal],datasetBytes:bytes,
   sealedReviewHistory:history,trustedReviewHead:history[0].recordHash};
@@ -45,5 +45,23 @@ test("review of a different dataset cannot authorize current proposal review",()
  const result=buildForwardResearchAuditReport({...args,sealedReviewHistory:wrong,trustedReviewHead:wrong[0].recordHash});
  assert.equal(result.status,"AUDIT_BLOCKED");
  assert.equal(result.findings[0].matchingReviewEvidence,false);
+ assert.ok(result.findings[0].reasons.includes("REVIEW_EVIDENCE_HASH_MISMATCH"));
+});
+
+test("latest HOLD decision blocks review even if an earlier candidate exists",()=>{
+ const prior={...history[0]};
+ const later=sealForwardReviewHistory([
+  {sequence:1,proposalId:id,reviewerId:"researcher",reviewedAt:"2026-10-27T10:00:00Z",decision:"RESEARCH_CANDIDATE",reason:"Initial candidate",evidenceSha256:hashResearchDatasetBytes(bytes),productionApproval:false,autoApply:false},
+  {sequence:2,proposalId:id,reviewerId:"researcher",reviewedAt:"2026-10-27T11:00:00Z",decision:"REVIEW_HOLD",reason:"New concerns",evidenceSha256:hashResearchDatasetBytes(bytes),productionApproval:false,autoApply:false},
+ ]);
+ const result=buildForwardResearchAuditReport({...args,sealedReviewHistory:later,trustedReviewHead:later.at(-1).recordHash});
+ assert.equal(result.status,"AUDIT_BLOCKED");
+ assert.equal(result.findings[0].latestReviewDecision,"REVIEW_HOLD");
+ assert.ok(result.findings[0].reasons.includes("REVIEW_DECISION_NOT_CANDIDATE"));
+});
+test("review referencing different dataset hash blocks report",()=>{
+ const changed=sealForwardReviewHistory([{...history[0],evidenceSha256:"b".repeat(64)}]);
+ const result=buildForwardResearchAuditReport({...args,sealedReviewHistory:changed,trustedReviewHead:changed[0].recordHash});
+ assert.equal(result.status,"AUDIT_BLOCKED");
  assert.ok(result.findings[0].reasons.includes("REVIEW_EVIDENCE_HASH_MISMATCH"));
 });
