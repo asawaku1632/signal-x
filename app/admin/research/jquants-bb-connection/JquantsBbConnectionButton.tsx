@@ -18,6 +18,9 @@ type ProbeResult = {
 
 export default function JquantsBbConnectionButton() {
   const [loading, setLoading] = useState(false);
+  const [eightLoading,setEightLoading]=useState(false);
+  const [eightResult,setEightResult]=useState<{success?:boolean;reason?:string;results?:{code:string;status:string;side:string;savedPrice:number;referenceClose:number|null;difference:number|null;result:string}[]}|null>(null);
+  async function compareEight(){if(eightLoading)return;setEightLoading(true);setEightResult(null);try{const r=await fetch("/api/admin/research/jquants-bb-eight-compare",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",cache:"no-store",body:JSON.stringify({confirm:"READ_ONLY_BB_EIGHT_PRICE_COMPARISON"})});setEightResult(await r.json());}catch{setEightResult({success:false,reason:"NETWORK_OR_RESPONSE_ERROR"});}finally{setEightLoading(false);}}
   const [result, setResult] = useState<ProbeResult | null>(null);
   const [comparison, setComparison] = useState<ProbeResult | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -91,6 +94,11 @@ export default function JquantsBbConnectionButton() {
           <p>価格調整方式・商用利用条件は未検証。売買成績の証明ではありません。</p>
         </> : <p>照合できませんでした: {comparison.reason ?? "UNKNOWN_ERROR"}</p>}
       </div>}
+      <hr style={{margin:"24px 0"}} />
+      <h2>8銘柄の保存価格とJ-Quants終値の比較</h2>
+      <p>2026年8月10日の研究候補8銘柄を開発DBから読み取り、J-Quants V2の非調整終値と比較します。価格基準・利用条件は未検証。保存・本番反映なし。</p>
+      <button type="button" onClick={compareEight} disabled={eightLoading} style={{padding:"12px 18px",border:"1px solid currentColor",borderRadius:8}}>{eightLoading?"8銘柄を照合中…":"8銘柄を読み取り専用で照合する"}</button>
+      {eightResult&&<div role="status" aria-live="polite" style={{marginTop:16}}>{eightResult.success?<><p>研究用の価格差額（保存価格 − J-Quants終値）</p><div style={{overflowX:"auto"}}><table><thead><tr><th>銘柄</th><th>判定</th><th>保存価格</th><th>参考終値</th><th>差額</th><th>取得結果</th></tr></thead><tbody>{eightResult.results?.map(x=><tr key={x.code}><td>{x.code}</td><td>{x.status} / {x.side}</td><td>{x.savedPrice}</td><td>{x.referenceClose??"未取得"}</td><td>{x.difference??"—"}</td><td>{x.result}</td></tr>)}</tbody></table></div><p>差額0でも売買価格・学習性能の妥当性を証明するものではありません。本番AIへの反映は不可。</p></>:<p>照合不可: {eightResult.reason??"UNKNOWN_ERROR"}</p>}</div>}
       <hr style={{margin:"24px 0"}} />
       <h2>価格照合の研究履歴</h2>
       <p>価格照合とは別操作です。保存時はJ-Quantsを再取得・再照合し、件数と判定結果だけを開発DBに記録します。株価・APIキー・本番AIは保存・変更しません。</p>
