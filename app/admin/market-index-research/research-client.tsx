@@ -222,9 +222,9 @@ export default function MarketIndexResearchClient() {
                 {auditResult.researchPriorities && <div className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
                   <p className="font-bold">STEP27-F｜研究課題の優先順位（管理者向け）</p>
                   <p className="mt-1">最優先：指数データの利用許諾確認</p>
-                  <ol className="mt-2 space-y-2">{auditResult.researchPriorities.tasks.map(task =>
+                  <ul className="mt-2 space-y-2">{auditResult.researchPriorities.tasks.map(task =>
                     <li key={task.id}><strong>{task.priority}. {task.title}</strong> ／ {task.status}<p className="text-sm">{task.action}</p></li>
-                  )}</ol>
+                  )}</ul>
                   <p className="mt-2 text-xs">{auditResult.researchPriorities.note} 自動取得・保存・本番接続は行いません。</p>
                 </div>}
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
