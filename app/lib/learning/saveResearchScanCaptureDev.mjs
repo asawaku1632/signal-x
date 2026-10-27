@@ -7,6 +7,12 @@ export async function saveResearchScanCaptureDev(client, input) {
     throw new Error("RESEARCH_DEV_WRITE_DISABLED");
   }
   if (!client || typeof client.query !== "function") throw new Error("INVALID_DB_CLIENT");
+  // Fail closed: an injected client must expose the exact development DB host.
+  // A generic PostgreSQL pooler cannot establish project identity here.
+  const host = client.connectionParameters?.host;
+  if (host !== "db.jdtqwryiyxeuoraecorw.supabase.co") {
+    throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
+  }
   const rows = prepareScanFeatureCaptures(input);
   const summary = { attempted: rows.length, inserted: 0, duplicates: 0, quarantined: 0 };
   for (const row of rows) {
