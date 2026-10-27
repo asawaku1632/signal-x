@@ -12,7 +12,7 @@ BEGIN
       current_database(), current_user;
   END IF;
   RAISE NOTICE 'Isolated database guard passed';
-END　
+END;
 $isolation_guard$;
 BEGIN;
 SET LOCAL statement_timeout = '15s';
@@ -60,6 +60,7 @@ BEGIN
     (trade_date,code,name,entry_price,ai_power,decision_status,decision_label,rule_version)
   SELECT trade_date,code,name,entry_price,ai_power,decision_status,decision_label,'ai_power_only_v1'
   FROM source_data
+  WHERE TRUE
   ON CONFLICT(trade_date,code) DO NOTHING;
   GET DIAGNOSTICS v_rows=ROW_COUNT;
   IF v_rows<>5 THEN RAISE EXCEPTION 'Expected 5 inserts; got %',v_rows; END IF;
@@ -68,6 +69,7 @@ BEGIN
     (trade_date,code,name,entry_price,ai_power,decision_status,decision_label,rule_version)
   SELECT trade_date,code,name,entry_price,ai_power,decision_status,decision_label,rule_version
   FROM swing_universe_observations
+  WHERE TRUE
   ON CONFLICT(trade_date,code) DO NOTHING;
   GET DIAGNOSTICS v_replayed=ROW_COUNT;
   IF v_replayed<>0 THEN RAISE EXCEPTION 'Replay inserted % rows',v_replayed; END IF;
