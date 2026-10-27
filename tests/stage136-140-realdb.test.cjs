@@ -53,7 +53,7 @@ async function main(){
   assert.equal(calendar.isTseTradingDate('2026-10-12'),false,'Sports Day is not a TSE session');
   assert.equal(calendar.isTseTradingDate('2026-10-10'),false,'Saturday is not a TSE session');
   assert.equal(calendar.isTseTradingDate('2026-10-13'),true);
-  assert.equal(calendar.resolveTseTradingDatesAfter(signal,10).join(','),sessions.join(','));
+  assert.equal(calendar.resolveTseTradingDatesAfter(signal,10,{maxLookaheadDays:45}).join(','),sessions.join(','));
   assert.equal(calendar.resolveTargetTradeDate(new Date('2026-10-13T06:39:00Z')).targetTradeDateReason,'PREVIOUS_TSE_TRADING_DAY_BEFORE_SAFE_BOUNDARY');
   assert.equal(calendar.resolveTargetTradeDate(new Date('2026-10-13T06:40:00Z')).targetTradeDateReason,'CURRENT_TSE_TRADING_DAY_AFTER_SAFE_BOUNDARY');
   assert.throws(()=>calendar.isTseTradingDate('2028-01-05'),/MARKET_CALENDAR_UNAVAILABLE/);
