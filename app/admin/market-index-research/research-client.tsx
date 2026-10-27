@@ -50,6 +50,7 @@ export default function MarketIndexResearchClient() {
     comparison?: { baselineAt: string | null; status: "NO_BASELINE" | "UNCHANGED" | "CHANGED"; changes: Array<{ key: string; type: string; before: number | null; after: number | null }> };
     investigation?: { state: "NO_DATA" | "INVESTIGATE" | "NO_BASELINE" | "REVIEW_CHANGES" | "STABLE"; items: Array<{ code: string; key?: string; action: string }> };
     historyAnalysis?: { snapshotCount: number; comparableTransitions: number; status: "INSUFFICIENT_HISTORY" | "REPEATED_ISSUES" | "NO_REPEATED_ISSUES_OBSERVED"; repeated: Array<{ key: string; count: number }>; note: string };
+    nextStep?: { state: "INVESTIGATE" | "INSUFFICIENT_EVIDENCE" | "REVIEW_CHANGES" | "CONTINUE_MONITORING"; reason: string; action: string };
   } | null>(null);
   const runDuplicateAudit = async (save = false) => {
     if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
@@ -204,6 +205,18 @@ export default function MarketIndexResearchClient() {
                     <li key={item.key}>{item.key} ／ {item.count}回</li>
                   )}</ul>}
                   <p className="mt-2 text-xs">{auditResult.historyAnalysis.note} 市場データの正確性や正式利用の許諾を示すものではありません。</p>
+                </div>}
+                {auditResult.nextStep && <div className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
+                  <p className="font-bold">STEP27-E｜次の管理判断（研究専用）</p>
+                  <p className="mt-1">判定：{({
+                    INVESTIGATE: "追加調査",
+                    INSUFFICIENT_EVIDENCE: "証拠不足・追加検証待ち",
+                    REVIEW_CHANGES: "変更内容の確認",
+                    CONTINUE_MONITORING: "継続監視",
+                  } as Record<string, string>)[auditResult.nextStep.state] ?? "判定不明"}</p>
+                  <p className="mt-1">根拠：{auditResult.nextStep.reason}</p>
+                  <p className="mt-1">次の行動：{auditResult.nextStep.action}</p>
+                  <p className="mt-2 text-xs">管理者向けの研究上の案内です。自動保存・自動修正・本番AI・売買判定・通知には接続しません。</p>
                 </div>}
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
                   <ul className="space-y-1">{auditResult.history?.map((h, i) =>
