@@ -1,0 +1,40 @@
+name: Research Alpha-Code DB Contract (isolated)
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/swingUniverseAudit.ts'
+      - 'tests/swingUniverseAudit.test.mjs'
+      - 'tests/alpha-code-db-contract.sql'
+      - '.github/workflows/research-alpha-code-db-contract.yml'
+permissions:
+  contents: read
+jobs:
+  alpha-code-db-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_only
+          POSTGRES_PASSWORD: ephemeral_test_password
+          POSTGRES_DB: signalx_alpha217_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_only -d signalx_alpha217_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Validate disposable database only
+        env:
+          PGPASSWORD: ephemeral_test_password
+        run: |
+          psql -X -h 127.0.0.1 -U test_only -d signalx_alpha217_ci \
+            -v ON_ERROR_STOP=1 -f tests/alpha-code-db-contract.sql
