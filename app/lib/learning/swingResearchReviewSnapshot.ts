@@ -1,3 +1,4 @@
+import { buildResearchReviewReadiness } from "@/app/lib/learning/researchEvidenceGaps";
 import pool from "@/app/lib/postgres";
 import { assessResearchEvidence, type EvidenceSnapshot } from "@/app/lib/learning/researchApprovalGate";
 
@@ -35,6 +36,7 @@ export async function getSwingResearchReviewSnapshot() {
   };
   return {evidence, observedMonths:Number(row?.completed_months??0),
     decision:assessResearchEvidence(evidence),
+    readiness:buildResearchReviewReadiness(evidence),
     reviewRecord:null, productionApplied:false, notificationEnabled:false,
     source:"READ_ONLY_FROZEN_SWING_OBSERVATIONS" as const};
 }
