@@ -18,11 +18,11 @@ export async function saveResearchScanCaptureDev(client, input) {
     const result = await client.query(
       `INSERT INTO public.research_scan_feature_captures
       (scan_run_id,trade_date,code,scan_received_at,source_bar_at,source_name,feature_version,ai_power,entry_price,
-       rsi_band,trend_key,ema20_key,vwap_key,macd_key,pattern_key,capture_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       rsi_band,trend_key,ema20_key,vwap_key,macd_key,pattern_key,capture_status,audit_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT (scan_run_id,code) DO NOTHING RETURNING capture_id`,
       [row.scan_run_id,row.trade_date,row.code,row.scan_received_at,row.source_bar_at,row.source_name,row.feature_version,
-       row.ai_power,row.entry_price,row.rsi_band,row.trend_key,row.ema20_key,row.vwap_key,row.macd_key,row.pattern_key,row.capture_status],
+       row.ai_power,row.entry_price,row.rsi_band,row.trend_key,row.ema20_key,row.vwap_key,row.macd_key,row.pattern_key,row.capture_status,row.audit_reason],
     );
     if (result.rowCount === 1) summary.inserted++;
     else summary.duplicates++;
