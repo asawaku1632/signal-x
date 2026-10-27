@@ -4,12 +4,16 @@
 -- Container-side inet_server_addr() is NOT necessarily loopback.
 -- Never run in Supabase SQL Editor or with production credentials.
 \set ON_ERROR_STOP on
-SELECT CASE
-  WHEN current_database() = 'signalx_alpha217_ci'
-   AND current_user = 'test_only'
-  THEN 'isolated-db-confirmed'
-  ELSE (1 / 0)::text
-END AS isolated_db_guard;
+DO $isolation_guard$
+BEGIN
+  IF current_database() <> 'signalx_alpha217_ci'
+     OR current_user <> 'test_only' THEN
+    RAISE EXCEPTION 'Refusing non-isolated DB: database=%, role=%',
+      current_database(), current_user;
+  END IF;
+  RAISE NOTICE 'Isolated database guard passed';
+END
+$isolation_guard$;
 BEGIN;
 SET LOCAL statement_timeout = '15s';
 CREATE TEMP TABLE swing_universe_observations (
