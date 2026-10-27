@@ -35,7 +35,12 @@ export async function GET() {
  try {
   const result=await researchQuery(`select id,checked_at,snapshot_key,total_count,matched_count,differed_count,blocked_count,unique_pairs
    from public.bb_jquants_research_audit_history order by checked_at desc,id desc limit 30`);
-  return NextResponse.json({success:true,history:result.rows},{headers});
+  const rows=result.rows as {snapshot_key:string;total_count:number;matched_count:number;differed_count:number;blocked_count:number;unique_pairs:number}[];
+  const distinctSnapshots=new Set(rows.map(x=>x.snapshot_key)).size;
+  const latest=rows[0]??null;
+  const prior=rows[1]??null;
+  const changed=Boolean(latest&&prior&&(latest.matched_count!==prior.matched_count||latest.differed_count!==prior.differed_count||latest.blocked_count!==prior.blocked_count));
+  return NextResponse.json({success:true,history:rows,analysis:{runsInWindow:rows.length,distinctSnapshots,latest,changedSincePreviousRun:changed,independentEvidenceGrowth:distinctSnapshots>1,eligibleForProduction:false,assessment:rows.length===0?"NO_SAVED_AUDIT":distinctSnapshots===1?"REPEAT_CHECK_OF_ONE_PINNED_SNAPSHOT":"MULTIPLE_SNAPSHOTS_REQUIRE_MANUAL_REVIEW"}},{headers});
  } catch {return fail("RESEARCH_HISTORY_READ_FAILED",503);}
 }
 export async function POST(request:Request) {
