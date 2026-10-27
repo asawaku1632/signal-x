@@ -6,3 +6,9 @@ export declare function compareAuditGroups(previous: AuditGroup[], current: Audi
   status: "CHANGED" | "UNCHANGED";
   changes: AuditChange[];
 };
+
+export type AuditInvestigationItem = { code: string; key?: string; action: string };
+export declare function classifyAuditInvestigation(comparison: { changes: AuditChange[] } | null, current: AuditGroup[]): {
+  state: "NO_DATA" | "INVESTIGATE" | "NO_BASELINE" | "REVIEW_CHANGES" | "STABLE";
+  items: AuditInvestigationItem[];
+};
