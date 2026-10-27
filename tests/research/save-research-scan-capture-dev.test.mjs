@@ -51,3 +51,12 @@ test("refuses a database client without verifiable connection host",async()=>ena
  const client={query:async()=>{throw new Error("must not query");}};
  await assert.rejects(saveResearchScanCaptureDev(client,input),/RESEARCH_DEV_DATABASE_NOT_VERIFIED/);
 }));
+
+test("alphanumeric stock code can reach quarantine-only insert",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async(_sql,values)=>{
+  calls++;assert.equal(values[2],"590A");assert.equal(values[15],"QUARANTINED");return {rowCount:1};
+ }};
+ const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{cached:false,stocks:[{...stock,code:"590A"}]}});
+ assert.equal(calls,1);assert.equal(result.inserted,1);
+}));
