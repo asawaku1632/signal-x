@@ -4,6 +4,7 @@ type Snapshot={
  success:boolean;
  evidence:{recorded:number;evaluated:number;distinctTradeDays:number;completedMonths:number;avgReturn5d:number|null;medianReturn5d:number|null;positiveRate5d:number|null;marketRegimes:unknown[]};
  observedMonths:number;
+ readiness:{status:string;consistent:boolean;gaps:Array<{category:string;code:string;label:string;nextAction:string}>};
  decision:{status:string;eligibleForHumanReview:boolean;reasons:string[];automaticActivation:false};
  productionApplied:false;notificationEnabled:false;
 };
@@ -29,6 +30,8 @@ export default function ResearchReviewPage(){
    <p>5日後平均 {data.evidence.avgReturn5d??"未確定"}% ／ 中央値 {data.evidence.medianReturn5d??"未確定"}%</p>
    <p>5日後プラス率 {data.evidence.positiveRate5d===null?"未確定":(data.evidence.positiveRate5d*100).toFixed(1)+"%"}</p>
    <h3 className="font-bold">未達・未検証事項</h3>
+   <p className="text-sm">審査基準の整合性：{data.readiness.consistent?"一致":"要調査"}</p>
+   <ul className="space-y-2">{data.readiness.gaps.map(g=><li key={g.code} className="rounded-lg border bg-amber-50 p-3 text-sm"><b>{g.label}</b><p className="text-slate-600">{g.nextAction}</p></li>)}</ul>
    <ul className="list-inside list-disc text-sm">{data.decision.reasons.map(x=><li key={x}>{x}</li>)}</ul>
    <p className="text-sm text-slate-600">提供元・利用許諾・独立時刻・ホールドアウト・相場環境は独立検証が済むまで未確認扱いです。</p>
    <p className="text-sm font-semibold">本番反映：なし ／ 通知解禁：なし</p>
