@@ -12,7 +12,10 @@ export function buildForwardResearchAuditReport({
     throw new TypeError("proposals and sealedReviewHistory must be arrays");
   }
   const chain=verifyForwardReviewHistoryChain(sealedReviewHistory,trustedReviewHead);
-  const reviewedIds=new Set(sealedReviewHistory.map((r)=>r?.proposalId).filter(Boolean));
+  const reviewsById=new Map();
+  for (const review of sealedReviewHistory) {
+    if (review?.proposalId) reviewsById.set(review.proposalId,review);
+  }
   const findings=proposals.map((proposal)=>{
     const gate=verifyForwardProposalEvidence(proposal,datasetBytes);
     const hasHistory=reviewedIds.has(proposal.proposalId);
@@ -30,6 +33,7 @@ export function buildForwardResearchAuditReport({
       researchDecision:proposal.researchDecision??"HOLD",
       evidenceStatus:gate.integrity.status,
       reviewHistoryPresent:hasHistory,
+      latestReviewDecision:latestReview?.decision??null,
       matchingReviewEvidence,
       status:reasons.length===0?"MANUAL_RESEARCH_REVIEW_ONLY":"AUDIT_BLOCKED",
       reasons,autoApply:false,productionWrites:false,
