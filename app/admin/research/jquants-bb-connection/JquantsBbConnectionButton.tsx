@@ -21,6 +21,11 @@ export default function JquantsBbConnectionButton() {
   const [result, setResult] = useState<ProbeResult | null>(null);
   const [comparison, setComparison] = useState<ProbeResult | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [saving,setSaving]=useState(false);
+  const [saveResult,setSaveResult]=useState("");
+  const [history,setHistory]=useState<{id:number;checked_at:string;total_count:number;matched_count:number;differed_count:number;blocked_count:number;unique_pairs:number}[]>([]);
+  async function loadHistory(){try{const r=await fetch("/api/admin/research/jquants-bb-history",{cache:"no-store"});const j=await r.json();setHistory(j.success?j.history:[]);if(!j.success)setSaveResult("履歴取得不可: "+j.reason);}catch{setSaveResult("履歴取得に失敗");}}
+  async function saveAudit(){if(saving)return;setSaving(true);setSaveResult("");try{const r=await fetch("/api/admin/research/jquants-bb-history",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({confirm:"SAVE_BB_JQUANTS_RESEARCH_AUDIT"})});const j=await r.json();setSaveResult(j.success?"研究履歴を保存しました（ID: "+j.id+"）":"保存不可: "+j.reason);if(j.success)await loadHistory();}catch{setSaveResult("保存通信エラー");}finally{setSaving(false);}}
   async function compare() {
     if (comparing) return;
     setComparing(true);
@@ -85,6 +90,13 @@ export default function JquantsBbConnectionButton() {
           <p>価格調整方式・商用利用条件は未検証。売買成績の証明ではありません。</p>
         </> : <p>照合できませんでした: {comparison.reason ?? "UNKNOWN_ERROR"}</p>}
       </div>}
+      <hr style={{margin:"24px 0"}} />
+      <h2>価格照合の研究履歴</h2>
+      <p>価格照合とは別操作です。保存時はJ-Quantsを再取得・再照合し、件数と判定結果だけを開発DBに記録します。株価・APIキー・本番AIは保存・変更しません。</p>
+      <button type="button" disabled={saving} onClick={saveAudit} style={{padding:"12px 18px",border:"1px solid currentColor",borderRadius:8}}>{saving?"保存中…":"再照合して研究履歴に保存する"}</button>
+      <button type="button" onClick={loadHistory} style={{padding:"12px 18px",marginLeft:8,border:"1px solid currentColor",borderRadius:8}}>保存履歴を表示</button>
+      {saveResult&&<p role="status">{saveResult}</p>}
+      <ul>{history.map(h=><li key={h.id}>{new Date(h.checked_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}｜一致 {h.matched_count}/{h.total_count}・差異 {h.differed_count}・判定不能 {h.blocked_count}（独立組 {h.unique_pairs}）</li>)}</ul>
     </section>
   );
 }
