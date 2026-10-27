@@ -192,7 +192,8 @@ export async function updateSwingUniverseOutcomes(targetDate: string) {
   const pending = await pool.query<PendingDateRow>(
     `SELECT DISTINCT trade_date FROM public.swing_universe_observations
      WHERE trade_date < $1::date AND trade_date >= ($1::date - INTERVAL '65 days')
-       AND outcome_10d_date IS NULL
+       AND (outcome_1d_date IS NULL OR outcome_3d_date IS NULL
+         OR outcome_5d_date IS NULL OR outcome_10d_date IS NULL)
      ORDER BY trade_date ASC LIMIT $2`,
     [targetDate, MAX_BACKLOG_DATES],
   );
