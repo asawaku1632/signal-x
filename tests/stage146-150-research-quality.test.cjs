@@ -5,9 +5,9 @@ const ts=require('typescript');
 const vm=require('node:vm');
 const quality=fs.readFileSync('app/lib/learning/researchQualitySummary.ts','utf8');
 const js=ts.transpileModule(quality,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const module={exports:{}};
-new vm.Script(js).runInNewContext({module,exports:module.exports,Date,Intl,Number,Math});
-const summarize=module.exports.summarizeResearchQuality;
+const sandboxModule={exports:{}};
+new vm.Script(js).runInNewContext({module:sandboxModule,exports:sandboxModule.exports,Date,Intl,Number,Math});
+const summarize=sandboxModule.exports.summarizeResearchQuality;
 test('146 alpha code accepted by both UI and authenticated report API',()=>{
  const api=fs.readFileSync('app/api/swing-universe-audit/route.ts','utf8');
  const page=fs.readFileSync('app/simulation/universe-check/page.tsx','utf8');
