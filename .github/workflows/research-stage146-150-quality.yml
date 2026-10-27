@@ -23,4 +23,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --test tests/stage146-150-research-quality.test.cjs
+      - run: npx next typegen
       - run: npx tsc --noEmit
