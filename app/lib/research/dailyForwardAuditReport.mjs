@@ -18,16 +18,16 @@ export function buildForwardResearchAuditReport({
   }
   const findings=proposals.map((proposal)=>{
     const gate=verifyForwardProposalEvidence(proposal,datasetBytes);
-    const hasHistory=reviewedIds.has(proposal.proposalId);
-    const matchingReviewEvidence=sealedReviewHistory.some((record)=>
-      record?.proposalId===proposal.proposalId &&
+    const latestReview=reviewsById.get(proposal.proposalId);
+    const hasHistory=Boolean(latestReview);
+    const matchingReviewEvidence=Boolean(latestReview &&
       typeof proposal.evidence?.datasetSha256==="string" &&
-      record.evidenceSha256===proposal.evidence.datasetSha256.toLowerCase()
-    );
+      latestReview.evidenceSha256===proposal.evidence.datasetSha256.toLowerCase());
     const reasons=[...gate.reasons];
     if (!chain.valid) reasons.push("REVIEW_HISTORY_INTEGRITY_FAILED");
     if (!hasHistory) reasons.push("NO_REVIEW_HISTORY");
     else if (!matchingReviewEvidence) reasons.push("REVIEW_EVIDENCE_HASH_MISMATCH");
+    if (latestReview && latestReview.decision!=="RESEARCH_CANDIDATE") reasons.push("LATEST_REVIEW_NOT_CANDIDATE");
     return {
       proposalId:proposal.proposalId??null,
       researchDecision:proposal.researchDecision??"HOLD",
