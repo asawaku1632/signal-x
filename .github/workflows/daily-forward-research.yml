@@ -12,6 +12,8 @@ on:
       - 'tests/dailyForwardSourceRoute.test.mjs'
       - 'app/lib/research/dailyForwardResearchPipeline.mjs'
       - 'tests/dailyForwardResearchPipeline.test.mjs'
+      - 'app/lib/research/dailyOfficialCloseBaseline.mjs'
+      - 'tests/dailyOfficialCloseBaseline.test.mjs'
       - '.github/workflows/daily-forward-research.yml'
   workflow_dispatch:
 permissions:
@@ -25,4 +27,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure offline forward-evaluation tests
-        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs
+        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs tests/dailyOfficialCloseBaseline.test.mjs
