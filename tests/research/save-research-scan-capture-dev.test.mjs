@@ -73,3 +73,15 @@ test("missing Scan received time is rejected without writes",async()=>enabled(as
  await assert.rejects(saveResearchScanCaptureDev(client,{...input,scanReceivedAt:null}),/INVALID_RESEARCH_RUN_METADATA/);
  assert.equal(queries,0);
 }));
+
+test("repeated code within a Scan is skipped before SQL",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{
+   calls++;return {rowCount:1};
+ }};
+ const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{cached:false,stocks:[stock,stock]}});
+ assert.equal(calls,1);
+ assert.equal(result.inserted,1);
+ assert.equal(result.duplicates,1);
+ assert.equal(result.quarantined,2);
+}));
