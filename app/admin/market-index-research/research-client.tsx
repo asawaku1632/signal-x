@@ -40,6 +40,26 @@ export default function MarketIndexResearchClient() {
       setTestRunning(false);
     }
   };
+  const [manualRunning, setManualRunning] = useState(false);
+  const [manualResults, setManualResults] = useState<Array<Record<string, unknown>>>([]);
+  const runManualSave = async () => {
+    if (manualRunning || manualResults.length >= 2) return;
+    if (!window.confirm("開発用DBに日経平均の取得不可ステータスを保存します。研究履歴として残り、自動削除されません。実行しますか？")) return;
+    setManualRunning(true);
+    try {
+      const response = await fetch("/api/admin/market-index-research", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save-unavailable-status", indexKey: "nikkei" }),
+      });
+      const json = await response.json();
+      setManualResults(previous => [...previous, { ...json, httpStatus: response.status }]);
+    } catch {
+      setManualResults(previous => [...previous, { success: false, reason: "NETWORK_ERROR_OR_TIMEOUT" }]);
+    } finally {
+      setManualRunning(false);
+    }
+  };
   useEffect(() => {
     fetch("/api/admin/market-index-research", { cache: "no-store" })
       .then(async r => {
@@ -102,6 +122,21 @@ export default function MarketIndexResearchClient() {
             <h2 className="font-black">過去の検証履歴</h2>
             {data.history.length === 0 ? <p className="mt-3 text-sm text-slate-500">保存された検証結果はまだありません。未実行と失敗を推測で区別しません。</p> :
               <ul className="mt-3 space-y-2 text-sm">{data.history.map(row => <li key={row.date + row.observedAt}>{row.date}｜{row.status}｜{row.ageMinutes === null ? '不明' : `${row.ageMinutes}分`}</li>)}</ul>}
+          </section>
+          <section className="rounded-2xl border border-blue-300 bg-white p-4 dark:border-blue-700 dark:bg-slate-900">
+            <h2 className="font-black">🧪 手動保存・重複防止の実測（開発用DBのみ）</h2>
+            <p className="mt-2 text-sm">日経平均の「取得不可」状態だけを保存します。市場価格は取得しません。保存した研究履歴は自動削除されません。</p>
+            <p className="mt-2 text-sm font-bold">1回目と2回目を個別に実行し、2回目の alreadySaved=true と persistedRows=0 を確認します。</p>
+            <button type="button" onClick={runManualSave} disabled={manualRunning || manualResults.length >= 2 || (manualResults.length === 1 && (manualResults[0].success !== true || manualResults[0].httpStatus !== 200))}
+              className="mt-3 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+              {manualRunning ? "保存中…" : manualResults.length === 0 ? "1回目：日経平均を手動保存" : manualResults.length === 1 ? "2回目：同日の重複防止を確認" : "2回の検証完了"}
+            </button>
+            {manualResults.map((result, index) => <div key={index} role="status" className="mt-3 rounded-lg bg-slate-100 p-3 text-sm dark:bg-slate-800">
+              <p className="font-bold">{index + 1}回目：{result.success === true ? "API成功" : "失敗・要確認"}</p>
+              <p>alreadySaved: {String(result.alreadySaved ?? "不明")} ／ persistedRows: {String(result.persistedRows ?? "不明")}</p>
+              <details className="mt-1"><summary>詳細結果</summary><pre className="overflow-x-auto text-xs">{JSON.stringify(result, null, 2)}</pre></details>
+            </div>)}
+            {manualResults.length === 2 && <p className="mt-3 font-bold">{manualResults[0].success === true && manualResults[1].success === true && manualResults[1].alreadySaved === true && manualResults[1].persistedRows === 0 ? "重複防止のAPI応答を確認。DB実件数は別途SQLで検証してください。" : "判定保留。DBを確認し、再実行しないでください。"}</p>}
           </section>
           <section className="rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-700 dark:bg-slate-900">
             <h2 className="font-black">🔎 証拠チェック集計（研究専用）</h2>
