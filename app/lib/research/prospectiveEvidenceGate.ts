@@ -23,7 +23,7 @@ export function classifyProspectiveEvidence(row: ProspectiveEvidence): EvidenceD
     return { eligible: false, reason: "MISSING_OR_INVALID_TIMESTAMP" };
   if (!row.provider?.trim() || !row.modelVersion?.trim())
     return { eligible: false, reason: "MISSING_PROVENANCE" };
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(row.signalDate))
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(row.signalDate))
     return { eligible: false, reason: "INVALID_SIGNAL_DATE" };
   if (quote > signal || barEnd > signal)
     return { eligible: false, reason: "FUTURE_PRICE_LEAKAGE" };
