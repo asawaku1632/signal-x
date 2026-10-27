@@ -12,7 +12,7 @@ BEGIN
       current_database(), current_user;
   END IF;
   RAISE NOTICE 'Isolated database guard passed';
-END
+END　
 $isolation_guard$;
 BEGIN;
 SET LOCAL statement_timeout = '15s';
