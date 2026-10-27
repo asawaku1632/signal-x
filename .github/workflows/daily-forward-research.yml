@@ -6,6 +6,8 @@ on:
     paths:
       - 'app/lib/research/dailyForwardEvaluation.mjs'
       - 'tests/dailyForwardEvaluation.test.mjs'
+      - 'app/lib/research/dailyForwardInputAdapter.mjs'
+      - 'tests/dailyForwardInputAdapter.test.mjs'
       - '.github/workflows/daily-forward-research.yml'
   workflow_dispatch:
 permissions:
@@ -19,4 +21,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure offline forward-evaluation tests
-        run: node --test tests/dailyForwardEvaluation.test.mjs
+        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs
