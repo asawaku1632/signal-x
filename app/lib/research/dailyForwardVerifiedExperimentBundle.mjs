@@ -1,5 +1,6 @@
 import { verifyResearchDatasetBytes } from "./dailyForwardDatasetIntegrity.mjs";
 import { runForwardResearchExperimentPipeline } from "./dailyForwardExperimentPipeline.mjs";
+import { linkForwardPredictionsToHypotheticalTrades } from "./dailyForwardPredictionTradeLink.mjs";
 
 /**
  * Decode a single immutable research bundle, verify its exact bytes against
@@ -52,11 +53,15 @@ export function runVerifiedForwardExperimentBundle({
        row.baselineReturnPct!==b.returnPct||row.experimentalReturnPct!==e.returnPct)
       return blocked("PAIRED_VALUES_NOT_DERIVED_FROM_SOURCE");
   }
+  const linkage=linkForwardPredictionsToHypotheticalTrades(bundle.experimentalRows,bundle.hypotheticalTrades);
+  if(linkage.status!=="LINKED_FOR_OFFLINE_RESEARCH_ONLY") return {
+    ...blocked("PREDICTION_TRADE_LINKAGE_FAILED"),linkage,verification,
+  };
   const sha=verification.actualSha256;
   const result=runForwardResearchExperimentPipeline({
     ...bundle,datasetSha256:sha,pairedDatasetSha256:sha,tradeDatasetSha256:sha,
     minPairedSamples,minDistinctDates,minDistinctCodes,minTrades,
   });
-  return {...result,verification,independentlyPinnedHashRequired:true,
+  return {...result,verification,linkage:{status:linkage.status,linkedCount:linkage.linkedCount},independentlyPinnedHashRequired:true,
     note:"All diagnostics read one hash-verified bundle; a matching hash does not establish external price provenance, licensing, or that hypothetical trades correspond to predictions."};
 }
