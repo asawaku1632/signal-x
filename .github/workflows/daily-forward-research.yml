@@ -18,6 +18,8 @@ on:
       - 'tests/jquantsDailyBarAdapter.test.mjs'
       - 'app/lib/research/jquantsDailyBatchGate.mjs'
       - 'tests/jquantsDailyBatchGate.test.mjs'
+      - 'app/lib/research/gatedJquantsForwardResearch.mjs'
+      - 'tests/gatedJquantsForwardResearch.test.mjs'
       - '.github/workflows/daily-forward-research.yml'
   workflow_dispatch:
 permissions:
@@ -31,4 +33,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure offline forward-evaluation tests
-        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs tests/dailyOfficialCloseBaseline.test.mjs tests/jquantsDailyBarAdapter.test.mjs tests/jquantsDailyBatchGate.test.mjs
+        run: node --test tests/dailyForwardEvaluation.test.mjs tests/dailyForwardInputAdapter.test.mjs tests/dailyForwardSourceRoute.test.mjs tests/dailyForwardResearchPipeline.test.mjs tests/dailyOfficialCloseBaseline.test.mjs tests/jquantsDailyBarAdapter.test.mjs tests/jquantsDailyBatchGate.test.mjs tests/gatedJquantsForwardResearch.test.mjs
