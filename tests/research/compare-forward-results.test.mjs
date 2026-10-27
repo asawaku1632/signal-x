@@ -17,3 +17,11 @@ for (const [name, cap, out, reason] of [
  ['wrong version',capture,{...outcome,outcome_version:'legacy'},'MISMATCHED_HORIZON'],
 ]) test(name,()=>assert.equal(compareForwardResults([cap],out?[out]:[]).rejected[0].reason,reason));
 test('duplicate outcomes fail closed',()=>assert.equal(compareForwardResults([capture],[outcome,outcome]).rejected[0].reason,'MISSING_OR_AMBIGUOUS_OUTCOME'));
+
+test('invalid scores are rejected before forward outcome analysis',()=>{
+ for(const score of [Number.POSITIVE_INFINITY,Number.NaN,-1,101,undefined]){
+  const result=compareForwardResults([{...capture,ai_power:score}],[outcome]);
+  assert.equal(result.accepted.length,0);
+  assert.equal(result.rejected[0].reason,'INVALID_AI_POWER');
+ }
+});
