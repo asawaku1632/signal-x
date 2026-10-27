@@ -27,7 +27,7 @@ export function buildForwardResearchAuditReport({
     if (!chain.valid) reasons.push("REVIEW_HISTORY_INTEGRITY_FAILED");
     if (!hasHistory) reasons.push("NO_REVIEW_HISTORY");
     else if (!matchingReviewEvidence) reasons.push("REVIEW_EVIDENCE_HASH_MISMATCH");
-    if (latestReview && latestReview.decision!=="RESEARCH_CANDIDATE") reasons.push("LATEST_REVIEW_NOT_CANDIDATE");
+    if (latestReview && latestReview.decision!=="RESEARCH_CANDIDATE") reasons.push("REVIEW_DECISION_NOT_CANDIDATE");
     return {
       proposalId:proposal.proposalId??null,
       researchDecision:proposal.researchDecision??"HOLD",
