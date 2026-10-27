@@ -19,7 +19,9 @@ export async function saveResearchScanCaptureDev(client, input) {
   const validDate = typeof tradeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tradeDate)
     && !Number.isNaN(Date.parse(tradeDate + "T00:00:00Z"))
     && new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) === tradeDate;
-  if (!Number.isFinite(received) || !validDate || !input?.scanRunId?.trim()) {
+  const validRunId = typeof input?.scanRunId === "string" && input.scanRunId.trim().length > 0;
+  const validScan = Array.isArray(input?.scanResponse?.stocks) && input.scanResponse.stocks.length > 0;
+  if (!Number.isFinite(received) || !validDate || !validRunId || !validScan) {
     throw new Error("INVALID_RESEARCH_RUN_METADATA");
   }
   const rows = prepareScanFeatureCaptures(input);
