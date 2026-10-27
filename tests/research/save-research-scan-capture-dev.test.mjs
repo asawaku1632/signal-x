@@ -25,18 +25,29 @@ test("disabled by default",async()=>{
 });
 test("inserts once and skips conflict",async()=>enabled(async()=>{
  let calls=0;
- const client={query:async(sql,values)=>{assert.match(sql,/ON CONFLICT.*DO NOTHING/s);assert.equal(values[2],"9984");return {rowCount:++calls===1?1:0};}};
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async(sql,values)=>{assert.match(sql,/ON CONFLICT.*DO NOTHING/s);assert.equal(values[2],"9984");return {rowCount:++calls===1?1:0};}};
  const first=await saveResearchScanCaptureDev(client,input);
  const second=await saveResearchScanCaptureDev(client,input);
  assert.equal(first.inserted,1);assert.equal(second.duplicates,1);
 }));
 test("quarantined record stays marked",async()=>enabled(async()=>{
- const client={query:async(_sql,values)=>{assert.equal(values[15],"QUARANTINED");assert.equal(values[16],"MISSING_OR_INVALID_TIMESTAMP");return {rowCount:1};}};
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async(_sql,values)=>{assert.equal(values[15],"QUARANTINED");assert.equal(values[16],"MISSING_OR_INVALID_TIMESTAMP");return {rowCount:1};}};
  const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{stocks:[{...stock,latestBarTimestamp:null}]}});
  assert.equal(result.quarantined,1);
 }));
 test("invalid code never reaches database",async()=>enabled(async()=>{
- const client={query:async()=>{throw new Error("unexpected DB call");}};
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{throw new Error("unexpected DB call");}};
  const result=await saveResearchScanCaptureDev(client,{...input,scanResponse:{stocks:[{...stock,code:"BAD"}]}});
  assert.equal(result.quarantined,1);assert.equal(result.inserted,0);
+}));
+
+test("refuses unknown or production database before any SQL",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.paygtakajhvatwejygda.supabase.co"},query:async()=>{calls++;}};
+ await assert.rejects(saveResearchScanCaptureDev(client,input),/RESEARCH_DEV_DATABASE_NOT_VERIFIED/);
+ assert.equal(calls,0);
+}));
+test("refuses a database client without verifiable connection host",async()=>enabled(async()=>{
+ const client={query:async()=>{throw new Error("must not query");}};
+ await assert.rejects(saveResearchScanCaptureDev(client,input),/RESEARCH_DEV_DATABASE_NOT_VERIFIED/);
 }));
