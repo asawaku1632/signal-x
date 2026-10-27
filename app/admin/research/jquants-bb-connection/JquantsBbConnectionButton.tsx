@@ -23,8 +23,9 @@ export default function JquantsBbConnectionButton() {
   const [comparing, setComparing] = useState(false);
   const [saving,setSaving]=useState(false);
   const [saveResult,setSaveResult]=useState("");
+  const [historyAnalysis,setHistoryAnalysis]=useState<{runsInWindow:number;distinctSnapshots:number;changedSincePreviousRun:boolean;independentEvidenceGrowth:boolean;eligibleForProduction:boolean;assessment:string}|null>(null);
   const [history,setHistory]=useState<{id:number;checked_at:string;total_count:number;matched_count:number;differed_count:number;blocked_count:number;unique_pairs:number}[]>([]);
-  async function loadHistory(){try{const r=await fetch("/api/admin/research/jquants-bb-history",{cache:"no-store"});const j=await r.json();setHistory(j.success?j.history:[]);if(!j.success)setSaveResult("履歴取得不可: "+j.reason);}catch{setSaveResult("履歴取得に失敗");}}
+  async function loadHistory(){try{const r=await fetch("/api/admin/research/jquants-bb-history",{cache:"no-store"});const j=await r.json();setHistory(j.success?j.history:[]);setHistoryAnalysis(j.success?j.analysis:null);if(!j.success)setSaveResult("履歴取得不可: "+j.reason);}catch{setSaveResult("履歴取得に失敗");}}
   async function saveAudit(){if(saving)return;setSaving(true);setSaveResult("");try{const r=await fetch("/api/admin/research/jquants-bb-history",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({confirm:"SAVE_BB_JQUANTS_RESEARCH_AUDIT"})});const j=await r.json();setSaveResult(j.success?"研究履歴を保存しました（ID: "+j.id+"）":"保存不可: "+j.reason);if(j.success)await loadHistory();}catch{setSaveResult("保存通信エラー");}finally{setSaving(false);}}
   async function compare() {
     if (comparing) return;
@@ -96,6 +97,7 @@ export default function JquantsBbConnectionButton() {
       <button type="button" disabled={saving} onClick={saveAudit} style={{padding:"12px 18px",border:"1px solid currentColor",borderRadius:8}}>{saving?"保存中…":"再照合して研究履歴に保存する"}</button>
       <button type="button" onClick={loadHistory} style={{padding:"12px 18px",marginLeft:8,border:"1px solid currentColor",borderRadius:8}}>保存履歴を表示</button>
       {saveResult&&<p role="status">{saveResult}</p>}
+      {historyAnalysis&&<div role="status" style={{marginTop:16}}><h3>保存済み研究の分析（直近30回）</h3><p>実行履歴 {historyAnalysis.runsInWindow}回 ／ 異なる固定スナップショット {historyAnalysis.distinctSnapshots}件</p><p>{historyAnalysis.changedSincePreviousRun?"前回実行と判定件数に変化あり（要確認）":"前回実行との判定件数の変化なし"}</p><p>{historyAnalysis.independentEvidenceGrowth?"複数のスナップショットあり。独立性は別途検証が必要です。":"同じ固定6件の再照合は、独立した検証サンプルの増加ではありません。"}</p><p>本番AIへの反映：不可（価格基準・利用条件・検証数の承認待ち）</p></div>}
       <ul>{history.map(h=><li key={h.id}>{new Date(h.checked_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}｜一致 {h.matched_count}/{h.total_count}・差異 {h.differed_count}・判定不能 {h.blocked_count}（独立組 {h.unique_pairs}）</li>)}</ul>
     </section>
   );
