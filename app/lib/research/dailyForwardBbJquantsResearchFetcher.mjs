@@ -5,6 +5,7 @@
  */
 const CODES=Object.freeze(["8591","9432","9983"]);
 const START="2026-08-24",END="2026-09-04";
+/** @param {{apiKey?: string, fetchImpl?: typeof fetch, enabled?: boolean}} [options] */
 export async function fetchBbResearchJquantsBars({
  apiKey,fetchImpl=globalThis.fetch,enabled=false
 }={}) {
