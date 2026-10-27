@@ -15,3 +15,7 @@ for (const [name, change, reason] of [
   ["invalid price", {entryPrice: 0}, "INVALID_ENTRY_PRICE"],
   ["missing run identity", {scanRunId: ""}, "INVALID_IDENTITY"],
 ]) test(name, () => assert.equal(validateScanFeatureCapture({...valid, ...change}).reason, reason));
+
+test("alphanumeric listed stock code is eligible for as-of candidate validation",()=>{
+ assert.equal(validateScanFeatureCapture({...valid,code:"590A"}).eligible,true);
+});
