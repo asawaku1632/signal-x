@@ -48,6 +48,7 @@ export default function MarketIndexResearchClient() {
     saved?: boolean; history?: Array<{ audited_at: string; group_count: number; duplicate_group_count: number; decision: string }>;
     todayAuditStatus?: "SAVED_TODAY" | "NOT_SAVED_TODAY";
     comparison?: { baselineAt: string | null; status: "NO_BASELINE" | "UNCHANGED" | "CHANGED"; changes: Array<{ key: string; type: string; before: number | null; after: number | null }> };
+    investigation?: { state: "NO_DATA" | "INVESTIGATE" | "NO_BASELINE" | "REVIEW_CHANGES" | "STABLE"; items: Array<{ code: string; key?: string; action: string }> };
   } | null>(null);
   const runDuplicateAudit = async (save = false) => {
     if (save && !window.confirm("開発用DBに監査結果のスナップショットを1件保存します。履歴は自動削除されません。実行しますか？")) return;
@@ -176,6 +177,20 @@ export default function MarketIndexResearchClient() {
                   {auditResult.decision === "DUPLICATE_DETECTED" && <p className="mt-2 font-bold text-red-600">重複あり：追加の保存テストを停止し、対象日付・指数の記録を調査してください。自動削除は行いません。</p>}
                   <p className="mt-2 text-xs">「未実行」は当日の保存履歴がない意味です。読み取り監査を実施したかどうかは判定できません。差分は保存済み監査時点との比較で、市場データの品質判定ではありません。</p>
                 </div>
+                {auditResult.investigation && <div className="mt-3 rounded-lg border border-amber-300 p-3 dark:border-amber-700">
+                  <p className="font-bold">STEP27-C｜調査分類（管理者確認用）</p>
+                  <p className="mt-1">分類：{({
+                    STABLE: "変化なし・監視継続",
+                    REVIEW_CHANGES: "追加履歴を確認",
+                    INVESTIGATE: "要調査",
+                    NO_DATA: "対象データなし・判定保留",
+                    NO_BASELINE: "比較元なし・保存履歴を確認",
+                  } as Record<string, string>)[auditResult.investigation.state] ?? "判定不明"}</p>
+                  {auditResult.investigation.items.length > 0 && <ul className="mt-2 space-y-1">{auditResult.investigation.items.map((item, i) =>
+                    <li key={item.code + "-" + (item.key ?? i)}>{item.key ? item.key + " ／ " : ""}{item.code}：{item.action}</li>
+                  )}</ul>}
+                  <p className="mt-2 text-xs">研究用の調査案内です。株価品質・売買判断・本番AIへの反映を承認するものではありません。自動修正・自動保存は行いません。</p>
+                </div>}
                 <div className="mt-2"><p className="font-bold">直近の保存済み監査履歴（最大20件）</p>
                   <ul className="space-y-1">{auditResult.history?.map((h, i) =>
                     <li key={h.audited_at + "-" + i}>{new Date(h.audited_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} ／ {h.decision} ／ {h.group_count}グループ ／ 重複{h.duplicate_group_count}</li>
