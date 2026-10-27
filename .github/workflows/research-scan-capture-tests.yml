@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated research tests
-        run: node --test tests/research/scan-feature-capture-validation.test.mjs tests/research/prepare-scan-feature-captures.test.mjs tests/research/save-research-scan-capture-dev.test.mjs tests/research/compare-forward-results.test.mjs tests/research/assess-capture-for-review.test.mjs
+        run: node --test tests/research/scan-feature-capture-validation.test.mjs tests/research/prepare-scan-feature-captures.test.mjs tests/research/save-research-scan-capture-dev.test.mjs tests/research/compare-forward-results.test.mjs tests/research/assess-capture-for-review.test.mjs tests/research/build-scan-evidence-review.test.mjs
