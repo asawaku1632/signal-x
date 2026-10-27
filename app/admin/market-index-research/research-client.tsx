@@ -40,6 +40,28 @@ export default function MarketIndexResearchClient() {
       setTestRunning(false);
     }
   };
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditResult, setAuditResult] = useState<{
+    success: boolean; decision?: string; groupCount?: number; duplicateGroups?: number;
+    asOf?: string; reason?: string;
+    groups?: Array<{ jst_date: string; index_key: string; saved_count: number; result: string }>;
+  } | null>(null);
+  const runDuplicateAudit = async () => {
+    if (auditRunning) return;
+    setAuditRunning(true);
+    setAuditResult(null);
+    try {
+      const response = await fetch("/api/admin/market-index-research/duplicate-audit", {
+        cache: "no-store", credentials: "same-origin",
+      });
+      const result = await response.json();
+      setAuditResult(response.ok ? result : { success: false, reason: result.reason ?? "AUDIT_FAILED" });
+    } catch {
+      setAuditResult({ success: false, reason: "NETWORK_ERROR" });
+    } finally {
+      setAuditRunning(false);
+    }
+  };
   const [manualRunning, setManualRunning] = useState(false);
   const [manualResults, setManualResults] = useState<Array<Record<string, unknown>>>([]);
   const runManualSave = async () => {
@@ -122,6 +144,23 @@ export default function MarketIndexResearchClient() {
             <h2 className="font-black">過去の検証履歴</h2>
             {data.history.length === 0 ? <p className="mt-3 text-sm text-slate-500">保存された検証結果はまだありません。未実行と失敗を推測で区別しません。</p> :
               <ul className="mt-3 space-y-2 text-sm">{data.history.map(row => <li key={row.date + row.observedAt}>{row.date}｜{row.status}｜{row.ageMinutes === null ? '不明' : `${row.ageMinutes}分`}</li>)}</ul>}
+          </section>
+          <section className="rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-black">🔎 開発用DB・重複監査（読み取り専用）</h2>
+            <p className="mt-2 text-sm">日経平均・TOPIXの取得不可ステータスだけを日付別に集計します。外部市場データの取得・DB書き込み・自動実行はありません。</p>
+            <button type="button" onClick={runDuplicateAudit} disabled={auditRunning}
+              className="mt-3 rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+              {auditRunning ? "監査中…" : "保存履歴の重複を確認する"}
+            </button>
+            {auditResult && <div role="status" className="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-900 dark:bg-slate-800 dark:text-white">
+              <p className="font-bold">{!auditResult.success ? "監査失敗・判定不可" : auditResult.decision === "PASS" ? "監査PASS（対象の重複なし）" : auditResult.decision === "NO_DATA" ? "対象データなし・判定保留" : "重複を検出・要調査"}</p>
+              {auditResult.success ? <>
+                <p className="mt-1">対象グループ：{auditResult.groupCount} ／ 重複グループ：{auditResult.duplicateGroups} ／ 確認時刻：{auditResult.asOf ? new Date(auditResult.asOf).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}</p>
+                <ul className="mt-2 space-y-1">{auditResult.groups?.map((row) =>
+                  <li key={row.jst_date + "-" + row.index_key}>{row.jst_date} ／ {row.index_key} ／ {row.saved_count}件 ／ {row.result}</li>
+                )}</ul>
+              </> : <p className="mt-1">理由：{auditResult.reason ?? "UNKNOWN"}</p>}
+            </div>}
           </section>
           <section className="rounded-2xl border border-blue-300 bg-white p-4 dark:border-blue-700 dark:bg-slate-900">
             <h2 className="font-black">🧪 手動保存・重複防止の実測（開発用DBのみ）</h2>
