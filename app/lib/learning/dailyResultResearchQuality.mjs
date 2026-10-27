@@ -3,10 +3,10 @@
 export function assessDailyResultQuality(row, options = {}) {
   const reasons = [];
   const date = String(row?.date ?? "");
-  const entry = Number(row?.price);
-  const next = Number(row?.next_price);
-  const change = Number(row?.change_percent);
-  const score = Number(row?.score);
+  const entry = row?.price == null ? NaN : Number(row.price);
+  const next = row?.next_price == null ? NaN : Number(row.next_price);
+  const change = row?.change_percent == null ? NaN : Number(row.change_percent);
+  const score = row?.score == null ? NaN : Number(row.score);
   const result = row?.result;
   const excludedDates = new Set(options.excludedDates ?? ["2026-09-21"]);
 
