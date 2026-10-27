@@ -33,7 +33,7 @@ export async function GET() {
  if (!allowed()) return fail("RESEARCH_PREVIEW_ONLY");
  if (!devDb()) return fail("DEV_DATABASE_NOT_VERIFIED",503);
  try {
-  const result=await pool.query(`select id,checked_at,snapshot_key,total_count,matched_count,differed_count,blocked_count,unique_pairs
+  const result=await researchQuery(`select id,checked_at,snapshot_key,total_count,matched_count,differed_count,blocked_count,unique_pairs
    from public.bb_jquants_research_audit_history order by checked_at desc,id desc limit 30`);
   return NextResponse.json({success:true,history:result.rows},{headers});
  } catch {return fail("RESEARCH_HISTORY_READ_FAILED",503);}
@@ -57,7 +57,7 @@ export async function POST(request:Request) {
  const pairs=new Set(observations.map(x=>x.code+":"+x.observation_date));
  const details=audit.details.map(({code,observationDate,status,reason})=>({code,observationDate,status,reason}));
  try {
-  const result=await pool.query(`insert into public.bb_jquants_research_audit_history
+  const result=await researchQuery(`insert into public.bb_jquants_research_audit_history
    (snapshot_key,total_count,matched_count,differed_count,blocked_count,unique_pairs,reasons,details)
    values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb) returning id,checked_at`,
    [snapshot,audit.total,audit.matched,audit.differed,audit.blocked,pairs.size,
