@@ -8,8 +8,14 @@ export function compareForwardResults(captures, outcomes) {
     const key = `${outcome?.scan_run_id}|${outcome?.code}`;
     indexed.set(key, [...(indexed.get(key) ?? []), outcome]);
   }
+  const captureCounts = new Map();
+  for (const capture of captures) {
+    const key = JSON.stringify([capture?.scan_run_id, capture?.code]);
+    captureCounts.set(key, (captureCounts.get(key) ?? 0) + 1);
+  }
   for (const capture of captures) {
     const reject = reason => rejected.push({ scan_run_id: capture?.scan_run_id ?? null, code: capture?.code ?? null, reason });
+    if ((captureCounts.get(JSON.stringify([capture?.scan_run_id, capture?.code])) ?? 0) > 1) { reject('DUPLICATE_CAPTURE'); continue; }
     if (!capture || capture.capture_status !== 'ASOF_VERIFIED' || capture.provenance_verified !== true) { reject('UNVERIFIED_CAPTURE'); continue; }
     if (!validTime(capture.scan_received_at) || !validTime(capture.source_bar_at) || !validTime(capture.features_computed_at) || Date.parse(capture.source_bar_at) > Date.parse(capture.scan_received_at) || Date.parse(capture.features_computed_at) > Date.parse(capture.scan_received_at)) { reject('INVALID_ASOF_TIMING'); continue; }
     if (typeof capture.ai_power !== 'number' || !Number.isFinite(capture.ai_power) || capture.ai_power < 0 || capture.ai_power > 100) { reject('INVALID_AI_POWER'); continue; }
