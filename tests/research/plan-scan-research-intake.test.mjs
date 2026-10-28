@@ -15,6 +15,9 @@ test("intake isolates eligible as-of candidates but never verifies them",()=>{
  assert.equal(x.accepted,true);
  assert.equal(x.valid_for_storage,true);
  assert.equal(x.candidate_count,1);
+ assert.equal(x.total_observations,3);
+ assert.equal(x.intake_rate_pct,100/3);
+ assert.equal(x.ready_for_forward_validation,false);
  assert.equal(x.blocked_count,2);
  assert.equal(x.blocked_reasons.MISSING_OR_INVALID_TIMESTAMP,1);
  assert.equal(x.blocked_reasons.DUPLICATE_CODE,1);
@@ -42,4 +45,11 @@ test("future bars are excluded from intake",()=>{
  const x=plan({...input,payload:{...payload,stocks:[{...payload.stocks[0],latestBarTimestamp:future}]}});
  assert.equal(x.valid_for_storage,false);
  assert.equal(x.blocked_count,1);
+});
+
+test("rejected input has no denominator or implied success rate",()=>{
+ const x=plan({...input,payload:{...payload,cached:true}});
+ assert.equal(x.intake_rate_pct,null);
+ assert.equal(x.total_observations,0);
+ assert.equal(x.ready_for_forward_validation,false);
 });
