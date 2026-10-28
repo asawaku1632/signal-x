@@ -14,8 +14,12 @@ export async function GET(request: Request) {
   if (unauthorized) return unauthorized;
   try {
     const now = new Date();
-    const { targetTradeDate } = resolveTargetTradeDate(now);
-    const capture = await captureSwingUniverseDay(targetTradeDate, now);
+    const { targetTradeDate, targetTradeDateReason } = resolveTargetTradeDate(now);
+    // Prevent retroactive observations during pre-close and market holidays.
+    // Deliberate historical replay requires a separately reviewed workflow.
+    const capture = targetTradeDateReason === "CURRENT_TSE_TRADING_DAY_AFTER_SAFE_BOUNDARY"
+      ? await captureSwingUniverseDay(targetTradeDate, now)
+      : { date: targetTradeDate, saved: 0, eligible: 0, skipped: "NON_CURRENT_TRADE_DATE" };
     const outcomes = await updateSwingUniverseOutcomes(targetTradeDate);
     const result = { success: true, date: targetTradeDate, capture, outcomes,
       checkedAt: now.toISOString() };
