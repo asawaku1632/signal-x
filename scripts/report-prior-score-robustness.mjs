@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+/**
+ * Explicit offline file-only research. No DB credentials, APIs, network or writes.
+ * Example: node scripts/report-prior-score-robustness.mjs ./approved-export.json
+ * The file must contain an ARRAY of audited observations, not database secrets.
+ */
+import {readFileSync} from "node:fs";
+import {researchPriorScoreDailyGaps} from "../app/lib/research/priorScoreRobustness.mjs";
+export function parseResearchFile(raw){
+ if(typeof raw!=="string"||Buffer.byteLength(raw)>25*1024*1024)throw Error("INVALID_RESEARCH_FILE_SIZE");
+ const parsed=JSON.parse(raw);
+ if(!Array.isArray(parsed)||parsed.length>100000)throw Error("INVALID_RESEARCH_ROWS");
+ return parsed;
+}
+export function reportFromText(raw){
+ const rows=parseResearchFile(raw);
+ const report=researchPriorScoreDailyGaps(rows);
+ return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,...report};
+}
+if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
+ const args=process.argv.slice(2);
+ if(args.length!==1||args[0].startsWith("-")){
+  process.stderr.write("Usage: node scripts/report-prior-score-robustness.mjs <approved-export.json>\n");
+  process.exitCode=2;
+ }else{
+  try{process.stdout.write(JSON.stringify(reportFromText(readFileSync(args[0],"utf8")),null,2)+"\n");}
+  catch(e){process.stderr.write("Research input rejected: "+e.message+"\n");process.exitCode=1;}
+ }
+}
