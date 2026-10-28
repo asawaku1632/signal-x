@@ -27,7 +27,7 @@ export function compareForwardResults(captures, outcomes) {
     // Five *market sessions*, not five calendar days. The list must come from
     // an independently verified exchange calendar; it is not generated here.
     const sessions = outcome.verified_session_dates;
-    const dateRe = /^\\d{4}-\\d{2}-\\d{2}$/;
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
     const validDay = day => typeof day === 'string' && dateRe.test(day)
       && !Number.isNaN(Date.parse(day+'T00:00:00Z'))
       && new Date(day+'T00:00:00Z').toISOString().slice(0,10) === day;
