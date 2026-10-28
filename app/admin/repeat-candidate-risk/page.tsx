@@ -75,9 +75,7 @@ export default function RepeatCandidateRiskPage() {
       codes.set(row.code, (codes.get(row.code) ?? 0) + 1);
     }
     const sorted = [...dates.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    const remaining = eligible.filter(row => row.trade_date !== sorted[0]?.[0]);
-    const remainingOutcomes = remaining.map(row => n(row.return_5d)).filter((v): v is number => v != null && Number.isFinite(v));
-    const remainingAverage = remainingOutcomes.length ? remainingOutcomes.reduce((sum, v) => sum + v, 0) / remainingOutcomes.length : null;
+    const excluded = withoutLargestDay(eligible);
     return {
       observations: eligible.length,
       distinctDates: dates.size,
