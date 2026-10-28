@@ -100,3 +100,19 @@ test("non-string run identifier fails before query",async()=>enabled(async()=>{
  await assert.rejects(saveResearchScanCaptureDev(client,{...input,scanRunId:1234}),/INVALID_RESEARCH_RUN_METADATA/);
  assert.equal(calls,0);
 }));
+
+test("rejects mismatched JST trade dates before any SQL",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}};
+ await assert.rejects(saveResearchScanCaptureDev(client,{...input,tradeDate:"2026-10-28"}),/INVALID_RESEARCH_RUN_METADATA/);
+ assert.equal(calls,0);
+}));
+test("uses Japan date when UTC and JST calendar dates differ",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}};
+ const inputAtTokyoMorning={...input,tradeDate:"2026-10-28",scanReceivedAt:"2026-10-27T23:35:00Z",
+  scanResponse:{cached:false,stocks:[{...stock,latestBarTimestamp:Date.parse("2026-10-27T23:30:00Z")/1000}]}};
+ const result=await saveResearchScanCaptureDev(client,inputAtTokyoMorning);
+ assert.equal(calls,1);
+ assert.equal(result.inserted,1);
+}));
