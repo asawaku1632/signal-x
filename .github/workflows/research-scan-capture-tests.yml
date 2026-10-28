@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - research/scan-capture-validation-20261027
+  pull_request:
+    paths:
+      - 'app/lib/learning/**'
+      - 'tests/research/**'
+      - '.github/workflows/research-scan-capture-tests.yml'
   workflow_dispatch:
 
 permissions:
