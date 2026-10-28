@@ -37,7 +37,7 @@ export async function GET() {
   try {
     const result = await pool.query(SQL);
     return NextResponse.json({
-      success: true, rows: result.rows.slice(0, 1000),
+      success: true, fetchedAt: new Date().toISOString(), rows: result.rows.slice(0, 1000),
       note: "研究専用。過去の同一銘柄CANDIDATE保存価格との比較です。日足終値・売買可能価格・予測力を保証せず、履歴の更新や本番判定への反映は行いません。",
       truncated: result.rows.length > 1000,
     }, { headers: { "Cache-Control": "private, no-store" } });
