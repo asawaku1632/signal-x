@@ -1,0 +1,27 @@
+name: Research Stage516-545 Evidence Priorities
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceWorkPriority.ts'
+      - 'app/lib/learning/integratedResearchReview.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage516-545-evidence-priorities.test.cjs'
+      - '.github/workflows/research-stage516-545-priorities.yml'
+permissions:
+  contents: read
+jobs:
+  priorities:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage516-545-evidence-priorities.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
