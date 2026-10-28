@@ -9,6 +9,10 @@ export function auditScanPayloadForResearchCapture(payload) {
       const value=stock?.[key];
       if(value===null || value===undefined || value==="") missing[key]=(missing[key]??0)+1;
     }
+    if (stock?.price != null && (!Number.isFinite(stock.price) || stock.price<=0)) missing.invalidPrice=(missing.invalidPrice??0)+1;
+    if (stock?.aiPower != null && (!Number.isFinite(stock.aiPower) || stock.aiPower<0 || stock.aiPower>100)) missing.invalidAiPower=(missing.invalidAiPower??0)+1;
+    if (stock?.latestBarTimestamp != null && (!Number.isFinite(stock.latestBarTimestamp) || stock.latestBarTimestamp<=0)) missing.invalidBarTimestamp=(missing.invalidBarTimestamp??0)+1;
+    if (stock?.code != null && !/^(?:[0-9]{4,5}|[0-9]{3}[A-Z])$/.test(String(stock.code))) missing.invalidCode=(missing.invalidCode??0)+1;
   }
   return {
     ready:payload.cached===false && payload.stocks.length>0 && Object.keys(missing).length===0,
