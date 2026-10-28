@@ -21,8 +21,13 @@ export function assessHistoricalResearchDataset(rows) {
         ? Date.parse(normalized) : NaN;
       if(!Number.isFinite(created) || !validDay)
         issues.push("MISSING_OBSERVATION_OR_STORAGE_TIME");
-      else if(created >= observed + 15*60*60*1000)
-        issues.push("SAVED_AFTER_OBSERVATION_DAY");
+      else {
+        // Japanese observation day spans [previous UTC 15:00, current UTC 15:00).
+        if(created < observed - 9*60*60*1000)
+          issues.push("SAVED_BEFORE_OBSERVATION_DAY");
+        if(created >= observed + 15*60*60*1000)
+          issues.push("SAVED_AFTER_OBSERVATION_DAY");
+      }
       if(typeof r.provider!=="string" || !r.provider.trim())
         issues.push("MISSING_SOURCE");
       if(r.license_review_verified!==true || !r.license_evidence_reference)
