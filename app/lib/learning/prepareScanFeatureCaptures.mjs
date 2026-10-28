@@ -29,7 +29,7 @@ export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedA
       trade_date: tradeDate,
       code,
       scan_received_at: scanReceivedAt,
-      source_bar_at: sourceBarAt,
+      source_bar_at: result.reason === "FUTURE_SOURCE_BAR" ? null : sourceBarAt,
       source_name: stock?.dataSource ?? null,
       feature_version: "research-scan-v1",
       ai_power: typeof aiPower === "number" && Number.isFinite(aiPower) ? aiPower : null,
