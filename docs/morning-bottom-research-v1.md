@@ -185,3 +185,15 @@ Source: `public.daily_stock_results` (71,289 records). Comparing the date compon
 When records are ordered by `date` within each `code`, 70,322 rows have an earlier saved-score observation with an earlier-date creation timestamp; 967 have no preceding saved row. 68,388 rows have an earlier third-preceding saved date. These counts are structural availability of **prior historical rows**, not assurance that current-day score, all constituent signals, or the retrospectively computed prior-3-row change were genuinely frozen at a permissible decision cutoff.
 
 **Safety decision:** do not infer `featureProvenanceVerified=true` or `featureAvailableAt` for current-day features from this table's `created_at`. Prospective rule evaluation remains blocked until an independently auditable, timestamped pre-decision feature snapshot exists. Prior-row signals may be researched separately after verifying the original timestamps, source definitions, trading-calendar continuity, and score-version changes. No live signal activation.
+
+
+## Prior-saved-score same-date research (2026-10-29; SELECT-only)
+
+For each code sorted by stored date, take `LAG(score)`, `LAG(price)` and `LAG(created_at)`. Require preceding score/price and preceding creation calendar date earlier than target date; evaluate target's stored `100*(next_price/price-1)` only retrospectively. Within each date require at least ten observations in prior-score >=85 and prior-score <85 groups, take the difference of group mean later-price returns, and average daily gaps with equal-day weighting.
+
+| Period | Comparable days | Prior-score >=85 records | Prior-score <85 records | Mean high-minus-low gap | Days high group outperformed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Before 2026-09-02 | 30 | 8,886 | 19,372 | -0.1127 pp | 13 |
+| 2026-09-02 onward | 38 | 5,087 | 31,168 | +0.1500 pp | 20 |
+
+The later group gap is positive, but higher-score days outperformed on only 20/38 dates. Do not present this as validated trading alpha or a calibrated next-day probability. `created_at` is timestamp without timezone; later `price` and `next_price` are not validated executable fills, and previous saved dates can skip sessions. The second interval is a retrospective diagnostic using an already explored threshold, not a fresh prospective holdout. No trading/notification activation. This daily result does not establish intraday bottom-hour statistics.
