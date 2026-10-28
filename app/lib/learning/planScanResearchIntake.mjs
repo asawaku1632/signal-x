@@ -6,16 +6,22 @@ export function planScanResearchIntake(input) {
   const preview = previewGeneratedScanResearchCapture(input);
   if (!preview.accepted) return {
     accepted:false,reason:preview.reason,valid_for_storage:false,
-    candidate_count:0,blocked_count:0,rows:[],requires_independent_evidence:true
+    candidate_count:0,blocked_count:0,blocked_reasons:{},rows:[],requires_independent_evidence:true
   };
   const allowed = preview.rows.filter(row =>
     row.capture_status === "QUARANTINED" &&
     row.audit_reason === "UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
   const blocked = preview.rows.length-allowed.length;
+  const blockedReasons = {};
+  for (const row of preview.rows) {
+    if (row.audit_reason === "UNVERIFIED_FEATURE_ASOF_AND_PROVIDER") continue;
+    blockedReasons[row.audit_reason] = (blockedReasons[row.audit_reason] ?? 0) + 1;
+  }
   return {
     accepted:true,reason:"QUARANTINE_INTAKE_PLAN_ONLY",
     valid_for_storage:allowed.length>0,
     candidate_count:allowed.length,blocked_count:blocked,
+    blocked_reasons:blockedReasons,
     rows:allowed,requires_independent_evidence:true,
     ai_power_recalculated:false,live_notification_enabled:false
   };
