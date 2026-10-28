@@ -10,3 +10,7 @@ test('invalid timestamps become null',()=>assert.equal(report({generatedAt:'yest
 test('invalid numeric fields are not displayed as data',()=>assert.equal(report({cohorts:{divergence:{...group,mean5dPct:Infinity}}}).divergence.mean5dPct,null));
 test('invalid rejection reason keys are ignored',()=>assert.deepEqual(report({audit:{rejectionCounts:{'bad key':5,VALID_REASON:2}}}).rejectionCounts,{VALID_REASON:2}));
 test('invalid negative counts are not displayed',()=>assert.equal(report({audit:{acceptedCount:-1}}).acceptedEvidenceCount,0));
+
+test('caller supplied ready flag cannot bypass minimum samples',()=>{const r=report({audit:{acceptedCount:2},cohorts:{comparisonReady:true,divergence:{...group,n:1},other:{...group,n:1}}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
+test('caller supplied ready flag cannot bypass trading-day floor',()=>{const r=report({audit:{acceptedCount:60},cohorts:{comparisonReady:true,divergence:{...group,uniqueDates:1},other:group}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
+test('audit count must reconcile with cohort totals',()=>{const r=report({audit:{acceptedCount:999},cohorts:{comparisonReady:true,divergence:group,other:group}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
