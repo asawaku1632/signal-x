@@ -48,3 +48,15 @@ for(const [name,dates] of [
  assert.equal(result.accepted.length,0);
  assert.equal(result.rejected[0].reason,'MISSING_VERIFIED_TRADING_SESSIONS');
 });
+
+test('JPX 2026 holiday cannot be counted as a trading session',()=>{
+ const dates=['2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-03'];
+ const result=compareForwardResults([capture],[{...outcome,observed_at:'2026-11-03T06:30:00Z',verified_session_dates:dates}]);
+ assert.equal(result.accepted.length,0);
+ assert.equal(result.rejected[0].reason,'JPX_SESSION_CALENDAR_MISMATCH');
+});
+test('five sequential but incorrect weekday dates are rejected',()=>{
+ const dates=['2026-10-29','2026-10-30','2026-11-02','2026-11-04','2026-11-05'];
+ const result=compareForwardResults([capture],[{...outcome,observed_at:'2026-11-05T06:30:00Z',verified_session_dates:dates}]);
+ assert.equal(result.rejected[0].reason,'JPX_SESSION_CALENDAR_MISMATCH');
+});
