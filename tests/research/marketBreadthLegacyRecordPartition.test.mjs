@@ -8,3 +8,6 @@ test('development fixture is quarantined',()=>{const x=partition({bbEvents:[{...
 test('invalid dates are quarantined',()=>{const x=partition({bbEvents:[{...bb,signal_date:'2026-02-30'}]});assert.equal(x.counts.quarantined,1);assert.equal(x.quarantined[0].reason,'INVALID_LEGACY_DATE')});
 test('created-at predating nominal trade day is quarantined for investigation',()=>{const x=partition({bbEvents:[{...bb,created_at:'2026-08-09T00:00:00Z'}]});assert.equal(x.quarantined[0].reason,'INCONSISTENT_CREATED_AT')});
 test('input must be arrays',()=>{assert.throws(()=>partition({bbEvents:{}}),/INVALID_LEGACY_RECORDS/)});
+
+test('missing or invalid legacy ID is quarantined',()=>{const x=partition({bbEvents:[{...bb,id:null},{...bb,id:0},{...bb,id:'1'}]});assert.equal(x.counts.quarantined,3);assert.ok(x.quarantined.every(item=>item.reason==='INVALID_LEGACY_RECORD_ID'))});
+test('impossible leap-day and malformed calendar date are quarantined',()=>{const x=partition({bbEvents:[{...bb,signal_date:'2026-02-29'},{...bb,signal_date:'2026-13-01'}]});assert.equal(x.counts.quarantined,2)});
