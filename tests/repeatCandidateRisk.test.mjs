@@ -60,3 +60,10 @@ test("largest-day exclusion exposes limited independent days", () => {
   assert.match(page, /remainingDays < 3/);
   assert.match(page, /再現性評価には不足しています/);
 });
+
+test("pending outcomes remain distinct from observed returns by trade date", () => {
+  assert.match(page, /pendingByDate = useMemo/);
+  assert.match(page, /group\.total - group\.completed/);
+  assert.match(page, /5日後結果の確定状況/);
+  assert.match(page, /未確定はゼロ損益ではありません/);
+});
