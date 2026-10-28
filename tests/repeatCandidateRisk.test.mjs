@@ -67,3 +67,10 @@ test("pending outcomes remain distinct from observed returns by trade date", () 
   assert.match(page, /5日後結果の確定状況/);
   assert.match(page, /未確定はゼロ損益ではありません/);
 });
+
+test("research snapshot can be refreshed", () => {
+  assert.match(route, /fetchedAt/);
+  assert.match(page, /保存結果を再取得/);
+  assert.match(page, /setReloadCount/);
+  assert.match(page, /Asia\/Tokyo/);
+});
