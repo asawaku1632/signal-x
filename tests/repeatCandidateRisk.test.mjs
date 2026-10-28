@@ -16,12 +16,14 @@ test("repeat history uses prior CANDIDATE rows in time order", () => {
   assert.match(route, /LAG\(entry_price\) OVER \(PARTITION BY code ORDER BY trade_date\)/);
   assert.match(route, /candidate_number > 1/);
   assert.match(route, /previous_candidate_price > 0/);
-  assert.match(route, /LIMIT 300/);
+  assert.match(route, /ai_power >= 90/);
+  assert.match(route, /LIMIT 1001/);
+  assert.match(route, /rows: result.rows.slice\(0, 1000\)/);
 });
 test("strict read-only, no external provider calls or live decisions", () => {
   assert.doesNotMatch(route, /\b(?:INSERT|UPDATE|DELETE|UPSERT|ALTER|DROP|TRUNCATE)\s+(?:INTO\s+|FROM\s+|TABLE\s+)?public\./i);
   assert.doesNotMatch(route, /fetch\s*\(|sendLine|sendNotification|saveDailyStocks|updateSwingUniverseOutcomes/);
   assert.match(page, /研究専用/);
-  assert.match(page, /直近300件のみ/);
+  assert.match(page, /直近1000件のみ/);
   assert.match(page, /未検証/);
 });
