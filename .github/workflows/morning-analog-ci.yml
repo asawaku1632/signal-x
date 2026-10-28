@@ -5,10 +5,12 @@ on:
       - "app/lib/research/morningAnalog.mjs"
       - "app/lib/research/morningHistoricalAdapter.mjs"
       - "app/lib/research/savedDailyBaseline.mjs"
+      - "app/lib/research/priorScoreRobustness.mjs"
       - "scripts/report-morning-bottom.mjs"
       - "tests/morning-analog.test.mjs"
       - "tests/morning-historical-adapter.test.mjs"
       - "tests/saved-daily-baseline.test.mjs"
+      - "tests/prior-score-robustness.test.mjs"
       - ".github/workflows/morning-analog-ci.yml"
   push:
     branches:
@@ -26,4 +28,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs
+      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs tests/prior-score-robustness.test.mjs
