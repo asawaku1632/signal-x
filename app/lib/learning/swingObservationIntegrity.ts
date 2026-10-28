@@ -31,7 +31,7 @@ export async function readSwingObservationIntegrity(){
   earliestDay:row?.earliest_day??null,latestDay:row?.latest_day??null
  };
  const issues:string[]=[];
- if(Object.values(metrics).slice(0,9).some(v=>typeof v!=="number"||!Number.isSafeInteger(v)||v<0))issues.push("INVALID_AGGREGATION");
+ if(Object.values(metrics).slice(0,8).some(v=>typeof v!=="number"||!Number.isSafeInteger(v)||v<0))issues.push("INVALID_AGGREGATION");
  if(metrics.evaluated>metrics.total)issues.push("EVALUATED_EXCEEDS_TOTAL");
  if(metrics.missingOutcomeDate)issues.push("RETURN_WITHOUT_TARGET_DATE");
  if(metrics.outcomeWithoutReturn)issues.push("TARGET_DATE_WITHOUT_RETURN");
