@@ -9,6 +9,11 @@ export async function captureAndIngestResearchDevScan(runScan, client, options) 
       process.env.SIGNALX_RESEARCH_CAPTURE !== "true" ||
       process.env.SIGNALX_RESEARCH_DEV_WRITE !== "true")
     throw new Error("RESEARCH_DEV_CAPTURE_AND_WRITE_DISABLED");
+  // Never invoke a real provider until its research retention/use permission is reviewed.
+  // Isolated CI synthetic PostgreSQL tests do not call real provider services.
+  if (process.env.NODE_ENV === "development" &&
+      process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED !== "true")
+    throw new Error("RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED");
   const captured = await captureResearchDevScanExecution(runScan, options);
   if (!captured.accepted) return {
     accepted:false,reason:captured.reason,inserted:0,persisted:false,promoted:false
