@@ -128,3 +128,21 @@ test("JST midnight boundary does not allow previous day",async()=>enabled(async(
  assert.equal(accepted.inserted,1);
  assert.equal(calls,1);
 }));
+
+test("development low-level writer refuses missing provider permission",async()=>{
+ const oldEnv=process.env.NODE_ENV;
+ const oldWrite=process.env.SIGNALX_RESEARCH_DEV_WRITE;
+ const oldPermission=process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED;
+ process.env.NODE_ENV="development";
+ process.env.SIGNALX_RESEARCH_DEV_WRITE="true";
+ delete process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED;
+ let calls=0;
+ try {
+  await assert.rejects(saveResearchScanCaptureDev({connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}},input),/RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED/);
+  assert.equal(calls,0);
+ } finally {
+  for(const [key,value] of [["NODE_ENV",oldEnv],["SIGNALX_RESEARCH_DEV_WRITE",oldWrite],["SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED",oldPermission]]) {
+   if(value===undefined) delete process.env[key]; else process.env[key]=value;
+  }
+ }
+});
