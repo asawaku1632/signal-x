@@ -10,3 +10,8 @@ test('source security mismatch is rejected',()=>{const x=validate([{...entry,sou
 test('source time mismatch is rejected',()=>{const x=validate([{...entry,sourceRecord:{...sourceRecord,observedAt:'2026-10-28T09:02:00+09:00'}}]);assert.equal(x.rejected[0].reason,'SOURCE_RECORD_BINDING_MISMATCH')});
 test('missing source record is rejected',()=>{const x=validate([{signal}]);assert.equal(x.rejected[0].reason,'SOURCE_RECORD_MISSING')});
 test('empty batch remains safe',()=>{const x=validate([]);assert.equal(x.acceptedCount,0);assert.equal(x.rejectedCount,0)});
+
+test('same source ID and identical source content can serve distinct signals',()=>{const x=validate([entry,{...entry,signal:{...signal,signalRecordId:'signal:20261028:590A'}}]);assert.equal(x.acceptedCount,2);assert.equal(x.rejectedCount,0)});
+test('conflicting source contents with same source ID quarantine both signals',()=>{const x=validate([entry,{signal:{...signal,signalRecordId:'signal:20261028:590A'},sourceRecord:{...sourceRecord,price:999}}]);assert.equal(x.acceptedCount,0);assert.equal(x.rejectedCount,2);assert.ok(x.rejected.every(v=>v.reason==='CONFLICTING_SOURCE_RECORD_ID'))});
+test('source fingerprint ignores object key order',()=>{const x=validate([entry,{signal:{...signal,signalRecordId:'signal:20261028:590A'},sourceRecord:{barEndAt:sourceRecord.barEndAt,observedAt:sourceRecord.observedAt,code:sourceRecord.code,recordId:sourceRecord.recordId}}]);assert.equal(x.acceptedCount,2);assert.equal(x.accepted[0].sourceHash,x.accepted[1].sourceHash)});
+test('malformed source evidence is rejected',()=>{const x=validate([{...entry,sourceRecord:{...sourceRecord,extra:undefined}}]);assert.equal(x.rejected[0].reason,'INVALID_SOURCE_RECORD')});
