@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reviewMarketBreadthNonOverlapping as review} from '../../lib/research/marketBreadthNonOverlappingReview.mjs';
+const dates=['2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-04'];
+const row=(code,date,r,b)=>({code,tradeDate:date,signalRecordId:'research:'+code+date,baselineRecordId:'baseline:'+code+date,researchReturnPercent:r,baselineReturnPercent:b,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+test('overlapping adjacent dates are not both selected',()=>{const x=review({pairs:[row('641A',dates[0],5,1),row('590A',dates[1],7,2)],verifiedSessions:dates,minSelectedDates:1});assert.equal(x.selectedCount,1);assert.equal(x.skippedCount,1);assert.equal(x.nonOverlappingSampleReady,true)});
+test('non-overlapping dates both contribute',()=>{const x=review({pairs:[row('641A',dates[0],5,1),row('590A',dates[5],7,2)],verifiedSessions:dates,minSelectedDates:2});assert.equal(x.selectedCount,2);assert.equal(x.meanPairedDeltaPercentagePoints,4.5);assert.equal(x.aiPromotionAuthorized,false)});
+test('same date selects lexically first code',()=>{const x=review({pairs:[row('7203',dates[0],10,1),row('590A',dates[0],3,1)],verifiedSessions:dates,minSelectedDates:1});assert.equal(x.selected[0].code,'590A');assert.equal(x.skippedCount,1)});
+test('no verified outcomes gives null metrics',()=>{const x=review({pairs:[],verifiedSessions:dates});assert.equal(x.meanPairedDeltaPercentagePoints,null);assert.equal(x.nonOverlappingSampleReady,false)});
+test('invalid minimum date threshold rejected',()=>{assert.throws(()=>review({pairs:[],verifiedSessions:dates,minSelectedDates:0}),/INVALID_MIN_SELECTED_DATES/)});
