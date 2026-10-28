@@ -19,3 +19,16 @@ test("cached and missing payloads are blocked",()=>{
  assert.equal(audit({cached:true,stocks:[stock]}).ready,false);
  assert.equal(audit(null).reason,"INVALID_SCAN_PAYLOAD");
 });
+
+test("present but invalid numerical fields are not accepted as capture-ready",()=>{
+ const x=audit({cached:false,stocks:[{...stock,price:0,aiPower:101,latestBarTimestamp:-1}]});
+ assert.equal(x.ready,false);
+ assert.equal(x.missing.invalidPrice,1);
+ assert.equal(x.missing.invalidAiPower,1);
+ assert.equal(x.missing.invalidBarTimestamp,1);
+});
+test("malformed stock identifiers are counted as structural failures",()=>{
+ const x=audit({cached:false,stocks:[{...stock,code:"INVALID"}]});
+ assert.equal(x.ready,false);
+ assert.equal(x.missing.invalidCode,1);
+});
