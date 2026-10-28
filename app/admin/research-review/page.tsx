@@ -11,11 +11,17 @@ type Snapshot={
 export default function ResearchReviewPage(){
  const [data,setData]=useState<Snapshot|null>(null);
  const [error,setError]=useState("");
+ const [integrated,setIntegrated]=useState<{status:string;reasons:string[];historyCount:number;historyTruncated:boolean;entries:{digest:string;valid:boolean;issues:string[]}[]}|null>(null);
+ const [integratedError,setIntegratedError]=useState("");
  useEffect(()=>{let active=true;
   fetch("/api/admin/research-review-snapshot",{cache:"no-store"})
    .then(async r=>{if(!r.ok)throw Error("権限または取得状態を確認してください");return r.json()})
    .then(j=>{if(active)setData(j)})
    .catch(()=>{if(active)setError("研究データを読み込めませんでした")});
+  fetch("/api/admin/integrated-research-review",{cache:"no-store"})
+   .then(async r=>{if(!r.ok)throw Error("照合結果を取得できません");return r.json()})
+   .then(j=>{if(active)setIntegrated(j)})
+   .catch(()=>{if(active)setIntegratedError("証拠照合は確認できません（未承認）")});
   return ()=>{active=false};
  },[]);
  return <main className="mx-auto max-w-2xl px-4 py-8 text-slate-900">
@@ -36,5 +42,14 @@ export default function ResearchReviewPage(){
    <p className="text-sm text-slate-600">提供元・利用許諾・独立時刻・ホールドアウト・相場環境は独立検証が済むまで未確認扱いです。</p>
    <p className="text-sm font-semibold">本番反映：なし ／ 通知解禁：なし</p>
   </section>}
+  <section aria-label="証拠履歴との統合照合" className="mt-6 rounded-xl border p-5">
+   <h2 className="font-bold">保存証拠と研究審査の統合照合（閲覧専用）</h2>
+   <p className="mt-2 text-sm">状態：{integrated?.status==="BLOCKED"?"未承認・確認不足":"未確認"}</p>
+   {integratedError&&<p role="alert">{integratedError}</p>}
+   {integrated&&<><p className="text-sm">取得した履歴 {integrated.historyCount}件{integrated.historyTruncated?"（取得上限あり）":""}</p>
+    <ul className="mt-2 list-inside list-disc text-sm">{integrated.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul>
+    <ul className="mt-2 space-y-2">{integrated.entries.map((e,i)=><li key={i} className="rounded-md border p-2 text-xs">証拠 {e.digest.slice(0,12)}…：{e.valid?"形式整合":"要確認"}{e.issues.length?" / "+e.issues.join(", "):""}</li>)}</ul></>}
+   <p className="mt-2 text-xs text-slate-500">照合結果は本番採用・売買判断・通知解禁を承認しません。</p>
+  </section>
  </main>;
 }
