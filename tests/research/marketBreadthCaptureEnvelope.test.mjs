@@ -9,3 +9,9 @@ test('unlicensed source is rejected',()=>{const x=check({...valid,providerRights
 test('tampered snapshot fingerprint is rejected',()=>{const x=check({...valid,snapshotHash:'not-a-hash'});assert.equal(x.reason,'SNAPSHOT_HASH_MISSING')});
 test('cross-date signal is rejected',()=>{const x=check({...valid,tradeDate:'2026-10-27'});assert.equal(x.reason,'TRADE_DATE_MISMATCH')});
 test('same evidence ID cannot serve multiple origins',()=>{const x=check({...valid,sourceRecordId:valid.signalRecordId});assert.equal(x.reason,'SOURCE_IDS_MISSING')});
+
+test('invalid dates and clock fields fail closed',()=>{
+ for(const bad of ['2026-02-30T09:00:00+09:00','2026-10-28T25:00:00+09:00','2026-10-28T09:61:00+09:00','2026-10-28T09:00:00+25:00','2026-10-28T09:00:00+09:99']){
+  assert.equal(check({...valid,sourceObservedAt:bad}).reason,'TIMESTAMPS_MISSING',bad);
+ }
+});
