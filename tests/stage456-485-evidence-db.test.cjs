@@ -11,6 +11,7 @@ test('stages456-485: thirty real PostgreSQL preview conditions',async()=>{try{
  add('456 empty',async()=>assert.equal((await fn()).sampled,0));
  add('457 empty verified zero',async()=>assert.equal((await fn()).summary.verifiedScope,0));
  add('458 empty never exhaustive',async()=>assert.equal((await fn()).exhaustive,false));
+ for(const [name,check] of checks){await check();console.log('PASS '+name)}
  await pool.query("INSERT INTO public.swing_universe_observations VALUES('2026-10-09','590A','ai_power_only_v1',2,'2026-10-19'),('2026-10-09','641A','ai_power_only_v1',null,null),('2026-10-08','642A','ai_power_only_v1',2,'2026-10-16'),('2026-10-09','9999','other',2,'2026-10-19')");
  add('459 rule filter',async()=>assert.equal((await fn()).sampled,3));
  add('460 no verified claim',async()=>assert.equal((await fn()).summary.verifiedScope,0));
@@ -39,5 +40,5 @@ test('stages456-485: thirty real PostgreSQL preview conditions',async()=>{try{
  add('483 summary adoption prohibited',async()=>assert.equal((await fn()).summary.adoptionApproved,false));
  add('484 no SQL writes',async()=>assert.doesNotMatch(fs.readFileSync('app/lib/learning/storedEvidenceClassification.ts','utf8'),/INSERT INTO|UPDATE public|DELETE FROM/));
  add('485 exact count',async()=>assert.equal((await fn()).summary.total,3));
- assert.equal(checks.length,30);for(const [name,check] of checks){try{await check();console.log('PASS '+name)}catch(e){console.error('FAIL '+name);throw e}}
+ assert.equal(checks.length,30);for(const [name,check] of checks.slice(3)){try{await check();console.log('PASS '+name)}catch(e){console.error('FAIL '+name);throw e}}
  }finally{await pool.end()}});
