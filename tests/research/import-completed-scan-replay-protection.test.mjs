@@ -12,7 +12,7 @@ function execute(time) {
  try{
   return spawnSync(process.execPath,[executable.pathname],{
    encoding:"utf8",timeout:15000,
-   env:{...process.env,NODE_ENV:"development",SIGNALX_RESEARCH_DEV_WRITE:"true",
+   env:{...process.env,NODE_ENV:"development",SIGNALX_RESEARCH_DEV_WRITE:"true",SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED:"true",
      SIGNALX_RESEARCH_EXECUTION_INPUT:path,
      DATABASE_URL:"postgresql://postgres:fake@db.jdtqwryiyxeuoraecorw.supabase.co/postgres"}
   });
