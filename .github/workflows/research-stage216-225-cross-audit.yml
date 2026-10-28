@@ -1,0 +1,25 @@
+name: Research Stage216-225 Cross Audit
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchCrossAudit.ts'
+      - 'tests/stage216-225-cross-audit.test.cjs'
+      - '.github/workflows/research-stage216-225-cross-audit.yml'
+permissions:
+  contents: read
+jobs:
+  cross-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage216-225-cross-audit.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
