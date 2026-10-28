@@ -168,3 +168,11 @@ The historical 292 rows / 75.34% retrospective positive fraction are **research 
 ## Prospective provenance gate tightening (2026-10-29)
 
 The frozen shadow evaluator now fails closed unless every candidate includes `featureProvenanceVerified: true`, an ISO `featureAvailableAt` instant **strictly before** the candidate's trading date starts in JST, `outcomeProvenanceVerified: true`, and `outcomeTradeDate` strictly later than the target date. Missing, invalid, same-day or future feature timestamps and absent/not-later outcome provenance are excluded and counted separately. These flags are assertions by the exporting caller; the evaluator does **not** independently validate a provider or license. As-of availability, provenance, and complete historical outcomes must be externally audited before trusting computed statistics. No live data pipeline is connected.
+
+
+## Production point-in-time eligibility inventory (2026-10-29, SELECT only)
+
+- Of 70,283 `daily_stock_results` records with positive saved `price` and `next_price`, 11,436 match a `daily_result_price_provenance` row. Each of those 11,436 has a later `source_trade_date` than `trade_date` and a non-null `source_snapshot_created_at`.
+- Schema inspection: `daily_stock_results` has `date`, `score`, `created_at`, but no explicit immutable `featureAvailableAt` or separate point-in-time provenance for `previousScore` and `prior3ReturnPct`. `created_at` is not by itself proof that every feature was available as of the previous trading day's close. `daily_result_price_provenance` traces later outcome source, not all prior-day features.
+- These results document **outcome traceability only** for a subset. They do not establish that 11,436 records pass the frozen prospective evaluator's required pre-trade feature provenance. Do not label any number as fully eligible until a separate as-of feature audit has been completed. Do not populate the `featureProvenanceVerified` flag by assumption.
+- This inventory is for daily outcomes, not raw historical morning OHLC. No live wiring, bulk fetch, database mutation or deployment was performed.
