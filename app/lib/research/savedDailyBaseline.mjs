@@ -61,7 +61,7 @@ export function evaluateFrozenDailyDropRule(rows,{rule=FROZEN_DAILY_DROP_RULE_V1
   const cutoff=rule.frozenAt.slice(0,10);
   const seen=new Set(),returns=[],dates=new Set();
   const validInstant=(stamp,date)=>typeof stamp==="string" &&
-    /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(stamp) &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
     Number.isFinite(Date.parse(stamp)) &&
     Date.parse(stamp)<Date.parse(date+"T00:00:00+09:00");
   const excluded={beforeFreeze:0,invalid:0,duplicate:0,unqualified:0,missingOutcome:0,unverifiedFeatures:0,unverifiedOutcome:0};
