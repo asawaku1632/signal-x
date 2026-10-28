@@ -34,13 +34,13 @@ export function compareForwardResults(captures, outcomes) {
     const sessionDatesValid = Array.isArray(sessions) && sessions.length === 5
       && sessions.every(validDay)
       && sessions.every((day,i)=>i===0 || sessions[i-1] < day)
-      && sessions[4] === new Intl.DateTimeFormat('en-US',{
-        timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',
-      }).formatToParts(new Date(outcome.observed_at))
-        .filter(part=>['year','month','day'].includes(part.type))
-        .reduce((acc,part)=>({...acc,[part.type]:part.value}),{})
-        .year + '-' + new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',month:'2-digit'}).format(new Date(outcome.observed_at))
-        + '-' + new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',day:'2-digit'}).format(new Date(outcome.observed_at));
+      && (() => {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'
+        }).formatToParts(new Date(outcome.observed_at));
+        const date = Object.fromEntries(parts.map(part=>[part.type,part.value]));
+        return sessions[4] === `${date.year}-${date.month}-${date.day}`;
+      })();
     if (!sessionDatesValid) { reject('MISSING_VERIFIED_TRADING_SESSIONS'); continue; }
     accepted.push({ scan_run_id: capture.scan_run_id, code: capture.code, ai_power: capture.ai_power, return_pct: outcome.return_pct, horizon_days: 5 });
   }
