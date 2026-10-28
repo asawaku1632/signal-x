@@ -23,3 +23,24 @@ test("does not certify even asserted evidence",()=>{
  assert.equal(result.inputAudit.unverifiedPriorRows,0);
  assert.equal(result.inputAudit.independentlyVerifiedByCli,false);
 });
+
+test("classifier gate reports reasons before date comparison",()=>{
+ const valid={...row("1234",85),priorAvailableAt:"2026-10-30T15:00:00+09:00",
+  sourceDate:"2026-11-04",sourcePrice:101};
+ const unverified={...valid,code:"1235",priorEvidenceVerified:false};
+ const wrongPrice={...valid,code:"1236",sourcePrice:99};
+ const result=reportFromText(JSON.stringify([valid,unverified,wrongPrice]));
+ assert.equal(result.evidenceClassification.summary.total,3);
+ assert.equal(result.evidenceClassification.summary.verified,1);
+ assert.equal(result.evidenceClassification.summary.missingPrior,1);
+ assert.equal(result.evidenceClassification.summary.priceMismatch,1);
+ assert.equal(result.assertedRowsPassedToAnalysis,1);
+ assert.equal(result.evidenceClassification.independentlyVerified,false);
+});
+test("rejects future feature timestamp even if asserted",()=>{
+ const value={...row("1234",85),priorAvailableAt:"2026-11-02T09:00:00+09:00",
+  sourceDate:"2026-11-04",sourcePrice:101};
+ const result=reportFromText(JSON.stringify([value]));
+ assert.equal(result.evidenceClassification.summary.latePrior,1);
+ assert.equal(result.assertedRowsPassedToAnalysis,0);
+});
