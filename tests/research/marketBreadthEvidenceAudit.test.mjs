@@ -10,3 +10,6 @@ test('resolver errors fail closed',()=>assert.equal(audit([row],()=>{throw Error
 test('resolver must be explicitly provided',()=>assert.throws(()=>audit([row]),/EVIDENCE_RESOLVER_REQUIRED/));
 test('empty research returns zero and never promotes',()=>{const r=audit([],()=>evidence);assert.equal(r.total,0);assert.equal(r.productionEligible,false)});
 test('unlicensed source is rejected',()=>assert.equal(audit([row],()=>({...evidence,outcomeLicenseVerified:false})).acceptedCount,0));
+
+test('different signal times on same security and date are both quarantined',()=>{const other={...row,signalGeneratedAt:'2026-10-28T09:16:00+09:00'};const a=audit([row,other],()=>evidence);assert.equal(a.acceptedCount,0);assert.equal(a.rejectionCounts.DUPLICATE_RESEARCH_PAIR,2)});
+test('different security codes are not treated as duplicates',()=>{const other={...row,code:'3001'};const a=audit([row,other],r=>({...evidence,code:r.code}));assert.equal(a.acceptedCount,2)});
