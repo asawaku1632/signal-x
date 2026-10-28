@@ -17,3 +17,5 @@ test('higher caller thresholds still tighten review',()=>{const x=assess(report,
 
 test('human review is blocked if audit counts are not reconciled',()=>{const x=assess({...report,evidenceCountsReconciled:false});assert.equal(x.readyForHumanResearchReview,false);assert.ok(x.blockers.includes('EVIDENCE_ACCOUNTING_NOT_RECONCILED'))});
 test('human review is blocked if cohort counts are not reconciled',()=>{const x=assess({...report,cohortCountsReconciled:false});assert.equal(x.readyForHumanResearchReview,false);assert.ok(x.blockers.includes('EVIDENCE_ACCOUNTING_NOT_RECONCILED'))});
+
+test('readiness is explicitly scoped to descriptive research only',()=>{const x=assess(report);assert.equal(x.reviewScope,'DESCRIPTIVE_RESEARCH_ONLY');assert.equal(x.evidenceCollectionReady,true);assert.equal(x.productionEligible,false);assert.equal(x.notificationEligible,false)});
