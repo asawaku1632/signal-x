@@ -27,3 +27,16 @@ Prior statement that DEV has no real-code forward outcomes was too broad: the `t
 5. Require external/manual review and explicit production approval. Never promote based on row count or self-reported verification flags.
 
 All work is **shadow-only**; no production DB, notification, ranking, model weights, or PR #216 changes.
+
+## Row-level 5-trading-day review
+
+The six `technical_bb_observation_results` rows are only **four unique stock/date observations**, because 8591 and 9983 on 2026-08-21 each have two event types sharing the same stock/date return. They span **two observation dates**. Observed stock/date returns (not a strategy backtest):
+
+| Observation date | Code | 5-session return | Event types |
+| --- | --- | ---: | --- |
+| 2026-08-21 | 8591 | +1.6844% | TOUCH, RETURN_INSIDE |
+| 2026-08-21 | 9432 | +1.5051% | TOUCH |
+| 2026-08-21 | 9983 | -3.0608% | TOUCH, CROSS |
+| 2026-08-28 | 9983 | -3.0312% | TOUCH |
+
+The six event rows **must not** be interpreted as six independent trade outcomes. Snapshots were created after the observed day's close but before the recorded future evaluation date; this supports a chronological possibility of prospective observation, **not proof** that the original model forecast was frozen at the correct time. The data remains unsuitable for promotion without independent verification and broader holdout periods.
