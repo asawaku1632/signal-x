@@ -13,3 +13,6 @@ test('unlicensed source is rejected',()=>assert.equal(audit([row],()=>({...evide
 
 test('different signal times on same security and date are both quarantined',()=>{const other={...row,signalGeneratedAt:'2026-10-28T09:16:00+09:00'};const a=audit([row,other],()=>evidence);assert.equal(a.acceptedCount,0);assert.equal(a.rejectionCounts.DUPLICATE_RESEARCH_PAIR,2)});
 test('different security codes are not treated as duplicates',()=>{const other={...row,code:'3001'};const a=audit([row,other],r=>({...evidence,code:r.code}));assert.equal(a.acceptedCount,2)});
+
+test('reused signal source evidence across distinct securities is quarantined',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,0);assert.equal(result.rejectionCounts.REUSED_SOURCE_EVIDENCE,2)});
+test('distinct signal and outcome evidence can validate separate securities',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,signalRecordId:'signal:'+r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,2)});
