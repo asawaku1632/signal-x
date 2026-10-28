@@ -25,3 +25,24 @@ Draft-only; do not deploy or merge as an automatic live integration.
 - All test/CI results and any blocked conditions are recorded; zero actual rows is reported as zero, never as learning progress.
 
 **Do not** auto-call production Scan from a research script, add a public write route, or use Yahoo data as independently verified research evidence.
+
+
+## Provider terms review (2026-10-28)
+Official Yahoo! Finance Japan guidance says mechanically acquiring listing data
+(scraping) and unauthorized copying, reuse, redistribution or commercial use are
+prohibited. Do not enable recurring Yahoo research capture merely because the
+existing Scan engine can retrieve `intraday` and `daily_fallback` bars.
+Source: https://support.yahoo-net.jp/SccFinance/s/article/H000011276
+
+JPX J-Quants offers formally documented daily OHLC datasets:
+https://jpx-jquants.com/apidoc.html
+However the Free plan delivers market data with a 12-week delay. It cannot
+supply a same-week independent five-session outcome check. The terms also
+restrict redistribution of raw data and repeated provision of analysis derived
+from the API to third parties. Review actual intended app distribution and
+license permissions before enabling a provider integration.
+
+**Immediate decision**: keep real-data ingestion disabled pending proof of
+permitted automated collection, retention, derived research, and app distribution.
+Do not purchase a paid plan or deploy integrations without user authorization.
+An offline mock/integration test is not evidence of permission or a real sample.
