@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {verifyMarketBreadthResearchPair as check} from '../../lib/research/marketBreadthEvidenceGate.mjs';
 const row={tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',signalGeneratedAt:'2026-10-28T09:15:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',outcomeDate:'2026-11-05',horizonTradingDays:5,marketStatus:'INDEX_BREADTH_DIVERGENCE',return5dPct:2};
-const e={signalProvenanceVerified:true,signalGeneratedAt:row.signalGeneratedAt,marketStatusVerified:true,marketStatus:'INDEX_BREADTH_DIVERGENCE',marketLicenseVerified:true,outcomeLicenseVerified:true,marketProvider:'licensed-market',outcomeProvider:'licensed-outcome',fiveTseSessionsVerified:true,outcomePriceVerified:true,outcomeDate:row.outcomeDate};
+const e={signalRecordId:'signal:20261028:641A',marketRecordId:'market:20261028:001',outcomeRecordId:'outcome:20261105:641A',tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',signalProvenanceVerified:true,signalGeneratedAt:row.signalGeneratedAt,marketStatusVerified:true,marketStatus:'INDEX_BREADTH_DIVERGENCE',marketLicenseVerified:true,outcomeLicenseVerified:true,marketProvider:'licensed-market',outcomeProvider:'licensed-outcome',fiveTseSessionsVerified:true,outcomePriceVerified:true,outcomeDate:row.outcomeDate};
 test('accepts independently verified research evidence only',()=>{const r=check(row,e);assert.equal(r.eligible,true);assert.equal(r.productionEligible,false)});
 test('rejects absent independent signal evidence',()=>assert.equal(check(row,{...e,signalProvenanceVerified:false}).eligible,false));
 test('rejects mismatched signal timestamp',()=>assert.equal(check(row,{...e,signalGeneratedAt:'2026-10-28T09:16:00+09:00'}).eligible,false));
@@ -14,3 +14,6 @@ test('rejects mismatched outcome date',()=>assert.equal(check(row,{...e,outcomeD
 test('rejects market data after signal',()=>assert.equal(check({...row,marketObservedAt:'2026-10-28T09:20:00+09:00'},e).eligible,false));
 test('rejects non-finite return',()=>assert.equal(check({...row,return5dPct:NaN},e).eligible,false));
 test('rejects unknown provider',()=>assert.equal(check(row,{...e,marketProvider:''}).eligible,false));
+test('rejects evidence without independent record ids',()=>assert.equal(check(row,{...e,signalRecordId:null}).reason,'INDEPENDENT_RECORD_IDS_MISSING'));
+test('rejects evidence bound to another security',()=>assert.equal(check(row,{...e,code:'3001'}).reason,'EVIDENCE_ROW_BINDING_MISMATCH'));
+test('rejects evidence with reused source record IDs',()=>assert.equal(check(row,{...e,outcomeRecordId:e.marketRecordId}).reason,'INDEPENDENT_RECORD_IDS_MISSING'));
