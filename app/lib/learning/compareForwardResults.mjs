@@ -1,3 +1,4 @@
+import { nextFiveJpxEquitySessions } from "./jpxEquityCalendar2026.mjs";
 // Research-only comparison. Never used by live scoring or notifications.
 const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 export function compareForwardResults(captures, outcomes) {
@@ -42,6 +43,14 @@ export function compareForwardResults(captures, outcomes) {
         return sessions[4] === `${date.year}-${date.month}-${date.day}`;
       })();
     if (!sessionDatesValid) { reject('MISSING_VERIFIED_TRADING_SESSIONS'); continue; }
+    const predictionParts = new Intl.DateTimeFormat('en-US', {
+      timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'
+    }).formatToParts(new Date(capture.scan_received_at));
+    const predictionDate = Object.fromEntries(predictionParts.map(part=>[part.type,part.value]));
+    const expected = nextFiveJpxEquitySessions(`${predictionDate.year}-${predictionDate.month}-${predictionDate.day}`);
+    if (!expected || sessions.some((date,i)=>date!==expected[i])) {
+      reject('JPX_SESSION_CALENDAR_MISMATCH'); continue;
+    }
     accepted.push({ scan_run_id: capture.scan_run_id, code: capture.code, ai_power: capture.ai_power, return_pct: outcome.return_pct, horizon_days: 5 });
   }
   return { accepted, rejected };
