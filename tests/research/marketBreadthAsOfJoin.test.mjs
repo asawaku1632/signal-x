@@ -16,3 +16,7 @@ test('invalid signal clock never joins',()=>assert.equal(joinMarketBreadthResear
 
 test('signal from a different JST trading date cannot join previous day market snapshot',()=>{const r=joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-29T09:15:00+09:00'}]);assert.equal(r.joined.length,0);assert.equal(r.rejected[0].reason,'NO_VERIFIED_AS_OF_MATCH')});
 test('UTC timestamp resolving to same JST trading date can join',()=>{const r=joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-28T00:15:00Z'}]);assert.equal(r.joined.length,1)});
+
+test('market snapshot observed on previous JST date is excluded',()=>{const x={...m,observedAt:'2026-10-27T23:59:00+09:00'};assert.equal(joinMarketBreadthResearch([x],[s]).joined.length,0)});
+test('market snapshot observed on future JST date is excluded',()=>{const x={...m,observedAt:'2026-10-29T00:01:00+09:00'};assert.equal(joinMarketBreadthResearch([x],[s]).joined.length,0)});
+test('market snapshot in UTC resolving to same JST date remains eligible',()=>{const x={...m,observedAt:'2026-10-28T00:00:00Z'};assert.equal(joinMarketBreadthResearch([x],[s]).joined.length,1)});
