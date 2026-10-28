@@ -1,0 +1,25 @@
+name: Research Stage786-815 Market Regime Replication
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/shadowRegimeReplication.ts'
+      - 'tests/stage786-815-shadow-regime.test.cjs'
+      - '.github/workflows/research-stage786-815-regimes.yml'
+permissions:
+  contents: read
+jobs:
+  regimes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage786-815-shadow-regime.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

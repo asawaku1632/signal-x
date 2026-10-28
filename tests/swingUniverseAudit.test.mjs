@@ -119,3 +119,20 @@ test("the mobile UI shows 1/3/5/10 day counts, downside, missingness and EXIT di
   assert.match(page, /実際の「撤退候補」/);
   assert.doesNotMatch(page, /自動購入|買い確定/);
 });
+
+test("research capture accepts numeric and alphanumeric stock codes", () => {
+  const pattern = /^(?:[0-9]{4}|[0-9]{3}[A-Z])$/;
+
+  assert.match(
+    audit,
+    /if \(!\/\^\(\?:\[0-9\]\{4\}\|\[0-9\]\{3\}\[A-Z\]\)\$\/\.test\(row\.code\)/
+  );
+
+  for (const code of ["7203", "1301", "590A", "641A", "642A"]) {
+    assert.equal(pattern.test(code), true);
+  }
+
+  for (const code of ["123", "12345", "59A", "ABCD", "590a"]) {
+    assert.equal(pattern.test(code), false);
+  }
+});

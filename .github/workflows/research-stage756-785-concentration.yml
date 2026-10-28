@@ -1,0 +1,25 @@
+name: Research Stage756-785 Shadow Concentration
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/shadowConcentrationAudit.ts'
+      - 'tests/stage756-785-concentration.test.cjs'
+      - '.github/workflows/research-stage756-785-concentration.yml'
+permissions:
+  contents: read
+jobs:
+  concentration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage756-785-concentration.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
