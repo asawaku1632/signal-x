@@ -16,7 +16,7 @@ export async function auditSwingFiveDayCalendarPages(pageSize=100,maxPages=10){
   let cursorDate:string|null=null,cursorCode:string|null=null,inspected=0,calendarUnavailable=0;
   const issues:ReturnType<typeof auditFiveDayTradingCalendar>["issues"]=[];
   for(let page=0;page<maxPages;page++){
-   const result=await client.query<FiveDayAuditRow>(`SELECT trade_date::text,code,return_5d::text,outcome_5d_date::text
+   const result: {rows:FiveDayAuditRow[]}=await client.query<FiveDayAuditRow>(`SELECT trade_date::text,code,return_5d::text,outcome_5d_date::text
     FROM public.swing_universe_observations
     WHERE rule_version=$1 AND (return_5d IS NOT NULL OR outcome_5d_date IS NOT NULL)
     AND ($2::date IS NULL OR trade_date < $2::date OR (trade_date = $2::date AND code > $3::text))
@@ -26,7 +26,7 @@ export async function auditSwingFiveDayCalendarPages(pageSize=100,maxPages=10){
    inspected+=audit.inspected;
    issues.push(...audit.issues);
    calendarUnavailable+=audit.issues.filter(x=>x.reason==="MARKET_CALENDAR_UNAVAILABLE").length;
-   const last=result.rows[result.rows.length-1];
+   const last:FiveDayAuditRow=result.rows[result.rows.length-1];
    cursorDate=last.trade_date;cursorCode=last.code;
    if(inspected>=eligible)break;
   }
