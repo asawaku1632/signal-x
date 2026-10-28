@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {linkMarketBreadthProspectiveFiveSessionOutcomes as link} from '../../lib/research/marketBreadthProspectiveFiveSessionLink.mjs';
+const signal={signalRecordId:'signal:20261028:641A',sourceRecordId:'source:20261028:641A',code:'641A',signalGeneratedAt:'2026-10-28T09:05:00+09:00',sourceObservedAt:'2026-10-28T09:01:00+09:00',sourceBarEndAt:'2026-10-28T09:00:00+09:00',provider:'provider-unverified',licenseRecordId:'license:review:001',payload:{aiPower:55}};
+const entry={signal,sourceRecord:{recordId:signal.sourceRecordId,code:signal.code,observedAt:signal.sourceObservedAt,barEndAt:signal.sourceBarEndAt}};
+const sessions=['2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-04','2026-11-05'];
+const outcome={signalRecordId:signal.signalRecordId,code:'641A',tradeDate:'2026-10-28',outcomeTradeDate:'2026-11-05',entryPrice:100,exitPrice:110,independentVerification:true,providerRightsVerified:true};
+test('links only at supplied fifth exchange session and stays unverified externally',()=>{const x=link([entry],[outcome],{verifiedSessions:sessions});assert.equal(x.internallyLinkedCount,1);assert.equal(x.externallyVerifiedCount,0);assert.equal(x.linked[0].returnPercent,10.000000000000009);assert.equal(x.productionEligible,false)});
+test('rejects calendar-day rather than fifth-session date',()=>{const x=link([entry],[{...outcome,outcomeTradeDate:'2026-11-02'}],{verifiedSessions:sessions});assert.equal(x.blocked[0].reason,'OUTCOME_BINDING_MISMATCH')});
+test('missing calendar fails closed',()=>{const x=link([entry],[outcome]);assert.equal(x.blocked[0].reason,'VERIFIED_EXCHANGE_CALENDAR_MISSING')});
+test('duplicate outcomes fail closed',()=>{const x=link([entry],[outcome,outcome],{verifiedSessions:sessions});assert.equal(x.blocked[0].reason,'DUPLICATE_OUTCOME')});
+test('unverified provider rights fail closed',()=>{const x=link([entry],[{...outcome,providerRightsVerified:false}],{verifiedSessions:sessions});assert.equal(x.blocked[0].reason,'INDEPENDENT_EVIDENCE_NOT_ATTESTED')});
+test('no fabricated outcome for missing result',()=>{const x=link([entry],[],{verifiedSessions:sessions});assert.equal(x.blocked[0].reason,'OUTCOME_MISSING')});
