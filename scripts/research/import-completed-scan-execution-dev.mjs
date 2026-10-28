@@ -12,6 +12,10 @@ import { ingestCompletedScanExecutionDev } from "../../app/lib/learning/ingestCo
 async function main() {
   if (process.env.NODE_ENV !== "development" || process.env.SIGNALX_RESEARCH_DEV_WRITE !== "true")
     throw new Error("RESEARCH_IMPORT_DISABLED");
+  // Offline import also persists market-derived observations; require the
+  // same explicit research-use permission gate as direct development capture.
+  if (process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED !== "true")
+    throw new Error("RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED");
   const path = process.env.SIGNALX_RESEARCH_EXECUTION_INPUT;
   if (!path || !path.startsWith("/")) throw new Error("ABSOLUTE_EXECUTION_INPUT_REQUIRED");
   const url = process.env.DATABASE_URL;
