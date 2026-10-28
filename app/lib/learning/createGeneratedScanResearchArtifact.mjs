@@ -3,7 +3,10 @@ import { buildGeneratedScanResearchEnvelope } from "./buildGeneratedScanResearch
 
 // Offline adapter for a fresh Scan result captured by a development caller.
 // No calls to runScan or production routes. Timestamps must originate at execution.
-export function createGeneratedScanResearchArtifact({ scanResult, scanStartedAt, scanCompletedAt, scanRunId = randomUUID() }) {
+export function createGeneratedScanResearchArtifact(execution) {
+  if (!execution || typeof execution !== "object")
+    return {accepted:false,reason:"INVALID_SCAN_EXECUTION",artifact:null};
+  const {scanResult,scanStartedAt,scanCompletedAt,scanRunId=randomUUID()} = execution;
   const completed = Date.parse(scanCompletedAt);
   if (!Number.isFinite(completed)) return { accepted:false, reason:"INVALID_COMPLETION_TIME", artifact:null };
   const dateParts = new Intl.DateTimeFormat("en-US", {
