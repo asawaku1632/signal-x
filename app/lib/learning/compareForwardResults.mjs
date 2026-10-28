@@ -24,6 +24,24 @@ export function compareForwardResults(captures, outcomes) {
     const outcome = matches[0];
     if (outcome.independent_source_verified !== true || !validTime(outcome.observed_at) || Date.parse(outcome.observed_at) <= Date.parse(capture.scan_received_at) || !Number.isFinite(outcome.return_pct)) { reject('UNVERIFIED_FUTURE_OUTCOME'); continue; }
     if (outcome.horizon_days !== 5 || outcome.outcome_version !== 'forward-v1' || outcome.horizon_verified !== true) { reject('MISMATCHED_HORIZON'); continue; }
+    // Five *market sessions*, not five calendar days. The list must come from
+    // an independently verified exchange calendar; it is not generated here.
+    const sessions = outcome.verified_session_dates;
+    const dateRe = /^\\d{4}-\\d{2}-\\d{2}$/;
+    const validDay = day => typeof day === 'string' && dateRe.test(day)
+      && !Number.isNaN(Date.parse(day+'T00:00:00Z'))
+      && new Date(day+'T00:00:00Z').toISOString().slice(0,10) === day;
+    const sessionDatesValid = Array.isArray(sessions) && sessions.length === 5
+      && sessions.every(validDay)
+      && sessions.every((day,i)=>i===0 || sessions[i-1] < day)
+      && sessions[4] === new Intl.DateTimeFormat('en-US',{
+        timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',
+      }).formatToParts(new Date(outcome.observed_at))
+        .filter(part=>['year','month','day'].includes(part.type))
+        .reduce((acc,part)=>({...acc,[part.type]:part.value}),{})
+        .year + '-' + new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',month:'2-digit'}).format(new Date(outcome.observed_at))
+        + '-' + new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',day:'2-digit'}).format(new Date(outcome.observed_at));
+    if (!sessionDatesValid) { reject('MISSING_VERIFIED_TRADING_SESSIONS'); continue; }
     accepted.push({ scan_run_id: capture.scan_run_id, code: capture.code, ai_power: capture.ai_power, return_pct: outcome.return_pct, horizon_days: 5 });
   }
   return { accepted, rejected };
