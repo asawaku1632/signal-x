@@ -52,3 +52,11 @@ test("concentration report counts only completed downside cases and duplicate st
   assert.match(page, /filter\(count => count > 1\)/);
   assert.match(page, /独立した試行回数ではありません/);
 });
+
+test("largest-day exclusion exposes limited independent days", () => {
+  assert.match(page, /remaining = eligible\.filter\(row => row\.trade_date !== sorted\[0\]\?\.\[0\]\)/);
+  assert.match(page, /remainingAverage/);
+  assert.match(page, /最多判定日を除外/);
+  assert.match(page, /remainingDays < 3/);
+  assert.match(page, /再現性評価には不足しています/);
+});
