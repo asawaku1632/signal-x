@@ -4,7 +4,7 @@ const stamp=v=>typeof v==="string"&&/(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isF
 const int=v=>Number.isSafeInteger(v)&&v>=0;
 export function inspectSnapshotConsistency(meta, aggregate, rows, evidence) {
  const issues=[];
- if(!meta||typeof meta!=="object"||Array.isArray(meta))return {status:"BLOCKED",issues:["INVALID_ENVELOPE"],independentlyVerified:false};
+ if(!meta||typeof meta!=="object"||Array.isArray(meta))return {status:"BLOCKED",issues:["INVALID_ENVELOPE"],independentlyVerified:false,productionEligible:false};
  if(!aggregate||typeof aggregate!=="object"||Array.isArray(aggregate))issues.push("INVALID_AGGREGATE");
  if(!Array.isArray(rows))issues.push("INVALID_ROWS");
  if(!Array.isArray(evidence))issues.push("INVALID_EVIDENCE");
