@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reviewMarketBreadthSelectionSensitivity as review} from '../../lib/research/marketBreadthSelectionSensitivity.mjs';
+const dates=['2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-04'];
+const row=(code,date,r,b)=>({code,tradeDate:date,signalRecordId:'research:'+code+date,baselineRecordId:'baseline:'+code+date,researchReturnPercent:r,baselineReturnPercent:b,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+test('ascending and descending code rules can disagree',()=>{const x=review({pairs:[row('590A',dates[0],2,1),row('641A',dates[0],10,1)],verifiedSessions:dates,minSelectedDates:1});assert.equal(x.results.CODE_ASC.meanPairedDeltaPercentagePoints,1);assert.equal(x.results.CODE_DESC.meanPairedDeltaPercentagePoints,9);assert.equal(x.results.ALL_DATE_MEAN.meanPairedDeltaPercentagePoints,5);assert.equal(x.independentlyVerifiedImprovement,false)});
+test('overlapping next date is excluded under all rules',()=>{const x=review({pairs:[row('590A',dates[0],2,1),row('641A',dates[1],10,1)],verifiedSessions:dates,minSelectedDates:1});for(const rule of x.selectionRules)assert.equal(x.results[rule].selectedDates,1)});
+test('five sessions apart are both selected',()=>{const x=review({pairs:[row('590A',dates[0],2,1),row('641A',dates[5],10,1)],verifiedSessions:dates,minSelectedDates:2});for(const rule of x.selectionRules)assert.equal(x.results[rule].selectedDates,2)});
+test('empty sample is not positive evidence',()=>{const x=review({verifiedSessions:dates});assert.equal(x.descriptivePositiveAcrossRules,false);assert.equal(x.allRulesSampleReady,false)});
+test('invalid minimum is rejected',()=>{assert.throws(()=>review({verifiedSessions:dates,minSelectedDates:0}),/INVALID_MIN_SELECTED_DATES/)});
