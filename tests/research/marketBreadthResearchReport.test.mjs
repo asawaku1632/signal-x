@@ -14,3 +14,6 @@ test('invalid negative counts are not displayed',()=>assert.equal(report({audit:
 test('caller supplied ready flag cannot bypass minimum samples',()=>{const r=report({audit:{acceptedCount:2},cohorts:{comparisonReady:true,divergence:{...group,n:1},other:{...group,n:1}}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
 test('caller supplied ready flag cannot bypass trading-day floor',()=>{const r=report({audit:{acceptedCount:60},cohorts:{comparisonReady:true,divergence:{...group,uniqueDates:1},other:group}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
 test('audit count must reconcile with cohort totals',()=>{const r=report({audit:{acceptedCount:999},cohorts:{comparisonReady:true,divergence:group,other:group}});assert.equal(r.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
+
+test('empty report quantifies missing verified observations and dates',()=>{const x=report();assert.deepEqual(x.minimumEvidenceShortfall,{divergenceObservations:30,otherObservations:30,divergenceTradingDays:10,otherTradingDays:10})});
+test('partial cohort reports remaining minimum evidence without negative counts',()=>{const x=report({cohorts:{divergence:{...group,n:18,uniqueDates:4},other:{...group,n:42,uniqueDates:12}}});assert.deepEqual(x.minimumEvidenceShortfall,{divergenceObservations:12,otherObservations:0,divergenceTradingDays:6,otherTradingDays:0})});
