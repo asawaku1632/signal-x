@@ -14,3 +14,6 @@ test('unique date requirement blocks misleading small samples',()=>{const s=summ
 test('zero thresholds cannot make empty groups ready',()=>assert.equal(summary([],{minPerCohort:0,minDates:0}).comparisonReady,false));
 test('negative thresholds cannot weaken evidence floor',()=>assert.equal(summary([r('3001','INDEX_BREADTH_DIVERGENCE'),r('3002','OBSERVED')],{minPerCohort:-100,minDates:-10}).comparisonReady,false));
 test('invalid threshold types fail to safe defaults',()=>assert.equal(summary([r('3001','INDEX_BREADTH_DIVERGENCE'),r('3002','OBSERVED')],{minPerCohort:NaN,minDates:'0'}).comparisonReady,false));
+
+test('same security and date with different signal times is fully quarantined',()=>{const first=r('3001','OBSERVED');const second={...first,signalGeneratedAt:'2026-10-28T09:16:00+09:00'};const s=summary([first,second]);assert.equal(s.other.n,0);assert.equal(s.rejectionCounts.DUPLICATE,2)});
+test('different securities remain separate cohort observations',()=>{const s=summary([r('3001','OBSERVED'),r('3002','OBSERVED')]);assert.equal(s.other.n,2)});
