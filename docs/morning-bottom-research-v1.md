@@ -66,3 +66,25 @@ This is the saved **daily** dataset, not 5-minute/15-minute OHLC and not a trada
 **Interpretation lock:** These descriptive returns are computed as `100 * (next_price / price - 1)` from stored columns. They do not establish executable fill, next-day horizon, price-source quality, sign/direction-adjusted performance, risk-adjusted advantage, calibrated probabilities, or morning-low timing. The raw data do not show a monotonic positive relationship between higher stored `score` and positive later price. Do not ship a score-to-trading-signal rule from these aggregates.
 
 Next: verify `next_price` timing and `score` generation code; stratify by market direction and date and run chronological held-out tests. Morning-low research separately requires complete provenance-verified intraday OHLC, which is not furnished by this daily table.
+
+
+## Follow-up daily learning audit (2026-10-29, SELECT-only)
+
+Code inspection in `app/lib/dailyLearning.ts` shows stored `score` is selected from `stock.score ?? stock.aiPower ?? 0`; do not assume historical score is uniformly current AI POWER. In `app/lib/learning/checkDailyRunner.ts`, the candidate comparison date is the next available stored date selected by the runner's completeness guard, and `next_price` is the saved `price` of the matching code on that selected date. Historical population may include different legacy runner versions and needs independent provenance auditing.
+
+`daily_result_price_provenance` (production read-only snapshot): 11,436 provenance rows with target trade dates between 2026-10-09 and 2026-10-27. 11,194 satisfy the full target/source/date/price/code consistency join (97.88%); 242 do not. Component breakdown: target `next_price` mismatch 242; missing target row 0, missing source row 0, source `price` mismatch 0, judged result mismatch 0, target date mismatch 0, source date mismatch 0. Preserve as an audit anomaly, not proof of a specific cause. Do not treat all 70,283 priced comparisons as provenance-verified.
+
+### Ex-post market-wide date regimes — descriptive, NOT predictive
+
+This stratification groups each **completed date** by the mean saved price change across its priced records: `BROAD_UP` > +0.25%, `BROAD_DOWN` < -0.25%, otherwise `FLAT`. The regime therefore uses outcomes and **must never be an input to a pre-trade recommendation**. Score bands and dates have unequal population sizes.
+
+| Ex-post regime | Stored score | Rows | Dates | Mean change | Positive fraction |
+| --- | --- | ---: | ---: | ---: | ---: |
+| BROAD_DOWN | <85 | 15,108 | 20 | -1.2051% | 30.13% |
+| BROAD_DOWN | >=85 | 3,536 | 18 | -1.1823% | 29.10% |
+| BROAD_UP | <85 | 22,509 | 30 | +0.7792% | 67.27% |
+| BROAD_UP | >=85 | 5,218 | 27 | +0.7759% | 65.96% |
+| FLAT | <85 | 18,658 | 25 | +0.0349% | 40.06% |
+| FLAT | >=85 | 5,254 | 24 | -0.0109% | 37.32% |
+
+Future research must use **prior-day observable** market-state features instead of this retrospective label, audit the 242 provenance discrepancies without modifying originals, and compare held-out chronological cohorts. None of this is intraday OHLC evidence.
