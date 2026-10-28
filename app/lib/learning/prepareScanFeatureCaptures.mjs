@@ -4,7 +4,7 @@ import { validateScanFeatureCapture } from "./scanFeatureCaptureValidation.mjs";
 export function prepareScanFeatureCaptures({ scanRunId, tradeDate, scanReceivedAt, scanResponse }) {
   const stocks = Array.isArray(scanResponse?.stocks) ? scanResponse.stocks : [];
   // Unknown cache state is not evidence of a fresh Scan. 
-  const cached = scanResponse?.cached !== false;
+  const cached = scanResponse?.cached !== false || (scanResponse?.status != null && scanResponse.status !== "fresh");
   const rows = [];
   const seen = new Set();
   for (const stock of stocks) {
