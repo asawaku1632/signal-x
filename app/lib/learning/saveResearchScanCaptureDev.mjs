@@ -24,9 +24,15 @@ export async function saveResearchScanCaptureDev(client, input) {
   const validDate = typeof tradeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tradeDate)
     && !Number.isNaN(Date.parse(tradeDate + "T00:00:00Z"))
     && new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) === tradeDate;
+  // Trade date must agree with the Scan receipt date in Japan, never with UTC's date.
+  const receivedDateJst = Number.isFinite(received)
+    ? new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date(received))
+    : null;
   const validRunId = typeof input?.scanRunId === "string" && input.scanRunId.trim().length > 0;
   const validScan = Array.isArray(input?.scanResponse?.stocks) && input.scanResponse.stocks.length > 0;
-  if (!Number.isFinite(received) || !validDate || !validRunId || !validScan) {
+  if (!Number.isFinite(received) || !validDate || tradeDate !== receivedDateJst || !validRunId || !validScan) {
     throw new Error("INVALID_RESEARCH_RUN_METADATA");
   }
   const rows = prepareScanFeatureCaptures(input);
