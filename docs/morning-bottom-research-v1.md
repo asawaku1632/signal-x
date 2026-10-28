@@ -176,3 +176,12 @@ The frozen shadow evaluator now fails closed unless every candidate includes `fe
 - Schema inspection: `daily_stock_results` has `date`, `score`, `created_at`, but no explicit immutable `featureAvailableAt` or separate point-in-time provenance for `previousScore` and `prior3ReturnPct`. `created_at` is not by itself proof that every feature was available as of the previous trading day's close. `daily_result_price_provenance` traces later outcome source, not all prior-day features.
 - These results document **outcome traceability only** for a subset. They do not establish that 11,436 records pass the frozen prospective evaluator's required pre-trade feature provenance. Do not label any number as fully eligible until a separate as-of feature audit has been completed. Do not populate the `featureProvenanceVerified` flag by assumption.
 - This inventory is for daily outcomes, not raw historical morning OHLC. No live wiring, bulk fetch, database mutation or deployment was performed.
+
+
+## Daily snapshot chronology inspection (2026-10-29, production SELECT-only)
+
+Source: `public.daily_stock_results` (71,289 records). Comparing the date component of `created_at` with stored `date`: 71,289 saved on the same calendar date as their target date; **zero** rows bear an earlier calendar date in this comparison. `created_at` is a timestamp *without time zone*: the raw date comparison is not evidence of the clock timezone or pre-market availability. The observed timestamp range was `2026-06-29 12:12:40.172293` to `2026-10-28 06:35:34.503624`.
+
+When records are ordered by `date` within each `code`, 70,322 rows have an earlier saved-score observation with an earlier-date creation timestamp; 967 have no preceding saved row. 68,388 rows have an earlier third-preceding saved date. These counts are structural availability of **prior historical rows**, not assurance that current-day score, all constituent signals, or the retrospectively computed prior-3-row change were genuinely frozen at a permissible decision cutoff.
+
+**Safety decision:** do not infer `featureProvenanceVerified=true` or `featureAvailableAt` for current-day features from this table's `created_at`. Prospective rule evaluation remains blocked until an independently auditable, timestamped pre-decision feature snapshot exists. Prior-row signals may be researched separately after verifying the original timestamps, source definitions, trading-calendar continuity, and score-version changes. No live signal activation.
