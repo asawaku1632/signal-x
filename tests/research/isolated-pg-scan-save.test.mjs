@@ -93,7 +93,7 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     const priorNode=process.env.NODE_ENV;
     const priorCapture=process.env.SIGNALX_RESEARCH_CAPTURE;
     try {
-      process.env.NODE_ENV="development";
+      process.env.NODE_ENV="test";
       process.env.SIGNALX_RESEARCH_CAPTURE="true";
       let calls=0;
       const dates=["2026-10-28T06:29:00Z","2026-10-28T06:35:00Z"];
