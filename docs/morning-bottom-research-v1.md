@@ -211,3 +211,18 @@ For saved records dated 2026-09-02 onward, with positive `price`/`next_price`, p
 For post-2026-09-02 priced observations with previous saved score >=85 and a preceding record created on an earlier date: 5,087 observations, 924 codes. Summed observation returns equal +171.4905 percentage points, a **non-investable arithmetic sum**, not portfolio returns. Summing per-code contributions: positive-code contributions totaled +1746.4442 points, negative-code contributions -1574.9538 points; highest individual code total +53.0825, lowest -95.1526 points. Opposing stock contributions largely cancel. Do not infer actual P/L or weights.
 
 For the 38 comparable dates with >=10 observations in each previous-score cohort, same-date mean high-minus-low difference was +0.1500 percentage points. Clipping each individual saved-price return to [-5%,+5%] **before** computing group daily means and then averaging equally across dates resulted in +0.1286 pp. Thus extreme individual observations do not entirely explain the daily gap. A separate retrospective diagnostic excluding the three largest absolute day gaps yielded +0.0319 pp. These are distinct sensitivity methods and should not be conflated. No statistical significance or reliable tradable advantage has been established; dates, code weights, as-of score provenance, and executable pricing remain limitations.
+
+
+## Batch offline robustness implementation and late-period regime audit (2026-10-29)
+
+The standalone pure offline function `researchPriorScoreDailyGaps` was added to `app/lib/research/priorScoreRobustness.mjs`; a dedicated 34-case regression suite was added and wired into `morning-analog-ci.yml`. It accepts caller-supplied observations only; **no database, quote, cron, trading, alert, or API actions** are implemented. Input requires prior-score evidence date before target day, explicit provenance assertion for prior score, and a verified later-price date. These fields are assertions to be independently audited and **cannot** be populated by assumption.
+
+Within the 38 comparable dates from 2026-09-02 onward, classify each date based on the **observed full-day mean saved-price return**, which is retrospectively available only. A common-date difference measures prior-score >=85 group return minus prior-score <85 group return.
+
+| Ex-post regime | Dates | Equal-date mean gap (pp) | Days high group outperformed |
+| --- | ---: | ---: | ---: |
+| UP (day mean > +0.25%) | 13 | +0.3141 | 8 |
+| FLAT (between -0.25 and +0.25%) | 13 | +0.0979 | 7 |
+| DOWN (day mean < -0.25%) | 12 | +0.0287 | 6 |
+
+The greatest descriptive gap occurs in UP days, but this is **not** a usable pretrade market-state classifier. Outcomes determine the regime, so reusing it as a day-of-decision signal would be lookahead. Previous extreme-date and clip-sensitivity warnings still apply. No operational benefit has been established.
