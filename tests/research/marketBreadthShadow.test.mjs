@@ -7,3 +7,7 @@ test('fails closed without verified license',()=>assert.equal(classifyMarketBrea
 test('fails closed on missing counts',()=>assert.equal(classifyMarketBreadth({...sample,decliners:undefined}).status,'UNAVAILABLE'));
 test('does not flag a broad advance',()=>assert.equal(classifyMarketBreadth({...sample,advancers:1100,decliners:400,topixChangePct:1}).status,'OBSERVED'));
 test('rejects inconsistent trade date',()=>assert.equal(classifyMarketBreadth({...sample,tradeDate:'2026-10-27'}).status,'UNAVAILABLE'));
+
+test('rejects impossible observation calendar day',()=>assert.equal(classifyMarketBreadth({...sample,tradeDate:'2026-03-02',observedAt:'2026-02-30T11:30:00+09:00'}).status,'UNAVAILABLE'));
+test('rejects impossible observation clock hour',()=>assert.equal(classifyMarketBreadth({...sample,observedAt:'2026-10-28T25:30:00+09:00'}).status,'UNAVAILABLE'));
+test('accepts equivalent UTC observation on same JST date',()=>assert.equal(classifyMarketBreadth({...sample,observedAt:'2026-10-28T02:30:00Z'}).status,'INDEX_BREADTH_DIVERGENCE'));
