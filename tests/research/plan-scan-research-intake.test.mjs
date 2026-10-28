@@ -16,6 +16,8 @@ test("intake isolates eligible as-of candidates but never verifies them",()=>{
  assert.equal(x.valid_for_storage,true);
  assert.equal(x.candidate_count,1);
  assert.equal(x.blocked_count,2);
+ assert.equal(x.blocked_reasons.MISSING_OR_INVALID_TIMESTAMP,1);
+ assert.equal(x.blocked_reasons.DUPLICATE_CODE,1);
  assert.equal(x.rows[0].capture_status,"QUARANTINED");
  assert.equal(x.requires_independent_evidence,true);
  assert.equal(x.ai_power_recalculated,false);
