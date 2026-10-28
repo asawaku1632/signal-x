@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {assessMarketBreadthPromotionReadiness as assess} from '../../lib/research/marketBreadthPromotionReadiness.mjs';
+const group={n:100,uniqueDates:20,uniqueSymbols:30};
+const report={researchOnly:true,productionEligible:false,status:'DESCRIPTIVE_COMPARISON_READY',divergence:group,other:group};
+test('even full descriptive data cannot activate trading',()=>{const r=assess(report);assert.equal(r.productionEligible,false);assert.equal(r.notificationEligible,false);assert.equal(r.readyForHumanResearchReview,true)});
+test('empty data is blocked',()=>assert.equal(assess().readyForHumanResearchReview,false));
+test('missing market cohort is blocked',()=>assert.ok(assess({...report,other:null}).blockers.includes('OTHER_SAMPLE_INSUFFICIENT')));
+test('few dates block review',()=>assert.ok(assess({...report,divergence:{...group,uniqueDates:2}}).blockers.includes('DIVERGENCE_SAMPLE_INSUFFICIENT')));
+test('few symbols block review',()=>assert.ok(assess({...report,other:{...group,uniqueSymbols:2}}).blockers.includes('OTHER_SAMPLE_INSUFFICIENT')));
+test('untrusted production boundary blocks review',()=>assert.ok(assess({...report,productionEligible:true}).blockers.includes('RESEARCH_BOUNDARY_NOT_PROVEN')));
+test('always requires independent license and human approval',()=>{const r=assess(report);assert.ok(r.blockers.includes('INDEPENDENT_LICENSE_AUDIT_NOT_ATTESTED'));assert.ok(r.blockers.includes('HUMAN_PRODUCTION_APPROVAL_REQUIRED'))});
