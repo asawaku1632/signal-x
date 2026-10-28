@@ -9,6 +9,9 @@ const finite = x => typeof x === "number" && Number.isFinite(x);
 const round = x => Number(x.toFixed(4));
 const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
 const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
+const priorSnapshot = (stamp, tradeDate) => typeof stamp === "string" &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
+  Number.isFinite(Date.parse(stamp)) && stamp.slice(0,10) < tradeDate;
 const quantile = (xs,q) => {
   if(!xs.length)return null;
   const sorted=[...xs].sort((a,b)=>a-b),p=(sorted.length-1)*q,i=Math.floor(p);
@@ -61,10 +64,14 @@ export function summarizeAnalogs(target, histories, options={}) {
     throw Error("INVALID_ANALOG_INPUT");
   const keys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
   const weights=options.weights??{priorReturnPct:1,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1};
+  const maxAnalogs=options.maxAnalogs??100;
+  if(!Number.isInteger(maxAnalogs)||maxAnalogs<1||
+     keys.some(k=>!finite(weights[k])||weights[k]<0))
+    throw Error("INVALID_ANALOG_OPTIONS");
   const usableFeatures = row => keys.every(k=>finite(row?.features?.[k]));
   if(!usableFeatures(target))throw Error("MISSING_PRIOR_DAY_FEATURES");
   const pool=histories.filter(row=>row && row.tradeDate<target.tradeDate &&
-    row.featureAvailableAt && row.featureAvailableAt.slice(0,10)<row.tradeDate &&
+    priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
     row.outcome.date===row.tradeDate &&
     positive(row.outcome.bottomPrice) && finite(row.outcome.bottomDropPct) &&
@@ -72,7 +79,7 @@ export function summarizeAnalogs(target, histories, options={}) {
   const ranked=pool.map(row=>({row,distance:keys.reduce((sum,k)=>
     sum+Math.abs(row.features[k]-target.features[k])*(weights[k]??1),0)}))
     .sort((a,b)=>a.distance-b.distance || a.row.tradeDate.localeCompare(b.row.tradeDate));
-  const selected=ranked.slice(0,options.maxAnalogs??100).map(x=>x.row);
+  const selected=ranked.slice(0,maxAnalogs).map(x=>x.row);
   const drops=selected.map(x=>x.outcome.bottomDropPct);
   const times=selected.map(x=>minute(x.outcome.bottomWindow));
   const rebounds1=selected.filter(x=>typeof x.outcome.rebound1pct==="boolean");
