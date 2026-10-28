@@ -1,0 +1,25 @@
+name: Research Stage171-175 Evidence Envelope
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceEnvelope.ts'
+      - 'tests/stage171-175-evidence-envelope.test.cjs'
+      - '.github/workflows/research-stage171-175-envelope.yml'
+permissions:
+  contents: read
+jobs:
+  envelope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage171-175-evidence-envelope.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
