@@ -55,3 +55,17 @@ test("foreign database is denied before real Scan invocation",async()=>{
   assert.equal(scanCalls,0);assert.equal(sqlCalls,0);
  } finally {for(const k of keys) if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}
 });
+
+test("invalid dev client cannot trigger market Scan",async()=>{
+ const keys=["NODE_ENV","SIGNALX_RESEARCH_CAPTURE","SIGNALX_RESEARCH_DEV_WRITE","SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED"];
+ const saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ let scanCalls=0;
+ try {
+  process.env.NODE_ENV="development";
+  process.env.SIGNALX_RESEARCH_CAPTURE="true";
+  process.env.SIGNALX_RESEARCH_DEV_WRITE="true";
+  process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED="true";
+  await assert.rejects(execute(async()=>{scanCalls++;return {};},{connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"}},{limit:1}),/INVALID_DB_CLIENT/);
+  assert.equal(scanCalls,0);
+ } finally {for(const k of keys) if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
+});
