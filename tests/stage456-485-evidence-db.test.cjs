@@ -3,7 +3,9 @@ const u=new URL(process.env.SIGNALX_E2E_DATABASE_URL||'');for(const [k,v] of Obj
 const pool=new Pool({connectionString:u.href,ssl:false});
 function load(p,imports={}){const m={exports:{}};new vm.Script(ts.transpileModule(fs.readFileSync(p,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText).runInNewContext({module:m,exports:m.exports,require:k=>{if(!(k in imports))throw Error(k);return imports[k]},Number});return m.exports}
 const classifier=load('app/lib/learning/researchEvidenceClassification.ts');
-const fn=load('app/lib/learning/storedEvidenceClassification.ts',{'@/app/lib/postgres':{default:pool},'@/app/lib/learning/swingUniverseAudit':{UNIVERSE_SWING_RULE_VERSION:'ai_power_only_v1'},'@/app/lib/learning/researchEvidenceClassification':classifier}).readStoredResearchEvidenceClassification;
+const calendar=load('app/lib/technicalObservation/tseMarketCalendar.ts');
+const audit=load('app/lib/learning/swingFiveDayCalendarAudit.ts',{'@/app/lib/technicalObservation/tseMarketCalendar':calendar});
+const fn=load('app/lib/learning/storedEvidenceClassification.ts',{'@/app/lib/postgres':{default:pool},'@/app/lib/learning/swingUniverseAudit':{UNIVERSE_SWING_RULE_VERSION:'ai_power_only_v1'},'@/app/lib/learning/researchEvidenceClassification':classifier,'@/app/lib/learning/swingFiveDayCalendarAudit':audit}).readStoredResearchEvidenceClassification;
 test('stages456-485: thirty real PostgreSQL preview conditions',async()=>{try{
  await pool.query('CREATE TABLE public.swing_universe_observations(trade_date date,code text,rule_version text,return_5d numeric,outcome_5d_date date)');
  const checks=[];
