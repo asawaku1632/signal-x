@@ -5,6 +5,7 @@ import { saveResearchScanCaptureDev } from "../../app/lib/learning/saveResearchS
 import { buildGeneratedScanResearchEnvelope } from "../../app/lib/learning/buildGeneratedScanResearchEnvelope.mjs";
 import { previewGeneratedScanResearchCapture } from "../../app/lib/learning/previewGeneratedScanResearchCapture.mjs";
 import { ingestGeneratedScanIntoResearchDev } from "../../app/lib/learning/ingestGeneratedScanIntoResearchDev.mjs";
+import { captureAndIngestResearchDevScan } from "../../app/lib/learning/captureAndIngestResearchDevScan.mjs";
 
 test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
   if (process.env.SIGNALX_RESEARCH_ISOLATED_PG !== "true") {
@@ -88,6 +89,46 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     assert.equal(devIngest.duplicates,1);
     assert.equal(devIngest.promoted,false);
 
+    // Actual end-to-end execution bridge: scan -> quarantine -> SQL -> dedupe.
+    const priorNode=process.env.NODE_ENV;
+    const priorCapture=process.env.SIGNALX_RESEARCH_CAPTURE;
+    try {
+      process.env.NODE_ENV="development";
+      process.env.SIGNALX_RESEARCH_CAPTURE="true";
+      let calls=0;
+      const dates=["2026-10-28T06:29:00Z","2026-10-28T06:35:00Z"];
+      const run=async(limit)=>{
+        calls++;
+        assert.equal(limit,1);
+        return {stocks:[{code:"642A",price:1400,aiPower:72,
+          latestBarTimestamp:Date.parse("2026-10-28T06:30:00Z")/1000,
+          dataSource:"intraday"}],
+          diagnostics:{targetStockCount:1,analyzedSuccessCount:1,analyzedFailureCount:0}};
+      };
+      const makeOptions=()=>({limit:1,id:()=>"ci-composed-dev-run",
+        now:()=>new Date(dates.shift())});
+      const firstBridge=await captureAndIngestResearchDevScan(run,client,makeOptions());
+      assert.equal(firstBridge.inserted,1);
+      assert.equal(firstBridge.promoted,false);
+      const observed=await client.query(
+        "SELECT code,capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",
+        ["ci-composed-dev-run"]);
+      assert.equal(observed.rowCount,1);
+      assert.equal(observed.rows[0].code,"642A");
+      assert.equal(observed.rows[0].capture_status,"QUARANTINED");
+      assert.equal(calls,1);
+      dates.push("2026-10-28T06:29:00Z","2026-10-28T06:35:00Z");
+      const repeated=await captureAndIngestResearchDevScan(run,client,makeOptions());
+      assert.equal(repeated.inserted,0);
+      assert.equal(repeated.duplicates,1);
+      assert.equal(calls,2);
+    } finally {
+      if(priorNode===undefined)delete process.env.NODE_ENV;
+      else process.env.NODE_ENV=priorNode;
+      if(priorCapture===undefined)delete process.env.SIGNALX_RESEARCH_CAPTURE;
+      else process.env.SIGNALX_RESEARCH_CAPTURE=priorCapture;
+    }
+
     const generatedRow=await client.query(
       "SELECT capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",
       ["ci-generated-envelope"]);
@@ -99,10 +140,11 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     assert.equal(second.inserted,0);
     assert.equal(second.duplicates,1);
     const actual = await client.query("SELECT scan_run_id,code,capture_status,audit_reason FROM public.research_scan_feature_captures ORDER BY scan_run_id");
-    assert.equal(actual.rowCount,2);
+    assert.equal(actual.rowCount,3);
     assert.equal(actual.rows[0].scan_run_id,"ci-generated-envelope");
     assert.equal(actual.rows[0].code,"590A");
     assert.equal(actual.rows[1].scan_run_id,"ci-isolated-run");
+    assert.equal(actual.rows[2].scan_run_id,"ci-composed-dev-run");
     assert.equal(actual.rows[1].code,"590A");
     assert.equal(actual.rows[1].capture_status,"QUARANTINED");
     assert.equal(actual.rows[0].capture_status,"QUARANTINED");
