@@ -1,0 +1,21 @@
+name: Research Stage1146-1175 Readonly Evidence Reconciliation
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchRealEvidenceReconciliation.mjs'
+      - 'tests/stage1146-1175-real-evidence.test.mjs'
+      - '.github/workflows/research-stage1146-1175-real-evidence.yml'
+permissions:
+  contents: read
+jobs:
+  no-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1146-1175-real-evidence.test.mjs
