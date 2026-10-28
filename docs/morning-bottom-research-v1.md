@@ -104,3 +104,17 @@ Table-name discovery in the `public` schema for `bar`, `minute`, `intraday`, `ca
 - Source inspection shows existing **fetch-only** paths for Yahoo Finance 5m candles: `app/lib/research/entryTimeShadowRunner.ts` and `app/lib/research/weakAiReboundRunner.ts` use `range=5d&interval=5m`; `app/lib/research/morningFinalCheckRunner.ts` and `app/api/stock/[code]/route.ts` use `range=1d&interval=5m`. These URLs establish code behavior, not provider licensing, coverage guarantees, or persistence.
 - Do **not** run bulk fetches or backfills, add cron, or treat Yahoo endpoints as commercially licensed historical research storage based on these findings. Confirm provider terms, data provenance, timestamp meaning, bar completeness and retention permission before generating actual intraday statistics.
 - Near-term best evidence remains the 70,283 matched daily records, with outcome-price provenance limitations already documented above. Train/test split must respect trade dates, and a snapshot's `score` cannot be presumed to be the same algorithm across all stored dates.
+
+
+## Chronological daily saved-score split (2026-10-29, SELECT-only)
+
+Exploratory split of **75 distinct matched outcome dates**, ordered by stored target date; first 37 dates TRAIN (2026-06-29 through 2026-09-01), remaining 38 dates HOLDOUT (2026-09-02 through 2026-10-27). The cut is by date, not a random split of stock rows. Score 85 is a fixed illustrative threshold, **not** a retrospectively optimized rule. All comparisons use `100*(next_price/price-1)`; this is not a tradable execution backtest.
+
+| Split | Stored score | Rows | Dates represented | Mean return | Median return | Positive fraction |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| TRAIN | >=85 | 9,233 | 31 | +0.0613% | 0.0000% | 47.35% |
+| TRAIN | <85 | 24,793 | 37 | +0.0865% | 0.0000% | 49.50% |
+| HOLDOUT | >=85 | 4,775 | 38 | -0.1581% | -0.0638% | 43.14% |
+| HOLDOUT | <85 | 31,482 | 38 | -0.0686% | 0.0000% | 47.31% |
+
+**Result:** In this limited split, higher saved score fails to deliver higher positive-price frequency in either period, and the high-score average is negative in the later period. This does not prove the score has zero predictive information after controlling for direction, market regimes and algorithm versions. Group coverage differs by date. Future work: compare date-matched cohorts, verify next-price provenance, score-version consistency, prior-day available features, and risk/cost. This table cannot be used to infer intraday bottom timing, or to activate a signal, trade, or notification.
