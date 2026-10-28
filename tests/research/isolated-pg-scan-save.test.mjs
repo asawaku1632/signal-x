@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import pg from "pg";
 import { saveResearchScanCaptureDev } from "../../app/lib/learning/saveResearchScanCaptureDev.mjs";
 
-test("isolated PostgreSQL: real save, idempotency and rollback", async () => {
+test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
   if (process.env.SIGNALX_RESEARCH_ISOLATED_PG !== "true") {
-    return test.skip("isolated PostgreSQL is opt-in");
+    t.skip("isolated PostgreSQL is opt-in");
+    return;
   }
   const client = new pg.Client({
     host: "127.0.0.1", port: 5432, database: "signalx_research_ci",
@@ -66,5 +67,30 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async () => {
     }
     if (original === undefined) delete process.env.SIGNALX_RESEARCH_DEV_WRITE;
     else process.env.SIGNALX_RESEARCH_DEV_WRITE = original;
+  }
+});
+
+test("isolated CI mode still refuses production host", async () => {
+  const oldEnv=process.env.SIGNALX_RESEARCH_DEV_WRITE;
+  const oldCi=process.env.SIGNALX_RESEARCH_ISOLATED_PG;
+  const oldNode=process.env.NODE_ENV;
+  try {
+    process.env.SIGNALX_RESEARCH_DEV_WRITE="true";
+    process.env.SIGNALX_RESEARCH_ISOLATED_PG="true";
+    process.env.NODE_ENV="test";
+    let writes=0;
+    const client={
+      connectionParameters:{host:"db.paygtakajhvatwejygda.supabase.co",database:"postgres",user:"postgres"},
+      query:async()=>{writes++;return {rowCount:1};}
+    };
+    await assert.rejects(saveResearchScanCaptureDev(client,{
+      scanRunId:"ci-no-prod",tradeDate:"2026-10-28",scanReceivedAt:"2026-10-28T06:35:00Z",
+      scanResponse:{stocks:[{code:"590A",price:1000,aiPower:75,latestBarTimestamp:Date.parse("2026-10-28T06:30:00Z")/1000}]}
+    }),/RESEARCH_DEV_DATABASE_NOT_VERIFIED/);
+    assert.equal(writes,0);
+  } finally {
+    if(oldEnv===undefined)delete process.env.SIGNALX_RESEARCH_DEV_WRITE;else process.env.SIGNALX_RESEARCH_DEV_WRITE=oldEnv;
+    if(oldCi===undefined)delete process.env.SIGNALX_RESEARCH_ISOLATED_PG;else process.env.SIGNALX_RESEARCH_ISOLATED_PG=oldCi;
+    if(oldNode===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=oldNode;
   }
 });
