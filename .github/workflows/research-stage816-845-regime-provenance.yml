@@ -1,0 +1,25 @@
+name: Research Stage816-845 Market Regime Provenance
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/shadowRegimeProvenance.ts'
+      - 'tests/stage816-845-regime-provenance.test.cjs'
+      - '.github/workflows/research-stage816-845-regime-provenance.yml'
+permissions:
+  contents: read
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage816-845-regime-provenance.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
