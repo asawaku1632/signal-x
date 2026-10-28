@@ -116,3 +116,15 @@ test("uses Japan date when UTC and JST calendar dates differ",async()=>enabled(a
  assert.equal(calls,1);
  assert.equal(result.inserted,1);
 }));
+
+test("JST midnight boundary does not allow previous day",async()=>enabled(async()=>{
+ let calls=0;
+ const client={connectionParameters:{host:"db.jdtqwryiyxeuoraecorw.supabase.co"},query:async()=>{calls++;return {rowCount:1};}};
+ const atJstMidnight="2026-10-27T15:00:00Z";
+ const stockAtMidnight={...stock,latestBarTimestamp:Date.parse("2026-10-27T14:59:00Z")/1000};
+ const data={...input,scanReceivedAt:atJstMidnight,scanResponse:{cached:false,stocks:[stockAtMidnight]}};
+ await assert.rejects(saveResearchScanCaptureDev(client,{...data,tradeDate:"2026-10-27"}),/INVALID_RESEARCH_RUN_METADATA/);
+ const accepted=await saveResearchScanCaptureDev(client,{...data,tradeDate:"2026-10-28"});
+ assert.equal(accepted.inserted,1);
+ assert.equal(calls,1);
+}));
