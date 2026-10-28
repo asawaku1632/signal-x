@@ -22,3 +22,8 @@ test('empty input stays research only',()=>{const x=audit();assert.equal(x.count
 test('multiple trade dates are counted independently',()=>{const x=audit({rows:[r(),{...r(),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.counts.distinctTradeDates,2)});
 test('null row is rejected safely',()=>{const x=audit({rows:[null]});assert.equal(x.counts.rejectedRows,1)});
 test('non-array input is rejected safely',()=>{assert.throws(()=>audit({rows:{}}),/INVALID_OBSERVATION_COHORT/)});
+
+test('descriptive statistics count each stock/date only once',()=>{const x=audit({rows:[r('9983',-3),r('9983',-3),r('9432',1)]});assert.equal(x.counts.validStockDateObservations,2);assert.equal(x.counts.distinctStockCodes,2);assert.equal(x.descriptiveStats.meanReturnPercent,-1);assert.equal(x.descriptiveStats.medianReturnPercent,-1);assert.equal(x.descriptiveStats.positiveRate,0.5)});
+test('empty cohort has null descriptive statistics, not zero performance',()=>{const x=audit();assert.equal(x.descriptiveStats.meanReturnPercent,null);assert.equal(x.descriptiveStats.medianReturnPercent,null);assert.equal(x.descriptiveStats.positiveRate,null)});
+test('conflicting cohort does not enter descriptive statistics',()=>{const x=audit({rows:[r('9983',-3),r('9983',3)]});assert.equal(x.descriptiveStats.meanReturnPercent,null)});
+test('median of three distinct observations is central return',()=>{const x=audit({rows:[r('9983',-3),r('9432',1),r('8591',2)]});assert.equal(x.descriptiveStats.medianReturnPercent,1)});
