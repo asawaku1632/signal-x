@@ -11,7 +11,7 @@ type Snapshot={
 export default function ResearchReviewPage(){
  const [data,setData]=useState<Snapshot|null>(null);
  const [error,setError]=useState("");
- const [integrated,setIntegrated]=useState<{status:string;reasons:string[];historyCount:number;historyTruncated:boolean;entries:{digest:string;valid:boolean;issues:string[]}[]}|null>(null);
+ const [integrated,setIntegrated]=useState<{status:string;reasons:string[];historyCount:number;historyTruncated:boolean;audit?:{issues:string[];verifiedRows:number;pendingRows:number;historyComplete:false;adoptionApproved:false};entries:{digest:string;valid:boolean;issues:string[]}[]}|null>(null);
  const [integratedError,setIntegratedError]=useState("");
  useEffect(()=>{let active=true;
   fetch("/api/admin/research-review-snapshot",{cache:"no-store"})
@@ -47,6 +47,7 @@ export default function ResearchReviewPage(){
    <p className="mt-2 text-sm">状態：{integrated?.status==="BLOCKED"?"未承認・確認不足":"未確認"}</p>
    {integratedError&&<p role="alert">{integratedError}</p>}
    {integrated&&<><p className="text-sm">取得した履歴 {integrated.historyCount}件{integrated.historyTruncated?"（取得上限あり）":""}</p>
+    {integrated.audit&&<div className="mt-3 rounded-lg border p-3 text-sm"><p>照合済み {integrated.audit.verifiedRows}件 ／ 要確認 {integrated.audit.pendingRows}件</p><p>履歴全体の監査：未完了 ／ 採用承認：なし</p><ul className="list-inside list-disc">{integrated.audit.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
     <ul className="mt-2 list-inside list-disc text-sm">{integrated.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul>
     <ul className="mt-2 space-y-2">{integrated.entries.map((e,i)=><li key={i} className="rounded-md border p-2 text-xs">証拠 {e.digest.slice(0,12)}…：{e.valid?"形式整合":"要確認"}{e.issues.length?" / "+e.issues.join(", "):""}</li>)}</ul></>}
    <p className="mt-2 text-xs text-slate-500">照合結果は本番採用・売買判断・通知解禁を承認しません。</p>
