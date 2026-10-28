@@ -21,4 +21,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morning-analog.test.mjs
+      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs
