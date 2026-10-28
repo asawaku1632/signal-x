@@ -1,0 +1,25 @@
+name: Research Stage486-515 Evidence Actions
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceActionPlan.ts'
+      - 'tests/stage486-515-evidence-actions.test.cjs'
+      - '.github/workflows/research-stage486-515-actions.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-actions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage486-515-evidence-actions.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

@@ -1,0 +1,27 @@
+name: Research Stage156-160 Read-Only Review
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/swingResearchReviewSnapshot.ts'
+      - 'app/api/admin/research-review-snapshot/route.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage156-160-review-dashboard.test.cjs'
+      - '.github/workflows/research-stage156-160-review.yml'
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage156-160-review-dashboard.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
