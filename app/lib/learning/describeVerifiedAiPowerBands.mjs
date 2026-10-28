@@ -18,7 +18,10 @@ export function describeVerifiedAiPowerBands(captures, outcomes) {
     const median=n ? (sorted[Math.floor((n-1)/2)]+sorted[Math.floor(n/2)])/2 : null;
     const keys = new Set(rows.map(x => x.code));
     const runs = new Set(rows.map(x => x.scan_run_id));
-    return {band:label,verified_count:n,distinct_codes:keys.size,distinct_runs:runs.size,mean_return_pct:n?sorted.reduce((a,b)=>a+b,0)/n:null,
+    const byCode = new Map();
+    for (const row of rows) byCode.set(row.code,(byCode.get(row.code) ?? 0)+1);
+    const maxObservationsPerCode = Math.max(0,...byCode.values());
+    return {band:label,verified_count:n,distinct_codes:keys.size,distinct_runs:runs.size,max_observations_per_code:maxObservationsPerCode,largest_code_share_pct:n?100*maxObservationsPerCode/n:null,mean_return_pct:n?sorted.reduce((a,b)=>a+b,0)/n:null,
       median_return_pct:median,positive_rate_pct:n?100*sorted.filter(x=>x>0).length/n:null};
   });
   return {
