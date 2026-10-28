@@ -12,11 +12,32 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: signalx_ci
+          POSTGRES_PASSWORD: ci_local_only
+          POSTGRES_DB: signalx_research_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U signalx_ci -d signalx_research_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run isolated research tests
-        run: node --test tests/research/scan-feature-capture-validation.test.mjs tests/research/prepare-scan-feature-captures.test.mjs tests/research/save-research-scan-capture-dev.test.mjs tests/research/compare-forward-results.test.mjs tests/research/assess-capture-for-review.test.mjs tests/research/build-scan-evidence-review.test.mjs
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run isolated research and PostgreSQL integration tests
+        env:
+          NODE_ENV: test
+          SIGNALX_RESEARCH_ISOLATED_PG: 'true'
+          SIGNALX_RESEARCH_CI_PASSWORD: ci_local_only
+        run: node --test tests/research/scan-feature-capture-validation.test.mjs tests/research/prepare-scan-feature-captures.test.mjs tests/research/save-research-scan-capture-dev.test.mjs tests/research/compare-forward-results.test.mjs tests/research/assess-capture-for-review.test.mjs tests/research/build-scan-evidence-review.test.mjs tests/research/isolated-pg-scan-save.test.mjs
