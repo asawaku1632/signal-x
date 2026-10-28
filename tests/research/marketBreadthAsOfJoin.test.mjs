@@ -13,3 +13,6 @@ test('alphanumeric JP code accepted',()=>assert.equal(joinMarketBreadthResearch(
 
 test('invalid signal calendar day never joins',()=>assert.equal(joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-02-30T09:15:00+09:00'}]).joined.length,0));
 test('invalid signal clock never joins',()=>assert.equal(joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-28T25:15:00+09:00'}]).joined.length,0));
+
+test('signal from a different JST trading date cannot join previous day market snapshot',()=>{const r=joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-29T09:15:00+09:00'}]);assert.equal(r.joined.length,0);assert.equal(r.rejected[0].reason,'NO_VERIFIED_AS_OF_MATCH')});
+test('UTC timestamp resolving to same JST trading date can join',()=>{const r=joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-28T00:15:00Z'}]);assert.equal(r.joined.length,1)});
