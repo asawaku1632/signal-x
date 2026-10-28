@@ -12,8 +12,13 @@ export function assessHistoricalResearchDataset(rows) {
         ? Date.parse(day+"T00:00:00Z") : NaN;
       const validDay=Number.isFinite(observed) && new Date(observed).toISOString().slice(0,10)===day;
       if(!validDay) issues.push("INVALID_OBSERVATION_DATE");
-      const created=typeof r.created_at==="string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(r.created_at)
-        ? Date.parse(r.created_at) : NaN;
+      // PostgreSQL timestamptz text may use a space and a short +00 offset.
+      // Normalize only explicitly offset-bearing timestamps; reject local/naive time.
+      const raw=typeof r.created_at==="string" ? r.created_at.trim() : "";
+      const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}$/.test(raw)
+        ? raw.replace(" ","T")+":00" : raw;
+      const created=/(?:Z|[+-]\d{2}:\d{2})$/.test(normalized)
+        ? Date.parse(normalized) : NaN;
       if(!Number.isFinite(created) || !validDay)
         issues.push("MISSING_OBSERVATION_OR_STORAGE_TIME");
       else if(created >= observed + 15*60*60*1000)
