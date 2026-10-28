@@ -16,7 +16,15 @@ async function main() {
   const parsed = new URL(url);
   if (parsed.hostname !== "db.jdtqwryiyxeuoraecorw.supabase.co")
     throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
-  // Validate generation provenance before opening a database connection.\n  const { buildGeneratedScanResearchEnvelope } = await import("../../app/lib/learning/buildGeneratedScanResearchEnvelope.mjs");\n  const { planScanResearchIntake } = await import("../../app/lib/learning/planScanResearchIntake.mjs");\n  const input = JSON.parse(await readFile(path, "utf8"));\n  const generation = buildGeneratedScanResearchEnvelope(input);\n  if (!generation.accepted) throw new Error(generation.reason);\n  const plan = planScanResearchIntake(input);\n  if (!plan.valid_for_storage || plan.blocked_count > 0)\n    throw new Error("INCOMPLETE_OR_UNSAFE_RESEARCH_RUN");
+  // Validate generation provenance before opening a database connection.
+  const { buildGeneratedScanResearchEnvelope } = await import("../../app/lib/learning/buildGeneratedScanResearchEnvelope.mjs");
+  const { planScanResearchIntake } = await import("../../app/lib/learning/planScanResearchIntake.mjs");
+  const input = JSON.parse(await readFile(path, "utf8"));
+  const generation = buildGeneratedScanResearchEnvelope(input);
+  if (!generation.accepted) throw new Error(generation.reason);
+  const plan = planScanResearchIntake(input);
+  if (!plan.valid_for_storage || plan.blocked_count > 0)
+    throw new Error("INCOMPLETE_OR_UNSAFE_RESEARCH_RUN");
   const client = new pg.Client({ connectionString: url });
   try {
     await client.connect();
