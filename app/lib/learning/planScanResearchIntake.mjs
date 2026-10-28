@@ -6,7 +6,8 @@ export function planScanResearchIntake(input) {
   const preview = previewGeneratedScanResearchCapture(input);
   if (!preview.accepted) return {
     accepted:false,reason:preview.reason,valid_for_storage:false,
-    candidate_count:0,blocked_count:0,blocked_reasons:{},rows:[],requires_independent_evidence:true
+    candidate_count:0,blocked_count:0,blocked_reasons:{},rows:[],requires_independent_evidence:true,
+    total_observations:0,intake_rate_pct:null,ready_for_forward_validation:false
   };
   const allowed = preview.rows.filter(row =>
     row.capture_status === "QUARANTINED" &&
@@ -23,6 +24,9 @@ export function planScanResearchIntake(input) {
     candidate_count:allowed.length,blocked_count:blocked,
     blocked_reasons:blockedReasons,
     rows:allowed,requires_independent_evidence:true,
+    total_observations:preview.rows.length,
+    intake_rate_pct:preview.rows.length ? 100 * allowed.length / preview.rows.length : null,
+    ready_for_forward_validation:false,
     ai_power_recalculated:false,live_notification_enabled:false
   };
 }
