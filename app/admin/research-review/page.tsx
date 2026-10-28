@@ -46,7 +46,13 @@ export default function ResearchReviewPage(){
    <h2 className="font-bold">保存証拠と研究審査の統合照合（閲覧専用）</h2>
    <p className="mt-2 text-sm">状態：{integrated?.status==="BLOCKED"?"未承認・確認不足":"未確認"}</p>
    {integratedError&&<p role="alert">{integratedError}</p>}
-   {integrated&&<><p className="text-sm">取得した履歴 {integrated.historyCount}件{integrated.historyTruncated?"（取得上限あり）":""}</p>
+   {integrated&&<><div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+    <h3 className="font-bold">研究証拠の状態区分（閲覧専用）</h3>
+    <p>検証済み（採用可能という意味ではない）：独立した出典・許諾・時刻・FORWARD結果をすべて別途確認した範囲のみ</p>
+    <p>未検証：根拠や検証結果が不足している観測。日付監査の合格だけで検証済みにはしません</p>
+    <p>要確認：日付の不一致、異常値、検査対象外や履歴の欠損など</p>
+    <p className="font-semibold">現在の統合審査：{integrated.status==="BLOCKED"?"採用不可（確認不足）":"確認未了"} ／ 自動反映なし</p>
+   </div><p className="text-sm">取得した履歴 {integrated.historyCount}件{integrated.historyTruncated?"（取得上限あり）":""}</p>
     {integrated.calendarSample&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">5営業日後の日付監査（最大100件の標本）</h3><p>全観測 {integrated.calendarSample.totalObservations}件 ／ 日付監査対象 {integrated.calendarSample.eligibleObservations}件 ／ 実検査 {integrated.calendarSample.inspected}件 ／ 未検査 {integrated.calendarSample.uninspectedEligible}件 ／ 5日後結果未記録 {integrated.calendarSample.notYetEvaluated}件 ／ カレンダー範囲外（標本内）{integrated.calendarSample.calendarUnavailableInSample}件 ／ 対象に対する検査率 {integrated.calendarSample.coveragePercent}%</p>{integrated.calendarSample.limitReached&&<p>取得上限に到達：未検査の履歴が存在する可能性があります</p>}<ul className="list-inside list-disc">{integrated.calendarSample.issues.slice(0,20).map((x,i)=><li key={i}>{x.code} {x.tradeDate}：{x.reason}</li>)}</ul></div>}
     {integrated.observationIntegrity&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">実保存データの整合性監査</h3><p>観測 {integrated.observationIntegrity.metrics.total}件 ／ 5日後評価 {integrated.observationIntegrity.metrics.evaluated}件</p><p>不整合 {integrated.observationIntegrity.issues.length}種類 ／ 出典・許諾は未検証</p><ul className="list-inside list-disc">{integrated.observationIntegrity.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
     {integrated.finalReadiness&&<div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><h3 className="font-bold">横断監査：{integrated.finalReadiness.status}</h3><p>人による最終承認：未完了 ／ 自動反映：なし</p><ul className="list-inside list-disc">{integrated.finalReadiness.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
