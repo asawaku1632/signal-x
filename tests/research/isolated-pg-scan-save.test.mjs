@@ -141,14 +141,13 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     assert.equal(second.duplicates,1);
     const actual = await client.query("SELECT scan_run_id,code,capture_status,audit_reason FROM public.research_scan_feature_captures ORDER BY scan_run_id");
     assert.equal(actual.rowCount,3);
-    assert.equal(actual.rows[0].scan_run_id,"ci-generated-envelope");
-    assert.equal(actual.rows[0].code,"590A");
-    assert.equal(actual.rows[1].scan_run_id,"ci-isolated-run");
-    assert.equal(actual.rows[2].scan_run_id,"ci-composed-dev-run");
-    assert.equal(actual.rows[1].code,"590A");
-    assert.equal(actual.rows[1].capture_status,"QUARANTINED");
-    assert.equal(actual.rows[0].capture_status,"QUARANTINED");
-    assert.equal(actual.rows[0].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
+    const byRun=Object.fromEntries(actual.rows.map(row=>[row.scan_run_id,row]));
+    assert.equal(byRun["ci-generated-envelope"].code,"590A");
+    assert.equal(byRun["ci-isolated-run"].code,"590A");
+    assert.equal(byRun["ci-composed-dev-run"].code,"642A");
+    assert.equal(byRun["ci-isolated-run"].capture_status,"QUARANTINED");
+    assert.equal(byRun["ci-generated-envelope"].capture_status,"QUARANTINED");
+    assert.equal(byRun["ci-generated-envelope"].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
     const missing = await saveResearchScanCaptureDev(client,{
       ...input,scanRunId:"ci-missing-bar",
       scanResponse:{cached:false,stocks:[{code:"641A",price:1200,aiPower:40,latestBarTimestamp:null}]}
