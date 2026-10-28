@@ -1,0 +1,25 @@
+name: Research Stage876-905 Review Summary
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/shadowRegimeReviewSummary.ts'
+      - 'tests/stage876-905-regime-review-summary.test.cjs'
+      - '.github/workflows/research-stage876-905-review-summary.yml'
+permissions:
+  contents: read
+jobs:
+  review-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage876-905-regime-review-summary.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

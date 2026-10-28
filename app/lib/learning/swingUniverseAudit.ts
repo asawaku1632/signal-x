@@ -127,7 +127,7 @@ export async function captureSwingUniverseDay(targetDate: string, now = new Date
   const prepared = rows.rows.flatMap((row) => {
     const price = validPrice(row.price);
     const aiPower = validPower(row.score);
-    if (!/^[0-9]{4}$/.test(row.code) || !row.name || price == null || aiPower == null) return [];
+    if (!/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(row.code) || !row.name || price == null || aiPower == null) return [];
     const decision = getSwingEntryDecision({ aiPower });
     return [{ code: row.code, name: row.name, price, aiPower, decision }];
   });
@@ -192,7 +192,8 @@ export async function updateSwingUniverseOutcomes(targetDate: string) {
   const pending = await pool.query<PendingDateRow>(
     `SELECT DISTINCT trade_date FROM public.swing_universe_observations
      WHERE trade_date < $1::date AND trade_date >= ($1::date - INTERVAL '65 days')
-       AND outcome_10d_date IS NULL
+       AND (outcome_1d_date IS NULL OR outcome_3d_date IS NULL
+         OR outcome_5d_date IS NULL OR outcome_10d_date IS NULL)
      ORDER BY trade_date ASC LIMIT $2`,
     [targetDate, MAX_BACKLOG_DATES],
   );

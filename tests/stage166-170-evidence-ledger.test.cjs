@@ -1,0 +1,14 @@
+const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),ts=require("typescript"),crypto=require("node:crypto");
+function load(file,imports){const m={exports:{}};new vm.Script(ts.transpileModule(fs.readFileSync(file,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText).runInNewContext({module:m,exports:m.exports,require:key=>{assert.ok(imports[key],key);return imports[key]},Number,Date});return m.exports;}
+const ledger=load("app/lib/learning/researchEvidenceLedger.ts",{"node:crypto":crypto});
+const gate=load("app/lib/learning/researchApprovalGate.ts",{});
+const inspect=load("app/lib/learning/researchCandidateInspection.ts",{"@/app/lib/learning/researchEvidenceLedger":ledger,"@/app/lib/learning/researchApprovalGate":gate});
+const kinds=["SOURCE","LICENSE","TIMESTAMP","HOLDOUT","REGIME"];
+const proofs=()=>kinds.map((kind,i)=>({kind,researchId:"r",ruleVersion:"v",artifactDigest:String(i+1).repeat(64),verifiedBy:"auditor",verifiedAt:"2026-10-27T00:00:00Z",expiresAt:null}));
+const good=()=>({researchId:"r",ruleVersion:"v",recorded:120,evaluated:110,distinctTradeDays:25,completedMonths:3,avgReturn5d:1,medianReturn5d:.4,positiveRate5d:.6,marketRegimes:[{name:"UP",evaluated:55,avgReturn5d:1},{name:"DOWN",evaluated:55,avgReturn5d:.5}],sourceVerified:true,licenseVerified:true,independentTimestampsVerified:true,holdoutVerified:true});
+const now="2026-10-28T00:00:00Z";
+test("166 all five independently scoped proof kinds required",()=>{assert.equal(ledger.verifyResearchProofs("r","v",proofs(),now).verified,true);assert.ok(ledger.verifyResearchProofs("r","v",proofs().slice(1),now).issues.includes("MISSING_OR_DUPLICATE_SOURCE"));});
+test("167 duplicate or foreign scope rejected",()=>{assert.equal(ledger.verifyResearchProofs("r","v",[...proofs(),proofs()[0]],now).verified,false);const p=proofs();p[0].researchId="other";assert.ok(ledger.verifyResearchProofs("r","v",p,now).issues.includes("WRONG_SCOPE_SOURCE"));});
+test("168 expired, future or invalid proofs rejected",()=>{const p=proofs();p[1].expiresAt="2026-10-20T00:00:00Z";p[2].verifiedAt="2026-11-01T00:00:00Z";assert.equal(ledger.verifyResearchProofs("r","v",p,now).verified,false);});
+test("169 audit digest deterministic and order independent",()=>{const a=ledger.verifyResearchProofs("r","v",proofs(),now),b=ledger.verifyResearchProofs("r","v",proofs().reverse(),now);assert.equal(a.digest,b.digest);assert.match(a.digest,/^[a-f0-9]{64}$/);});
+test("170 even valid ledger cannot skip missing statistical gate or automatically activate",()=>{const e=good();assert.equal(inspect.inspectResearchCandidate(e,proofs(),now).status,"EVIDENCE_READY_FOR_HUMAN_REVIEW");e.holdoutVerified=false;const out=inspect.inspectResearchCandidate(e,proofs(),now);assert.equal(out.status,"BLOCKED");assert.equal(out.productionApplied,false);assert.equal(out.notificationEnabled,false);});

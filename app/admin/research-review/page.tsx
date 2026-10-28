@@ -1,0 +1,68 @@
+"use client";
+import {useEffect,useState} from "react";
+type Snapshot={
+ success:boolean;
+ evidence:{recorded:number;evaluated:number;distinctTradeDays:number;completedMonths:number;avgReturn5d:number|null;medianReturn5d:number|null;positiveRate5d:number|null;marketRegimes:unknown[]};
+ observedMonths:number;
+ readiness:{status:string;consistent:boolean;gaps:Array<{category:string;code:string;label:string;nextAction:string}>};
+ decision:{status:string;eligibleForHumanReview:boolean;reasons:string[];automaticActivation:false};
+ productionApplied:false;notificationEnabled:false;
+};
+export default function ResearchReviewPage(){
+ const [data,setData]=useState<Snapshot|null>(null);
+ const [error,setError]=useState("");
+ const [integrated,setIntegrated]=useState<{status:string;reasons:string[];historyCount:number;historyTruncated:boolean;storedPairEligibility?:{inspected:number;blocked:number;eligiblePairs:0;calendarIssues:number;exhaustive:false;observations:{tradeDate:string;code:string;outcomePresent:boolean;fiveDayReturn:number|null;reasons:string[];pairEligible:false}[]};evidenceWorkPriority?:{sampled:number;work:{code:string;count:number;rank:number;label:string;next:string}[]};evidenceClassification?:{sampled:number;exhaustive:false;summary:{verifiedScope:number;pending:number;reviewRequired:number;total:number};reasonCounts:Record<string,number>};calendarSample?:{inspected:number;requestedLimit:number;limitReached:boolean;totalObservations:number;eligibleObservations:number;notYetEvaluated:number;uninspectedEligible:number;calendarUnavailableInSample:number;coveragePercent:number;issues:{code:string;tradeDate:string;reason:string;expectedDate:string|null;actualDate:string|null}[];exhaustive:false};observationIntegrity?:{issues:string[];metrics:{total:number;evaluated:number;missingOutcomeDate:number;outcomeWithoutReturn:number;nonFutureOutcome:number;badEntryPrice:number;invalidReturn:number;distinctDays:number};sourceVerified:false;licenseVerified:false};finalReadiness?:{status:string;issues:string[];checksPassed:boolean;verificationSource:string;reviewStatus:string;automaticActivation:false};audit?:{issues:string[];verifiedRows:number;pendingRows:number;historyComplete:false;adoptionApproved:false};entries:{digest:string;valid:boolean;issues:string[]}[]}|null>(null);
+ const [integratedError,setIntegratedError]=useState("");
+ useEffect(()=>{let active=true;
+  fetch("/api/admin/research-review-snapshot",{cache:"no-store"})
+   .then(async r=>{if(!r.ok)throw Error("権限または取得状態を確認してください");return r.json()})
+   .then(j=>{if(active)setData(j)})
+   .catch(()=>{if(active)setError("研究データを読み込めませんでした")});
+  fetch("/api/admin/integrated-research-review",{cache:"no-store"})
+   .then(async r=>{if(!r.ok)throw Error("照合結果を取得できません");return r.json()})
+   .then(j=>{if(active)setIntegrated(j)})
+   .catch(()=>{if(active)setIntegratedError("証拠照合は確認できません（未承認）")});
+  return ()=>{active=false};
+ },[]);
+ return <main className="mx-auto max-w-2xl px-4 py-8 text-slate-900">
+  <h1 className="text-2xl font-black">研究成果の採用審査・閲覧専用</h1>
+  <p className="mt-3 text-sm text-amber-800">本画面は研究の根拠を確認するだけです。売買判断・AI POWER・通知・承認記録を変更しません。</p>
+  {error&&<p role="alert" className="mt-5 text-rose-700">{error}</p>}
+  {!data&&!error&&<p className="mt-5">研究データを読み込み中…</p>}
+  {data&&<section className="mt-6 space-y-4 rounded-xl border p-5">
+   <h2 className="font-bold">判定：{data.decision.status==="BLOCKED"?"採用審査の条件不足":"人間による確認候補"}</h2>
+   <p>保存 {data.evidence.recorded.toLocaleString()}件 ／ 5日後検証済み {data.evidence.evaluated.toLocaleString()}件</p>
+   <p>記録取引日 {data.evidence.distinctTradeDays}日 ／ 観測月数 {data.observedMonths}か月（完成済み検証月とは異なります）</p>
+   <p>5日後平均 {data.evidence.avgReturn5d??"未確定"}% ／ 中央値 {data.evidence.medianReturn5d??"未確定"}%</p>
+   <p>5日後プラス率 {data.evidence.positiveRate5d===null?"未確定":(data.evidence.positiveRate5d*100).toFixed(1)+"%"}</p>
+   <h3 className="font-bold">未達・未検証事項</h3>
+   <p className="text-sm">審査基準の整合性：{data.readiness.consistent?"一致":"要調査"}</p>
+   <ul className="space-y-2">{data.readiness.gaps.map(g=><li key={g.code} className="rounded-lg border bg-amber-50 p-3 text-sm"><b>{g.label}</b><p className="text-slate-600">{g.nextAction}</p></li>)}</ul>
+   <ul className="list-inside list-disc text-sm">{data.decision.reasons.map(x=><li key={x}>{x}</li>)}</ul>
+   <p className="text-sm text-slate-600">提供元・利用許諾・独立時刻・ホールドアウト・相場環境は独立検証が済むまで未確認扱いです。</p>
+   <p className="text-sm font-semibold">本番反映：なし ／ 通知解禁：なし</p>
+  </section>}
+  <section aria-label="証拠履歴との統合照合" className="mt-6 rounded-xl border p-5">
+   <h2 className="font-bold">保存証拠と研究審査の統合照合（閲覧専用）</h2>
+   <p className="mt-2 text-sm">状態：{integrated?.status==="BLOCKED"?"未承認・確認不足":"未確認"}</p>
+   {integratedError&&<p role="alert">{integratedError}</p>}
+   {integrated&&<><div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+    <h3 className="font-bold">研究証拠の状態区分（閲覧専用）</h3>
+    <p>検証済み（採用可能という意味ではない）：独立した出典・許諾・時刻・FORWARD結果をすべて別途確認した範囲のみ</p>
+    <p>未検証：根拠や検証結果が不足している観測。日付監査の合格だけで検証済みにはしません</p>
+    <p>要確認：日付の不一致、異常値、検査対象外や履歴の欠損など</p>
+    <p className="font-semibold">現在の統合審査：{integrated.status==="BLOCKED"?"採用不可（確認不足）":"確認未了"} ／ 自動反映なし</p>
+   </div><p className="text-sm">取得した履歴 {integrated.historyCount}件{integrated.historyTruncated?"（取得上限あり）":""}</p>
+    {integrated.storedPairEligibility&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">保存済み観測のSHADOW比較接続準備（最大100件・閲覧専用）</h3><p>取得 {integrated.storedPairEligibility.inspected}件 ／ ペア照合可能 {integrated.storedPairEligibility.eligiblePairs}件 ／ 証拠不足 {integrated.storedPairEligibility.blocked}件 ／ 日付異常 {integrated.storedPairEligibility.calendarIssues}件</p><p>現時点の保存観測には独立した既存AI・SHADOW両方の予測結果と相場分類証拠がありません。実績を捏造せず照合を保留します。</p><ul className="mt-2 space-y-1">{integrated.storedPairEligibility.observations.slice(0,10).map((r,i)=><li key={r.tradeDate+":"+r.code+":"+i}>{r.tradeDate} ／ {r.code}：{r.reasons.join("、")}</li>)}</ul></div>}
+    {integrated.evidenceClassification&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">保存観測の証拠分類（最大100件・標本）</h3><p>検査 {integrated.evidenceClassification.sampled}件 ／ 検証済み範囲 {integrated.evidenceClassification.summary.verifiedScope}件 ／ 未検証 {integrated.evidenceClassification.summary.pending}件 ／ 要確認 {integrated.evidenceClassification.summary.reviewRequired}件</p><p>独立出典・許諾・FORWARD検証はこの保存データだけで確認できません。全件審査ではありません。</p><ul className="list-inside list-disc">{Object.entries(integrated.evidenceClassification.reasonCounts).map(([reason,count])=><li key={reason}>{reason}: {count}件</li>)}</ul></div>}
+    {integrated.evidenceWorkPriority&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">優先して検証する研究証拠（標本・閲覧専用）</h3><p>順位は検証作業の順番であり、売買推奨や予測精度を意味しません。</p><ol className="list-inside list-decimal">{integrated.evidenceWorkPriority.work.map(item=><li key={item.code} className="mt-2"><b>{item.label}（{item.count}件）</b><p className="pl-4 text-slate-600">{item.next}</p></li>)}</ol><p>データ採用・通知解禁は未承認です。</p></div>}
+    {integrated.calendarSample&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">5営業日後の日付監査（最大100件の標本）</h3><p>全観測 {integrated.calendarSample.totalObservations}件 ／ 日付監査対象 {integrated.calendarSample.eligibleObservations}件 ／ 実検査 {integrated.calendarSample.inspected}件 ／ 未検査 {integrated.calendarSample.uninspectedEligible}件 ／ 5日後結果未記録 {integrated.calendarSample.notYetEvaluated}件 ／ カレンダー範囲外（標本内）{integrated.calendarSample.calendarUnavailableInSample}件 ／ 対象に対する検査率 {integrated.calendarSample.coveragePercent}%</p>{integrated.calendarSample.limitReached&&<p>取得上限に到達：未検査の履歴が存在する可能性があります</p>}<ul className="list-inside list-disc">{integrated.calendarSample.issues.slice(0,20).map((x,i)=><li key={i}>{x.code} {x.tradeDate}：{x.reason}</li>)}</ul></div>}
+    {integrated.observationIntegrity&&<div className="mt-3 rounded-lg border p-3 text-sm"><h3 className="font-bold">実保存データの整合性監査</h3><p>観測 {integrated.observationIntegrity.metrics.total}件 ／ 5日後評価 {integrated.observationIntegrity.metrics.evaluated}件</p><p>不整合 {integrated.observationIntegrity.issues.length}種類 ／ 出典・許諾は未検証</p><ul className="list-inside list-disc">{integrated.observationIntegrity.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
+    {integrated.finalReadiness&&<div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><h3 className="font-bold">横断監査：{integrated.finalReadiness.status}</h3><p>人による最終承認：未完了 ／ 自動反映：なし</p><ul className="list-inside list-disc">{integrated.finalReadiness.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
+    {integrated.audit&&<div className="mt-3 rounded-lg border p-3 text-sm"><p>照合済み {integrated.audit.verifiedRows}件 ／ 要確認 {integrated.audit.pendingRows}件</p><p>履歴全体の監査：未完了 ／ 採用承認：なし</p><ul className="list-inside list-disc">{integrated.audit.issues.map(x=><li key={x}>{x}</li>)}</ul></div>}
+    <ul className="mt-2 list-inside list-disc text-sm">{integrated.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul>
+    <ul className="mt-2 space-y-2">{integrated.entries.map((e,i)=><li key={i} className="rounded-md border p-2 text-xs">証拠 {e.digest.slice(0,12)}…：{e.valid?"形式整合":"要確認"}{e.issues.length?" / "+e.issues.join(", "):""}</li>)}</ul></>}
+   <p className="mt-2 text-xs text-slate-500">照合結果は本番採用・売買判断・通知解禁を承認しません。</p>
+  </section>
+ </main>;
+}
