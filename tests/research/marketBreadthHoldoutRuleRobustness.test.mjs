@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {assessMarketBreadthHoldoutRuleRobustness as assess} from '../../lib/research/marketBreadthHoldoutRuleRobustness.mjs';
+const sessions=['2026-09-18','2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-28','2026-10-09','2026-10-13','2026-10-14','2026-10-15','2026-10-16','2026-10-19','2026-10-20'];
+const row=(code,date,r=5,b=1)=>({code,tradeDate:date,signalRecordId:'r:'+code+date,baselineRecordId:'b:'+code+date,researchReturnPercent:r,baselineReturnPercent:b,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+const config={verifiedSessions:sessions,trainingEndDate:'2026-09-30',holdoutStartDate:'2026-10-09',minHoldoutDates:1};
+test('separate training and holdout summaries never authorize promotion',()=>{const x=assess({...config,pairs:[row('641A',sessions[0]),row('590A',sessions[7])]});assert.equal(x.trainingCount,1);assert.equal(x.holdoutCount,1);assert.equal(x.holdoutAllRulesSampleReady,true);assert.equal(x.aiPromotionAuthorized,false);assert.equal(x.ruleSummaries.length,3)});
+test('embargo excludes intermediate date',()=>{const x=assess({...config,pairs:[row('641A','2026-10-05')]});assert.equal(x.holdoutCount,0);assert.equal(x.excluded[0].reason,'EMBARGOED_DATE')});
+test('reused identity across periods is quarantined',()=>{const a=row('641A',sessions[0]),b={...row('590A',sessions[7]),baselineRecordId:a.baselineRecordId};const x=assess({...config,pairs:[a,b]});assert.equal(x.trainingCount,0);assert.equal(x.holdoutCount,0)});
+test('negative holdout outcome blocks descriptive positive consistency',()=>{const x=assess({...config,pairs:[row('590A',sessions[7],-2,1)]});assert.equal(x.descriptiveHoldoutPositiveAcrossRules,false)});
+test('invalid chronological split rejected',()=>{assert.throws(()=>assess({...config,holdoutStartDate:'2026-09-20'}),/INVALID_CHRONOLOGICAL_SPLIT/)});
+test('missing calendar rejected even for empty observations',()=>{assert.throws(()=>assess({...config,verifiedSessions:[]}),/VERIFIED_EXCHANGE_SESSIONS_REQUIRED/)});
