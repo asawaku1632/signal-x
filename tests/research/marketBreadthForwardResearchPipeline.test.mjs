@@ -11,6 +11,11 @@ const entry={envelope,sourceRecord,snapshotRecord,row,evidence};
 test('offline pipeline links independently attested fixture without production promotion',()=>{const x=run([entry]);assert.equal(x.linkedCount,1);assert.equal(x.review.report.acceptedEvidenceCount,1);assert.equal(x.productionEligible,false);assert.equal(x.notificationEligible,false)});
 test('unverified source is rejected before outcome review',()=>{const x=run([{...entry,envelope:{...envelope,originalRecordVerified:false}}]);assert.equal(x.linkedCount,0);assert.equal(x.rejected[0].reason,'INDEPENDENT_SIGNAL_PROOF_MISSING')});
 test('tampered snapshot blocks linkage',()=>{const x=run([{...entry,snapshotRecord:{...snapshotRecord,stocks:[{code:'641A',price:999}]}}]);assert.equal(x.linkedCount,0);assert.equal(x.rejected[0].reason,'SNAPSHOT_HASH_MISMATCH')});
-test('duplicate signal is not double-counted',()=>{const x=run([entry,{...entry}]);assert.equal(x.linkedCount,1);assert.equal(x.rejected[0].reason,'DUPLICATE_FORWARD_EVIDENCE')});
+test('duplicate signal is not double-counted',()=>{const x=run([entry,{...entry}]);assert.equal(x.linkedCount,0);assert.equal(x.rejected.length,2);assert.equal(x.review.report.acceptedEvidenceCount,0);assert.ok(x.rejected.every(r=>r.reason==='DUPLICATE_FORWARD_EVIDENCE'))});
 test('empty input is never promotion eligible',()=>{const x=run([]);assert.equal(x.linkedCount,0);assert.equal(x.review.report.acceptedEvidenceCount,0);assert.equal(x.productionEligible,false)});
 test('invalid input is rejected',()=>{assert.throws(()=>run(null),/INVALID_FORWARD_ENTRIES/);assert.equal(run([null]).rejected[0].reason,'INVALID_FORWARD_ENTRY')});
+
+test('reused outcome ID across distinct signals quarantines both',()=>{
+ const second={...entry,envelope:{...envelope,signalRecordId:'signal:20261028:590A',code:'590A'},row:{...row,code:'590A'},evidence:{...evidence,signalRecordId:'signal:20261028:590A',code:'590A'}};
+ const x=run([entry,second]);assert.equal(x.linkedCount,0);assert.equal(x.rejected.length,2);assert.equal(x.review.report.acceptedEvidenceCount,0);
+});
