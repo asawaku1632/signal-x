@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {inspectMorning,summarizeAnalogs} from "../app/lib/research/morningAnalog.mjs";
+import {inspectMorning,summarizeAnalogs,summarizeMorningDropPatterns} from "../app/lib/research/morningAnalog.mjs";
 
 const makeBars=(date,lowAt=3)=>Array.from({length:30},(_,i)=>{
   const h=9+Math.floor(i*5/60),m=(i*5)%60;
@@ -36,4 +36,24 @@ test("future outcomes and features available on the outcome date cannot leak",()
   assert.equal(result.samples,1);
   assert.equal(result.eligible,false);
   assert.equal(result.rebound1pct.rate,null);
+});
+
+test("sharp-drop frequency counts bottom windows, deduplicates, and gates rates",()=>{
+  const date="2026-10-28";
+  const a={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const b={...inspectMorning(date,100,makeBars(date,8)),code:"5678"};
+  const result=summarizeMorningDropPatterns([a,b,a],{minSamples:2,dropThresholdPct:2});
+  assert.equal(result.samples,2);
+  assert.equal(result.excluded.duplicate,1);
+  assert.deepEqual(result.topWindows,[{windowStart:"09:40",windowEnd:"09:45",count:2}]);
+  assert.equal(result.rebound1pct.rate,100);
+  assert.equal(summarizeMorningDropPatterns([a],{minSamples:2,dropThresholdPct:2}).rebound1pct.rate,null);
+});
+test("early-drop filter does not confuse later selloff with opening drop",()=>{
+  const date="2026-10-28",bars=makeBars(date,12);
+  const result=summarizeMorningDropPatterns([
+    {...inspectMorning(date,100,bars),code:"1234"}
+  ],{minSamples:1,dropThresholdPct:3});
+  assert.equal(result.samples,0);
+  assert.equal(result.excluded.notSharpDrop,1);
 });
