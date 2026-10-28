@@ -33,3 +33,17 @@ test("future source bars are quarantined without violating database time check",
  assert.equal(row.source_bar_at,null);
  assert.equal(row.capture_status,"QUARANTINED");
 });
+
+test("actual Scan API cached fresh snapshot remains quarantined",()=>{
+ const [row]=prepareScanFeatureCaptures({...base,scanResponse:{
+  success:true,status:"fresh",cached:true,updatedAt:base.scanReceivedAt,stocks:[stock]
+ }});
+ assert.equal(row.capture_status,"QUARANTINED");
+ assert.equal(row.audit_reason,"CACHED_SCAN");
+});
+test("loading Scan API response contains no research observations",()=>{
+ const rows=prepareScanFeatureCaptures({...base,scanResponse:{
+  success:true,status:"loading",cached:false,stocks:[]
+ }});
+ assert.deepEqual(rows,[]);
+});
