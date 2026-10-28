@@ -11,3 +11,6 @@ test('unverified market status is rejected before cohort aggregation',()=>{const
 test('missing resolver fails closed',()=>assert.throws(()=>review([base]),/EVIDENCE_RESOLVER_REQUIRED/));
 
 test('a market cohort differing from independent evidence cannot enter summary',()=>{const r=review([{...base,marketStatus:'OBSERVED'}],()=>evidence);assert.equal(r.audit.acceptedCount,0);assert.equal(r.cohorts.other.n,0);assert.equal(r.audit.rejectionCounts.MARKET_COHORT_UNVERIFIED,1)});
+
+test('review exposes accepted provenance without leaking rejected evidence',()=>{const good=review([base],()=>evidence);assert.equal(good.provenance.length,1);assert.equal(good.provenance[0].signalRecordId,evidence.signalRecordId);const bad=review([base],()=>({...evidence,marketLicenseVerified:false}));assert.deepEqual(bad.provenance,[])});
+test('review provenance remains separate from mutable audit records',()=>{const r=review([base],()=>evidence);r.audit.provenance[0].signalRecordId='changed';assert.equal(r.provenance[0].signalRecordId,evidence.signalRecordId)});
