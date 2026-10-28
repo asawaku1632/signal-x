@@ -25,3 +25,11 @@ test("unknown cache state is quarantined",()=>{
  assert.equal(row.capture_status,"QUARANTINED");
  assert.equal(row.audit_reason,"CACHED_SCAN");
 });
+
+test("future source bars are quarantined without violating database time check",()=>{
+ const future=Date.parse("2026-10-28T06:30:00Z")/1000;
+ const [row]=prepareScanFeatureCaptures({...base,scanResponse:{cached:false,stocks:[{...stock,latestBarTimestamp:future}]}});
+ assert.equal(row.audit_reason,"FUTURE_SOURCE_BAR");
+ assert.equal(row.source_bar_at,null);
+ assert.equal(row.capture_status,"QUARANTINED");
+});
