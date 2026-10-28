@@ -38,10 +38,10 @@ export function inspectMorning(tradeDate, previousClose, candles, options={}) {
   const firstBottom=bars.find(b=>b.low===minLow);
   // A bottom is known retrospectively only. This is descriptive, NOT a tradable fill.
   const after=bars.filter(b=>minute(b.time)>minute(firstBottom.time));
-  const maxLaterHigh=after.length?Math.max(...after.map(b=>b.high)):null;
+  const maxLaterHigh=after.length?Math.max(...after.map(b=>b.high)):null;\n  const earlyLow=Math.min(...bars.filter(b=>minute(b.time)<570).map(b=>b.low));
   return {valid:true,date:tradeDate,intervalMinutes:interval,
     bottomWindow:firstBottom.time,bottomPrice:minLow,
-    bottomDropPct:round((minLow/previousClose-1)*100),
+    bottomDropPct:round((minLow/previousClose-1)*100),\n    earlyDropPct:round((earlyLow/previousClose-1)*100),
     laterHigh:maxLaterHigh,
     reboundPct:maxLaterHigh===null?null:round((maxLaterHigh/minLow-1)*100),
     rebound1pct:maxLaterHigh===null?null:maxLaterHigh>=minLow*1.01,
@@ -84,4 +84,65 @@ export function summarizeAnalogs(target, histories, options={}) {
       rate:rebounds.length>=minSamples?round(100*rebounds.filter(x=>x.outcome.rebound2pct).length/rebounds.length):null},
     // Do not expose historical outcome dates as target-day data.
     note:"Descriptive only. Requires held-out chronological validation before forecasting."};
+}
+
+/**
+ * Aggregate completed, retrospective morning observations. This answers
+ * "what happened most often?" rather than implying a tradable forecast.
+ * A qualifying early drop is based on the 09:00-09:30 observed low.
+ * Price percentages are relative to the prior close, not nominal yen.
+ */
+export function summarizeMorningDropPatterns(observations, options={}) {
+  const minSamples=options.minSamples??30;
+  const dropThresholdPct=options.dropThresholdPct??3;
+  const binMinutes=options.binMinutes??5;
+  if(!Array.isArray(observations)||!Number.isInteger(minSamples)||minSamples<1||
+     !positive(dropThresholdPct)||!Number.isInteger(binMinutes)||binMinutes<1||
+     60%binMinutes!==0)throw Error("INVALID_PATTERN_OPTIONS");
+  const seen=new Set(),valid=[],excluded={invalid:0,duplicate:0,notSharpDrop:0};
+  for(const row of observations){
+    if(!row||row.valid!==true||!/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)||
+       !hhmm(row.bottomWindow)||!positive(row.bottomPrice)||
+       !finite(row.bottomDropPct)||!finite(row.earlyDropPct)||
+       !Number.isInteger(row.intervalMinutes)||row.intervalMinutes>binMinutes||
+       binMinutes%row.intervalMinutes!==0||
+       typeof row.code!=="string"||!row.code){
+      excluded.invalid++;continue;
+    }
+    const id=row.code+"|"+row.date;
+    if(seen.has(id)){excluded.duplicate++;continue;}
+    seen.add(id);
+    if(row.earlyDropPct>-dropThresholdPct){excluded.notSharpDrop++;continue;}
+    valid.push(row);
+  }
+  const histogram=new Map();
+  for(const row of valid){
+    const start=Math.floor(minute(row.bottomWindow)/binMinutes)*binMinutes;
+    histogram.set(start,(histogram.get(start)??0)+1);
+  }
+  const toTime=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+
+    String(m%60).padStart(2,"0");
+  const bottomTimeCounts=[...histogram].sort((a,b)=>a[0]-b[0])
+    .map(([start,count])=>({windowStart:toTime(start),windowEnd:toTime(start+binMinutes),count}));
+  const maxCount=Math.max(0,...bottomTimeCounts.map(x=>x.count));
+  const topWindows=bottomTimeCounts.filter(x=>x.count===maxCount && maxCount>0);
+  const reb1=valid.filter(x=>typeof x.rebound1pct==="boolean");
+  const reb2=valid.filter(x=>typeof x.rebound2pct==="boolean");
+  const rate=rows=>rows.length>=minSamples?
+    round(100*rows.filter(x=>x.rebound1pct===true||x.rebound2pct===true).length/rows.length):null;
+  return {version:"MORNING_DROP_PATTERN_V1",definition:{
+    morning:"09:00-11:30 JST",earlyDrop:"09:00-09:30 low vs prior close",
+    thresholdPct:dropThresholdPct,binMinutes,
+    rebound:"later completed bar high after first morning low (no same-bar sequencing)"},
+    samples:valid.length,eligible:valid.length>=minSamples,excluded,
+    bottomTimeCounts,topWindows,
+    bottomDropPct:{mean:average(valid.map(x=>x.bottomDropPct)),
+      median:quantile(valid.map(x=>x.bottomDropPct),.5),
+      p25:quantile(valid.map(x=>x.bottomDropPct),.25),
+      p75:quantile(valid.map(x=>x.bottomDropPct),.75)},
+    rebound1pct:{observed:reb1.length,wins:reb1.filter(x=>x.rebound1pct).length,
+      rate:reb1.length>=minSamples?round(100*reb1.filter(x=>x.rebound1pct).length/reb1.length):null},
+    rebound2pct:{observed:reb2.length,wins:reb2.filter(x=>x.rebound2pct).length,
+      rate:reb2.length>=minSamples?round(100*reb2.filter(x=>x.rebound2pct).length/reb2.length):null},
+    note:"Retrospective frequency, not an executable or validated next-day prediction."};
 }
