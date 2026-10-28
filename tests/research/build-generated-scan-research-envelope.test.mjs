@@ -36,3 +36,10 @@ test("feature metadata is a snapshot, not a reference to mutable Scan objects",(
  stock.patternLearning.rsiBand="OVERBOUGHT";
  assert.equal(result.envelope.scanResponse.stocks[0].patternLearning.rsiBand,"MID");
 });
+
+test("non-cloneable feature metadata is rejected safely",()=>{
+ const payload={...base.payload,stocks:[{...base.payload.stocks[0],patternLearning:{broken:()=>42}}]};
+ const result=build({...base,payload});
+ assert.equal(result.accepted,false);
+ assert.equal(result.reason,"INVALID_STOCK_FEATURE_METADATA");
+});
