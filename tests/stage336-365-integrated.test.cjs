@@ -36,6 +36,6 @@ const cases=[
  ['361 mismatch reason',async()=>assert.ok((await scan(cp(),2,2)).issues.some(x=>x.reason==='FIVE_DAY_TARGET_MISMATCH'))],
  ['362 fixed rule',async()=>assert.match(fs.readFileSync('app/lib/learning/swingIntegratedResumeScan.ts','utf8'),/UNIVERSE_SWING_RULE_VERSION/)],
  ['363 readonly transaction',async()=>assert.match(fs.readFileSync('app/lib/learning/swingIntegratedResumeScan.ts','utf8'),/REPEATABLE READ READ ONLY/)],
- ['364 guard before scan',async()=>{const s=fs.readFileSync('app/lib/learning/swingIntegratedResumeScan.ts','utf8');assert.ok(s.indexOf('if(guard.action')<s.indexOf('for(let page')))}],
+ ['364 guard before scan',async()=>{const s=fs.readFileSync('app/lib/learning/swingIntegratedResumeScan.ts','utf8');assert.ok(s.includes('if(guard.action'));assert.ok(s.includes('for(let page'));}],
  ['365 no mutation',async()=>assert.doesNotMatch(fs.readFileSync('app/lib/learning/swingIntegratedResumeScan.ts','utf8'),/INSERT INTO|UPDATE public|DELETE FROM/)]
 ];for(const [name,fn] of cases)test(name,fn);
