@@ -31,3 +31,12 @@ test("development importer refuses non-development DB hostname before reading",(
  assert.equal(result.status,1);
  assert.match(result.stderr,/RESEARCH_DEV_DATABASE_NOT_VERIFIED/);
 });
+
+test("malformed source JSON cannot initiate a database connection",()=>{
+ const result=run({NODE_ENV:"development",SIGNALX_RESEARCH_DEV_WRITE:"true",
+ SIGNALX_RESEARCH_SCAN_INPUT:"/does-not-exist.json",
+ DATABASE_URL:"postgresql://postgres:fake@db.jdtqwryiyxeuoraecorw.supabase.co/postgres"});
+ assert.equal(result.status,1);
+ assert.match(result.stderr,/ENOENT/);
+ assert.doesNotMatch(result.stderr,/ECONNREFUSED|ENOTFOUND/);
+});
