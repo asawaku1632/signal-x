@@ -12,3 +12,13 @@ test('calendar-day horizon is not a five-trading-day outcome',()=>{const x=audit
 
 test('same stock and signal date but different evaluation dates are quarantined',()=>{const x=audit({rows:[r(),{...r(),evaluatedTradeDate:'2026-09-01'}]});assert.equal(x.counts.validStockDateObservations,0);assert.equal(x.counts.conflictingGroups,1)});
 test('identical stock/date/return and evaluation day can collapse',()=>{const x=audit({rows:[r(),r()]});assert.equal(x.accepted[0].evaluatedTradeDate,'2026-08-28')});
+
+test('loss below minus one hundred percent is invalid',()=>{const x=audit({rows:[r('9983',-101)]});assert.equal(x.counts.rejectedRows,1)});
+test('total loss of exactly minus one hundred percent is allowed descriptively',()=>{const x=audit({rows:[r('9983',-100)]});assert.equal(x.counts.validStockDateObservations,1)});
+test('non-finite return is excluded',()=>{const x=audit({rows:[r('9983',Infinity)]});assert.equal(x.counts.rejectedRows,1)});
+test('invalid stock code is excluded',()=>{const x=audit({rows:[r('__DEV_FIXTURE__')]});assert.equal(x.counts.rejectedRows,1)});
+test('invalid calendar date is excluded',()=>{const x=audit({rows:[{...r(),tradeDate:'2026-02-30'}]});assert.equal(x.counts.rejectedRows,1)});
+test('empty input stays research only',()=>{const x=audit();assert.equal(x.counts.validStockDateObservations,0);assert.equal(x.aiPromotionAuthorized,false)});
+test('multiple trade dates are counted independently',()=>{const x=audit({rows:[r(),{...r(),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.counts.distinctTradeDates,2)});
+test('null row is rejected safely',()=>{const x=audit({rows:[null]});assert.equal(x.counts.rejectedRows,1)});
+test('non-array input is rejected safely',()=>{assert.throws(()=>audit({rows:{}}),/INVALID_OBSERVATION_COHORT/)});
