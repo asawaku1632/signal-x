@@ -1,0 +1,27 @@
+name: Research Stage196-205 Owner Review API
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/integratedResearchReview.ts'
+      - 'app/api/admin/integrated-research-review/route.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage196-205-review-api.test.cjs'
+      - '.github/workflows/research-stage196-205-review.yml'
+permissions:
+  contents: read
+jobs:
+  owner-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage196-205-review-api.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
