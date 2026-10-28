@@ -16,7 +16,9 @@ test('empty input is never promotion eligible',()=>{const x=run([]);assert.equal
 test('invalid input is rejected',()=>{assert.throws(()=>run(null),/INVALID_FORWARD_ENTRIES/);assert.equal(run([null]).rejected[0].reason,'INVALID_FORWARD_ENTRY')});
 
 test('reused outcome ID across distinct signals quarantines both',()=>{
- const second={...entry,envelope:{...envelope,signalRecordId:'signal:20261028:590A',code:'590A'},row:{...row,code:'590A'},evidence:{...evidence,signalRecordId:'signal:20261028:590A',code:'590A'}};
+ const secondSource={...sourceRecord,recordId:'source:20261028:590A',code:'590A'};
+ const secondSnapshot={...snapshotRecord,recordId:'snapshot:20261028:002',stocks:[{code:'590A',price:100}]};
+ const second={...entry,sourceRecord:secondSource,snapshotRecord:secondSnapshot,envelope:{...envelope,signalRecordId:'signal:20261028:590A',code:'590A',sourceRecordId:secondSource.recordId,snapshotRecordId:secondSnapshot.recordId,snapshotHash:hashMarketBreadthSnapshotRecord(secondSnapshot)},row:{...row,code:'590A'},evidence:{...evidence,signalRecordId:'signal:20261028:590A',code:'590A'}};
  const x=run([entry,second]);assert.equal(x.linkedCount,0);assert.equal(x.rejected.length,2);assert.equal(x.review.report.acceptedEvidenceCount,0);
 });
 
