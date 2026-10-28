@@ -1,0 +1,21 @@
+name: Research Stage1236-1265 Snapshot Boundary
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchSnapshotBoundary.mjs'
+      - 'tests/stage1236-1265-snapshot-boundary.test.mjs'
+      - '.github/workflows/research-stage1236-1265-snapshot-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  snapshot-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1236-1265-snapshot-boundary.test.mjs
