@@ -1,0 +1,21 @@
+name: Research Stage936-965 Observation Provenance Gate
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchObservationProvenanceGate.mjs'
+      - 'tests/stage936-965-observation-provenance.test.mjs'
+      - '.github/workflows/research-stage936-965-observation-provenance.yml'
+permissions:
+  contents: read
+jobs:
+  blocked-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage936-965-observation-provenance.test.mjs
