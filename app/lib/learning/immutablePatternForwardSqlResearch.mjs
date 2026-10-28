@@ -11,7 +11,7 @@ export const immutablePatternForwardInsertSql = `
 // direction, entry_price or the original observation time.
 export const immutablePatternForwardResultUpdateSql = `
   UPDATE pattern_forward_observations
-  SET return_5d = $4, outcome_5d_date = $5,\n      success_5d = CASE\n        WHEN direction = 'BUY' THEN $4 > 0\n        WHEN direction = 'SELL' THEN $4 < 0\n        ELSE NULL END,\n      updated_at = NOW()
+  SET return_5d = $4::numeric, outcome_5d_date = $5::date,\n      success_5d = CASE\n        WHEN direction = 'BUY' THEN $4::numeric > 0\n        WHEN direction = 'SELL' THEN $4::numeric < 0\n        ELSE NULL END,\n      updated_at = NOW()
   WHERE trade_date = $1 AND code = $2 AND pattern_id = $3
     AND return_5d IS NULL AND outcome_5d_date IS NULL
   RETURNING code
