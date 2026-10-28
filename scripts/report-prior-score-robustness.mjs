@@ -12,10 +12,20 @@ export function parseResearchFile(raw){
  if(!Array.isArray(parsed)||parsed.length>100000)throw Error("INVALID_RESEARCH_ROWS");
  return parsed;
 }
+export function auditResearchRows(rows){
+ const counts={unverifiedPriorRows:0,unverifiedOutcomeRows:0,invalidObjectRows:0};
+ for(const row of rows){
+  if(!row||typeof row!=="object"||Array.isArray(row)){counts.invalidObjectRows++;continue;}
+  if(row.priorEvidenceVerified!==true||typeof row.priorDate!=="string")counts.unverifiedPriorRows++;
+  if(row.outcomeProvenanceVerified!==true||typeof row.outcomeDate!=="string")counts.unverifiedOutcomeRows++;
+ }
+ return {inputRows:rows.length,...counts,independentlyVerifiedByCli:false};
+}
 export function reportFromText(raw){
  const rows=parseResearchFile(raw);
+ const inputAudit=auditResearchRows(rows);
  const report=researchPriorScoreDailyGaps(rows);
- return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,...report};
+ return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,inputAudit,...report};
 }
 if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
  const args=process.argv.slice(2);
