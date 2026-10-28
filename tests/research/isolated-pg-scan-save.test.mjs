@@ -28,7 +28,9 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
       capture_status text NOT NULL, audit_reason text NOT NULL,
       UNIQUE(scan_run_id,code),
       CHECK (capture_status IN ('QUARANTINED','ASOF_CANDIDATE')),
-      CHECK (source_bar_at IS NULL OR source_bar_at <= scan_received_at)
+      CHECK (source_bar_at IS NULL OR source_bar_at <= scan_received_at),
+      CHECK (ai_power IS NULL OR (ai_power >= 0 AND ai_power <= 100)),
+      CHECK (entry_price IS NULL OR entry_price > 0)
     )`);
     process.env.SIGNALX_RESEARCH_DEV_WRITE = "true";
     const input = {
