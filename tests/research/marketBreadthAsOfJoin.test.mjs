@@ -10,3 +10,6 @@ test('same-time duplicate is quarantined',()=>assert.equal(joinMarketBreadthRese
 test('unlicensed snapshot never joins',()=>assert.equal(joinMarketBreadthResearch([{...m,licenseVerified:false}],[s]).joined.length,0));
 test('no valid signal timestamp never joins',()=>assert.equal(joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-28T09:15:00'}]).joined.length,0));
 test('alphanumeric JP code accepted',()=>assert.equal(joinMarketBreadthResearch([m],[s]).joined[0].code,'641A'));
+
+test('invalid signal calendar day never joins',()=>assert.equal(joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-02-30T09:15:00+09:00'}]).joined.length,0));
+test('invalid signal clock never joins',()=>assert.equal(joinMarketBreadthResearch([m],[{...s,signalGeneratedAt:'2026-10-28T25:15:00+09:00'}]).joined.length,0));
