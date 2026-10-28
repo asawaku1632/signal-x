@@ -1,0 +1,21 @@
+name: Research Stage1176-1205 Coverage Truth Checks
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchObservationCoverage.mjs'
+      - 'tests/stage1176-1205-observation-coverage.test.mjs'
+      - '.github/workflows/research-stage1176-1205-coverage.yml'
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1176-1205-observation-coverage.test.mjs
