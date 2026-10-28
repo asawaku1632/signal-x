@@ -37,3 +37,11 @@ SELECT-only development database inspection identified **five** nonstandard BB c
 All five BB outcome rows link to the two identified DEV fixture event IDs. Outcome horizons: one-day (2), five-day (1), ten-day (1), twenty-day (1). The five-day row reports +5% for `__DEV_BB_TRANSITION_47__`, and **must never be represented as live model performance**. None of these rows is independently verified prospective evidence. This is an explicit exclusion, not an inference of predictive success.
 
 The review code now quarantines recognized fixture events and reports unverified outcome links separately. Do not extrapolate the five fixture rows to the other 733 rows, which still lack independent immutable generation-time proof.
+
+## Independent-timestamp recovery search (development DB only)
+
+A schema search identified seven additional tables with `signal_time`, `source_hash`, or similar historical-provenance fields. SELECT-only exact row counts were **zero** for each: `bb_breakout_expansion_outcomes`, `bb_breakout_shadow_outcomes`, `bb_breakout_volume_factors`, `bb_daily100_outcomes`, `ema_forward_shadow_trades`, `msb_volume_research_observations`, `swing_exit_audits`.
+
+Therefore none of these seven development tables currently supplies independent generation-time evidence for the 733 plausibly formatted historical signals. This is **not** a global claim that no GitHub Actions artifacts, external records, or other databases contain such evidence.
+
+Recovery priority: locate immutable original signal logs with independent capture timestamps and licensed price provenance; compare against nominal signal date and actual trading session; preserve a separate retrospective cohort for unverified legacy rows. Never reconstruct an original generation timestamp from `created_at` or `detected_at` assigned during a later backfill.
