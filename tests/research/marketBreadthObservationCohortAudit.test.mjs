@@ -27,3 +27,7 @@ test('descriptive statistics count each stock/date only once',()=>{const x=audit
 test('empty cohort has null descriptive statistics, not zero performance',()=>{const x=audit();assert.equal(x.descriptiveStats.meanReturnPercent,null);assert.equal(x.descriptiveStats.medianReturnPercent,null);assert.equal(x.descriptiveStats.positiveRate,null)});
 test('conflicting cohort does not enter descriptive statistics',()=>{const x=audit({rows:[r('9983',-3),r('9983',3)]});assert.equal(x.descriptiveStats.meanReturnPercent,null)});
 test('median of three distinct observations is central return',()=>{const x=audit({rows:[r('9983',-3),r('9432',1),r('8591',2)]});assert.equal(x.descriptiveStats.medianReturnPercent,1)});
+
+test('by-date summary separates observation dates',()=>{const x=audit({rows:[r('9983',-3),r('9432',1),{...r('9983',2),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.byDate.length,2);assert.deepEqual(x.byDate.map(d=>d.stockDateCount),[2,1]);assert.deepEqual(x.byDate.map(d=>d.meanReturnPercent),[-1,2]);assert.deepEqual(x.byDate.map(d=>d.positiveRate),[0.5,1])});
+test('empty by-date summary is empty, not fabricated',()=>{assert.deepEqual(audit().byDate,[])});
+test('event-type duplicates do not inflate daily denominator',()=>{const x=audit({rows:[r('9983',-3),r('9983',-3),r('9432',1)]});assert.equal(x.byDate[0].stockDateCount,2)});
