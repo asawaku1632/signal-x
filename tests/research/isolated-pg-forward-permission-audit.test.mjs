@@ -13,12 +13,14 @@ test("isolated PG: restricted role cannot overwrite inputs or results",async t=>
   await db.query("INSERT INTO protected_forward VALUES(1,100,2.5)");
   await db.query("CREATE ROLE signalx_restricted_test NOLOGIN");
   await db.query("GRANT SELECT ON protected_forward TO signalx_restricted_test");
+  await db.query("SAVEPOINT unauthorized_write");
   await db.query("SET LOCAL ROLE signalx_restricted_test");
   await assert.rejects(db.query("UPDATE protected_forward SET return_5d=-1 WHERE id=1"),e=>e.code==="42501");
-  await db.query("ROLLBACK TO SAVEPOINT nonexistent").catch(()=>{}); // transaction is aborted; outer finally rolls back
+  await db.query("ROLLBACK TO SAVEPOINT unauthorized_write");
+  const rows=(await db.query("SELECT entry_price::float8 price,return_5d::float8 result FROM protected_forward")).rows;
+  assert.deepEqual(rows,[{price:100,result:2.5}]);
  }finally{
   await db.query("ROLLBACK").catch(()=>{});
-  await db.query("DROP ROLE IF EXISTS signalx_restricted_test").catch(()=>{});
   await db.end();
  }
 });
