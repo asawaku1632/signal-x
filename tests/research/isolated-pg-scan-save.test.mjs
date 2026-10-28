@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
 import { saveResearchScanCaptureDev } from "../../app/lib/learning/saveResearchScanCaptureDev.mjs";
+import { buildGeneratedScanResearchEnvelope } from "../../app/lib/learning/buildGeneratedScanResearchEnvelope.mjs";
 
 test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
   if (process.env.SIGNALX_RESEARCH_ISOLATED_PG !== "true") {
@@ -41,13 +42,32 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
           latestBarTimestamp:Date.parse("2026-10-28T06:30:00Z")/1000 }
       ]}
     };
+    const generated = buildGeneratedScanResearchEnvelope({
+      scanRunId:"ci-generated-envelope",tradeDate:"2026-10-28",
+      scanStartedAt:"2026-10-28T06:29:00Z",
+      scanCompletedAt:"2026-10-28T06:35:00Z",
+      payload:{
+        cached:false,updatedAt:"2026-10-28T06:34:00Z",
+        stocks:[{code:"590A",price:1000,aiPower:75,
+          latestBarTimestamp:Date.parse("2026-10-28T06:30:00Z")/1000}]
+      }
+    });
+    assert.equal(generated.accepted,true);
+    assert.equal(generated.envelope.provenance_verified,false);
+    const generatedSaved=await saveResearchScanCaptureDev(client,generated.envelope);
+    assert.equal(generatedSaved.inserted,1);
+    const generatedRow=await client.query(
+      "SELECT capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",
+      ["ci-generated-envelope"]);
+    assert.equal(generatedRow.rows[0].capture_status,"QUARANTINED");
+    assert.equal(generatedRow.rows[0].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
     const first = await saveResearchScanCaptureDev(client,input);
     const second = await saveResearchScanCaptureDev(client,input);
     assert.equal(first.inserted,1);
     assert.equal(second.inserted,0);
     assert.equal(second.duplicates,1);
     const actual = await client.query("SELECT code,capture_status,audit_reason FROM public.research_scan_feature_captures");
-    assert.equal(actual.rowCount,1);
+    assert.equal(actual.rowCount,2);
     assert.equal(actual.rows[0].code,"590A");
     assert.equal(actual.rows[0].capture_status,"QUARANTINED");
     assert.equal(actual.rows[0].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
