@@ -40,3 +40,29 @@ Discover historically frequent morning-low time windows, low price relative to p
 
 ## Next executable milestone
 Locate a legitimate retained OHLC source, confirm exact timestamp convention, then build an **offline read-only adapter** to convert a bounded set of real historical stock-days into the strict input record. Run tests and compute real cohort counts before discussing a forecast display.
+
+
+## Read-only daily baseline audit (2026-10-28, production snapshot)
+
+This is the saved **daily** dataset, not 5-minute/15-minute OHLC and not a tradable prediction. Queries were SELECT-only; no production writes.
+
+- `public.daily_stock_results`: 71,289 rows, 76 distinct dates, 967 codes; dates 2026-06-29 through 2026-10-28.
+- `next_price > 0 AND price > 0`: 70,283 rows (98.59%); 1,006 rows have null `next_price`; no duplicate date/code pairs observed.
+- Positive later price: 33,599; negative: 31,319; unchanged: 5,365. These counts total 70,283.
+- `checked_at` date (DB session date) was after row `date` for 68,375 rows and the same date for 1,908 rows. **Price as-of semantics and provider quality are not independently certified.**
+
+| Stored score band | Matched rows | Mean percentage change | Positive price fraction |
+| --- | ---: | ---: | ---: |
+| 0–49 | 35,995 | +0.0290% | 49.76% |
+| 50–69 | 12,518 | -0.0824% | 45.29% |
+| 70–79 | 5,276 | -0.0155% | 46.04% |
+| 80–84 | 2,486 | +0.0216% | 45.58% |
+| 85–89 | 3,749 | -0.0343% | 46.28% |
+| 90–94 | 4,160 | +0.0131% | 46.51% |
+| 95–100 | 6,099 | -0.0189% | 45.12% |
+
+`score >= 85`: 14,008 matched records, 69 distinct dates, mean change -0.0135%, median 0.0000%, 45.85% positive. `score < 85`: 56,275 matched records, 75 dates, mean -0.0003%, median 0.0000%, 48.23% positive. Score buckets are **not yet verified as equivalent to the current UI's AI POWER**.
+
+**Interpretation lock:** These descriptive returns are computed as `100 * (next_price / price - 1)` from stored columns. They do not establish executable fill, next-day horizon, price-source quality, sign/direction-adjusted performance, risk-adjusted advantage, calibrated probabilities, or morning-low timing. The raw data do not show a monotonic positive relationship between higher stored `score` and positive later price. Do not ship a score-to-trading-signal rule from these aggregates.
+
+Next: verify `next_price` timing and `score` generation code; stratify by market direction and date and run chronological held-out tests. Morning-low research separately requires complete provenance-verified intraday OHLC, which is not furnished by this daily table.
