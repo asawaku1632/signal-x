@@ -1,0 +1,44 @@
+name: Research Stage181-185 Immutable Evidence
+on:
+  pull_request:
+    paths:
+      - 'tests/fixtures/stage176-evidence-schema.ts'
+      - 'tests/stage181-185-immutability-realdb.test.cjs'
+      - 'app/lib/learning/researchEvidenceHistoryRead.ts'
+      - 'app/api/admin/research-evidence-history/route.ts'
+      - '.github/workflows/research-stage181-185-immutable.yml'
+permissions:
+  contents: read
+jobs:
+  immutable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_only
+          POSTGRES_PASSWORD: ephemeral_test_password
+          POSTGRES_DB: signalx_alpha217_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_only -d signalx_alpha217_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Verify append-only evidence table in disposable DB
+        env:
+          SIGNALX_E2E_DATABASE_URL: postgres://test_only:ephemeral_test_password@127.0.0.1:5432/signalx_alpha217_ci
+        run: node tests/stage181-185-immutability-realdb.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
