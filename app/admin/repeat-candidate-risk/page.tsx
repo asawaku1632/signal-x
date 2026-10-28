@@ -29,6 +29,19 @@ export default function RepeatCandidateRiskPage() {
       }).catch(e => { if (active) setError(e instanceof Error ? e.message : "取得失敗"); });
     return () => { active = false; };
   }, []);
+  const summary = useMemo(() => {
+    const all = data?.rows || [];
+    const groups = [
+      { label: "前回比5%超下落", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5) },
+      { label: "その他の再選出", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) >= -5) },
+    ];
+    return groups.map(g => {
+      const completed = g.rows.map(r => n(r.return_5d)).filter((v): v is number => v != null && Number.isFinite(v));
+      const days = new Set(g.rows.filter(r => n(r.return_5d) != null).map(r => r.trade_date)).size;
+      return { label: g.label, count: g.rows.length, checked: completed.length, days,
+        average: completed.length ? completed.reduce((a, b) => a + b, 0) / completed.length : null };
+    });
+  }, [data]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     !onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5), [data, onlyDrop]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -39,7 +52,12 @@ export default function RepeatCandidateRiskPage() {
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyDrop} onChange={e => setOnlyDrop(e.target.checked)} /> 前回候補比で5%超下落した銘柄のみ</label>
       {error && <p role="alert" className="text-rose-700">{error}</p>}
       {!data && !error && <p>研究データを取得中…</p>}
-      {data && <><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
+      {data && <><section aria-label="同日比較ではない参考集計" className="grid grid-cols-2 gap-2">
+        {summary.map(g => <div key={g.label} className="rounded-xl border bg-slate-50 p-3">
+          <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
+          <p className="text-xs text-slate-600">5日後平均・記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
+        </div>)}
+      </section><p className="text-xs text-amber-800">※ 上の2群は日付・業種・POWERを調整していない単純集計。将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
           <thead><tr className="border-b bg-slate-100"><th className="p-2">日付・銘柄</th><th className="p-2">前回候補</th><th className="p-2">前回比</th><th className="p-2">AI POWER</th><th className="p-2">5日後</th><th className="p-2">結果日</th></tr></thead>
           <tbody>{rows.map(r => <tr key={r.trade_date + ":" + r.code} className="border-b">
