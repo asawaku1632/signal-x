@@ -22,3 +22,7 @@ test('rejects outcome date inconsistent with evaluation timestamp',()=>assert.eq
 
 test('rejects impossible trade calendar date',()=>assert.equal(check({...row,tradeDate:'2026-02-30'},{...e,tradeDate:'2026-02-30'}).reason,'TRADE_DATE_INVALID'));
 test('rejects impossible outcome calendar date',()=>assert.equal(check({...row,outcomeDate:'2026-11-31'},{...e,outcomeDate:'2026-11-31'}).reason,'TRADE_DATE_INVALID'));
+
+test('rejects impossible signal timestamp day',()=>{const t='2026-02-30T09:15:00+09:00';assert.equal(check({...row,signalGeneratedAt:t},{...e,signalGeneratedAt:t}).reason,'AS_OF_TIME_INVALID')});
+test('rejects invalid market timestamp clock',()=>{const t='2026-10-28T25:00:00+09:00';assert.equal(check({...row,marketObservedAt:t},{...e,marketObservedAt:t}).reason,'AS_OF_TIME_INVALID')});
+test('rejects impossible evaluation timestamp day',()=>{const t='2026-11-31T15:30:00+09:00';assert.equal(check({...row,evaluatedAt:t},{...e,evaluatedAt:t}).reason,'AS_OF_TIME_INVALID')});
