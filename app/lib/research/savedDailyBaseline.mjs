@@ -60,7 +60,11 @@ export function evaluateFrozenDailyDropRule(rows,{rule=FROZEN_DAILY_DROP_RULE_V1
     rule.maxPrior3ReturnPct!==-5)throw Error("INVALID_FROZEN_RULE");
   const cutoff=rule.frozenAt.slice(0,10);
   const seen=new Set(),returns=[],dates=new Set();
-  const excluded={beforeFreeze:0,invalid:0,duplicate:0,unqualified:0,missingOutcome:0};
+  const validInstant=(stamp,date)=>typeof stamp==="string" &&
+    /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(stamp) &&
+    Number.isFinite(Date.parse(stamp)) &&
+    Date.parse(stamp)<Date.parse(date+"T00:00:00+09:00");
+  const excluded={beforeFreeze:0,invalid:0,duplicate:0,unqualified:0,missingOutcome:0,unverifiedFeatures:0,unverifiedOutcome:0};
   for(const row of rows){
     if(!row||!validDate(row.date)||typeof row.code!=="string"||
       !/^(?:\d{4}|\d{3}[A-Z])$/.test(row.code)){
@@ -75,10 +79,18 @@ export function evaluateFrozenDailyDropRule(rows,{rule=FROZEN_DAILY_DROP_RULE_V1
     if(![score,previousScore,prior3ReturnPct,price].every(finite)||price<=0){
       excluded.invalid++;continue;
     }
+    if(row.featureProvenanceVerified!==true||
+      !validInstant(row.featureAvailableAt,row.date)){
+      excluded.unverifiedFeatures++;continue;
+    }
     if(score<85||score-previousScore>=10||prior3ReturnPct> -5){
       excluded.unqualified++;continue;
     }
     if(!positivePrice(next_price)){excluded.missingOutcome++;continue;}
+    if(row.outcomeProvenanceVerified!==true||!validDate(row.outcomeTradeDate)||
+      row.outcomeTradeDate<=row.date){
+      excluded.unverifiedOutcome++;continue;
+    }
     returns.push(100*(next_price/price-1));dates.add(row.date);
   }
   const n=returns.length,positive=returns.filter(x=>x>0).length;
