@@ -1,0 +1,14 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const m={exports:{}};new vm.Script(ts.transpileModule(fs.readFileSync('app/lib/learning/swingAuditProgress.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText).runInNewContext({module:m,exports:m.exports,require,Number});const {validateAuditProgress:v,advanceAuditProgress:a}=m.exports;
+const start=()=>({version:1,ruleVersion:'ai_power_only_v1',cursor:null,inspected:0,eligibleAtStart:5,issueCount:0,completed:false});
+const cursor={tradeDate:'2026-10-09',code:'590A'};
+test('296 initial valid state',()=>assert.equal(v(start()).inspected,0));
+test('297 first page advances',()=>{const x=a(start(),{rows:2,issues:1,last:cursor,remaining:3});assert.equal(x.inspected,2);assert.equal(x.issueCount,1);});
+test('298 resumed next page completes',()=>{const x=a(start(),{rows:2,issues:0,last:cursor,remaining:3});const y=a(x,{rows:3,issues:1,last:{tradeDate:'2026-10-08',code:'641A'},remaining:0});assert.equal(y.completed,true);assert.equal(y.inspected,5)});
+test('299 completed cannot be advanced',()=>{let x=a(start(),{rows:5,issues:0,last:cursor,remaining:0});assert.throws(()=>a(x,{rows:0,issues:0,last:null,remaining:0}),/INVALID_AUDIT_STEP/)});
+test('300 count drift is rejected',()=>assert.throws(()=>a(start(),{rows:2,issues:0,last:cursor,remaining:2}),/AUDIT_COUNT_DRIFT/));
+test('301 invalid date cursor rejected',()=>assert.throws(()=>v({...start(),cursor:{tradeDate:'wrong',code:'590A'}}),/INVALID_AUDIT_CURSOR/));
+test('302 missing cursor with progress rejected',()=>assert.throws(()=>v({...start(),inspected:2}),/INVALID_AUDIT_PROGRESS/));
+test('303 negative issue count rejected',()=>assert.throws(()=>v({...start(),issueCount:-1}),/INVALID_AUDIT_PROGRESS/));
+test('304 issue count more than processed rejected',()=>assert.throws(()=>a(start(),{rows:1,issues:2,last:cursor,remaining:4}),/INVALID_AUDIT_STEP/));
+test('305 progress does not permit unsupported approval or mutation',()=>{const src=fs.readFileSync('app/lib/learning/swingAuditProgress.ts','utf8');assert.doesNotMatch(src,/pool\.query|INSERT INTO|UPDATE public|DELETE FROM|notificationEnabled:true|productionApplied:true/);});
