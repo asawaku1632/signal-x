@@ -1,0 +1,17 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const m={exports:{}};new vm.Script(ts.transpileModule(fs.readFileSync('app/lib/learning/researchProofGates.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText).runInNewContext({module:m,exports:m.exports});const {assessProofGates:a,summarizeProofGates:s,PROOF_FIELDS:fields}=m.exports;
+const base=()=>Object.fromEntries([['observationId','590A'],...fields.map(f=>[f,'PROVEN'])]);
+const cases=[];const add=(name,fn)=>cases.push([name,fn]);
+add('486 all proof gates',()=>assert.equal(a(base()).state,'VERIFIED_SCOPE'));
+for(let i=0;i<10;i++)add(String(487+i)+' missing '+fields[i],()=>{const x=base();x[fields[i]]='MISSING';assert.equal(a(x).state,'PENDING');assert.equal(a(x).confirmed,9)});
+for(let i=0;i<10;i++)add(String(497+i)+' conflict '+fields[i],()=>{const x=base();x[fields[i]]='CONFLICT';assert.equal(a(x).state,'REVIEW_REQUIRED')});
+add('507 expired proof',()=>assert.equal(a({...base(),source:'EXPIRED'}).state,'PENDING'));
+add('508 invalid value',()=>assert.equal(a({...base(),license:'UNKNOWN'}).state,'REVIEW_REQUIRED'));
+add('509 bad ID',()=>assert.equal(a({...base(),observationId:'../../x'}).state,'REVIEW_REQUIRED'));
+add('510 empty summary',()=>assert.equal(s([]).total,0));
+add('511 mixed summary',()=>{const x=s([base(),{...base(),license:'MISSING'},{...base(),source:'CONFLICT'}]);assert.equal(x.verifiedScope,1);assert.equal(x.pending,1);assert.equal(x.reviewRequired,1)});
+add('512 gate reason counted',()=>assert.equal(s([{...base(),source:'MISSING'}]).missingByGate.SOURCE_MISSING,1));
+add('513 oversized batch refused',()=>assert.throws(()=>s(Array.from({length:1001},base)),/PROOF_SUMMARY_LIMIT/));
+add('514 proof not approval',()=>{assert.equal(a(base()).canAdopt,false);assert.equal(a(base()).canNotify,false);assert.equal(s([base()]).adoptionApproved,false)});
+add('515 no writes',()=>assert.doesNotMatch(fs.readFileSync('app/lib/learning/researchProofGates.ts','utf8'),/INSERT INTO|UPDATE public|DELETE FROM|pool\.query/));
+assert.equal(cases.length,30);for(const [name,fn] of cases)test(name,fn);

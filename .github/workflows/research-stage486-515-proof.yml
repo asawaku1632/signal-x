@@ -1,0 +1,25 @@
+name: Research Stage486-515 Proof Gates
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchProofGates.ts'
+      - 'tests/stage486-515-proof-gates.test.cjs'
+      - '.github/workflows/research-stage486-515-proof.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage486-515-proof-gates.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
