@@ -16,7 +16,9 @@ test("daily historical summary counts unique completed observations",()=>{
 import {evaluateFrozenDailyDropRule} from "../app/lib/research/savedDailyBaseline.mjs";
 test("frozen rule excludes all on-or-before freeze and handles outcomes",()=>{
  const row=(date,code,price,next_price)=>({date,code,score:90,previousScore:85,
-  prior3ReturnPct:-6,price,next_price});
+  prior3ReturnPct:-6,price,next_price,
+  featureProvenanceVerified:true,featureAvailableAt:"2026-10-29T08:00:00+09:00",
+  outcomeProvenanceVerified:true,outcomeTradeDate:"2026-11-04"});
  const result=evaluateFrozenDailyDropRule([
   row("2026-10-28","1234",100,200),
   row("2026-10-29","1234",100,200),
@@ -36,4 +38,22 @@ test("frozen thresholds cannot be retrospectively tuned",()=>{
   id:"DAILY_DROP_SCORE_SHADOW_V1",frozenAt:"2026-10-29T00:00:00+09:00",
   minScore:80,maxScoreDeltaExclusive:10,maxPrior3ReturnPct:-5
  }}),/INVALID_FROZEN_RULE/);
+});
+
+test("prospective evaluator rejects late features and unverified later prices",()=>{
+ const base={date:"2026-11-02",score:90,previousScore:85,prior3ReturnPct:-6,
+  price:100,next_price:102,featureProvenanceVerified:true,
+  featureAvailableAt:"2026-10-30T15:00:00+09:00",
+  outcomeProvenanceVerified:true,outcomeTradeDate:"2026-11-04"};
+ const result=evaluateFrozenDailyDropRule([
+  {...base,code:"1234",featureAvailableAt:"2026-11-02T07:00:00+09:00"},
+  {...base,code:"1235",featureProvenanceVerified:false},
+  {...base,code:"1236",outcomeTradeDate:"2026-11-02"},
+  {...base,code:"1237",outcomeProvenanceVerified:false},
+  {...base,code:"1238"}
+ ],{minSamples:1});
+ assert.equal(result.samples,1);
+ assert.equal(result.excluded.unverifiedFeatures,2);
+ assert.equal(result.excluded.unverifiedOutcome,2);
+ assert.equal(result.positiveRatePct,100);
 });
