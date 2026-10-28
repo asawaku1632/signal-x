@@ -41,3 +41,15 @@ test("actual PostgreSQL timestamptz text is classified by Japan day",()=>{
  assert.equal(result.issues.SAVED_AFTER_OBSERVATION_DAY,1);
  assert.equal(result.verified_forward_predictions,0);
 });
+
+test("storage before Japanese observation day is flagged, not counted as real prediction",()=>{
+ const result=audit([{observation_date:"2026-10-14",created_at:"2026-10-13T14:59:59Z",provider:"source"}]);
+ assert.equal(result.issues.SAVED_BEFORE_OBSERVATION_DAY,1);
+ assert.equal(result.verified_forward_predictions,0);
+});
+test("storage within Japanese observation day is not mislabeled as delayed",()=>{
+ const result=audit([{observation_date:"2026-10-14",created_at:"2026-10-13T15:00:00Z",provider:"source"}]);
+ assert.equal(result.issues.SAVED_BEFORE_OBSERVATION_DAY??0,0);
+ assert.equal(result.issues.SAVED_AFTER_OBSERVATION_DAY??0,0);
+ assert.equal(result.eligible_for_ai_power_training,false);
+});
