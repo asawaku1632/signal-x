@@ -48,9 +48,22 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async () => {
     assert.equal(actual.rows[0].code,"590A");
     assert.equal(actual.rows[0].capture_status,"QUARANTINED");
     assert.equal(actual.rows[0].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
+    const missing = await saveResearchScanCaptureDev(client,{
+      ...input,scanRunId:"ci-missing-bar",
+      scanResponse:{cached:false,stocks:[{code:"641A",price:1200,aiPower:40,latestBarTimestamp:null}]}
+    });
+    assert.equal(missing.inserted,1);
+    const missingRows=await client.query("SELECT capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",["ci-missing-bar"]);
+    assert.equal(missingRows.rows[0].capture_status,"QUARANTINED");
+    assert.equal(missingRows.rows[0].audit_reason,"MISSING_OR_INVALID_TIMESTAMP");
   } finally {
-    await client.query("ROLLBACK");
-    await client.end();
+    try {
+      await client.query("ROLLBACK");
+      const after=await client.query("SELECT to_regclass('public.research_scan_feature_captures') AS table_name");
+      assert.equal(after.rows[0].table_name,null);
+    } finally {
+      await client.end();
+    }
     if (original === undefined) delete process.env.SIGNALX_RESEARCH_DEV_WRITE;
     else process.env.SIGNALX_RESEARCH_DEV_WRITE = original;
   }
