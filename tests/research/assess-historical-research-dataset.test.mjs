@@ -29,3 +29,15 @@ test("invalid dates and timezone-free timestamps never pass audit",()=>{
  assert.equal(x.issues.INVALID_OBSERVATION_DATE,1);
  assert.equal(x.issues.MISSING_OBSERVATION_OR_STORAGE_TIME,1);
 });
+
+test("actual PostgreSQL timestamptz text is classified by Japan day",()=>{
+ const rows=[
+  {observation_date:"2026-10-14",created_at:"2026-10-14 12:38:12.89497+00",provider:"YAHOO_CHART"},
+  {observation_date:"2026-08-21",created_at:"2026-08-22 13:45:53.458056+00",provider:"YAHOO_CHART"}
+ ];
+ const result=audit(rows);
+ assert.equal(result.reviewed,2);
+ assert.equal(result.issues.MISSING_OBSERVATION_OR_STORAGE_TIME??0,0);
+ assert.equal(result.issues.SAVED_AFTER_OBSERVATION_DAY,1);
+ assert.equal(result.verified_forward_predictions,0);
+});
