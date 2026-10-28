@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {formatMarketBreadthProspectiveSignalRecord as format} from '../../lib/research/marketBreadthProspectiveSignalRecord.mjs';
+const sample={signalRecordId:'signal:20261028:641A',sourceRecordId:'source:20261028:641A',code:'641A',signalGeneratedAt:'2026-10-28T09:05:00+09:00',sourceObservedAt:'2026-10-28T09:01:00+09:00',sourceBarEndAt:'2026-10-28T09:00:00+09:00',provider:'licensed-provider-pending',licenseRecordId:'license:review:001',payload:{aiPower:55,side:'LOWER_REBOUND'}};
+test('prospective receipt is deterministic and research only',()=>{const a=format(sample),b=format({...sample,payload:{side:'LOWER_REBOUND',aiPower:55}});assert.deepEqual(a,b);assert.equal(a.tradeDate,'2026-10-28');assert.equal(a.productionEligible,false);assert.equal(Object.isFrozen(a),true)});
+test('tampering payload changes fingerprint',()=>{assert.notEqual(format(sample).payloadHash,format({...sample,payload:{...sample.payload,aiPower:56}}).payloadHash)});
+test('source chronology cannot run after signal',()=>{assert.throws(()=>format({...sample,sourceObservedAt:'2026-10-28T09:06:00+09:00'}),/INVALID_SIGNAL_CHRONOLOGY/)});
+test('missing license reference is blocked',()=>{assert.throws(()=>format({...sample,licenseRecordId:null}),/PROVIDER_EVIDENCE_REFERENCE_MISSING/)});
+test('development code is blocked',()=>{assert.throws(()=>format({...sample,code:'__DEV__'}),/INVALID_SIGNAL_IDENTITY/)});
+test('noncanonical payload is blocked',()=>{assert.throws(()=>format({...sample,payload:{bad:undefined}}),/INVALID_SIGNAL_PAYLOAD/)});
