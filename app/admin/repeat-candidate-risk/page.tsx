@@ -35,11 +35,11 @@ export default function RepeatCandidateRiskPage() {
     <div className="mx-auto max-w-3xl space-y-4 rounded-2xl bg-white p-4">
       <a href="/admin/learning-hub" className="text-sm text-blue-700">← 学習管理へ</a>
       <h1 className="text-xl font-black">高POWER再選出・下落リスク｜研究専用</h1>
-      <p className="text-sm text-slate-600">前回CANDIDATE時の保存価格と、再選出時点の保存価格を比較します。AI POWERのみの簡易研究判定で、投資判断や通知には反映されません。</p>
+      <p className="text-sm text-slate-600">AI POWER90以上を対象に、前回CANDIDATE時の保存価格と、再選出時点の保存価格を比較します。AI POWERのみの簡易研究判定で、投資判断や通知には反映されません。</p>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyDrop} onChange={e => setOnlyDrop(e.target.checked)} /> 前回候補比で5%超下落した銘柄のみ</label>
       {error && <p role="alert" className="text-rose-700">{error}</p>}
       {!data && !error && <p>研究データを取得中…</p>}
-      {data && <><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近300件のみ・全期間の集計ではありません）" : ""}</p>
+      {data && <><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
           <thead><tr className="border-b bg-slate-100"><th className="p-2">日付・銘柄</th><th className="p-2">前回候補</th><th className="p-2">前回比</th><th className="p-2">AI POWER</th><th className="p-2">5日後</th><th className="p-2">結果日</th></tr></thead>
           <tbody>{rows.map(r => <tr key={r.trade_date + ":" + r.code} className="border-b">
