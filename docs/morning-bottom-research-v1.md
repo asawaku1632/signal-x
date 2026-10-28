@@ -131,3 +131,28 @@ Within each target `date`, compare stored `score >= 85` against `score < 85`. In
 - Later period (2026-09-02 onward): 38 comparable dates, mean gap -0.0678 pp, high group outperformed on 19.
 
 These retrospective observations **do not support** shipping an unconditional `score >= 85` bullish rule. They also **do not** prove absence of conditional predictive value or evaluate short-direction signals. This is not an intraday morning-low study or a tradable backtest. Next research stage should use provenance-confirmed cohorts, frozen prior-day feature versions, direction-aware labels, date-matched cross-sectional ranks and chronological holdouts, and should report uncertainty.
+
+
+## Exploratory condition research and temporal replication failure (2026-10-29, SELECT-only)
+
+For each stock, order saved daily rows by `date`. Define prior 3-record price change from the third preceding saved observation and score delta from the immediately preceding saved observation; these are record-count offsets, **not guaranteed consecutive market sessions**. Require valid saved `price`, `next_price`, prior score and prior price. Outcome is `100*(next_price/price-1)`. The source and as-of availability of each historical score/price remains unverified.
+
+Exploratory mutually exclusive groups:
+
+| Condition | Matched observations | Mean subsequent stored-price change | Positive-price fraction |
+|---|---:|---:|---:|
+| Score >=85, score delta >=10, prior 3-record return <=-5% | 572 | +0.4245% | 48.95% |
+| Score >=85, score delta >=10, other prior return | 7,918 | -0.0846% | 44.13% |
+| Score >=85, score delta <10, prior 3-record return <=-5% | 292 | +1.3015% | 75.34% |
+| All remaining eligible observations | 58,600 | -0.0163% | 48.41% |
+
+**Critical chronological check for the apparently strongest group** (cut 2026-09-02):
+
+| Period | Pattern records | Pattern positive rate | Pattern mean return | All other records positive rate |
+|---|---:|---:|---:|---:|
+| EARLY (before 2026-09-02) | 265 across 18 dates | 78.11% | +1.4694% | 49.30% |
+| LATE (2026-09-02 onward) | 27 across 12 dates | 48.15% | -0.3467% | 46.73% |
+
+The pattern shows **no demonstrated forward robustness** in this date split; a large retrospective aggregate is driven by the earlier observations. Conditions were explored on the full dataset, so the later-period comparison is diagnostic, **not a pristine out-of-sample test**. Small late sample (27) adds uncertainty. Do not use this as a validated buy signal, probability, or notification. Future evaluation should preregister conditions, audit point-in-time price/score availability, compare common-date and market-matched baselines, and collect unseen prospective observations.
+
+This is daily saved-price research only; it does not resolve PR #292's requirement for licensed, complete historical intraday OHLC.
