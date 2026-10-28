@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
+import { summarizeResearchQuality } from "@/app/lib/learning/researchQualitySummary";
 
 type Outcome = { days: number; checked: number; up: number; rebounded: number; averageReturnPercent: number | null };
 type Group = { status: string; label: string; count: number; distinctDates: number; outcomes: Outcome[] };
@@ -62,13 +63,14 @@ export default function UniverseCheckPage() {
   }, []);
   useEffect(() => { void load(code); }, [code, load]);
   const search = () => {
-    const trimmed = input.trim();
-    if (trimmed && !/^[0-9]{4}$/.test(trimmed)) {
-      setError("銘柄コードは4桁で入力してください"); return;
+    const trimmed = input.trim().toUpperCase();
+    if (trimmed && !/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(trimmed)) {
+      setError("銘柄コードは数字4桁または数字3桁＋英字1文字で入力してください"); return;
     }
     setCode(trimmed);
     if (trimmed === code) void load(code);
   };
+  const quality = report ? summarizeResearchQuality(report, new Date()) : null;
   return <main className="min-h-screen bg-slate-50 pb-24 text-slate-900">
     <div className="mx-auto min-h-screen max-w-md bg-white px-4 py-5 shadow-sm">
       <a href="/simulation" className="text-sm font-bold text-blue-600">← 疑似投資に戻る</a>
@@ -87,6 +89,20 @@ export default function UniverseCheckPage() {
           <p className="mt-1 text-3xl font-black">{report.total.toLocaleString("ja-JP")}件</p>
           <p className="mt-1 text-xs text-slate-500">記録日数 {report.distinctDates}日 ・ 最新 {report.latestDate ?? "記録待ち"}</p>
         </section>
+        {quality && <section aria-label="研究データ品質" className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-base font-black">研究データ品質（閲覧専用）</h2>
+          <p className="mt-2 text-xs text-slate-600">保存済み {quality.total}件 ／ 最新記録 {quality.latestDate ?? "なし"} ／ {quality.freshnessLabel}</p>
+          <p className="mt-2 text-xs text-slate-600">判定群別の期間比較（重複あり・各期間独立）</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {quality.horizons.map(h=><div key={h.days} className="rounded-lg bg-slate-50 p-3 text-xs">
+              <b>{h.days}営業日後</b>
+              <p>検証済み {h.checked} / {h.total}</p>
+              <p>未確定 {h.pending}件</p>
+              <p>充足率 {h.completionPct === null ? "集計待ち" : h.completionPct.toFixed(1)+"%"}</p>
+            </div>)}
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">画面の集計は閲覧専用です。勝率の予測や通知解禁の承認には使用しません。</p>
+        </section>}
         <h2 className="mt-6 text-lg font-black">判定別の答え合わせ</h2>
         {report.groups.length === 0
           ? <p className="mt-3 rounded-2xl border border-dashed p-6 text-sm text-slate-500">初回の自動記録待ちです。営業日の16:20以降に集計します。</p>
