@@ -19,6 +19,9 @@ export function assessAiPowerImprovementEvidence(captures, outcomes) {
     reasons.push("INSUFFICIENT_HIGH_LOW_SCORE_COMPARISON");
   if (cohorts.bands.some(b=>b.verified_count>0 && b.largest_code_share_pct>25))
     reasons.push("SINGLE_STOCK_CONCENTRATION");
+  // Distinct runs and stocks alone do not establish independent temporal replication.
+  // Require the separate out-of-sample evaluation to be explicitly reviewed.
+  if (summary.accepted > 0) reasons.push("OUT_OF_SAMPLE_REPLICATION_NOT_EVALUATED");
   // Even if all these heuristics pass, license, temporal out-of-sample validation,
   // uncertainty intervals and manual review are independent requirements.
   return {
