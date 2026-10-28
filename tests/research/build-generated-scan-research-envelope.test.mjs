@@ -43,3 +43,18 @@ test("non-cloneable feature metadata is rejected safely",()=>{
  assert.equal(result.accepted,false);
  assert.equal(result.reason,"INVALID_STOCK_FEATURE_METADATA");
 });
+
+test("generated Scan rejects wrong JST trade date before DB preparation",()=>{
+ const result=build({...base,tradeDate:"2026-10-27"});
+ assert.equal(result.accepted,false);
+ assert.equal(result.reason,"TRADE_DATE_MISMATCH");
+});
+test("generated Scan uses Tokyo date rather than UTC at midnight",()=>{
+ const before="2026-10-27T14:58:00Z";
+ const after="2026-10-27T15:03:00Z";
+ const updated="2026-10-27T15:02:00Z";
+ const payload={...base.payload,updatedAt:updated};
+ const result=build({...base,tradeDate:"2026-10-28",scanStartedAt:before,scanCompletedAt:after,payload});
+ assert.equal(result.accepted,true);
+ assert.equal(build({...base,tradeDate:"2026-10-27",scanStartedAt:before,scanCompletedAt:after,payload}).reason,"TRADE_DATE_MISMATCH");
+});
