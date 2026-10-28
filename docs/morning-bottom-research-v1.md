@@ -88,3 +88,10 @@ This stratification groups each **completed date** by the mean saved price chang
 | FLAT | >=85 | 5,254 | 24 | -0.0109% | 37.32% |
 
 Future research must use **prior-day observable** market-state features instead of this retrospective label, audit the 242 provenance discrepancies without modifying originals, and compare held-out chronological cohorts. None of this is intraday OHLC evidence.
+
+
+### Resolution of 242 exact-comparison discrepancies (2026-10-29, SELECT-only)
+
+Follow-up measurements show all 242 strict-float unequal pairs differ by no more than `4.54747350886464e-13` price units: 122 positive differences, 120 negative. Comparison with `ABS(next_price - source_price) > 0.000001` yielded **0 material differences** among the traced rows. This is consistent with floating-point representation; do not classify those 242 as economically different market quotes. The earlier 11,194 strict equal count remains a description of bitwise/numeric equality, not a price-integrity failure count. This does **not** certify independent provider correctness or untraced legacy records.
+
+Table-name discovery in the `public` schema for `bar`, `minute`, `intraday`, `candle`, and `ohlc` returned only `shadow_candle_auto_control`, `shadow_candle_auto_daily_runs`, `shadow_candle_research_runs`. No dedicated raw intraday OHLC table was identified by that name search. Other schemas, storage objects, or external retention remain unexamined.
