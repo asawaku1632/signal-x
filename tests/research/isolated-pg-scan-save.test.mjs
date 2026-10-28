@@ -66,9 +66,11 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     assert.equal(first.inserted,1);
     assert.equal(second.inserted,0);
     assert.equal(second.duplicates,1);
-    const actual = await client.query("SELECT code,capture_status,audit_reason FROM public.research_scan_feature_captures");
+    const actual = await client.query("SELECT scan_run_id,code,capture_status,audit_reason FROM public.research_scan_feature_captures ORDER BY scan_run_id");
     assert.equal(actual.rowCount,2);
+    assert.equal(actual.rows[0].scan_run_id,"ci-generated-envelope");
     assert.equal(actual.rows[0].code,"590A");
+    assert.equal(actual.rows[1].scan_run_id,"ci-isolated-run");
     assert.equal(actual.rows[0].capture_status,"QUARANTINED");
     assert.equal(actual.rows[0].audit_reason,"UNVERIFIED_FEATURE_ASOF_AND_PROVIDER");
     const missing = await saveResearchScanCaptureDev(client,{
