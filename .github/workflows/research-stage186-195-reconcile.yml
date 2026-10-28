@@ -1,0 +1,25 @@
+name: Research Stage186-195 Reconciliation
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceReconciliation.ts'
+      - 'tests/stage186-195-reconcile.test.cjs'
+      - '.github/workflows/research-stage186-195-reconcile.yml'
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage186-195-reconcile.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
