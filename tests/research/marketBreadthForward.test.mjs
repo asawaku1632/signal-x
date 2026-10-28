@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {compareBreadthForward} from '../../lib/research/marketBreadthForward.mjs';
+const m={tradeDate:'2026-10-28',observedAt:'2026-10-28T11:30:00+09:00',source:'licensed',licenseVerified:true,nikkeiChangePct:1.5,topixChangePct:-0.02,advancers:491,decliners:1028,unchanged:34};
+const o={tradeDate:'2026-10-28',code:'3001',signalGeneratedAt:'2026-10-28T12:00:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',return5dPct:2,horizonTradingDays:5,outcomeVerified:true};
+test('as-of verified cohort',()=>{const x=compareBreadthForward([m],[o]);assert.equal(x.divergence.observations,1);assert.equal(x.divergence.mean5dPct,2)});
+test('rejects look-ahead signal',()=>assert.equal(compareBreadthForward([m],[{...o,signalGeneratedAt:'2026-10-28T11:00:00+09:00'}]).rejected,1));
+test('rejects unverified outcome',()=>assert.equal(compareBreadthForward([m],[{...o,outcomeVerified:false}]).rejected,1));
+test('rejects duplicate symbol/day',()=>assert.equal(compareBreadthForward([m],[o,o]).rejected,1));
+test('rejects ambiguous snapshots',()=>assert.equal(compareBreadthForward([m,m],[o]).rejected,1));
+test('rejects unlicensed market snapshot',()=>assert.equal(compareBreadthForward([{...m,licenseVerified:false}],[o]).rejected,1));
+test('rejects wrong horizon',()=>assert.equal(compareBreadthForward([m],[{...o,horizonTradingDays:3}]).rejected,1));
