@@ -1,0 +1,25 @@
+name: Research Stage666-695 AI Shadow Candidate Gate
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/aiResearchAdoptionCandidate.ts'
+      - 'tests/stage666-695-ai-adoption.test.cjs'
+      - '.github/workflows/research-stage666-695-ai-candidate.yml'
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage666-695-ai-adoption.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
