@@ -156,3 +156,10 @@ Exploratory mutually exclusive groups:
 The pattern shows **no demonstrated forward robustness** in this date split; a large retrospective aggregate is driven by the earlier observations. Conditions were explored on the full dataset, so the later-period comparison is diagnostic, **not a pristine out-of-sample test**. Small late sample (27) adds uncertainty. Do not use this as a validated buy signal, probability, or notification. Future evaluation should preregister conditions, audit point-in-time price/score availability, compare common-date and market-matched baselines, and collect unseen prospective observations.
 
 This is daily saved-price research only; it does not resolve PR #292's requirement for licensed, complete historical intraday OHLC.
+
+
+## Preregistered forward-only daily cohort (frozen 2026-10-29, shadow)
+
+`evaluateFrozenDailyDropRule` in `app/lib/research/savedDailyBaseline.mjs` now provides a **pure offline evaluator** for a fixed diagnostic cohort: stored score >=85, score change from preceding saved record <10, prior 3-record price return <=-5%. Freeze timestamp is `2026-10-29T00:00:00+09:00`, and only target dates strictly **after 2026-10-29** can enter. All rule parameters are immutable in this version; no dynamic tuning, service calls, database writes, cron, notifications or signals. It rejects malformed inputs and duplicates, records exclusions, and suppresses positive fraction until 30 complete outcomes.
+
+The historical 292 rows / 75.34% retrospective positive fraction are **research discovery only** and cannot enter this prospective evaluator. Any future input must be generated from point-in-time frozen features, with independent source provenance and subsequent outcome audit; this function does not establish their trustworthiness. No production connection or automated feed is wired. Prospective evidence remains uncollected.
