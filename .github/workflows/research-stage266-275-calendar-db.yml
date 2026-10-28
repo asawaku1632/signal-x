@@ -1,0 +1,44 @@
+name: Research Stage266-275 Calendar DB Sample
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/swingCalendarDbSample.ts'
+      - 'app/lib/learning/integratedResearchReview.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage266-275-calendar-db.test.cjs'
+      - '.github/workflows/research-stage266-275-calendar-db.yml'
+permissions:
+  contents: read
+jobs:
+  realdb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_only
+          POSTGRES_PASSWORD: ephemeral_test_password
+          POSTGRES_DB: signalx_alpha217_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_only -d signalx_alpha217_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Execute calendar sample from disposable PostgreSQL
+        env:
+          SIGNALX_E2E_DATABASE_URL: postgres://test_only:ephemeral_test_password@127.0.0.1:5432/signalx_alpha217_ci
+        run: node tests/stage266-275-calendar-db.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
