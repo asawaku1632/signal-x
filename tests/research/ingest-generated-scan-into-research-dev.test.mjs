@@ -30,3 +30,25 @@ test("invalid generated trade date fails before database call",async()=>{
  assert.equal(result.accepted,false);
  assert.equal(result.reason,"TRADE_DATE_MISMATCH");
 });
+
+test("partially invalid Scan is rejected as a whole before any SQL",async()=>{
+ let calls=0;
+ const client={query:async()=>{calls++;return {rowCount:1};}};
+ const result=await ingest(client,{...input,payload:{...input.payload,stocks:[
+ input.payload.stocks[0],
+ {...input.payload.stocks[0],code:"641A",latestBarTimestamp:null}
+ ]}});
+ assert.equal(result.accepted,false);
+ assert.equal(result.reason,"INCOMPLETE_OR_UNSAFE_RESEARCH_RUN");
+ assert.equal(result.blocked,1);
+ assert.equal(result.inserted,0);
+ assert.equal(calls,0);
+});
+test("duplicate stock in generated Scan fails before writing",async()=>{
+ let calls=0;
+ const result=await ingest({query:async()=>{calls++;return {rowCount:1};}},
+ {...input,payload:{...input.payload,stocks:[input.payload.stocks[0],input.payload.stocks[0]]}});
+ assert.equal(result.accepted,false);
+ assert.equal(result.blocked_reasons.DUPLICATE_CODE,1);
+ assert.equal(calls,0);
+});
