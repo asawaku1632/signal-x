@@ -1,0 +1,21 @@
+name: Research Stage1026-1055 Evidence Blocker Report
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceBlockerReport.mjs'
+      - 'tests/stage1026-1055-evidence-blockers.test.mjs'
+      - '.github/workflows/research-stage1026-1055-evidence-blockers.yml'
+permissions:
+  contents: read
+jobs:
+  research-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1026-1055-evidence-blockers.test.mjs
