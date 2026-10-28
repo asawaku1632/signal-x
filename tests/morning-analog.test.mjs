@@ -57,3 +57,23 @@ test("early-drop filter does not confuse later selloff with opening drop",()=>{
   assert.equal(result.samples,0);
   assert.equal(result.excluded.notSharpDrop,1);
 });
+
+test("invalid observation dates are excluded rather than silently counted",()=>{
+  const date="2026-10-28";
+  const good={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const result=summarizeMorningDropPatterns([good,{...good,date:"not-a-date",code:"5678"}],{minSamples:1,dropThresholdPct:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.excluded.invalid,1);
+});
+
+test("1 and 2 percent rebound denominators are counted independently",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",features};
+  const base={tradeDate:"2026-10-27",featureAvailableAt:"2026-10-26T18:00:00+09:00",features};
+  const observation=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
+  const result=summarizeAnalogs(target,[{...base,outcome:{...observation,rebound1pct:true,rebound2pct:null}}],{minSamples:1});
+  assert.equal(result.rebound1pct.observed,1);
+  assert.equal(result.rebound1pct.rate,100);
+  assert.equal(result.rebound2pct.observed,0);
+  assert.equal(result.rebound2pct.rate,null);
+});
