@@ -60,6 +60,25 @@ export default function RepeatCandidateRiskPage() {
         gap: avg(group.risk) - avg(group.other),
       }));
   }, [data]);
+  const concentration = useMemo(() => {
+    const eligible = (data?.rows || []).filter(r =>
+      (n(r.previous_candidate_change_pct) ?? 0) < -5 && n(r.return_5d) != null);
+    const dates = new Map<string, number>();
+    const codes = new Map<string, number>();
+    for (const row of eligible) {
+      dates.set(row.trade_date, (dates.get(row.trade_date) ?? 0) + 1);
+      codes.set(row.code, (codes.get(row.code) ?? 0) + 1);
+    }
+    const sorted = [...dates.entries()].sort((a, b) => b[1] - a[1]);
+    return {
+      observations: eligible.length,
+      distinctDates: dates.size,
+      distinctStocks: codes.size,
+      topDate: sorted[0]?.[0] ?? null,
+      topDateCount: sorted[0]?.[1] ?? 0,
+      repeatedStocks: [...codes.values()].filter(count => count > 1).length,
+    };
+  }, [data]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     !onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5), [data, onlyDrop]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -89,6 +108,13 @@ export default function RepeatCandidateRiskPage() {
         </table></div>
         {sameDay.length === 0 && <p className="mt-2 text-sm text-slate-500">同一日に両群の結果が揃った記録はまだありません。</p>}
         <p className="mt-2 text-xs text-amber-800">記録件数が少ない日や市場急変時に偏り得ます。独立した終値検証・将来の再現性は未確認です。</p>
+      </section><section className="rounded-xl border p-3">
+        <h2 className="text-base font-black">日付・銘柄の集中度（5%超下落群）</h2>
+        <p className="mt-2 text-sm">5日後評価済 {concentration.observations}件 ／ 判定日 {concentration.distinctDates}日 ／ 銘柄数 {concentration.distinctStocks}</p>
+        <p className="mt-1 text-sm">最多判定日 {concentration.topDate ?? "未検証"}：{concentration.topDateCount}件
+          {concentration.observations > 0 ? `（全体の${(100 * concentration.topDateCount / concentration.observations).toFixed(1)}%）` : ""}</p>
+        <p className="mt-1 text-sm">複数回登場した銘柄 {concentration.repeatedStocks}銘柄</p>
+        <p className="mt-2 text-xs text-amber-800">件数は独立した試行回数ではありません。同日・同業種・同銘柄への偏りがあり、再現性の根拠にはできません。</p>
       </section><p className="text-xs text-amber-800">※ 上の2群は日付・業種・POWERを調整していない単純集計。将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
           <thead><tr className="border-b bg-slate-100"><th className="p-2">日付・銘柄</th><th className="p-2">前回候補</th><th className="p-2">前回比</th><th className="p-2">AI POWER</th><th className="p-2">5日後</th><th className="p-2">結果日</th></tr></thead>
