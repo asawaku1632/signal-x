@@ -226,3 +226,7 @@ Within the 38 comparable dates from 2026-09-02 onward, classify each date based 
 | DOWN (day mean < -0.25%) | 12 | +0.0287 | 6 |
 
 The greatest descriptive gap occurs in UP days, but this is **not** a usable pretrade market-state classifier. Outcomes determine the regime, so reusing it as a day-of-decision signal would be lookahead. Previous extreme-date and clip-sensitivity warnings still apply. No operational benefit has been established.
+
+## Manual local-file robustness report (2026-10-29)
+
+Added `scripts/report-prior-score-robustness.mjs` and its 8-check input-boundary test suite. This CLI accepts exactly one **locally prepared and approved JSON array file** and outputs a research-only JSON summary using the existing `researchPriorScoreDailyGaps` pure function. No database connection, Yahoo fetch, cron, notifications, live API or persistence is included. File size is bounded at 25 MiB and record count at 100,000. It requires the exported `priorEvidenceVerified` and `outcomeProvenanceVerified` flags; **do not set these flags without independently confirmed immutable records and provenance**. No production data was exported or run through this CLI in this change. Example invocation: `node scripts/report-prior-score-robustness.mjs ./approved-export.json`. Never put credentials in the input file. The report's historical regime values use future outcome prices and are unsuitable for live signals.
