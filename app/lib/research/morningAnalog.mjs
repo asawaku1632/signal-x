@@ -10,8 +10,11 @@ const round = x => Number(x.toFixed(4));
 const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
 const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
 const priorSnapshot = (stamp, tradeDate) => typeof stamp === "string" &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
-  Number.isFinite(Date.parse(stamp)) && stamp.slice(0,10) < tradeDate;
+  /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(stamp) &&
+  Number.isFinite(Date.parse(stamp)) &&
+  // Compare real instants against the JST start of the trade date. A UTC or
+  // negative-offset timestamp can have a different calendar date from JST.
+  Date.parse(stamp) < Date.parse(tradeDate + "T00:00:00+09:00");
 const quantile = (xs,q) => {
   if(!xs.length)return null;
   const sorted=[...xs].sort((a,b)=>a-b),p=(sorted.length-1)*q,i=Math.floor(p);
