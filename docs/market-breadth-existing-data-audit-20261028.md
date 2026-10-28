@@ -45,3 +45,11 @@ A schema search identified seven additional tables with `signal_time`, `source_h
 Therefore none of these seven development tables currently supplies independent generation-time evidence for the 733 plausibly formatted historical signals. This is **not** a global claim that no GitHub Actions artifacts, external records, or other databases contain such evidence.
 
 Recovery priority: locate immutable original signal logs with independent capture timestamps and licensed price provenance; compare against nominal signal date and actual trading session; preserve a separate retrospective cohort for unverified legacy rows. Never reconstruct an original generation timestamp from `created_at` or `detected_at` assigned during a later backfill.
+
+## Source-code origin tracing
+
+On `main`, `app/lib/learning/bbObservation.ts` function `saveBbSignalEvents(signalDate,stocks,...)` computes `tradeDate = stock.bollinger?.tradeDate ?? signalDate`, inserts `signal_date` and other feature fields, **but does not insert an independent signal-generation timestamp**. Migration `scripts/migrations/20260811_create_bb_signal_observation.sql` defines `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`. Consequently `created_at` proves database insertion time, not the original time the price/signal was available. No original upstream timestamp is preserved by this insert.
+
+The evaluator `evaluatePendingBbEvents` reads `signal_date` and entry price and fetches daily candles from a Yahoo chart endpoint. The outcomes table records future prices, returns and evaluation time but has no source license/provider evidence columns. The admin endpoint `app/api/admin/bb-observation/route.ts` aggregates these results without checking provenance. In the inspected development DB, all five recorded outcomes refer to DEV fixture codes; do not interpret the admin aggregates as independently verified performance.
+
+Recommended future design (NOT deployed): separate immutable `signal_generated_at`, `source_observed_at`, `bar_end_at`, `recorded_at`, provider/rights verification and immutable source reference, and require chronological as-of constraints before a record enters forward evaluation. Historical rows lacking original evidence remain retrospective/unverified, not repaired by backdating.
