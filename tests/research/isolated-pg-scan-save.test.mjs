@@ -4,6 +4,7 @@ import pg from "pg";
 import { saveResearchScanCaptureDev } from "../../app/lib/learning/saveResearchScanCaptureDev.mjs";
 import { buildGeneratedScanResearchEnvelope } from "../../app/lib/learning/buildGeneratedScanResearchEnvelope.mjs";
 import { previewGeneratedScanResearchCapture } from "../../app/lib/learning/previewGeneratedScanResearchCapture.mjs";
+import { ingestGeneratedScanIntoResearchDev } from "../../app/lib/learning/ingestGeneratedScanIntoResearchDev.mjs";
 
 test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
   if (process.env.SIGNALX_RESEARCH_ISOLATED_PG !== "true") {
@@ -72,6 +73,21 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     assert.equal(generated.envelope.provenance_verified,false);
     const generatedSaved=await saveResearchScanCaptureDev(client,generated.envelope);
     assert.equal(generatedSaved.inserted,1);
+    const devIngest = await ingestGeneratedScanIntoResearchDev(client, {
+      scanRunId:"ci-generated-envelope",tradeDate:"2026-10-28",
+      scanStartedAt:"2026-10-28T06:29:00Z",
+      scanCompletedAt:"2026-10-28T06:35:00Z",
+      payload:{
+        cached:false,updatedAt:"2026-10-28T06:34:00Z",
+        stocks:[{code:"590A",price:1000,aiPower:75,
+          latestBarTimestamp:Date.parse("2026-10-28T06:30:00Z")/1000}]
+      }
+    });
+    assert.equal(devIngest.accepted,true);
+    assert.equal(devIngest.inserted,0);
+    assert.equal(devIngest.duplicates,1);
+    assert.equal(devIngest.promoted,false);
+
     const generatedRow=await client.query(
       "SELECT capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",
       ["ci-generated-envelope"]);
