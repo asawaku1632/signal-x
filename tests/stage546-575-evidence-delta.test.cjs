@@ -1,0 +1,35 @@
+const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');const m={exports:{}};new vm.Script(ts.transpileModule(fs.readFileSync('app/lib/learning/researchEvidenceProgressDelta.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText).runInNewContext({module:m,exports:m.exports,Number,Date,Set});const compare=m.exports.compareEvidenceReviewSnapshots;
+const one=()=>({sampled:10,ruleVersion:'ai_power_only_v1',observedAt:'2026-10-27T00:00:00Z',reasonCounts:{SOURCE_UNVERIFIED:8,LICENSE_UNVERIFIED:4},completeHistory:false});
+const two=()=>({...one(),observedAt:'2026-10-28T00:00:00Z',reasonCounts:{SOURCE_UNVERIFIED:6,LICENSE_UNVERIFIED:5}});
+const checks=[
+['546 delta exists',()=>a.equal(compare(one(),two()).differences.length,2)],
+['547 lower',()=>a.equal(compare(one(),two()).differences[1].delta,-2)],
+['548 higher',()=>a.equal(compare(one(),two()).differences[0].delta,1)],
+['549 sorted',()=>a.equal(compare(one(),two()).differences[0].code,'LICENSE_UNVERIFIED')],
+['550 direction lower',()=>a.equal(compare(one(),two()).differences[1].direction,'LOWER_COUNT')],
+['551 direction higher',()=>a.equal(compare(one(),two()).differences[0].direction,'HIGHER_COUNT')],
+['552 same',()=>a.equal(compare(one(),{...two(),reasonCounts:one().reasonCounts}).differences[0].direction,'UNCHANGED')],
+['553 new reason',()=>a.equal(compare(one(),{...two(),reasonCounts:{...two().reasonCounts,OUTCOME_PENDING:1}}).differences.length,3)],
+['554 removed reason',()=>a.equal(compare(one(),{...two(),reasonCounts:{}}).differences[0].after,0)],
+['555 equal sizes',()=>a.equal(compare(one(),two()).comparableSampleSize,true)],
+['556 unequal sizes',()=>a.equal(compare(one(),{...two(),sampled:11}).comparableSampleSize,false)],
+['557 no proof',()=>a.equal(compare(one(),two()).improvementProven,false)],
+['558 no approval',()=>a.equal(compare(one(),two()).adoptionApproved,false)],
+['559 no production',()=>a.equal(compare(one(),two()).productionApplied,false)],
+['560 no notification',()=>a.equal(compare(one(),two()).notificationEnabled,false)],
+['561 incorrect rule',()=>a.throws(()=>compare(one(),{...two(),ruleVersion:'different'}),/RULE_SCOPE_CHANGED/)],
+['562 empty rule',()=>a.throws(()=>compare({...one(),ruleVersion:''},{...two(),ruleVersion:''}),/RULE_SCOPE_CHANGED/)],
+['563 reverse chronology',()=>a.throws(()=>compare(two(),one()),/INVALID_REVIEW_CHRONOLOGY/)],
+['564 equal chronology',()=>a.throws(()=>compare(one(),{...two(),observedAt:one().observedAt}),/INVALID_REVIEW_CHRONOLOGY/)],
+['565 bad chronology',()=>a.throws(()=>compare(one(),{...two(),observedAt:'invalid'}),/INVALID_REVIEW_CHRONOLOGY/)],
+['566 negative size',()=>a.throws(()=>compare({...one(),sampled:-1},two()),/INVALID_SAMPLE_SIZE/)],
+['567 fractional size',()=>a.throws(()=>compare({...one(),sampled:1.5},two()),/INVALID_SAMPLE_SIZE/)],
+['568 size limit',()=>a.throws(()=>compare({...one(),sampled:1001},two()),/INVALID_SAMPLE_SIZE/)],
+['569 negative reason',()=>a.throws(()=>compare({...one(),reasonCounts:{BAD:-1}},two()),/INVALID_REASON_COUNT/)],
+['570 reason bigger than sample',()=>a.throws(()=>compare({...one(),reasonCounts:{BAD:11}},two()),/INVALID_REASON_COUNT/)],
+['571 fractional reason',()=>a.throws(()=>compare({...one(),reasonCounts:{BAD:1.5}},two()),/INVALID_REASON_COUNT/)],
+['572 malformed reason',()=>a.throws(()=>compare({...one(),reasonCounts:{'BAD/CODE':1}},two()),/INVALID_REASON_CODE/)],
+['573 empty reasons',()=>a.equal(compare({...one(),reasonCounts:{}},{...two(),reasonCounts:{}}).differences.length,0)],
+['574 sample composition disclaimer',()=>a.match(compare(one(),two()).reason,/SAMPLE_COMPOSITION/)],
+['575 no SQL writes',()=>a.doesNotMatch(fs.readFileSync('app/lib/learning/researchEvidenceProgressDelta.ts','utf8'),/pool\.query|INSERT INTO|DELETE FROM|UPDATE public/)]
+];for(const [n,f] of checks)test(n,f);
