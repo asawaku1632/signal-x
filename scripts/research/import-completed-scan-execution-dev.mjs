@@ -19,6 +19,12 @@ async function main() {
   if (new URL(url).hostname !== "db.jdtqwryiyxeuoraecorw.supabase.co")
     throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
   const execution = JSON.parse(await readFile(path, "utf8"));
+  // A newly imported file is not proof that a historical observation was
+  // captured on that date. Refuse historical replay and future timestamps.
+  const completedMs = Date.parse(execution?.scanCompletedAt);
+  const ageMs = Date.now() - completedMs;
+  if (!Number.isFinite(completedMs) || ageMs < 0 || ageMs > 15 * 60 * 1000)
+    throw new Error("SCAN_EXECUTION_NOT_RECENT");
   const generated = createGeneratedScanResearchArtifact(execution);
   if (!generated.accepted) throw new Error(generated.reason);
   const plan = planScanResearchIntake(generated.artifact);
