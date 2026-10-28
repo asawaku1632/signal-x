@@ -31,7 +31,7 @@ test("strict read-only, no external provider calls or live decisions", () => {
 test("research summary distinguishes observed outcomes from incomplete follow-up", () => {
   assert.match(page, /completed\.length/);
   assert.match(page, /評価済/);
-  assert.match(page, /日付・業種・POWERを調整していない/);
+  assert.match(page, /業種・POWERの偏りや少数日問題は解消しません/);
   assert.match(page, /将来の予測能力や除外効果は示しません/);
 });
 
@@ -73,4 +73,11 @@ test("research snapshot can be refreshed", () => {
   assert.match(page, /保存結果を再取得/);
   assert.match(page, /setReloadCount/);
   assert.match(page, /Asia\/Tokyo/);
+});
+
+test("date-balanced average weights each decision day equally", () => {
+  assert.match(page, /byDay = new Map/);
+  assert.match(page, /dayMeans =/);
+  assert.match(page, /dateBalancedAverage: days/);
+  assert.match(page, /日付均等平均/);
 });
