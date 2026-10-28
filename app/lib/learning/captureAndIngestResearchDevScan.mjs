@@ -14,6 +14,15 @@ export async function captureAndIngestResearchDevScan(runScan, client, options) 
   if (process.env.NODE_ENV === "development" &&
       process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED !== "true")
     throw new Error("RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED");
+  // Reject foreign or unidentifiable DB clients before initiating market-data requests.
+  const host = client?.connectionParameters?.host;
+  const isolatedCi = process.env.NODE_ENV === "test" &&
+    process.env.SIGNALX_RESEARCH_ISOLATED_PG === "true" &&
+    (host === "127.0.0.1" || host === "localhost") &&
+    client?.connectionParameters?.database === "signalx_research_ci" &&
+    client?.connectionParameters?.user === "signalx_ci";
+  if (host !== "db.jdtqwryiyxeuoraecorw.supabase.co" && !isolatedCi)
+    throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
   const captured = await captureResearchDevScanExecution(runScan, options);
   if (!captured.accepted) return {
     accepted:false,reason:captured.reason,inserted:0,persisted:false,promoted:false
