@@ -5,7 +5,7 @@ import { ingestGeneratedScanIntoResearchDev } from "./ingestGeneratedScanIntoRes
 // A single development operation captures original execution times then writes
 // only quarantined rows, subject to both independent development safety gates.
 export async function captureAndIngestResearchDevScan(runScan, client, options) {
-  if (process.env.NODE_ENV !== "development" ||
+  if (!(process.env.NODE_ENV === "development" || (process.env.NODE_ENV === "test" && process.env.SIGNALX_RESEARCH_ISOLATED_PG === "true")) ||
       process.env.SIGNALX_RESEARCH_CAPTURE !== "true" ||
       process.env.SIGNALX_RESEARCH_DEV_WRITE !== "true")
     throw new Error("RESEARCH_DEV_CAPTURE_AND_WRITE_DISABLED");
