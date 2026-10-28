@@ -16,3 +16,6 @@ test('different security codes are not treated as duplicates',()=>{const other={
 
 test('reused signal source evidence across distinct securities is quarantined',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,0);assert.equal(result.rejectionCounts.REUSED_SOURCE_EVIDENCE,2)});
 test('distinct signal and outcome evidence can validate separate securities',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,signalRecordId:'signal:'+r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,2)});
+
+test('accepted provenance lists only verified source record identifiers',()=>{const result=audit([row],()=>evidence);assert.equal(result.provenance.length,1);assert.equal(result.provenance[0].signalRecordId,evidence.signalRecordId);assert.equal(result.provenance[0].outcomeRecordId,evidence.outcomeRecordId);assert.equal(result.provenance[0].ruleVersion,'market-breadth-pair-evidence-v1')});
+test('rejected rows do not appear in provenance',()=>{const result=audit([row],()=>({...evidence,marketLicenseVerified:false}));assert.deepEqual(result.provenance,[])});
