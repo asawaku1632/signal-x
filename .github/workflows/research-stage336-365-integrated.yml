@@ -1,0 +1,25 @@
+name: Research Stages336-365 Integrated Audit
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/swingIntegratedResumeScan.ts'
+      - 'tests/stage336-365-integrated.test.cjs'
+      - '.github/workflows/research-stage336-365-integrated.yml'
+permissions:
+  contents: read
+jobs:
+  integrated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage336-365-integrated.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

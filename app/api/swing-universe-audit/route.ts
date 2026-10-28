@@ -13,8 +13,8 @@ export async function GET(request: Request) {
   }
   try {
     const code = new URL(request.url).searchParams.get("code")?.trim() || undefined;
-    if (code && !/^[0-9]{4}$/.test(code)) {
-      return NextResponse.json({ success: false, error: "銘柄コードは4桁で指定してください" }, { status: 400 });
+    if (code && !/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(code)) {
+      return NextResponse.json({ success: false, error: "銘柄コードは数字4桁または数字3桁＋英字1文字で指定してください" }, { status: 400 });
     }
     const report = await getSwingUniverseReport(code);
     return NextResponse.json({ success: true, ...report }, { headers: { "Cache-Control": "private, no-store" } });
