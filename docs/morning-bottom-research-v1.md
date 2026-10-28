@@ -197,3 +197,7 @@ For each code sorted by stored date, take `LAG(score)`, `LAG(price)` and `LAG(cr
 | 2026-09-02 onward | 38 | 5,087 | 31,168 | +0.1500 pp | 20 |
 
 The later group gap is positive, but higher-score days outperformed on only 20/38 dates. Do not present this as validated trading alpha or a calibrated next-day probability. `created_at` is timestamp without timezone; later `price` and `next_price` are not validated executable fills, and previous saved dates can skip sessions. The second interval is a retrospective diagnostic using an already explored threshold, not a fresh prospective holdout. No trading/notification activation. This daily result does not establish intraday bottom-hour statistics.
+
+## Robustness to extreme days (2026-10-29, read-only research)
+
+In the later 38 date-matched days, the mean difference between previous saved score >=85 and <85 was +0.1500 percentage points. The daily differences ranged from -1.3745 to +1.6686 pp. Removing the three days with the largest **absolute** differences (both signs eligible) reduced the mean difference among the remaining 35 days to +0.0319 pp. This is a retrospective sensitivity check, not a tradable signal or independent validation. The apparent advantage is materially influenced by extreme dates; no stable advantage is established. Code-level stock concentration statistics are not verified and must not be inferred from this exercise.
