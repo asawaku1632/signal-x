@@ -1,0 +1,21 @@
+name: Research Stage1206-1235 Integration Audit
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchIntegrationAudit.mjs'
+      - 'tests/stage1206-1235-integration-audit.test.mjs'
+      - '.github/workflows/research-stage1206-1235-integration.yml'
+permissions:
+  contents: read
+jobs:
+  blocked-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1206-1235-integration-audit.test.mjs
