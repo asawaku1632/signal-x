@@ -7,7 +7,7 @@ export function assessHistoricalResearchDataset(rows) {
     const issues=[];
     if(!r || typeof r!=="object" || Array.isArray(r)) issues.push("INVALID_ROW");
     else {
-      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(r.observation_date ?? ""))
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(r.observation_date ?? ""))
         issues.push("INVALID_OBSERVATION_DATE");
       const created=Date.parse(r.created_at);
       const observed=Date.parse((r.observation_date ?? "")+"T00:00:00Z");
