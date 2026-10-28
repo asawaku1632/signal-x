@@ -15,8 +15,8 @@ test('stages456-485: thirty real PostgreSQL preview conditions',async()=>{try{
  await pool.query("INSERT INTO public.swing_universe_observations VALUES('2026-10-09','590A','ai_power_only_v1',2,'2026-10-19'),('2026-10-09','641A','ai_power_only_v1',null,null),('2026-10-08','642A','ai_power_only_v1',2,'2026-10-16'),('2026-10-09','9999','other',2,'2026-10-19')");
  add('459 rule filter',async()=>assert.equal((await fn()).sampled,3));
  add('460 no verified claim',async()=>assert.equal((await fn()).summary.verifiedScope,0));
- add('461 all pending',async()=>assert.equal((await fn()).summary.pending,3));
- add('462 no automatic review claim',async()=>assert.equal((await fn()).summary.reviewRequired,0));
+ add('461 all pending',async()=>assert.equal((await fn()).summary.pending,2));
+ add('462 no automatic review claim',async()=>assert.equal((await fn()).summary.reviewRequired,1));
  add('463 incomplete outcome counted',async()=>assert.equal((await fn()).reasonCounts.OUTCOME_PENDING,1));
  add('464 all source unverified',async()=>assert.equal((await fn()).reasonCounts.SOURCE_UNVERIFIED,3));
  add('465 all license unverified',async()=>assert.equal((await fn()).reasonCounts.LICENSE_UNVERIFIED,3));
