@@ -1,3 +1,4 @@
+import {summarizeIntegratedAudit} from "@/app/lib/learning/integratedReviewAuditSummary";
 import {getSwingResearchReviewSnapshot} from "@/app/lib/learning/swingResearchReviewSnapshot";
 import pool from "@/app/lib/postgres";
 import {inspectEvidenceEnvelope} from "@/app/lib/learning/researchEvidenceEnvelope";
@@ -19,7 +20,8 @@ export async function getIntegratedResearchReview(now=new Date()){
  // A bounded snapshot cannot prove an exhaustive history. Review status must
  // remain BLOCKED until completeness and independent source audit exist.
  const truncated=items.length===50;
- return {source:"READ_ONLY_RESEARCH_EVIDENCE_JOIN" as const,
+ const audit=summarizeIntegratedAudit({recorded:e.recorded,evaluated:e.evaluated,historyCount:items.length,historyTruncated:truncated,status:"BLOCKED",reasons:[...evaluation.issues,"INDEPENDENT_PROVENANCE_AND_HISTORY_COMPLETENESS_NOT_ATTESTED"],entries:evaluation.entries});
+ return {audit,source:"READ_ONLY_RESEARCH_EVIDENCE_JOIN" as const,
   researchId:e.researchId,ruleVersion:e.ruleVersion,
   recorded:e.recorded,evaluated:e.evaluated,
   historyCount:items.length,historyTruncated:truncated,
