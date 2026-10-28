@@ -1,0 +1,25 @@
+name: Research Stage696-725 Paired Shadow Comparison
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/pairedShadowComparison.ts'
+      - 'tests/stage696-725-paired-shadow.test.cjs'
+      - '.github/workflows/research-stage696-725-shadow-pairs.yml'
+permissions:
+  contents: read
+jobs:
+  paired:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage696-725-paired-shadow.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

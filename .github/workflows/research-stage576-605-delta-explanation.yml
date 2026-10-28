@@ -1,0 +1,25 @@
+name: Research Stage576-605 Evidence Delta Explanation
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceDeltaExplanation.ts'
+      - 'tests/stage576-605-evidence-delta-explanation.test.cjs'
+      - '.github/workflows/research-stage576-605-delta-explanation.yml'
+permissions:
+  contents: read
+jobs:
+  explanation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage576-605-evidence-delta-explanation.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
