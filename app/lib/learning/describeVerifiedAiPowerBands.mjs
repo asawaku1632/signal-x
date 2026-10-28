@@ -16,7 +16,9 @@ export function describeVerifiedAiPowerBands(captures, outcomes) {
     const sorted=rows.map(x=>x.return_pct).sort((a,b)=>a-b);
     const n=sorted.length;
     const median=n ? (sorted[Math.floor((n-1)/2)]+sorted[Math.floor(n/2)])/2 : null;
-    return {band:label,verified_count:n,mean_return_pct:n?sorted.reduce((a,b)=>a+b,0)/n:null,
+    const keys = new Set(rows.map(x => x.code));
+    const runs = new Set(rows.map(x => x.scan_run_id));
+    return {band:label,verified_count:n,distinct_codes:keys.size,distinct_runs:runs.size,mean_return_pct:n?sorted.reduce((a,b)=>a+b,0)/n:null,
       median_return_pct:median,positive_rate_pct:n?100*sorted.filter(x=>x>0).length/n:null};
   });
   return {
