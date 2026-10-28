@@ -9,3 +9,5 @@ test('non-five-day result is not forward-five-day evidence',()=>{const x=audit([
 test('invalid price and dates are rejected',()=>{const x=audit([event],[{...result,future_price:0},{...result,event_id:3}],{kind:'bb'});assert.equal(x.counts.INVALID_RETURN,1);assert.equal(x.counts.ORPHAN_RESULT,1)});
 test('duplicate event IDs fail closed',()=>{const x=audit([event,{...event}],[result],{kind:'bb'});assert.equal(x.counts.DUPLICATE_EVENT_ID,1)});
 test('invalid inputs throw',()=>assert.throws(()=>audit([],[],{kind:'unknown'}),/INVALID_LEGACY_OUTCOME_INPUT/));
+
+test('known DEV fixture is excluded from linked five-day evidence',()=>{const x=audit([{...event,code:'__DEV_BB_TRANSITION_47__',name:'DEV BB 4.7 Fixture'}],[result],{kind:'bb'});assert.equal(x.counts.TEST_FIXTURE_EVENT,1);assert.equal(x.counts.LINKED_UNVERIFIED,0)});
