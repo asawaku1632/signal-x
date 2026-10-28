@@ -17,3 +17,7 @@ test('audit count must reconcile with cohort totals',()=>{const r=report({audit:
 
 test('empty report quantifies missing verified observations and dates',()=>{const x=report();assert.deepEqual(x.minimumEvidenceShortfall,{divergenceObservations:30,otherObservations:30,divergenceTradingDays:10,otherTradingDays:10})});
 test('partial cohort reports remaining minimum evidence without negative counts',()=>{const x=report({cohorts:{divergence:{...group,n:18,uniqueDates:4},other:{...group,n:42,uniqueDates:12}}});assert.deepEqual(x.minimumEvidenceShortfall,{divergenceObservations:12,otherObservations:0,divergenceTradingDays:6,otherTradingDays:0})});
+
+test('empty evidence requests licensed independent data',()=>assert.equal(report().nextAction,'OBTAIN_LICENSED_AND_INDEPENDENT_EVIDENCE'));
+test('partial verified evidence requests more cohort data',()=>assert.equal(report({audit:{acceptedCount:1},cohorts:{divergence:{...group,n:1}}}).nextAction,'COLLECT_VERIFIED_COHORT_EVIDENCE'));
+test('descriptive readiness requests independent review, not production',()=>{const x=report({audit:{acceptedCount:60},cohorts:{comparisonReady:true,divergence:group,other:group}});assert.equal(x.nextAction,'INDEPENDENT_OUT_OF_SAMPLE_REVIEW');assert.equal(x.productionEligible,false)});
