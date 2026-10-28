@@ -59,6 +59,21 @@ test("isolated PostgreSQL: real save, idempotency and rollback", async (t) => {
     const missingRows=await client.query("SELECT capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",["ci-missing-bar"]);
     assert.equal(missingRows.rows[0].capture_status,"QUARANTINED");
     assert.equal(missingRows.rows[0].audit_reason,"MISSING_OR_INVALID_TIMESTAMP");
+    const future=await saveResearchScanCaptureDev(client,{
+      ...input,scanRunId:"ci-future-bar",
+      scanResponse:{cached:false,stocks:[{
+        code:"642A",price:1300,aiPower:60,
+        latestBarTimestamp:Date.parse("2026-10-29T06:30:00Z")/1000
+      }]}
+    });
+    assert.equal(future.inserted,1);
+    const futureRow=await client.query(
+      "SELECT source_bar_at,capture_status,audit_reason FROM public.research_scan_feature_captures WHERE scan_run_id=$1",
+      ["ci-future-bar"]
+    );
+    assert.equal(futureRow.rows[0].source_bar_at,null);
+    assert.equal(futureRow.rows[0].audit_reason,"FUTURE_SOURCE_BAR");
+    assert.equal(futureRow.rows[0].capture_status,"QUARANTINED");
   } finally {
     try {
       await client.query("ROLLBACK");
