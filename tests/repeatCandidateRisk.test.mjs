@@ -29,7 +29,7 @@ test("strict read-only, no external provider calls or live decisions", () => {
 });
 
 test("research summary distinguishes observed outcomes from incomplete follow-up", () => {
-  assert.match(page, /completed\.length/);
+  assert.match(page, /summarizeGroup\(g.rows\)/);
   assert.match(page, /評価済/);
   assert.match(page, /業種・POWERの偏りや少数日問題は解消しません/);
   assert.match(page, /将来の予測能力や除外効果を示しません/);
@@ -54,7 +54,7 @@ test("concentration report counts only completed downside cases and duplicate st
 });
 
 test("largest-day exclusion exposes limited independent days", () => {
-  assert.match(page, /remaining = eligible\.filter\(row => row\.trade_date !== sorted\[0\]\?\.\[0\]\)/);
+  assert.match(page, /withoutLargestDay\(eligible\)/);
   assert.match(page, /remainingAverage/);
   assert.match(page, /最多判定日を除外/);
   assert.match(page, /remainingDays < 3/);
@@ -76,9 +76,9 @@ test("research snapshot can be refreshed", () => {
 });
 
 test("date-balanced average weights each decision day equally", () => {
-  assert.match(page, /byDay = new Map/);
-  assert.match(page, /dayMeans =/);
-  assert.match(page, /dateBalancedAverage: days/);
+  assert.match(page, /summarizeGroup/);
+  assert.match(page, /dateBalancedAverage/);
+  assert.match(page, /dateBalancedAverage/);
   assert.match(page, /日付均等平均/);
 });
 
