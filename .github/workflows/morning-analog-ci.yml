@@ -6,6 +6,7 @@ on:
       - "app/lib/research/morningHistoricalAdapter.mjs"
       - "app/lib/research/savedDailyBaseline.mjs"
       - "app/lib/research/priorScoreRobustness.mjs"
+      - "app/lib/research/evidenceClassifier.mjs"
       - "scripts/report-morning-bottom.mjs"
       - "scripts/report-prior-score-robustness.mjs"
       - "tests/morning-analog.test.mjs"
@@ -13,6 +14,7 @@ on:
       - "tests/saved-daily-baseline.test.mjs"
       - "tests/prior-score-robustness.test.mjs"
       - "tests/prior-score-report.test.mjs"
+      - "tests/evidence-classifier.test.mjs"
       - ".github/workflows/morning-analog-ci.yml"
   push:
     branches:
@@ -30,4 +32,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs tests/prior-score-robustness.test.mjs tests/prior-score-report.test.mjs
+      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs tests/prior-score-robustness.test.mjs tests/prior-score-report.test.mjs tests/evidence-classifier.test.mjs
