@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,createHash,sign} from 'node:crypto';
+import {hashMarketBreadthSignedEvidenceBinding} from '../../lib/research/marketBreadthSignedEvidenceBinding.mjs';
+import {reviewMarketBreadthSignedEvidenceBatch as review} from '../../lib/research/marketBreadthSignedEvidenceBatch.mjs';
+const {publicKey,privateKey}=generateKeyPairSync('ed25519');
+const trustedPublicKeyPem=publicKey.export({type:'spki',format:'pem'});
+const trustedKeyFingerprint=createHash('sha256').update(publicKey.export({type:'spki',format:'der'})).digest('hex');
+const options={trustedPublicKeyPem,trustedKeyFingerprint};
+const signalReceipt={signalRecordId:'signal:20261028:641A',sourceRecordId:'source:20261028:641A',code:'641A',tradeDate:'2026-10-28',payloadHash:'a'.repeat(64),sourceHash:'b'.repeat(64)};
+const outcomeRecord={outcomeRecordId:'outcome:20261105:641A',signalRecordId:signalReceipt.signalRecordId,code:'641A',tradeDate:signalReceipt.tradeDate,outcomeHash:'c'.repeat(64)};
+const make=(s=signalReceipt,o=outcomeRecord)=>{const evidenceHash=hashMarketBreadthSignedEvidenceBinding(s,o);return {signalReceipt:s,outcomeRecord:o,attestation:{evidenceHash,signature:sign(null,Buffer.from(evidenceHash),privateKey).toString('base64')}}};
+test('signed batch remains externally untrusted',()=>{const x=review([make()],options);assert.equal(x.signatureBoundCount,1);assert.equal(x.externallyTrustedCount,0);assert.equal(x.productionEligible,false)});
+test('duplicate signal and outcome IDs quarantine both',()=>{const x=review([make(),make()],options);assert.equal(x.signatureBoundCount,0);assert.equal(x.rejectedCount,2)});
+test('same outcome ID across different signals quarantines both',()=>{const s={...signalReceipt,signalRecordId:'signal:20261028:590A'};const o={...outcomeRecord,signalRecordId:s.signalRecordId};const x=review([make(),make(s,o)],options);assert.equal(x.signatureBoundCount,0);assert.equal(x.rejectedCount,2)});
+test('tampered signature is rejected',()=>{const e=make();e.attestation.signature='AA==';const x=review([e],options);assert.equal(x.signatureBoundCount,0)});
+test('empty batch is safe',()=>{const x=review([],options);assert.equal(x.signatureBoundCount,0)});
