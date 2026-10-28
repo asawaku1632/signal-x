@@ -1,0 +1,21 @@
+name: Research Stage1056-1085 Evidence Remediation
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchRemediationPlan.mjs'
+      - 'tests/stage1056-1085-remediation.test.mjs'
+      - '.github/workflows/research-stage1056-1085-remediation.yml'
+permissions:
+  contents: read
+jobs:
+  review-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage1056-1085-remediation.test.mjs
