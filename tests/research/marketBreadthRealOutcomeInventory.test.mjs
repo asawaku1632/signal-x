@@ -12,5 +12,8 @@ test('invalid horizon excluded',()=>{const x=inventory({events:[e()],results:[r(
 test('invalid fixture sharing a valid ID cannot lend its result to real stock',()=>{const x=inventory({events:[e('__DEV_FIXTURE__'),e('641A')],results:[r()]});assert.equal(x.counts.matchedRealCodeResults,0);assert.equal(x.counts.duplicateEventKeys,1)});
 test('invalid event arriving after real event still quarantines duplicate ID',()=>{const x=inventory({events:[e('641A'),e('__DEV_FIXTURE__')],results:[r()]});assert.equal(x.counts.matchedRealCodeResults,0)});
 
-test('same event and horizon result cannot count twice',()=>{const x=inventory({events:[e()],results:[r(),r()]});assert.equal(x.counts.matchedFiveSessionResults,1);assert.equal(x.rejected[0].reason,'DUPLICATE_EVENT_HORIZON_RESULT')});
+test('same event and horizon result cannot count twice',()=>{const x=inventory({events:[e()],results:[r(),r()]});assert.equal(x.counts.matchedFiveSessionResults,0);assert.equal(x.counts.duplicateResultKeys,1);assert.equal(x.rejected.length,2);assert.equal(x.rejected[0].reason,'DUPLICATE_EVENT_HORIZON_RESULT')});
 test('different horizons remain distinct descriptive outcomes',()=>{const x=inventory({events:[e()],results:[r(1,1),r(1,5)]});assert.equal(x.counts.matchedRealCodeResults,2);assert.equal(x.counts.matchedFiveSessionResults,1)});
+
+test('conflicting returns on same horizon are both quarantined',()=>{const x=inventory({events:[e()],results:[r(),{...r(),returnPercent:-4}]});assert.equal(x.counts.matchedFiveSessionResults,0);assert.equal(x.rejectedResults,2)});
+test('result order cannot decide which conflicting value survives',()=>{const a=r(),b={...r(),returnPercent:-4};const x=inventory({events:[e()],results:[b,a]});assert.equal(x.counts.matchedFiveSessionResults,0)});
