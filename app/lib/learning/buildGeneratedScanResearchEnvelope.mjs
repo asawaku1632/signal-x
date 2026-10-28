@@ -19,12 +19,13 @@ export function buildGeneratedScanResearchEnvelope(input) {
   if (!validTime(payload.updatedAt) || Date.parse(payload.updatedAt)<Date.parse(scanStartedAt) ||
       Date.parse(payload.updatedAt)>Date.parse(scanCompletedAt))
     return fail("UPDATED_AT_OUTSIDE_GENERATION");
-  const stocks = payload.stocks.map(stock=>({
+  let stocks;
+  try { stocks = payload.stocks.map(stock=>({
     code: stock?.code, price: stock?.price, aiPower: stock?.aiPower,
     score: stock?.score, latestBarTimestamp: stock?.latestBarTimestamp,
     dataSource: stock?.dataSource, patternLearning: stock?.patternLearning && typeof stock.patternLearning === "object" ? structuredClone(stock.patternLearning) : null,
     patternKey: stock?.patternKey
-  }));
+  })); } catch { return fail("INVALID_STOCK_FEATURE_METADATA"); }
   return { accepted:true, reason:"GENERATED_UNVERIFIED", envelope:{
     scanRunId, tradeDate, scanStartedAt, scanReceivedAt:scanCompletedAt,
     scanResponse:{cached:false,status:"fresh",stocks},
