@@ -165,7 +165,7 @@ test("audit 27: ui shows same-day comparisons", () => {
   assert.ok(page.includes("sameDay.map"));
 });
 test("audit 28: ui excludes largest date", () => {
-  assert.ok(page.includes("remainingOutcomes"));
+  assert.ok(page.includes("withoutLargestDay(eligible)"));
 });
 test("audit 29: ui surfaces small sample warning", () => {
   assert.ok(page.includes("remainingDays < 3"));
