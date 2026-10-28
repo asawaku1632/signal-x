@@ -3,7 +3,12 @@ on:
   pull_request:
     paths:
       - "app/lib/research/morningAnalog.mjs"
+      - "app/lib/research/morningHistoricalAdapter.mjs"
+      - "app/lib/research/savedDailyBaseline.mjs"
+      - "scripts/report-morning-bottom.mjs"
       - "tests/morning-analog.test.mjs"
+      - "tests/morning-historical-adapter.test.mjs"
+      - "tests/saved-daily-baseline.test.mjs"
       - ".github/workflows/morning-analog-ci.yml"
   push:
     branches:
