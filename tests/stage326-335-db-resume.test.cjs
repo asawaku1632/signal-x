@@ -13,7 +13,7 @@ async function state(db,auditId){
  return decide({auditId:p.audit_id,ruleVersion:'ai_power_only_v1',storedRuleVersion:p.rule_version,
  storedFingerprint:p.snapshot_fingerprint,currentFingerprint:q.rows[0].digest,
  eligibleAtStart:p.eligible_at_start,eligibleNow:q.rows[0].eligible,inspected:p.inspected,
- cursorDate:p.cursor_date?String(p.cursor_date).slice(0,10):null,cursorCode:p.cursor_code,completed:p.completed});
+ cursorDate:p.cursor_date?(p.cursor_date instanceof Date?p.cursor_date.toISOString().slice(0,10):String(p.cursor_date).slice(0,10)):null,cursorCode:p.cursor_code,completed:p.completed});
 }
 async function main(){try{
  const id=(await pool.query('SELECT current_database() db,current_user role')).rows[0];assert.equal(id.db,'signalx_alpha217_ci');assert.equal(id.role,'test_only');
