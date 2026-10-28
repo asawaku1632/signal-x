@@ -69,13 +69,19 @@ export default function RepeatCandidateRiskPage() {
       dates.set(row.trade_date, (dates.get(row.trade_date) ?? 0) + 1);
       codes.set(row.code, (codes.get(row.code) ?? 0) + 1);
     }
-    const sorted = [...dates.entries()].sort((a, b) => b[1] - a[1]);
+    const sorted = [...dates.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const remaining = eligible.filter(row => row.trade_date !== sorted[0]?.[0]);
+    const remainingOutcomes = remaining.map(row => n(row.return_5d)).filter((v): v is number => v != null && Number.isFinite(v));
+    const remainingAverage = remainingOutcomes.length ? remainingOutcomes.reduce((sum, v) => sum + v, 0) / remainingOutcomes.length : null;
     return {
       observations: eligible.length,
       distinctDates: dates.size,
       distinctStocks: codes.size,
       topDate: sorted[0]?.[0] ?? null,
       topDateCount: sorted[0]?.[1] ?? 0,
+      remainingCount: remainingOutcomes.length,
+      remainingDays: new Set(remaining.map(row => row.trade_date)).size,
+      remainingAverage,
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
   }, [data]);
@@ -114,6 +120,8 @@ export default function RepeatCandidateRiskPage() {
         <p className="mt-1 text-sm">最多判定日 {concentration.topDate ?? "未検証"}：{concentration.topDateCount}件
           {concentration.observations > 0 ? `（全体の${(100 * concentration.topDateCount / concentration.observations).toFixed(1)}%）` : ""}</p>
         <p className="mt-1 text-sm">複数回登場した銘柄 {concentration.repeatedStocks}銘柄</p>
+        <p className="mt-2 text-sm font-semibold">最多判定日を除外：残り {concentration.remainingCount}件 ／ {concentration.remainingDays}日 ／ 5日後平均 {pct(concentration.remainingAverage)}</p>
+        {concentration.remainingDays < 3 && <p className="text-xs text-rose-800">除外後の評価日数が3日未満のため、再現性評価には不足しています。</p>}
         <p className="mt-2 text-xs text-amber-800">件数は独立した試行回数ではありません。同日・同業種・同銘柄への偏りがあり、再現性の根拠にはできません。</p>
       </section><p className="text-xs text-amber-800">※ 上の2群は日付・業種・POWERを調整していない単純集計。将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
