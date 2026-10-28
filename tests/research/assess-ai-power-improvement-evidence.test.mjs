@@ -8,6 +8,7 @@ test("zero data reports explicit blocked improvement gates",()=>{
  assert.ok(x.reasons.includes("NO_INDEPENDENTLY_VERIFIED_FORWARD_RESULTS"));
  assert.equal(x.eligible_for_live_ai,false);
  assert.equal(x.effect_established,false);
+ assert.equal(x.automatic_learning_allowed,false);
 });
 test("quarantined records cannot satisfy AI POWER learning coverage",()=>{
  const x=assess([{scan_run_id:"test",code:"9984",capture_status:"QUARANTINED",ai_power:90}],[]);
