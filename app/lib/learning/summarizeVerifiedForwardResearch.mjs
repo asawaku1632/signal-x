@@ -16,6 +16,16 @@ export function summarizeVerifiedForwardResearch(captures, outcomes) {
     rejectionReasons[item.reason] = (rejectionReasons[item.reason] ?? 0)+1;
   const distinctCodes = new Set(comparison.accepted.map(x=>x.code)).size;
   const distinctRuns = new Set(comparison.accepted.map(x=>x.scan_run_id)).size;
+  const dateInJst = value => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone:"Asia/Tokyo", year:"numeric", month:"2-digit", day:"2-digit"
+    }).formatToParts(new Date(value));
+    const fields = Object.fromEntries(parts.map(p=>[p.type,p.value]));
+    return `${fields.year}-${fields.month}-${fields.day}`;
+  };
+  const acceptedRunIds = new Set(comparison.accepted.map(x=>JSON.stringify([x.scan_run_id,x.code])));
+  const sessions = new Set(captures.filter(c=>acceptedRunIds.has(JSON.stringify([c?.scan_run_id,c?.code]))).map(c=>dateInJst(c.scan_received_at)));
+  const months = new Set([...sessions].map(date=>date.slice(0,7)));
   return {
     status: count ? "DESCRIPTIVE_RESEARCH_ONLY" : "INSUFFICIENT_VERIFIED_DATA",
     reviewed: captures.length,
@@ -23,6 +33,9 @@ export function summarizeVerifiedForwardResearch(captures, outcomes) {
     rejected: comparison.rejected.length,
     distinct_codes: distinctCodes,
     distinct_runs: distinctRuns,
+    distinct_prediction_sessions: sessions.size,
+    distinct_prediction_months: months.size,
+    sample_adequacy_assessed: false,
     mean_return_pct: count ? sum/count : null,
     median_return_pct: median,
     positive_rate_pct: count ? values.filter(v=>v>0).length/count*100 : null,
