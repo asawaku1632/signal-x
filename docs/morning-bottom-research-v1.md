@@ -234,3 +234,7 @@ Added `scripts/report-prior-score-robustness.mjs` and its 8-check input-boundary
 ## Offline input provenance diagnostic (2026-10-29)
 
 The local JSON reporting CLI now emits `inputAudit`: input row count, number of missing prior-evidence assertions, number of missing later-outcome assertions, and invalid input objects. Critically `independentlyVerifiedByCli` is always `false`; flags provided in a JSON file are merely caller assertions and **not independently verified provenance**. Two regression tests ensure missing evidence is counted and even fully asserted input cannot be mislabeled as independently validated. No production export or live data hookup was performed.
+
+## Offline evidence classifier (2026-10-29)
+
+Added `app/lib/research/evidenceClassifier.mjs` and 14 isolated tests. The classifier receives caller-supplied rows, rejects missing/late preceding feature evidence, missing or nonfuture source dates, duplicate or malformed records, and source-to-outcome prices differing by more than 0.000001 price units. Every row marked `EVIDENCE_ASSERTED` remains **not independently verified**: the offline function cannot authenticate its caller, provider, rights, immutable snapshot, or exchange market time. Its output always says `independentlyVerified:false` and is not permission to publish predictions or use data in production. No database query, export, cron, or market-data fetch is wired into this code.
