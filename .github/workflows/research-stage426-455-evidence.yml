@@ -1,0 +1,26 @@
+name: Research Stages426-455 Evidence Classification
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceClassification.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage426-455-evidence.test.cjs'
+      - '.github/workflows/research-stage426-455-evidence.yml'
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage426-455-evidence.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit

@@ -1,0 +1,25 @@
+name: Research Stage256-265 TSE Calendar
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/swingFiveDayCalendarAudit.ts'
+      - 'tests/stage256-265-calendar.test.cjs'
+      - '.github/workflows/research-stage256-265-calendar.yml'
+permissions:
+  contents: read
+jobs:
+  calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage256-265-calendar.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
