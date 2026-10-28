@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,createHash,sign} from 'node:crypto';
+import {bindMarketBreadthSignedEvidence as bind,hashMarketBreadthSignedEvidenceBinding as bindingHash} from '../../lib/research/marketBreadthSignedEvidenceBinding.mjs';
+const {publicKey,privateKey}=generateKeyPairSync('ed25519');
+const trustedPublicKeyPem=publicKey.export({type:'spki',format:'pem'});
+const trustedKeyFingerprint=createHash('sha256').update(publicKey.export({type:'spki',format:'der'})).digest('hex');
+const signalReceipt={signalRecordId:'signal:20261028:641A',sourceRecordId:'source:20261028:641A',code:'641A',tradeDate:'2026-10-28',payloadHash:'a'.repeat(64),sourceHash:'b'.repeat(64)};
+const outcomeRecord={outcomeRecordId:'outcome:20261105:641A',signalRecordId:signalReceipt.signalRecordId,code:'641A',tradeDate:'2026-10-28',outcomeHash:'c'.repeat(64)};
+const evidenceHash=bindingHash(signalReceipt,outcomeRecord);
+const attestation={evidenceHash,signature:sign(null,Buffer.from(evidenceHash),privateKey).toString('base64')};
+const args={signalReceipt,outcomeRecord,attestation,trustedPublicKeyPem,trustedKeyFingerprint};
+test('valid signed binding stays research only',()=>{const r=bind(args);assert.equal(r.bound,true);assert.equal(r.independentlyTrusted,false);assert.equal(r.productionEligible,false)});
+test('swapped signal ID is rejected',()=>{const r=bind({...args,signalReceipt:{...signalReceipt,signalRecordId:'signal:20261028:590A'}});assert.equal(r.reason,'SIGNED_EVIDENCE_BINDING_MISMATCH')});
+test('tampered outcome hash is rejected',()=>{const r=bind({...args,outcomeRecord:{...outcomeRecord,outcomeHash:'d'.repeat(64)}});assert.equal(r.reason,'SIGNED_EVIDENCE_HASH_MISMATCH')});
+test('invalid signature is rejected',()=>{const r=bind({...args,attestation:{...attestation,signature:'AA=='}});assert.equal(r.bound,false)});
+test('missing source hash is rejected',()=>{const r=bind({...args,signalReceipt:{...signalReceipt,sourceHash:null}});assert.equal(r.reason,'SIGNAL_EVIDENCE_INCOMPLETE')});
