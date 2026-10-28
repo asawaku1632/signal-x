@@ -24,3 +24,6 @@ test('descriptive readiness requests independent review, not production',()=>{co
 
 test('unreconciled audit counts block descriptive readiness',()=>{const x=report({audit:{total:60,acceptedCount:60,rejectedCount:3},cohorts:{comparisonReady:true,divergence:group,other:group}});assert.equal(x.evidenceCountsReconciled,false);assert.equal(x.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
 test('reconciled audit counts permit descriptive readiness',()=>{const x=report({audit:{total:60,acceptedCount:60,rejectedCount:0},cohorts:{comparisonReady:true,divergence:group,other:group}});assert.equal(x.evidenceCountsReconciled,true);assert.equal(x.status,'DESCRIPTIVE_COMPARISON_READY')});
+
+test('post-audit cohort rejection blocks descriptive readiness',()=>{const x=report({audit:{total:60,acceptedCount:60,rejectedCount:0},cohorts:{comparisonReady:true,divergence:group,other:group,rejectionCounts:{INVALID_RETURN:1}}});assert.equal(x.evidenceCountsReconciled,true);assert.equal(x.cohortCountsReconciled,false);assert.equal(x.status,'INSUFFICIENT_VERIFIED_EVIDENCE')});
+test('clean post-audit cohorts reconcile independently',()=>{const x=report({audit:{total:60,acceptedCount:60,rejectedCount:0},cohorts:{comparisonReady:true,divergence:group,other:group,rejectionCounts:{}}});assert.equal(x.cohortCountsReconciled,true);assert.equal(x.status,'DESCRIPTIVE_COMPARISON_READY')});
