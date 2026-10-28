@@ -38,10 +38,12 @@ export function inspectMorning(tradeDate, previousClose, candles, options={}) {
   const firstBottom=bars.find(b=>b.low===minLow);
   // A bottom is known retrospectively only. This is descriptive, NOT a tradable fill.
   const after=bars.filter(b=>minute(b.time)>minute(firstBottom.time));
-  const maxLaterHigh=after.length?Math.max(...after.map(b=>b.high)):null;\n  const earlyLow=Math.min(...bars.filter(b=>minute(b.time)<570).map(b=>b.low));
+  const maxLaterHigh=after.length?Math.max(...after.map(b=>b.high)):null;
+  const earlyLow=Math.min(...bars.filter(b=>minute(b.time)<570).map(b=>b.low));
   return {valid:true,date:tradeDate,intervalMinutes:interval,
     bottomWindow:firstBottom.time,bottomPrice:minLow,
-    bottomDropPct:round((minLow/previousClose-1)*100),\n    earlyDropPct:round((earlyLow/previousClose-1)*100),
+    bottomDropPct:round((minLow/previousClose-1)*100),
+    earlyDropPct:round((earlyLow/previousClose-1)*100),
     laterHigh:maxLaterHigh,
     reboundPct:maxLaterHigh===null?null:round((maxLaterHigh/minLow-1)*100),
     rebound1pct:maxLaterHigh===null?null:maxLaterHigh>=minLow*1.01,
@@ -73,15 +75,16 @@ export function summarizeAnalogs(target, histories, options={}) {
   const selected=ranked.slice(0,options.maxAnalogs??100).map(x=>x.row);
   const drops=selected.map(x=>x.outcome.bottomDropPct);
   const times=selected.map(x=>minute(x.outcome.bottomWindow));
-  const rebounds=selected.filter(x=>x.outcome.rebound1pct!==null);
+  const rebounds1=selected.filter(x=>typeof x.outcome.rebound1pct==="boolean");
+  const rebounds2=selected.filter(x=>typeof x.outcome.rebound2pct==="boolean");
   return {version:MORNING_ANALOG_VERSION,asOf:target.tradeDate,
     samples:selected.length,eligible:selected.length>=minSamples,
     bottomDropPct:{p25:quantile(drops,.25),median:quantile(drops,.5),p75:quantile(drops,.75)},
     bottomWindowMinutes:{p25:quantile(times,.25),median:quantile(times,.5),p75:quantile(times,.75)},
-    rebound1pct:{observed:rebounds.length,wins:rebounds.filter(x=>x.outcome.rebound1pct).length,
-      rate:rebounds.length>=minSamples?round(100*rebounds.filter(x=>x.outcome.rebound1pct).length/rebounds.length):null},
-    rebound2pct:{observed:rebounds.length,wins:rebounds.filter(x=>x.outcome.rebound2pct).length,
-      rate:rebounds.length>=minSamples?round(100*rebounds.filter(x=>x.outcome.rebound2pct).length/rebounds.length):null},
+    rebound1pct:{observed:rebounds1.length,wins:rebounds1.filter(x=>x.outcome.rebound1pct).length,
+      rate:rebounds1.length>=minSamples?round(100*rebounds1.filter(x=>x.outcome.rebound1pct).length/rebounds1.length):null},
+    rebound2pct:{observed:rebounds2.length,wins:rebounds2.filter(x=>x.outcome.rebound2pct).length,
+      rate:rebounds2.length>=minSamples?round(100*rebounds2.filter(x=>x.outcome.rebound2pct).length/rebounds2.length):null},
     // Do not expose historical outcome dates as target-day data.
     note:"Descriptive only. Requires held-out chronological validation before forecasting."};
 }
@@ -101,7 +104,7 @@ export function summarizeMorningDropPatterns(observations, options={}) {
      60%binMinutes!==0)throw Error("INVALID_PATTERN_OPTIONS");
   const seen=new Set(),valid=[],excluded={invalid:0,duplicate:0,notSharpDrop:0};
   for(const row of observations){
-    if(!row||row.valid!==true||!/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)||
+    if(!row||row.valid!==true||!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||
        !hhmm(row.bottomWindow)||!positive(row.bottomPrice)||
        !finite(row.bottomDropPct)||!finite(row.earlyDropPct)||
        !Number.isInteger(row.intervalMinutes)||row.intervalMinutes>binMinutes||
@@ -128,8 +131,6 @@ export function summarizeMorningDropPatterns(observations, options={}) {
   const topWindows=bottomTimeCounts.filter(x=>x.count===maxCount && maxCount>0);
   const reb1=valid.filter(x=>typeof x.rebound1pct==="boolean");
   const reb2=valid.filter(x=>typeof x.rebound2pct==="boolean");
-  const rate=rows=>rows.length>=minSamples?
-    round(100*rows.filter(x=>x.rebound1pct===true||x.rebound2pct===true).length/rows.length):null;
   return {version:"MORNING_DROP_PATTERN_V1",definition:{
     morning:"09:00-11:30 JST",earlyDrop:"09:00-09:30 low vs prior close",
     thresholdPct:dropThresholdPct,binMinutes,
