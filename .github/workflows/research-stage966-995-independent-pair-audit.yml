@@ -1,0 +1,21 @@
+name: Research Stage966-995 Independent Pair Evidence Audit
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchIndependentPairAudit.mjs'
+      - 'tests/stage966-995-independent-pair-audit.test.mjs'
+      - '.github/workflows/research-stage966-995-independent-pair-audit.yml'
+permissions:
+  contents: read
+jobs:
+  research-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/stage966-995-independent-pair-audit.test.mjs
