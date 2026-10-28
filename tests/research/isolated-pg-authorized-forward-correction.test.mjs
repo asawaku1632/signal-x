@@ -38,6 +38,10 @@ test("isolated PG: restricted role can use audited correction function but not d
   await db.query("ROLLBACK TO SAVEPOINT access_check");
   await db.query("SET LOCAL ROLE signalx_correction_ci_role");
   assert.equal((await db.query("SELECT signalx_ci_authz.correct_ci(1,-1.5,'Verified corrected market result') ok")).rows[0].ok,true);
+  assert.equal((await db.query("SELECT signalx_ci_authz.correct_ci(1,-1.5,\'Verified corrected market result\') ok")).rows[0].ok,false);
+  await db.query("SAVEPOINT missing_reason");
+  await assert.rejects(db.query("SELECT signalx_ci_authz.correct_ci(1,3,\'short\')"),/reason required/);
+  await db.query("ROLLBACK TO SAVEPOINT missing_reason");
   await db.query("RESET ROLE");
   const row=(await db.query("SELECT entry_price::float8 price,return_5d::float8 result FROM signalx_ci_authz.forward_ci")).rows[0];
   assert.deepEqual(row,{price:100,result:-1.5});
