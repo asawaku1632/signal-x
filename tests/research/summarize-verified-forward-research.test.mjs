@@ -24,6 +24,9 @@ test("verified forward result produces descriptive numbers only",()=>{
  const x=summarize([capture],[outcome]);
  assert.equal(x.accepted,1);assert.equal(x.distinct_codes,1);
  assert.equal(x.mean_return_pct,2.4);assert.equal(x.median_return_pct,2.4);
+ assert.equal(x.distinct_prediction_sessions,1);
+ assert.equal(x.distinct_prediction_months,1);
+ assert.equal(x.sample_adequacy_assessed,false);
  assert.equal(x.positive_rate_pct,100);assert.equal(x.eligible_for_live_ai,false);
 });
 test("duplicate capture cannot inflate research results",()=>{
@@ -39,3 +42,16 @@ test("unverified holiday horizon cannot create positive rate",()=>{
  assert.equal(x.rejection_reasons.JPX_SESSION_CALENDAR_MISMATCH,1);
 });
 test("invalid collections fail closed",()=>assert.throws(()=>summarize(null,[]),/INVALID_RESEARCH_INPUT/));
+
+test("identical trading day across separate runs does not inflate session coverage",()=>{
+ const second={...capture,scan_run_id:"r2",code:"641A"};
+ const secondOutcome={...outcome,scan_run_id:"r2",code:"641A",return_pct:-1.2};
+ const x=summarize([capture,second],[outcome,secondOutcome]);
+ assert.equal(x.accepted,2);
+ assert.equal(x.distinct_runs,2);
+ assert.equal(x.distinct_prediction_sessions,1);
+ assert.equal(x.distinct_prediction_months,1);
+ assert.equal(x.mean_return_pct,0.6);
+ assert.equal(x.positive_rate_pct,50);
+ assert.equal(x.sample_adequacy_assessed,false);
+});
