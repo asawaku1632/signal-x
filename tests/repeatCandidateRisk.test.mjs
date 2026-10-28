@@ -42,3 +42,13 @@ test("same-day comparisons require both groups to have completed outcomes", () =
   assert.match(page, /業種や銘柄構成の差は残ります/);
   assert.match(page, /独立した終値検証・将来の再現性は未確認/);
 });
+
+test("concentration report counts only completed downside cases and duplicate stock codes", () => {
+  assert.match(page, /concentration = useMemo/);
+  assert.match(page, /previous_candidate_change_pct/);
+  assert.match(page, /n\(r.return_5d\) != null/);
+  assert.match(page, /dates\.set\(row.trade_date/);
+  assert.match(page, /codes\.set\(row.code/);
+  assert.match(page, /filter\(count => count > 1\)/);
+  assert.match(page, /独立した試行回数ではありません/);
+});
