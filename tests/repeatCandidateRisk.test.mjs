@@ -27,3 +27,10 @@ test("strict read-only, no external provider calls or live decisions", () => {
   assert.match(page, /直近1000件のみ/);
   assert.match(page, /未検証/);
 });
+
+test("research summary distinguishes observed outcomes from incomplete follow-up", () => {
+  assert.match(page, /completed\.length/);
+  assert.match(page, /評価済/);
+  assert.match(page, /日付・業種・POWERを調整していない/);
+  assert.match(page, /将来の予測能力や除外効果は示しません/);
+});
