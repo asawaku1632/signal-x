@@ -37,3 +37,9 @@ test("bad timestamp fails without creating artifact",()=>{
  assert.equal(result.accepted,false);
  assert.equal(result.artifact,null);
 });
+
+test("null execution is rejected without throwing",()=>{
+ const result=create(null);
+ assert.equal(result.accepted,false);
+ assert.equal(result.reason,"INVALID_SCAN_EXECUTION");
+});
