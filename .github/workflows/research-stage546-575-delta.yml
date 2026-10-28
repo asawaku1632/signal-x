@@ -1,0 +1,25 @@
+name: Research Stage546-575 Evidence Delta
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceProgressDelta.ts'
+      - 'tests/stage546-575-evidence-delta.test.cjs'
+      - '.github/workflows/research-stage546-575-delta.yml'
+permissions:
+  contents: read
+jobs:
+  delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage546-575-evidence-delta.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
