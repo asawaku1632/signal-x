@@ -7,13 +7,16 @@ export function assessHistoricalResearchDataset(rows) {
     const issues=[];
     if(!r || typeof r!=="object" || Array.isArray(r)) issues.push("INVALID_ROW");
     else {
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(r.observation_date ?? ""))
-        issues.push("INVALID_OBSERVATION_DATE");
-      const created=Date.parse(r.created_at);
-      const observed=Date.parse((r.observation_date ?? "")+"T00:00:00Z");
-      if(!Number.isFinite(created) || !Number.isFinite(observed))
+      const day=r.observation_date;
+      const observed=typeof day==="string" && /^\d{4}-\d{2}-\d{2}$/.test(day)
+        ? Date.parse(day+"T00:00:00Z") : NaN;
+      const validDay=Number.isFinite(observed) && new Date(observed).toISOString().slice(0,10)===day;
+      if(!validDay) issues.push("INVALID_OBSERVATION_DATE");
+      const created=typeof r.created_at==="string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(r.created_at)
+        ? Date.parse(r.created_at) : NaN;
+      if(!Number.isFinite(created) || !validDay)
         issues.push("MISSING_OBSERVATION_OR_STORAGE_TIME");
-      else if(created > observed + 24*60*60*1000)
+      else if(created >= observed + 15*60*60*1000)
         issues.push("SAVED_AFTER_OBSERVATION_DAY");
       if(typeof r.provider!=="string" || !r.provider.trim())
         issues.push("MISSING_SOURCE");
