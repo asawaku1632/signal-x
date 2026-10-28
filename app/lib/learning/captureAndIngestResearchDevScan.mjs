@@ -15,6 +15,7 @@ export async function captureAndIngestResearchDevScan(runScan, client, options) 
       process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED !== "true")
     throw new Error("RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED");
   // Reject foreign or unidentifiable DB clients before initiating market-data requests.
+  if (typeof client?.query !== "function") throw new Error("INVALID_DB_CLIENT");
   const host = client?.connectionParameters?.host;
   const isolatedCi = process.env.NODE_ENV === "test" &&
     process.env.SIGNALX_RESEARCH_ISOLATED_PG === "true" &&
