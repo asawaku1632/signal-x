@@ -29,3 +29,11 @@ Research-only inspection of **development** Supabase project. All queries were S
 
 ## Next practical priority
 Instrument prospective independent signal capture only after explicit authorization and provider-rights review. Do not deploy or enable automatic collection from this audit.
+
+## Follow-up fixture and outcome investigation
+
+SELECT-only development database inspection identified **five** nonstandard BB code records: four `__DEV_BB_TRANSITION_47__` and one `__DEV_BB_MISSING_47__`. No analogous marker was found in 313 technical events. BB has 420 records with a plausible 4-digit/optional-alpha code; technical has 313. All 738 records have positive entry prices but were recorded after their nominal signal dates.
+
+All five BB outcome rows link to the two identified DEV fixture event IDs. Outcome horizons: one-day (2), five-day (1), ten-day (1), twenty-day (1). The five-day row reports +5% for `__DEV_BB_TRANSITION_47__`, and **must never be represented as live model performance**. None of these rows is independently verified prospective evidence. This is an explicit exclusion, not an inference of predictive success.
+
+The review code now quarantines recognized fixture events and reports unverified outcome links separately. Do not extrapolate the five fixture rows to the other 733 rows, which still lack independent immutable generation-time proof.
