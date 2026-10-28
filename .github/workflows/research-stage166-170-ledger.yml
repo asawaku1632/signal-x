@@ -1,0 +1,26 @@
+name: Research Stage166-170 Evidence Ledger
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/researchEvidenceLedger.ts'
+      - 'app/lib/learning/researchCandidateInspection.ts'
+      - 'tests/stage166-170-evidence-ledger.test.cjs'
+      - '.github/workflows/research-stage166-170-ledger.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage166-170-evidence-ledger.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
