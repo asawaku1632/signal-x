@@ -26,9 +26,13 @@ export async function saveResearchScanCaptureDev(client, input) {
     && new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) === tradeDate;
   // Trade date must agree with the Scan receipt date in Japan, never with UTC's date.
   const receivedDateJst = Number.isFinite(received)
-    ? new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date(received))
+    ? (() => {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+        }).formatToParts(new Date(received));
+        const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        return `${values.year}-${values.month}-${values.day}`;
+      })()
     : null;
   const validRunId = typeof input?.scanRunId === "string" && input.scanRunId.trim().length > 0;
   const validScan = Array.isArray(input?.scanResponse?.stocks) && input.scanResponse.stocks.length > 0;
