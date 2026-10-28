@@ -19,3 +19,6 @@ test('rejects evidence bound to another security',()=>assert.equal(check(row,{..
 test('rejects evidence with reused source record IDs',()=>assert.equal(check(row,{...e,outcomeRecordId:e.marketRecordId}).reason,'INDEPENDENT_RECORD_IDS_MISSING'));
 test('rejects altered five-day return despite verified flag',()=>assert.equal(check({...row,return5dPct:3},e).reason,'FIVE_DAY_OUTCOME_UNVERIFIED'));
 test('rejects outcome date inconsistent with evaluation timestamp',()=>assert.equal(check({...row,outcomeDate:'2026-11-06'},{...e,outcomeDate:'2026-11-06'}).reason,'TRADE_DATE_TIMESTAMP_MISMATCH'));
+
+test('rejects impossible trade calendar date',()=>assert.equal(check({...row,tradeDate:'2026-02-30'},{...e,tradeDate:'2026-02-30'}).reason,'TRADE_DATE_INVALID'));
+test('rejects impossible outcome calendar date',()=>assert.equal(check({...row,outcomeDate:'2026-11-31'},{...e,outcomeDate:'2026-11-31'}).reason,'TRADE_DATE_INVALID'));
