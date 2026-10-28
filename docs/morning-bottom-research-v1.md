@@ -118,3 +118,16 @@ Exploratory split of **75 distinct matched outcome dates**, ordered by stored ta
 | HOLDOUT | <85 | 31,482 | 38 | -0.0686% | 0.0000% | 47.31% |
 
 **Result:** In this limited split, higher saved score fails to deliver higher positive-price frequency in either period, and the high-score average is negative in the later period. This does not prove the score has zero predictive information after controlling for direction, market regimes and algorithm versions. Group coverage differs by date. Future work: compare date-matched cohorts, verify next-price provenance, score-version consistency, prior-day available features, and risk/cost. This table cannot be used to infer intraday bottom timing, or to activate a signal, trade, or notification.
+
+
+## Same-date matched score-group comparison (2026-10-29, production SELECT-only)
+
+Within each target `date`, compare stored `score >= 85` against `score < 85`. Include only dates with at least 10 priced observations in **each** group. Define day difference as mean `100*(next_price/price-1)` for the high group minus the mean for the low group. Each qualifying date has equal weight in the headline mean, even though stock counts differ. This removes common calendar-date variation from the comparison but does not adjust sector, direction, score-version or source-quality effects.
+
+- 68 comparable dates, 14,003 high-score stock-days and 51,001 lower-score stock-days (65,004 total).
+- Equal-date average difference **-0.0872 percentage points**; median **-0.0143 pp**. High group outperformed on 31 dates, underperformed on 36, tied on 1.
+- Average day-by-day difference in positive-price fraction: **-2.939 percentage points**.
+- Early period (before 2026-09-02): 30 comparable dates, mean gap -0.1117 pp, high group outperformed on 12.
+- Later period (2026-09-02 onward): 38 comparable dates, mean gap -0.0678 pp, high group outperformed on 19.
+
+These retrospective observations **do not support** shipping an unconditional `score >= 85` bullish rule. They also **do not** prove absence of conditional predictive value or evaluate short-direction signals. This is not an intraday morning-low study or a tradable backtest. Next research stage should use provenance-confirmed cohorts, frozen prior-day feature versions, direction-aware labels, date-matched cross-sectional ranks and chronological holdouts, and should report uncertainty.
