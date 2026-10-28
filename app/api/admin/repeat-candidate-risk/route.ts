@@ -23,9 +23,9 @@ SELECT trade_date::text AS trade_date, code, name, ai_power, entry_price,
   ROUND(100 * (entry_price - previous_candidate_price) / NULLIF(previous_candidate_price, 0), 3)
     AS previous_candidate_change_pct
 FROM candidate_history
-WHERE candidate_number > 1 AND previous_candidate_price > 0
+WHERE candidate_number > 1 AND previous_candidate_price > 0 AND ai_power >= 90
 ORDER BY trade_date DESC, code ASC
-LIMIT 300
+LIMIT 1001
 `;
 
 export async function GET() {
@@ -37,9 +37,9 @@ export async function GET() {
   try {
     const result = await pool.query(SQL);
     return NextResponse.json({
-      success: true, rows: result.rows,
+      success: true, rows: result.rows.slice(0, 1000),
       note: "研究専用。過去の同一銘柄CANDIDATE保存価格との比較です。日足終値・売買可能価格・予測力を保証せず、履歴の更新や本番判定への反映は行いません。",
-      truncated: result.rows.length === 300,
+      truncated: result.rows.length > 1000,
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[repeat-candidate-risk] read-only research failed", error);
