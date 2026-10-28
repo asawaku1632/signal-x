@@ -47,3 +47,10 @@ test("loading Scan API response contains no research observations",()=>{
  }});
  assert.deepEqual(rows,[]);
 });
+
+test("stale status cannot bypass quarantine with cached:false",()=>{
+ const [row]=prepareScanFeatureCaptures({...base,scanResponse:{
+  success:true,status:"stale",cached:false,stocks:[stock]
+ }});
+ assert.equal(row.audit_reason,"CACHED_SCAN");
+});
