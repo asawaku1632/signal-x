@@ -85,6 +85,19 @@ export default function RepeatCandidateRiskPage() {
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
   }, [data]);
+  const pendingByDate = useMemo(() => {
+    const groups = new Map<string, { total: number; completed: number }>();
+    for (const row of data?.rows || []) {
+      if ((n(row.previous_candidate_change_pct) ?? 0) >= -5) continue;
+      const group = groups.get(row.trade_date) ?? { total: 0, completed: 0 };
+      group.total++;
+      const outcome = n(row.return_5d);
+      if (outcome != null && Number.isFinite(outcome)) group.completed++;
+      groups.set(row.trade_date, group);
+    }
+    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, group]) => ({ date, ...group, pending: group.total - group.completed }));
+  }, [data]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     !onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5), [data, onlyDrop]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -114,6 +127,16 @@ export default function RepeatCandidateRiskPage() {
         </table></div>
         {sameDay.length === 0 && <p className="mt-2 text-sm text-slate-500">同一日に両群の結果が揃った記録はまだありません。</p>}
         <p className="mt-2 text-xs text-amber-800">記録件数が少ない日や市場急変時に偏り得ます。独立した終値検証・将来の再現性は未確認です。</p>
+      </section><section className="rounded-xl border p-3">
+        <h2 className="text-base font-black">5日後結果の確定状況（5%超下落群）</h2>
+        <p className="mt-1 text-xs text-slate-600">未確定はゼロ損益ではありません。結果が保存されるまで成績計算には含めません。</p>
+        <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-xs">
+          <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th></tr></thead>
+          <tbody>{pendingByDate.map(day => <tr key={day.date} className="border-b">
+            <td className="p-2">{day.date}</td><td className="p-2">{day.total}</td>
+            <td className="p-2">{day.completed}</td><td className="p-2">{day.pending}</td>
+          </tr>)}</tbody>
+        </table></div>
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">日付・銘柄の集中度（5%超下落群）</h2>
         <p className="mt-2 text-sm">5日後評価済 {concentration.observations}件 ／ 判定日 {concentration.distinctDates}日 ／ 銘柄数 {concentration.distinctStocks}</p>
