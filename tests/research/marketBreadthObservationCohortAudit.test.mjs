@@ -9,3 +9,6 @@ test('invalid chronology is rejected',()=>{const x=audit({rows:[{...r(),evaluate
 test('other horizons are excluded',()=>{const x=audit({rows:[{...r(),horizon:1}]});assert.equal(x.counts.validStockDateObservations,0)});
 
 test('calendar-day horizon is not a five-trading-day outcome',()=>{const x=audit({rows:[{...r(),horizonUnit:'CALENDAR_DAY'}]});assert.equal(x.counts.validStockDateObservations,0)});
+
+test('same stock and signal date but different evaluation dates are quarantined',()=>{const x=audit({rows:[r(),{...r(),evaluatedTradeDate:'2026-09-01'}]});assert.equal(x.counts.validStockDateObservations,0);assert.equal(x.counts.conflictingGroups,1)});
+test('identical stock/date/return and evaluation day can collapse',()=>{const x=audit({rows:[r(),r()]});assert.equal(x.accepted[0].evaluatedTradeDate,'2026-08-28')});
