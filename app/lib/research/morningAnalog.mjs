@@ -1,0 +1,87 @@
+/**
+ * MORNING_ANALOG_V1 — offline, read-only historical research.
+ * Input rows MUST be frozen as of the previous trading day's close.
+ * Intraday OHLC bars are outcome evidence, never candidate-selection inputs.
+ * No provider fetches, persistence, trading, notifications or model updates.
+ */
+const positive = x => typeof x === "number" && Number.isFinite(x) && x > 0;
+const finite = x => typeof x === "number" && Number.isFinite(x);
+const round = x => Number(x.toFixed(4));
+const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
+const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
+const quantile = (xs,q) => {
+  if(!xs.length)return null;
+  const sorted=[...xs].sort((a,b)=>a-b),p=(sorted.length-1)*q,i=Math.floor(p);
+  return round(sorted[i]+(sorted[Math.min(i+1,sorted.length-1)]-sorted[i])*(p-i));
+};
+const average = xs => xs.length?round(xs.reduce((a,b)=>a+b,0)/xs.length):null;
+export const MORNING_ANALOG_VERSION="MORNING_ANALOG_V1";
+
+/** Strict complete morning bars; no invented intra-bar ordering. */
+export function inspectMorning(tradeDate, previousClose, candles, options={}) {
+  const interval=options.intervalMinutes??5;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)||!positive(previousClose)||
+     !Number.isInteger(interval)||interval<1||60%interval!==0||
+     !Array.isArray(candles))return {valid:false,reason:"INVALID_INPUT"};
+  const bars=candles.filter(b=>b?.date===tradeDate && hhmm(b.time) &&
+    minute(b.time)>=540 && minute(b.time)<690).sort((a,b)=>minute(a.time)-minute(b.time));
+  const expected=(690-540)/interval;
+  if(bars.length!==expected)return {valid:false,reason:"INCOMPLETE_MORNING_BARS"};
+  for(let i=0;i<bars.length;i++){
+    const b=bars[i],t=540+i*interval;
+    if(minute(b.time)!==t||!positive(b.open)||!positive(b.high)||
+       !positive(b.low)||!positive(b.close)||b.low>Math.min(b.open,b.close)||
+       b.high<Math.max(b.open,b.close)||b.low>b.high)
+      return {valid:false,reason:"INVALID_OR_MISSING_BAR"};
+  }
+  const minLow=Math.min(...bars.map(b=>b.low));
+  const firstBottom=bars.find(b=>b.low===minLow);
+  // A bottom is known retrospectively only. This is descriptive, NOT a tradable fill.
+  const after=bars.filter(b=>minute(b.time)>minute(firstBottom.time));
+  const maxLaterHigh=after.length?Math.max(...after.map(b=>b.high)):null;
+  return {valid:true,date:tradeDate,intervalMinutes:interval,
+    bottomWindow:firstBottom.time,bottomPrice:minLow,
+    bottomDropPct:round((minLow/previousClose-1)*100),
+    laterHigh:maxLaterHigh,
+    reboundPct:maxLaterHigh===null?null:round((maxLaterHigh/minLow-1)*100),
+    rebound1pct:maxLaterHigh===null?null:maxLaterHigh>=minLow*1.01,
+    rebound2pct:maxLaterHigh===null?null:maxLaterHigh>=minLow*1.02};
+}
+
+/**
+ * Historical similarity must be determined from immutable prior-day features.
+ * Caller must supply feature snapshots and their availability timestamp.
+ */
+export function summarizeAnalogs(target, histories, options={}) {
+  const minSamples=options.minSamples??30;
+  if(!target||!/^\d{4}-\d{2}-\d{2}$/.test(target.tradeDate)||
+     !Array.isArray(histories)||!Number.isInteger(minSamples)||minSamples<1)
+    throw Error("INVALID_ANALOG_INPUT");
+  const keys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
+  const weights=options.weights??{priorReturnPct:1,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1};
+  const usableFeatures = row => keys.every(k=>finite(row?.features?.[k]));
+  if(!usableFeatures(target))throw Error("MISSING_PRIOR_DAY_FEATURES");
+  const pool=histories.filter(row=>row && row.tradeDate<target.tradeDate &&
+    row.featureAvailableAt && row.featureAvailableAt.slice(0,10)<row.tradeDate &&
+    usableFeatures(row) && row.outcome?.valid===true &&
+    row.outcome.date===row.tradeDate &&
+    positive(row.outcome.bottomPrice) && finite(row.outcome.bottomDropPct) &&
+    hhmm(row.outcome.bottomWindow));
+  const ranked=pool.map(row=>({row,distance:keys.reduce((sum,k)=>
+    sum+Math.abs(row.features[k]-target.features[k])*(weights[k]??1),0)}))
+    .sort((a,b)=>a.distance-b.distance || a.row.tradeDate.localeCompare(b.row.tradeDate));
+  const selected=ranked.slice(0,options.maxAnalogs??100).map(x=>x.row);
+  const drops=selected.map(x=>x.outcome.bottomDropPct);
+  const times=selected.map(x=>minute(x.outcome.bottomWindow));
+  const rebounds=selected.filter(x=>x.outcome.rebound1pct!==null);
+  return {version:MORNING_ANALOG_VERSION,asOf:target.tradeDate,
+    samples:selected.length,eligible:selected.length>=minSamples,
+    bottomDropPct:{p25:quantile(drops,.25),median:quantile(drops,.5),p75:quantile(drops,.75)},
+    bottomWindowMinutes:{p25:quantile(times,.25),median:quantile(times,.5),p75:quantile(times,.75)},
+    rebound1pct:{observed:rebounds.length,wins:rebounds.filter(x=>x.outcome.rebound1pct).length,
+      rate:rebounds.length>=minSamples?round(100*rebounds.filter(x=>x.outcome.rebound1pct).length/rebounds.length):null},
+    rebound2pct:{observed:rebounds.length,wins:rebounds.filter(x=>x.outcome.rebound2pct).length,
+      rate:rebounds.length>=minSamples?round(100*rebounds.filter(x=>x.outcome.rebound2pct).length/rebounds.length):null},
+    // Do not expose historical outcome dates as target-day data.
+    note:"Descriptive only. Requires held-out chronological validation before forecasting."};
+}
