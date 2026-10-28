@@ -10,7 +10,12 @@ export async function saveResearchScanCaptureDev(client, input) {
   // Fail closed: an injected client must expose the exact development DB host.
   // A generic PostgreSQL pooler cannot establish project identity here.
   const host = client.connectionParameters?.host;
-  if (host !== "db.jdtqwryiyxeuoraecorw.supabase.co") {
+  const isolatedCi = process.env.NODE_ENV === "test"
+    && process.env.SIGNALX_RESEARCH_ISOLATED_PG === "true"
+    && (host === "127.0.0.1" || host === "localhost")
+    && client.connectionParameters?.database === "signalx_research_ci"
+    && client.connectionParameters?.user === "signalx_ci";
+  if (host !== "db.jdtqwryiyxeuoraecorw.supabase.co" && !isolatedCi) {
     throw new Error("RESEARCH_DEV_DATABASE_NOT_VERIFIED");
   }
   // Reject invalid run metadata before any INSERT. Do not silently lose rows.
