@@ -40,9 +40,18 @@ export default function RepeatCandidateRiskPage() {
     ];
     return groups.map(g => {
       const completed = g.rows.map(r => n(r.return_5d)).filter((v): v is number => v != null && Number.isFinite(v));
-      const days = new Set(g.rows.filter(r => n(r.return_5d) != null).map(r => r.trade_date)).size;
+      const byDay = new Map<string, number[]>();
+      for (const row of g.rows) {
+        const value = n(row.return_5d);
+        if (value == null || !Number.isFinite(value)) continue;
+        byDay.set(row.trade_date, [...(byDay.get(row.trade_date) ?? []), value]);
+      }
+      const dayMeans = [...byDay.values()].map(values =>
+        values.reduce((sum, value) => sum + value, 0) / values.length);
+      const days = dayMeans.length;
       return { label: g.label, count: g.rows.length, checked: completed.length, days,
-        average: completed.length ? completed.reduce((a, b) => a + b, 0) / completed.length : null };
+        average: completed.length ? completed.reduce((a, b) => a + b, 0) / completed.length : null,
+        dateBalancedAverage: days ? dayMeans.reduce((a, b) => a + b, 0) / days : null };
     });
   }, [data]);
   const sameDay = useMemo(() => {
@@ -115,7 +124,7 @@ export default function RepeatCandidateRiskPage() {
       {data && <><section aria-label="同日比較ではない参考集計" className="grid grid-cols-2 gap-2">
         {summary.map(g => <div key={g.label} className="rounded-xl border bg-slate-50 p-3">
           <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
-          <p className="text-xs text-slate-600">5日後平均・記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
+          <p className="text-xs text-slate-600">銘柄件数で重み付けした5日後平均</p><p className="mt-2 text-sm font-bold">日付均等平均：{pct(g.dateBalancedAverage)}</p><p className="text-xs text-slate-600">記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
         </div>)}
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">同じ判定日の5日後結果を比較</h2>
@@ -150,7 +159,7 @@ export default function RepeatCandidateRiskPage() {
         <p className="mt-2 text-sm font-semibold">最多判定日を除外：残り {concentration.remainingCount}件 ／ {concentration.remainingDays}日 ／ 5日後平均 {pct(concentration.remainingAverage)}</p>
         {concentration.remainingDays < 3 && <p className="text-xs text-rose-800">除外後の評価日数が3日未満のため、再現性評価には不足しています。</p>}
         <p className="mt-2 text-xs text-amber-800">件数は独立した試行回数ではありません。同日・同業種・同銘柄への偏りがあり、再現性の根拠にはできません。</p>
-      </section><p className="text-xs text-amber-800">※ 上の2群は日付・業種・POWERを調整していない単純集計。将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
+      </section><p className="text-xs text-amber-800">※ 件数平均と日付均等平均は別指標。日付均等平均は各取引日の平均を1票ずつ扱いますが、業種・POWERの偏りや少数日問題は解消しません。上の2群は将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
           <thead><tr className="border-b bg-slate-100"><th className="p-2">日付・銘柄</th><th className="p-2">前回候補</th><th className="p-2">前回比</th><th className="p-2">AI POWER</th><th className="p-2">5日後</th><th className="p-2">結果日</th></tr></thead>
           <tbody>{rows.map(r => <tr key={r.trade_date + ":" + r.code} className="border-b">
