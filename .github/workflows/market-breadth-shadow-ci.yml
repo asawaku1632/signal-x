@@ -1,0 +1,23 @@
+name: Market Breadth Shadow Research Tests
+on:
+  push:
+    branches:
+      - research/market-breadth-shadow-20261028
+  pull_request:
+    paths:
+      - 'lib/research/marketBreadth*.mjs'
+      - 'tests/research/marketBreadth*.test.mjs'
+      - '.github/workflows/market-breadth-shadow-ci.yml'
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Research-only unit tests (no DB credentials)
+        run: node --test tests/research/marketBreadth*.test.mjs
