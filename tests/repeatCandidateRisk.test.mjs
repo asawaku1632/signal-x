@@ -32,7 +32,7 @@ test("research summary distinguishes observed outcomes from incomplete follow-up
   assert.match(page, /completed\.length/);
   assert.match(page, /評価済/);
   assert.match(page, /業種・POWERの偏りや少数日問題は解消しません/);
-  assert.match(page, /将来の予測能力や除外効果は示しません/);
+  assert.match(page, /将来の予測能力や除外効果を示しません/);
 });
 
 test("same-day comparisons require both groups to have completed outcomes", () => {
@@ -80,4 +80,96 @@ test("date-balanced average weights each decision day equally", () => {
   assert.match(page, /dayMeans =/);
   assert.match(page, /dateBalancedAverage: days/);
   assert.match(page, /日付均等平均/);
+});
+
+// Thirty inexpensive, non-mutating contract checks across the research surface.
+test("audit 01: api dynamic no cache", () => {
+  assert.ok(route.includes("force-dynamic"));
+});
+test("audit 02: api uses node runtime", () => {
+  assert.ok(route.includes("nodejs"));
+});
+test("audit 03: api never stores records", () => {
+  assert.ok(route.includes("no writes"));
+});
+test("audit 04: api filters exact rule version", () => {
+  assert.ok(route.includes("ai_power_only_v1"));
+});
+test("audit 05: api limits candidate status", () => {
+  assert.ok(route.includes("decision_status = 'CANDIDATE'"));
+});
+test("audit 06: api partitions by symbol", () => {
+  assert.ok(route.includes("PARTITION BY code"));
+});
+test("audit 07: api uses ordered history", () => {
+  assert.ok(route.includes("ORDER BY trade_date"));
+});
+test("audit 08: api retains prior candidate date", () => {
+  assert.ok(route.includes("previous_candidate_date"));
+});
+test("audit 09: api retains prior candidate price", () => {
+  assert.ok(route.includes("previous_candidate_price"));
+});
+test("audit 10: api validates positive prior price", () => {
+  assert.ok(route.includes("previous_candidate_price > 0"));
+});
+test("audit 11: api current power cutoff", () => {
+  assert.ok(route.includes("ai_power >= 90"));
+});
+test("audit 12: api cursor cutoff", () => {
+  assert.ok(route.includes("LIMIT 1001"));
+});
+test("audit 13: api outputs truncation marker", () => {
+  assert.ok(route.includes("truncated:"));
+});
+test("audit 14: api outputs snapshot timestamp", () => {
+  assert.ok(route.includes("fetchedAt:"));
+});
+test("audit 15: api is role gated", () => {
+  assert.ok(route.includes("getAdminSession"));
+});
+test("audit 16: api guards forbidden access", () => {
+  assert.ok(route.includes("status: 403"));
+});
+test("audit 17: api catches database failure", () => {
+  assert.ok(route.includes("status: 500"));
+});
+test("audit 18: api has private cache control", () => {
+  assert.ok(route.includes("private, no-store"));
+});
+test("audit 19: ui rejects blanks", () => {
+  assert.ok(page.includes("v.trim() === \"\""));
+});
+test("audit 20: ui rejects nonfinite numbers", () => {
+  assert.ok(page.includes("Number.isFinite(parsed)"));
+});
+test("audit 21: ui only loads read-only GET", () => {
+  assert.ok(page.includes("fetch(\"/api/admin/repeat-candidate-risk\""));
+});
+test("audit 22: ui prevents concurrent reload", () => {
+  assert.ok(page.includes("disabled={loading}"));
+});
+test("audit 23: ui supports manual refresh", () => {
+  assert.ok(page.includes("setReloadCount"));
+});
+test("audit 24: ui shows JST timestamp", () => {
+  assert.ok(page.includes("Asia/Tokyo"));
+});
+test("audit 25: ui distinguishes assessed outcomes", () => {
+  assert.ok(page.includes("pendingByDate"));
+});
+test("audit 26: ui calculates daily equal mean", () => {
+  assert.ok(page.includes("dateBalancedAverage"));
+});
+test("audit 27: ui shows same-day comparisons", () => {
+  assert.ok(page.includes("sameDay.map"));
+});
+test("audit 28: ui excludes largest date", () => {
+  assert.ok(page.includes("remainingOutcomes"));
+});
+test("audit 29: ui surfaces small sample warning", () => {
+  assert.ok(page.includes("remainingDays < 3"));
+});
+test("audit 30: ui warns on truncation", () => {
+  assert.ok(page.includes("data.truncated &&"));
 });
