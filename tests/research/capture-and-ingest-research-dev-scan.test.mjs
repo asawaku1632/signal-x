@@ -23,3 +23,19 @@ test("malformed Scan execution never reaches SQL even with both flags",async()=>
    if(v===undefined)delete process.env[k];else process.env[k]=v;
  }
 });
+
+test("development research refuses provider invocation without documented permission gate",async()=>{
+ const keys=["NODE_ENV","SIGNALX_RESEARCH_CAPTURE","SIGNALX_RESEARCH_DEV_WRITE","SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED"];
+ const saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ let scans=0,queries=0;
+ try {
+  process.env.NODE_ENV="development";
+  process.env.SIGNALX_RESEARCH_CAPTURE="true";
+  process.env.SIGNALX_RESEARCH_DEV_WRITE="true";
+  delete process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED;
+  await assert.rejects(execute(async()=>{scans++;return {};},{query:async()=>{queries++;}},{limit:1}),/RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED/);
+  assert.equal(scans,0);assert.equal(queries,0);
+ } finally {
+  for(const k of keys) if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];
+ }
+});
