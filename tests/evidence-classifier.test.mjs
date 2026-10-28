@@ -1,0 +1,18 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {classifyResearchEvidence as classify} from "../app/lib/research/evidenceClassifier.mjs";
+const base={date:"2026-11-02",code:"1234",price:100,nextPrice:101,sourcePrice:101,sourceDate:"2026-11-04",priorDate:"2026-10-30",priorAvailableAt:"2026-10-30T15:00:00+09:00",priorEvidenceVerified:true,outcomeProvenanceVerified:true};
+test("evidence claims never independently verified",()=>{const x=classify([base]);assert.equal(x.summary.verified,1);assert.equal(x.independentlyVerified,false);assert.equal(x.results[0].status,"EVIDENCE_ASSERTED");});
+test("missing prior evidence",()=>assert.equal(classify([{...base,priorEvidenceVerified:false}]).summary.missingPrior,1));
+test("late timestamp rejected",()=>assert.equal(classify([{...base,priorAvailableAt:"2026-11-02T09:00:00+09:00"}]).summary.latePrior,1));
+test("same-date prior rejected",()=>assert.equal(classify([{...base,priorDate:"2026-11-02"}]).summary.latePrior,1));
+test("missing outcome evidence",()=>assert.equal(classify([{...base,outcomeProvenanceVerified:false}]).summary.missingOutcome,1));
+test("future outcome date required",()=>assert.equal(classify([{...base,sourceDate:"2026-11-02"}]).summary.wrongOutcomeDate,1));
+test("material mismatch",()=>assert.equal(classify([{...base,sourcePrice:101.5}]).summary.priceMismatch,1));
+test("floating noise accepted",()=>assert.equal(classify([{...base,sourcePrice:101+1e-12}]).summary.verified,1));
+test("duplicates rejected",()=>assert.equal(classify([base,base]).summary.invalid,1));
+test("bad calendar rejected",()=>assert.equal(classify([{...base,date:"2026-02-30"}]).summary.invalid,1));
+test("bad price rejected",()=>assert.equal(classify([{...base,price:0}]).summary.invalid,1));
+test("invalid options rejected",()=>assert.throws(()=>classify([],{priceTolerance:-1}),/INVALID_EVIDENCE_INPUT/));
+test("empty input safe",()=>assert.equal(classify([]).summary.total,0));
+test("unparsed timestamp rejected",()=>assert.equal(classify([{...base,priorAvailableAt:"yesterday"}]).summary.missingPrior,1));
