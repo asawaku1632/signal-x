@@ -42,6 +42,24 @@ export default function RepeatCandidateRiskPage() {
         average: completed.length ? completed.reduce((a, b) => a + b, 0) / completed.length : null };
     });
   }, [data]);
+  const sameDay = useMemo(() => {
+    const byDate = new Map<string, { risk: number[]; other: number[] }>();
+    for (const row of data?.rows || []) {
+      const value = n(row.return_5d);
+      const change = n(row.previous_candidate_change_pct);
+      if (value == null || !Number.isFinite(value) || change == null || !Number.isFinite(change)) continue;
+      const record = byDate.get(row.trade_date) ?? { risk: [], other: [] };
+      (change < -5 ? record.risk : record.other).push(value);
+      byDate.set(row.trade_date, record);
+    }
+    const avg = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    return [...byDate.entries()].filter(([, group]) => group.risk.length && group.other.length)
+      .sort(([a], [b]) => b.localeCompare(a)).map(([date, group]) => ({
+        date, riskCount: group.risk.length, otherCount: group.other.length,
+        riskMean: avg(group.risk), otherMean: avg(group.other),
+        gap: avg(group.risk) - avg(group.other),
+      }));
+  }, [data]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     !onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5), [data, onlyDrop]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -57,6 +75,20 @@ export default function RepeatCandidateRiskPage() {
           <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
           <p className="text-xs text-slate-600">5日後平均・記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
         </div>)}
+      </section><section className="rounded-xl border p-3">
+        <h2 className="text-base font-black">同じ判定日の5日後結果を比較</h2>
+        <p className="mt-1 text-xs text-slate-600">両グループに評価済みデータがある日だけ表示。対象は再選出・POWER90以上で、同日でも業種や銘柄構成の差は残ります。</p>
+        <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[540px] text-left text-xs">
+          <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">5%超下落群</th><th className="p-2">その他</th><th className="p-2">平均との差</th></tr></thead>
+          <tbody>{sameDay.map(day => <tr key={day.date} className="border-b">
+            <td className="p-2">{day.date}</td>
+            <td className="p-2">{pct(day.riskMean)}（{day.riskCount}件）</td>
+            <td className="p-2">{pct(day.otherMean)}（{day.otherCount}件）</td>
+            <td className="p-2">{day.gap > 0 ? "+" : ""}{day.gap.toFixed(2)}pt</td>
+          </tr>)}</tbody>
+        </table></div>
+        {sameDay.length === 0 && <p className="mt-2 text-sm text-slate-500">同一日に両群の結果が揃った記録はまだありません。</p>}
+        <p className="mt-2 text-xs text-amber-800">記録件数が少ない日や市場急変時に偏り得ます。独立した終値検証・将来の再現性は未確認です。</p>
       </section><p className="text-xs text-amber-800">※ 上の2群は日付・業種・POWERを調整していない単純集計。将来の予測能力や除外効果は示しません。</p><p className="text-sm">表示 {rows.length}件 ／ 取得 {data.rows?.length ?? 0}件{data.truncated ? "（直近1000件のみ・全期間の集計ではありません）" : ""}</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[650px] border-collapse text-left text-xs">
           <thead><tr className="border-b bg-slate-100"><th className="p-2">日付・銘柄</th><th className="p-2">前回候補</th><th className="p-2">前回比</th><th className="p-2">AI POWER</th><th className="p-2">5日後</th><th className="p-2">結果日</th></tr></thead>
