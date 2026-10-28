@@ -6,6 +6,11 @@ export async function saveResearchScanCaptureDev(client, input) {
   if (process.env.NODE_ENV === "production" || process.env.SIGNALX_RESEARCH_DEV_WRITE !== "true") {
     throw new Error("RESEARCH_DEV_WRITE_DISABLED");
   }
+  // Guard the low-level writer too: direct callers must not bypass the
+  // research-use permission check applied by higher-level dev entry points.
+  if (process.env.NODE_ENV === "development" &&
+      process.env.SIGNALX_RESEARCH_PROVIDER_PERMISSION_CONFIRMED !== "true")
+    throw new Error("RESEARCH_PROVIDER_PERMISSION_NOT_CONFIRMED");
   if (!client || typeof client.query !== "function") throw new Error("INVALID_DB_CLIENT");
   // Fail closed: an injected client must expose the exact development DB host.
   // A generic PostgreSQL pooler cannot establish project identity here.
