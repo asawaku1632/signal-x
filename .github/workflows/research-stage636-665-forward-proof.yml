@@ -1,0 +1,25 @@
+name: Research Stage636-665 FORWARD Proof Gate
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/forwardProofGate.ts'
+      - 'tests/stage636-665-forward-proof.test.cjs'
+      - '.github/workflows/research-stage636-665-forward-proof.yml'
+permissions:
+  contents: read
+jobs:
+  forward-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage636-665-forward-proof.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
