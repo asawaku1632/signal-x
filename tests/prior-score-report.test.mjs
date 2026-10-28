@@ -10,3 +10,16 @@ test("rejects too many records",()=>assert.throws(()=>parseResearchFile(JSON.str
 test("rejects oversize",()=>assert.throws(()=>parseResearchFile(" ".repeat(25*1024*1024+1)),/INVALID_RESEARCH_FILE_SIZE/));
 test("report remains research-only",()=>{const r=reportFromText(JSON.stringify([row("1234",85),row("1235",70)]));assert.equal(r.researchOnly,true);assert.equal(r.shadowOnly,true);assert.equal(r.recordCount,2);});
 test("no qualified day with default min sample",()=>assert.equal(reportFromText(JSON.stringify([row("1234",85),row("1235",70)])).days,0));
+
+test("reports missing provenance assertions explicitly",()=>{
+ const input=[row("1234",85),{...row("1235",70),priorEvidenceVerified:false,outcomeProvenanceVerified:false}];
+ const result=reportFromText(JSON.stringify(input));
+ assert.equal(result.inputAudit.unverifiedPriorRows,1);
+ assert.equal(result.inputAudit.unverifiedOutcomeRows,1);
+ assert.equal(result.inputAudit.independentlyVerifiedByCli,false);
+});
+test("does not certify even asserted evidence",()=>{
+ const result=reportFromText(JSON.stringify([row("1234",85)]));
+ assert.equal(result.inputAudit.unverifiedPriorRows,0);
+ assert.equal(result.inputAudit.independentlyVerifiedByCli,false);
+});
