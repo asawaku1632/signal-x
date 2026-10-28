@@ -10,7 +10,7 @@ const round = x => Number(x.toFixed(4));
 const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
 const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
 const priorSnapshot = (stamp, tradeDate) => typeof stamp === "string" &&
-  /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(stamp) &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
   Number.isFinite(Date.parse(stamp)) &&
   // Compare real instants against the JST start of the trade date. A UTC or
   // negative-offset timestamp can have a different calendar date from JST.
