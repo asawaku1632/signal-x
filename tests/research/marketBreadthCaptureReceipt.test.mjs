@@ -13,3 +13,5 @@ test('missing source is blocked',()=>{assert.equal(receipt(envelope,{snapshotRec
 test('noncanonical values are rejected',()=>{assert.equal(receipt(envelope,{sourceRecord,snapshotRecord:{...snapshotRecord,stocks:[undefined]}}).reason,'SNAPSHOT_CANONICALIZATION_FAILED')});
 
 test('source security must match captured code',()=>{const x=receipt(envelope,{sourceRecord:{...sourceRecord,code:'590A'},snapshotRecord});assert.equal(x.reason,'SOURCE_SECURITY_BINDING_MISMATCH')});
+
+test('internal source binding never asserts independent external attestation',()=>{const x=receipt(envelope,{sourceRecord,snapshotRecord});assert.equal(x.accepted,true);assert.equal(x.sourceRecordBindingVerified,true);assert.equal(x.externalSourceAttestationVerified,false);assert.equal(Object.hasOwn(x,'sourceRecordVerifiedExternally'),false)});
