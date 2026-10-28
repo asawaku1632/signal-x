@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {parseResearchFile,reportFromText} from "../scripts/report-prior-score-robustness.mjs";
+const row=(code,score)=>({date:"2026-11-02",code,priorDate:"2026-10-30",priorScore:score,priorEvidenceVerified:true,price:100,nextPrice:101,outcomeDate:"2026-11-04",outcomeProvenanceVerified:true});
+test("parses approved JSON array",()=>assert.equal(parseResearchFile("[]").length,0));
+test("rejects JSON object",()=>assert.throws(()=>parseResearchFile("{}"),/INVALID_RESEARCH_ROWS/));
+test("rejects malformed JSON",()=>assert.throws(()=>parseResearchFile("oops")));
+test("rejects nontext",()=>assert.throws(()=>parseResearchFile(null),/INVALID_RESEARCH_FILE_SIZE/));
+test("rejects too many records",()=>assert.throws(()=>parseResearchFile(JSON.stringify(new Array(100001).fill(null))),/INVALID_RESEARCH_ROWS/));
+test("rejects oversize",()=>assert.throws(()=>parseResearchFile(" ".repeat(25*1024*1024+1)),/INVALID_RESEARCH_FILE_SIZE/));
+test("report remains research-only",()=>{const r=reportFromText(JSON.stringify([row("1234",85),row("1235",70)]));assert.equal(r.researchOnly,true);assert.equal(r.shadowOnly,true);assert.equal(r.recordCount,2);});
+test("no qualified day with default min sample",()=>assert.equal(reportFromText(JSON.stringify([row("1234",85),row("1235",70)])).days,0));
