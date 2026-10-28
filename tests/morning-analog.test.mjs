@@ -1,0 +1,39 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {inspectMorning,summarizeAnalogs} from "../app/lib/research/morningAnalog.mjs";
+
+const makeBars=(date,lowAt=3)=>Array.from({length:30},(_,i)=>{
+  const h=9+Math.floor(i*5/60),m=(i*5)%60;
+  const low=i===lowAt?90:98;
+  return {date,time:String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"),
+    open:100,high:i>lowAt?103:101,low,close:100};
+});
+test("bottom window and later rebound use only completed same-day bars",()=>{
+  const result=inspectMorning("2026-10-28",100,makeBars("2026-10-28"));
+  assert.equal(result.valid,true);
+  assert.equal(result.bottomWindow,"09:15");
+  assert.equal(result.bottomPrice,90);
+  assert.equal(result.rebound1pct,true);
+  assert.equal(result.rebound2pct,true);
+});
+test("incomplete and inconsistent bars fail closed",()=>{
+  assert.equal(inspectMorning("2026-10-28",100,makeBars("2026-10-28").slice(1)).valid,false);
+  const bars=makeBars("2026-10-28");bars[4].low=105;
+  assert.equal(inspectMorning("2026-10-28",100,bars).valid,false);
+});
+test("future outcomes and features available on the outcome date cannot leak",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",features};
+  const make=(tradeDate,featureAvailableAt)=>({
+    tradeDate,featureAvailableAt,features,
+    outcome:inspectMorning(tradeDate,100,makeBars(tradeDate))
+  });
+  const result=summarizeAnalogs(target,[
+    make("2026-10-27","2026-10-26T18:00:00+09:00"),
+    make("2026-10-28","2026-10-27T18:00:00+09:00"),
+    make("2026-10-26","2026-10-26T10:00:00+09:00")
+  ],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+  assert.equal(result.rebound1pct.rate,null);
+});
