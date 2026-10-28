@@ -15,6 +15,12 @@ export function buildGeneratedScanResearchEnvelope(input) {
   const validTime=t=>typeof t==="string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(t) && Number.isFinite(Date.parse(t));
   if (!validTime(scanStartedAt) || !validTime(scanCompletedAt) || Date.parse(scanStartedAt)>Date.parse(scanCompletedAt))
     return fail("INVALID_GENERATION_WINDOW");
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date(scanCompletedAt));
+  const dateFields = Object.fromEntries(dateParts.map(part => [part.type, part.value]));
+  const completedTradeDate = `${dateFields.year}-${dateFields.month}-${dateFields.day}`;
+  if (completedTradeDate !== tradeDate) return fail("TRADE_DATE_MISMATCH");
   if (payload.cached !== false) return fail("CACHED_NOT_GENERATED");
   if (!validTime(payload.updatedAt) || Date.parse(payload.updatedAt)<Date.parse(scanStartedAt) ||
       Date.parse(payload.updatedAt)>Date.parse(scanCompletedAt))
