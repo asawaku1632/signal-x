@@ -108,8 +108,8 @@ test("timestamp offsets are compared as instants before JST trading date",()=>{
   const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
   const target={tradeDate:"2026-10-28",features};
   const history=stamp=>({tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
-  // 2026-10-27 23:00 JST, despite UTC having date 2026-10-27.
-  const valid="2026-10-27T14:00:00Z";
+  // 2026-10-26 23:00 JST, before the Oct 27 trading date.
+  const valid="2026-10-26T14:00:00Z";
   // 2026-10-27 10:00 JST; calendar date in -04:00 is still Oct 26.
   const invalid="2026-10-26T21:00:00-04:00";
   const result=summarizeAnalogs(target,[history(valid),history(invalid)],{minSamples:2});
