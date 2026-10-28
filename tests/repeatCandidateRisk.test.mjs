@@ -34,3 +34,11 @@ test("research summary distinguishes observed outcomes from incomplete follow-up
   assert.match(page, /日付・業種・POWERを調整していない/);
   assert.match(page, /将来の予測能力や除外効果は示しません/);
 });
+
+test("same-day comparisons require both groups to have completed outcomes", () => {
+  assert.match(page, /byDate\.get\(row\.trade_date\)/);
+  assert.match(page, /group\.risk\.length && group\.other\.length/);
+  assert.match(page, /同じ判定日の5日後結果を比較/);
+  assert.match(page, /業種や銘柄構成の差は残ります/);
+  assert.match(page, /独立した終値検証・将来の再現性は未確認/);
+});
