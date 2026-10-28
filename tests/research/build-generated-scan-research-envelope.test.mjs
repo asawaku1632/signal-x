@@ -20,3 +20,19 @@ for(const [label,input,reason] of [
  ["bad window",{scanStartedAt:"2026-10-28T07:00:00Z"},"INVALID_GENERATION_WINDOW"],
  ["invalid date",{tradeDate:"2026-02-30"},"INVALID_RUN_IDENTITY"],
 ]) test(label,()=>assert.equal(build({...base,...input}).reason,reason));
+
+test("missing generated timestamp is rejected",()=>{
+ const result=build({...base,payload:{cached:false,stocks:base.payload.stocks}});
+ assert.equal(result.accepted,false);
+ assert.equal(result.reason,"UPDATED_AT_OUTSIDE_GENERATION");
+});
+test("missing input is rejected without throwing",()=>{
+ assert.equal(build(null).reason,"INVALID_GENERATION_INPUT");
+});
+test("feature metadata is a snapshot, not a reference to mutable Scan objects",()=>{
+ const stock={...base.payload.stocks[0],patternLearning:{rsiBand:"MID",trendKey:"UP"}};
+ const result=build({...base,payload:{...base.payload,stocks:[stock]}});
+ assert.equal(result.accepted,true);
+ stock.patternLearning.rsiBand="OVERBOUGHT";
+ assert.equal(result.envelope.scanResponse.stocks[0].patternLearning.rsiBand,"MID");
+});
