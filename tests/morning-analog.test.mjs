@@ -77,3 +77,28 @@ test("1 and 2 percent rebound denominators are counted independently",()=>{
   assert.equal(result.rebound2pct.observed,0);
   assert.equal(result.rebound2pct.rate,null);
 });
+
+
+test("malformed prior-day snapshot stamps cannot enter analog comparisons",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",features};
+  const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
+  const make=stamp=>({tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
+  const result=summarizeAnalogs(target,[
+    make("2026-10-26T18:00:00+09:00"),
+    make("2026-10-26 garbage"),
+    make("2026-10-27T08:00:00+09:00"),
+    make("2026-10-26T99:99:99+09:00")
+  ],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+});
+
+test("invalid analog selection limits and distance weights fail closed",()=>{
+  const target={tradeDate:"2026-10-28",features:{priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90}};
+  for(const options of [{maxAnalogs:0},{maxAnalogs:-1},{maxAnalogs:1.5},
+      {weights:{priorReturnPct:-1,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}},
+      {weights:{priorReturnPct:Infinity,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}}]){
+    assert.throws(()=>summarizeAnalogs(target,[],options),/INVALID_ANALOG_OPTIONS/);
+  }
+});
