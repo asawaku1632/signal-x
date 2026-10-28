@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reviewMarketBreadthLegacyData} from '../../lib/research/marketBreadthLegacyReview.mjs';
+import {assessMarketBreadthEvidenceReadiness} from '../../lib/research/marketBreadthEvidenceReadiness.mjs';
+import {buildMarketBreadthPromotionDecision as decide} from '../../lib/research/marketBreadthPromotionDecision.mjs';
+const readiness=assessMarketBreadthEvidenceReadiness(reviewMarketBreadthLegacyData());
+test('missing evidence and approvals block production',()=>{const x=decide(readiness);assert.equal(x.status,'BLOCKED');assert.equal(x.productionEligible,false);assert.ok(x.blockers.includes('HUMAN_REVIEW_PENDING'))});
+test('all approvals do not override missing row-level evidence',()=>{const x=decide(readiness,{reviewerApproval:true,licenseApproval:true,independentAuditApproval:true});assert.equal(x.status,'BLOCKED');assert.ok(x.blockers.includes('ROW_LEVEL_RESEARCH_VERIFICATION_MISSING'))});
+test('aggregate coverage and approvals never trigger deployment',()=>{const covered=assessMarketBreadthEvidenceReadiness(reviewMarketBreadthLegacyData(),{licensedBreadthCount:100,independentlyTimestampedSignals:100,verifiedFiveSessionOutcomes:100});const x=decide(covered,{reviewerApproval:true,licenseApproval:true,independentAuditApproval:true});assert.equal(x.productionEligible,false);assert.equal(x.automatedPromotionEligible,false);assert.equal(x.status,'BLOCKED')});
+test('invalid approval payload is rejected',()=>assert.throws(()=>decide(readiness,{reviewerApproval:'yes'}),/INVALID_PROMOTION_DECISION_INPUT/));
