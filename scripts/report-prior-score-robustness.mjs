@@ -6,6 +6,7 @@
  */
 import {readFileSync} from "node:fs";
 import {researchPriorScoreDailyGaps} from "../app/lib/research/priorScoreRobustness.mjs";
+import {classifyResearchEvidence} from "../app/lib/research/evidenceClassifier.mjs";
 export function parseResearchFile(raw){
  if(typeof raw!=="string"||Buffer.byteLength(raw)>25*1024*1024)throw Error("INVALID_RESEARCH_FILE_SIZE");
  const parsed=JSON.parse(raw);
@@ -24,8 +25,17 @@ export function auditResearchRows(rows){
 export function reportFromText(raw){
  const rows=parseResearchFile(raw);
  const inputAudit=auditResearchRows(rows);
- const report=researchPriorScoreDailyGaps(rows);
- return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,inputAudit,...report};
+ const classification=classifyResearchEvidence(rows);
+ // Only pass rows whose claims are structurally consistent; assertions are NOT authentication.
+ // Map the canonical evidence source date to the existing daily-gap evaluator.
+ const eligibleRows=rows.filter((_,i)=>classification.results[i].status==="EVIDENCE_ASSERTED")
+  .map(row=>({...row,outcomeDate:row.sourceDate}));
+ const report=researchPriorScoreDailyGaps(eligibleRows);
+ return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,
+   inputAudit,evidenceClassification:{
+     version:classification.version,summary:classification.summary,
+     independentlyVerified:false,warning:classification.warning
+   },assertedRowsPassedToAnalysis:eligibleRows.length,...report};
 }
 if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
  const args=process.argv.slice(2);
