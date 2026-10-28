@@ -19,3 +19,13 @@ test("invalid historical rows fail closed",()=>{
  assert.equal(audit([null]).issues.INVALID_ROW,1);
  assert.throws(()=>audit(null),/INVALID_HISTORICAL_DATASET/);
 });
+
+test("Japanese midnight boundary marks prior-day storage as delayed",()=>{
+ const x=audit([{observation_date:"2026-10-14",created_at:"2026-10-14T15:00:00Z",provider:"source"}]);
+ assert.equal(x.issues.SAVED_AFTER_OBSERVATION_DAY,1);
+});
+test("invalid dates and timezone-free timestamps never pass audit",()=>{
+ const x=audit([{observation_date:"2026-02-30",created_at:"2026-02-28T12:00:00",provider:"source"}]);
+ assert.equal(x.issues.INVALID_OBSERVATION_DATE,1);
+ assert.equal(x.issues.MISSING_OBSERVATION_OR_STORAGE_TIME,1);
+});
