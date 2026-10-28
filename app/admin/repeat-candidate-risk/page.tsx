@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { summarizeGroup, withoutLargestDay } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -43,19 +44,7 @@ export default function RepeatCandidateRiskPage() {
       { label: "その他の再選出", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) >= -5) },
     ];
     return groups.map(g => {
-      const completed = g.rows.map(r => n(r.return_5d)).filter((v): v is number => v != null);
-      const byDay = new Map<string, number[]>();
-      for (const row of g.rows) {
-        const value = n(row.return_5d);
-        if (value == null) continue;
-        byDay.set(row.trade_date, [...(byDay.get(row.trade_date) ?? []), value]);
-      }
-      const dayMeans = [...byDay.values()].map(values =>
-        values.reduce((sum, value) => sum + value, 0) / values.length);
-      const days = dayMeans.length;
-      return { label: g.label, count: g.rows.length, checked: completed.length, days,
-        average: completed.length ? completed.reduce((a, b) => a + b, 0) / completed.length : null,
-        dateBalancedAverage: days ? dayMeans.reduce((a, b) => a + b, 0) / days : null };
+      return { label: g.label, ...summarizeGroup(g.rows) };
     });
   }, [data]);
   const sameDay = useMemo(() => {
@@ -95,9 +84,9 @@ export default function RepeatCandidateRiskPage() {
       distinctStocks: codes.size,
       topDate: sorted[0]?.[0] ?? null,
       topDateCount: sorted[0]?.[1] ?? 0,
-      remainingCount: remainingOutcomes.length,
-      remainingDays: new Set(remaining.map(row => row.trade_date)).size,
-      remainingAverage,
+      remainingCount: excluded.checked,
+      remainingDays: excluded.days,
+      remainingAverage: excluded.average,
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
   }, [data]);
