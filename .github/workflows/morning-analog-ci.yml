@@ -1,0 +1,24 @@
+name: Morning Analog Offline Research CI
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/morningAnalog.mjs"
+      - "tests/morning-analog.test.mjs"
+      - ".github/workflows/morning-analog-ci.yml"
+  push:
+    branches:
+      - "research/morning-analog-bottom-v1-20261028"
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/morning-analog.test.mjs
