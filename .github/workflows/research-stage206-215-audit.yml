@@ -1,0 +1,27 @@
+name: Research Stage206-215 Audit Safety
+on:
+  pull_request:
+    paths:
+      - 'app/lib/learning/integratedReviewAuditSummary.ts'
+      - 'app/lib/learning/integratedResearchReview.ts'
+      - 'app/admin/research-review/page.tsx'
+      - 'tests/stage206-215-audit.test.cjs'
+      - '.github/workflows/research-stage206-215-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/stage206-215-audit.test.cjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
