@@ -60,3 +60,21 @@ test('five sequential but incorrect weekday dates are rejected',()=>{
  const result=compareForwardResults([capture],[{...outcome,observed_at:'2026-11-05T06:30:00Z',verified_session_dates:dates}]);
  assert.equal(result.rejected[0].reason,'JPX_SESSION_CALENDAR_MISMATCH');
 });
+
+test('2027 JPX cross-year five-session result is accepted only with verified provenance',()=>{
+ const yearEndCapture={...capture,scan_received_at:'2026-12-29T06:35:00Z',
+   source_bar_at:'2026-12-29T06:30:00Z',features_computed_at:'2026-12-29T06:31:00Z'};
+ const yearEndOutcome={...outcome,observed_at:'2027-01-07T06:30:00Z',
+   verified_session_dates:['2026-12-30','2027-01-04','2027-01-05','2027-01-06','2027-01-07']};
+ assert.equal(compareForwardResults([yearEndCapture],[yearEndOutcome]).accepted.length,1);
+ assert.equal(compareForwardResults([{...yearEndCapture,provenance_verified:false}],[yearEndOutcome]).accepted.length,0);
+});
+test('invented 2027 January holiday session cannot pass as five sessions',()=>{
+ const yearEndCapture={...capture,scan_received_at:'2026-12-29T06:35:00Z',
+   source_bar_at:'2026-12-29T06:30:00Z',features_computed_at:'2026-12-29T06:31:00Z'};
+ const bad={...outcome,observed_at:'2027-01-06T06:30:00Z',
+   verified_session_dates:['2026-12-30','2027-01-01','2027-01-04','2027-01-05','2027-01-06']};
+ const result=compareForwardResults([yearEndCapture],[bad]);
+ assert.equal(result.accepted.length,0);
+ assert.equal(result.rejected[0].reason,'JPX_SESSION_CALENDAR_MISMATCH');
+});
