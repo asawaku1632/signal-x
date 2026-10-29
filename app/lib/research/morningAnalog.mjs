@@ -94,13 +94,7 @@ export function summarizeAnalogs(target, histories, options={}) {
      Number.isFinite(Date.parse(row.outcomeAvailableAt)) &&
      Date.parse(row.outcomeAvailableAt)<cutoff &&
      Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"));
-  // Strict as-of mode excludes outcomes that had not been published before
-  // the target trading date. Feature timestamps alone do not prove this.
-  const requireOutcomeAvailability=options.requireOutcomeAvailability===true;
   const pool=histories.filter(row=>row && validDate(row.tradeDate) && row.tradeDate<target.tradeDate &&
-    (!requireOutcomeAvailability ||
-      (priorSnapshot(row.outcomeAvailableAt,target.tradeDate) &&
-       Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"))) &&
     outcomeAvailable(row) &&
     priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
