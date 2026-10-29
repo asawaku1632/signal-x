@@ -21,3 +21,24 @@ test("inputs are bounded and invalid input fails closed",()=>{
  assert.throws(()=>review({snapshots:null,outcomes:[]}),/INVALID_FORWARD_EXPORT_ARRAYS/);
  assert.throws(()=>review({snapshots:[],outcomes:new Array(100001).fill(0)}),/INVALID_FORWARD_EXPORT_ARRAYS/);
 });
+
+test("report explicitly blocks sparse and low-pair-coverage forward evidence",()=>{
+ const d="2026-11-04",snapshots=[snapshot(d,"7203"),snapshot(d,"6758")];
+ const r=review({snapshots,outcomes:[result(d,"7203",0,1)]});
+ assert.equal(r.pairCoverage,0.5);assert.equal(r.observedMonths,1);
+ assert.ok(r.blockers.includes("INSUFFICIENT_PAIR_COVERAGE"));
+ assert.ok(r.blockers.includes("INSUFFICIENT_FORWARD_MONTHS"));
+ assert.equal(r.decision,"DO_NOT_PROMOTE");
+});
+test("orphan outcome keys are surfaced and never counted as paired results",()=>{
+ const d="2026-11-04";
+ const r=review({snapshots:[snapshot(d,"7203")],outcomes:[result(d,"7203",0,1),result(d,"6758",0,10)]});
+ assert.equal(r.reconciledPairs,1);assert.equal(r.orphanOutcomeKeys,1);
+ assert.ok(r.blockers.includes("ORPHAN_OUTCOMES"));
+ assert.equal(r.equalDateImprovementPp,1);
+});
+test("empty exports report no inferred coverage",()=>{
+ const r=review({snapshots:[],outcomes:[]});
+ assert.equal(r.pairCoverage,null);assert.equal(r.equalDateImprovementPp,null);
+ assert.ok(r.blockers.includes("NO_PREDECISION_SNAPSHOTS"));
+});
