@@ -106,8 +106,10 @@ export function summarizeAnalogs(target, histories, options={}) {
     const fingerprint=row=>JSON.stringify({
       featureAvailableAt:row.featureAvailableAt,features:keys.map(k=>row.features[k]),
       bottomPrice:row.outcome.bottomPrice,bottomDropPct:row.outcome.bottomDropPct,
-      bottomWindow:row.outcome.bottomWindow,rebound1pct:row.outcome.rebound1pct,
-      rebound2pct:row.outcome.rebound2pct
+      bottomWindow:row.outcome.bottomWindow,earlyDropPct:row.outcome.earlyDropPct,
+      laterHigh:row.outcome.laterHigh,reboundPct:row.outcome.reboundPct,
+      intervalMinutes:row.outcome.intervalMinutes,
+      rebound1pct:row.outcome.rebound1pct,rebound2pct:row.outcome.rebound2pct
     });
     return rows.every(row=>fingerprint(row)===fingerprint(rows[0]))?[rows[0]]:[];
   });
