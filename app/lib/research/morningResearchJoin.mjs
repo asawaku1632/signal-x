@@ -36,9 +36,9 @@ export function joinMorningResearchExports(features,bars,{independentProvenance=
     candidates:candidates.length,accepted:prepared.rows.length,
     unmatchedBars,duplicateKeys,excluded:prepared.excluded,
     // Independently verified provenance must be evidenced externally.
-    independentProvenanceConfirmed:independentProvenance===true,
+    independentProvenanceAssertedByCaller:independentProvenance===true,\n    independentlyAuthenticated:false,
     results:independentProvenance===true?audit:null,
-    bottomTimeDistribution:independentProvenance===true?audit.audit?.bottomTimeCounts??null:null,
+    bottomTimeDistribution:null,
     signalEnabled:false,readyForTrading:false,
     note:"Caller provenance flag is not authenticated by this module. Do not publish measured rates without an independent rights and bar-integrity audit."
   };
