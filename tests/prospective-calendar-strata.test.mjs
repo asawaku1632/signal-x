@@ -76,3 +76,16 @@ test("excluded cohort reasons distinguish insufficient groups and invalid gap",(
  assert.equal(report.qualifyingDates,0);
  assert.equal(report.readyForTraining,false);
 });
+
+test("primary exclusion categories reconcile even when a date has multiple failures",()=>{
+ const bad=[
+  {date:"2026-12-01",highCount:9,lowCount:9,gapPp:NaN},
+  {date:"2026-12-02",highCount:10,lowCount:9,gapPp:NaN},
+  {date:"2026-12-03",highCount:10,lowCount:10,gapPp:NaN}
+ ];
+ const report=run(bad);
+ assert.equal(report.excludedDates,3);
+ assert.deepEqual(report.primaryExclusionReasons,{insufficientHigh:1,insufficientLow:1,invalidGap:1});
+ assert.equal(Object.values(report.primaryExclusionReasons).reduce((sum,n)=>sum+n,0),report.excludedDates);
+ assert.equal(report.readyForTraining,false);
+});
