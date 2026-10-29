@@ -242,3 +242,8 @@ test("repeat comparison requires valid positive current price", () => {
   assert.ok(route.includes("entry_price > 0"));
   assert.ok(route.includes("previous_candidate_price > 0"));
 });
+
+test("strict five percent drop classification uses unrounded prices", () => {
+  assert.ok(route.includes("entry_price < previous_candidate_price * 0.95"));
+  assert.ok(route.includes("previous_candidate_drop_over_5pct"));
+});
