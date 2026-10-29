@@ -495,3 +495,20 @@ Next real validation: verify pre-decision frozen score timestamps and unmodified
 ### Swing >=85 price bands: equal-trading-date cohort comparison (read-only 2026-10-29)
 
 New read-only SQL analysis of existing 5d-matured swing observations, grouping by trade date and fixed entry-price bins, **requiring >=10 high-score and >=10 low-score stocks on each comparable date**. Under JPY500: **0** comparable dates (do not interpret the previously reported stock-weighted +6.99% high return as reproducible). JPY500-999: **2** comparable dates, equal-date high-minus-low **+0.0280 percentage points**, high wins **1/2**. JPY1000-2999: **10** dates, equal-date gap **-0.4426pp**, high wins **5/10**. JPY3000+: **10** dates, equal-date gap **-0.3063pp**, high wins **5/10**. Results remain exploratory and strongly limited by only 10 dated cohorts, unverified predecision score availability, overlapping 5-day outcomes, and unknown benchmark/sector concentration; price threshold must not be changed on this evidence. No automatic model training, alerts or production changes.
+
+
+## Read-only five-month score-band overview (2026-10-29)
+
+Production `public.daily_stock_results` read-only aggregate over 2026-06-29 to 2026-10-28. This is a **row-weighted monthly mean**, not the equal-date mean required by the prospective calendar audit. It is not a held-out experiment, verification of the present AI POWER scoring system, or 5-minute morning-bottom research. Differences below subtract rounded displayed means (percentage points).
+
+| Month | Stored dates | High >=85 rows | Low <85 rows | High mean % | Low mean % | High minus low pp |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-06 | 2 | 67 | 1,360 | +0.0000 | -0.1715 | +0.1715 |
+| 2026-07 | 16 | 3,719 | 11,660 | +0.1823 | +0.1092 | +0.0731 |
+| 2026-08 | 18 | 5,104 | 11,160 | +0.1255 | +0.2293 | -0.1038 |
+| 2026-09 | 21 | 3,584 | 16,475 | -0.3862 | -0.1261 | -0.2601 |
+| 2026-10 | 19 | 1,561 | 16,546 | -0.0957 | -0.1198 | +0.0241 |
+
+**Interpretation:** monthly score-group advantage changes sign: positive June/July, negative August/September, slightly positive October. June has only two stored dates, below the offline audit's default five-day minimum. Unequal stock population makes these month-level averages unsuitable for inference about equal-date stability. The already audited seven recent October dates saw one positive gap out of seven; this is compatible with a slightly positive October *row-weighted* result because observation sets and weights differ. Neither metric justifies deploying a high-score signal.
+
+An attempted read-only nested date-weighted monthly aggregate did not complete due to a connector error; do not present such results as measured. Next: retrieve bounded per-date aggregates and audit coverage, provider/as-of evidence, and chronological held-out performance before any training or notification approval. No production writes.
