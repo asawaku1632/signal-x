@@ -248,8 +248,14 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
       observedRatePct:rows.length?round(100*rows.filter(row=>row[key]).length/rows.length):null,
       meanAbsoluteErrorPct:rows.length?average(rows.map(row=>Math.abs(row[pkey]-(row[key]?100:0)))):null};
   };
+  const evaluated=results.filter(row=>row.actualRebound1Pct!==null ||
+    row.actualRebound2Pct!==null);
+  const uniqueStocks=new Set(evaluated.map(row=>row.code)).size;
+  const uniqueTradeDates=new Set(evaluated.map(row=>row.tradeDate)).size;
+  const uniqueMonths=new Set(evaluated.map(row=>row.tradeDate.slice(0,7))).size;
+  const coverage={stocks:uniqueStocks,tradeDates:uniqueTradeDates,months:uniqueMonths};
   return {version:"MORNING_ANALOG_FORWARD_AUDIT_V1",targets:results.length,
-    eligible:results.filter(row=>row.eligible).length,
+    eligible:results.filter(row=>row.eligible).length,coverage,
     rebound1pct:metrics("actualRebound1Pct"),
     rebound2pct:metrics("actualRebound2Pct"),
     rows:results,
