@@ -202,3 +202,9 @@ test("matched day exclusion display never auto enables the trading signal", () =
   assert.match(page, /少数日の場合、頑健性の証明にはなりません/);
   assert.match(page, /本番判定への採用は保留/);
 });
+
+test("failed refresh clears stale research evidence", () => {
+  assert.match(page, /setData\(null\); setError/);
+  assert.match(page, /古い集計を最新結果として表示しない/);
+  assert.match(page, /cache: "no-store"/);
+});
