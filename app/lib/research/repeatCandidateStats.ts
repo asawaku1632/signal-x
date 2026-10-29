@@ -67,3 +67,16 @@ export function sameDayComparison(rows: ComparedRecord[]) {
     matchedDayCount: matchedDays.length,
   };
 }
+
+export function outcomeCoverageByDate(rows: OutcomeRecord[]) {
+  const dates = new Map<string, { total: number; completed: number }>();
+  for (const row of rows) {
+    const item = dates.get(row.trade_date) ?? { total: 0, completed: 0 };
+    item.total++;
+    if (validOutcome(row.return_5d) !== null) item.completed++;
+    dates.set(row.trade_date, item);
+  }
+  return [...dates.entries()].sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, item]) => ({ date, ...item, pending: item.total - item.completed,
+      completionRate: item.total ? 100 * item.completed / item.total : 0 }));
+}
