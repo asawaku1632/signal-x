@@ -16,7 +16,15 @@ export function reviewFiveStageResearch({findings=[],snapshots=[],comparisons=[]
  const months=new Set([...days].map(x=>x.slice(0,7)));
  const daily=[...days].sort().map(d=>{const a=comparable.filter(x=>x.tradeDate===d);return {date:d,baselineMean:a.reduce((s,x)=>s+x.baselineReturn,0)/a.length,candidateMean:a.reduce((s,x)=>s+x.candidateReturn,0)/a.length};});
  const gaps=daily.map(x=>x.candidateMean-x.baselineMean),mean=a=>a.length?a.reduce((s,n)=>s+n,0)/a.length:null;
+ const snapshotDates=new Set(validSnapshots.map(x=>x.tradeDate));
+ const anchoredComparisonDates=new Set([...days].filter(d=>snapshotDates.has(d)));
+ const benchmarkPairs=comparable.filter(x=>Number.isFinite(x.benchmarkReturn)).length;
+ const positiveCandidateDates=daily.filter(x=>x.candidateMean>0).length;
+ const betterThanBaselineDates=daily.filter(x=>x.candidateMean>x.baselineMean).length;
+ const worstDailyCandidateReturn=daily.length?Math.min(...daily.map(x=>x.candidateMean)):null;
  const blockers=[];
+ if(anchoredComparisonDates.size<20)blockers.push("FORWARD_SNAPSHOT_COMPARISON_LINK_MISSING");
+ if(benchmarkPairs<comparable.length)blockers.push("BENCHMARK_COMPARISON_MISSING");
  if(!validSnapshots.length)blockers.push("PREDECISION_AUTHENTICATED_SNAPSHOTS_MISSING");
  if(days.size<20)blockers.push("INSUFFICIENT_FORWARD_DATES");
  if(months.size<3)blockers.push("INSUFFICIENT_FORWARD_MONTHS");
@@ -24,6 +32,6 @@ export function reviewFiveStageResearch({findings=[],snapshots=[],comparisons=[]
  blockers.push("INDEPENDENT_DEPLOYMENT_REVIEW_REQUIRED");
  return {version:"FIVE_STAGE_RESEARCH_SHADOW_V1",stage1:{inventory},stage2:{received:snapshots.length,structurallyQualified:validSnapshots.length,independentlyVerifiedByFunction:false},
  stage3:{weaknessesExploratory:findings.filter(x=>x?.independentlyVerified!==true).length},
- stage4:{comparedDates:days.size,months:months.size,equalDateMeanImprovement:mean(gaps),pairedComparisonOnly:true},
+ stage4:{comparedDates:days.size,months:months.size,comparisonDatesWithClaimedSnapshots:anchoredComparisonDates.size,equalDateMeanImprovement:mean(gaps),betterThanBaselineDates,positiveCandidateDates,worstDailyCandidateReturn,benchmarkComparisons:benchmarkPairs,pairedComparisonOnly:true},
  stage5:{blockers,decision:"DO_NOT_DEPLOY"},trainingEnabled:false,notificationsEnabled:false,tradingEnabled:false,productionChanged:false};
 }
