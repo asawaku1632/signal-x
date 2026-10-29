@@ -46,3 +46,15 @@ test("out-of-range Unix seconds fail closed while other stocks remain reportable
   assert.equal(report.sourceCoverage.rejectedByReason.INVALID_TIMESTAMP,1);
   assert.equal(report.samples,1);
 });
+
+test("stored shadow research run summaries cannot masquerade as complete intraday bars",()=>{
+  const storedRun={detector_version:"SHADOW",requested_count:500,succeeded_count:480,
+    aggregate:{total:480},events:[{code:"590A",signal:"PATTERN"}],excluded:[]};
+  assert.equal(adaptHistoricalMorning(storedRun).valid,false);
+  const report=aggregateHistoricalMorning([storedRun,input],{minSamples:1,dropThresholdPct:2});
+  assert.equal(report.sourceCoverage.received,2);
+  assert.equal(report.sourceCoverage.rejected,1);
+  assert.equal(report.sourceCoverage.structurallyValid,1);
+  assert.equal(report.samples,1);
+  assert.equal(report.sourceCoverage.independentlyAuthenticated,false);
+});
