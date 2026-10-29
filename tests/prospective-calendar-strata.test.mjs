@@ -44,3 +44,20 @@ test("monthly median exposes a single outsized positive day",()=>{
  assert.equal(report.months[0].majorityPositive,false);
  assert.equal(report.readyForTrading,false);
 });
+
+test("excluded days are accounted for rather than vanishing from calendar evidence",()=>{
+ const data=[...rows,{date:"2026-11-05",highCount:9,lowCount:10,gapPp:100}];
+ const report=run(data);
+ assert.equal(report.receivedDates,4);
+ assert.equal(report.excludedDates,1);
+ assert.equal(report.qualifyingDates,3);
+ assert.equal(report.readyForTraining,false);
+});
+test("monthly positive mean can conflict with negative median without model approval",()=>{
+ const days=[1,2,3,4,5].map((d,i)=>({date:`2026-12-0${d}`,highCount:10,lowCount:10,gapPp:i===0?20:-1}));
+ const report=run(days);
+ assert.equal(report.conflictingMeanMedianMonths,1);
+ assert.equal(report.medianPositiveSufficientMonths,0);
+ assert.equal(report.positiveSufficientMonths,1);
+ assert.equal(report.readyForTrading,false);
+});
