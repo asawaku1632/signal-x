@@ -356,3 +356,7 @@ In the same-record saved-score >=85 versus <85 daily comparison (each cohort >=1
 ## Median check on same-date score cohort gap (2026-10-29; SELECT-only)
 
 A further independently run read-only aggregate confirmed 69 eligible dates (both saved-score cohorts >=10 entries), mean high-minus-low **-0.0927 percentage points**, **median -0.0285 pp**, and high-score group outperforming on **31/69** dates (44.9%). Mean and median are negative. This is a same-record historical reference comparison and not evidence of score availability before decision time or executable returns; no production rollout is justified.
+
+## Post-hoc market-regime sensitivity (2026-10-29; SELECT only)
+
+Of 69 same-date comparable observations (>=10 saved-score >=85 and >=10 <85 on each date), classified days by **the same universe's subsequently observed average reference return**, NOT by pre-decision observable TOPIX/Nikkei: market average below -0.1% (22 dates) had equal-day high-minus-low mean **+0.0298 pp**, median +0.0656 pp and high cohort won 11/22; market average -0.1% through +0.1% (14 dates) had mean **-0.1627 pp**, median -0.0001 pp, wins 5/14; market average >+0.1% (33 dates) had mean **-0.1447 pp**, median -0.0945 pp, wins 15/33. Crucial **look-ahead leakage warning**: regime classification uses subsequent returns and therefore CANNOT be used as an ex-ante feature, nor does it validate a strategy. No production AI score, threshold, signal or notification changes.
