@@ -224,3 +224,13 @@ export function cohortCoverageContrast(rows: ComparedRecord[]) {
       ? null : riskCoverage.completionRate - otherCoverage.completionRate,
   };
 }
+
+export function pairedDayCompletion(rows: ComparedRecord[]) {
+  const dates = [...new Set(rows.map(r => r.trade_date))].sort().reverse();
+  return dates.map(date => {
+    const day = rows.filter(r => r.trade_date === date);
+    const risk = assessedOutcomeCoverage(day.filter(r => r.previous_candidate_drop_over_5pct === true));
+    const other = assessedOutcomeCoverage(day.filter(r => r.previous_candidate_drop_over_5pct === false));
+    return { date, risk, other, bothPresent: risk.total > 0 && other.total > 0, bothComplete: risk.total > 0 && other.total > 0 && risk.pending === 0 && other.pending === 0 };
+  }).filter(d => d.bothPresent);
+}
