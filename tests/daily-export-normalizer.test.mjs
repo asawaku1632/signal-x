@@ -8,3 +8,5 @@ test("null prices remain null",()=>assert.equal(normalize([{...row,next_price:nu
 test("bad numeric text remains null",()=>assert.equal(normalize([{...row,source_price:"oops"}])[0].sourcePrice,null));
 test("no object returns null",()=>assert.equal(normalize([null])[0],null));
 test("non-array rejected",()=>assert.throws(()=>normalize({}),/INVALID_EXPORT_ROWS/));
+
+test("source snapshot time is metadata not independent verification",()=>{const x=normalizeDailyExportRows([{date:"2026-10-28",code:"1234",source_snapshot_created_at:"2026-10-29 15:00:00",prior_evidence_verified:true,outcome_provenance_verified:true}])[0];assert.equal(x.sourceSnapshotCreatedAt,"2026-10-29 15:00:00");assert.equal(x.priorEvidenceVerified,false);assert.equal(x.outcomeProvenanceVerified,false);});
