@@ -192,3 +192,21 @@ export function weekdayGapAudit(rows: OutcomeDatedRecord[]) {
   }
   return counts;
 }
+
+/** Diagnostic only: repeat observations sharing a decision date are not independent trials. */
+export function completedDateConcentration(rows: OutcomeRecord[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (validOutcome(row.return_5d) === null) continue;
+    counts.set(row.trade_date, (counts.get(row.trade_date) ?? 0) + 1);
+  }
+  const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const total = ordered.reduce((sum, [, count]) => sum + count, 0);
+  return {
+    total,
+    days: counts.size,
+    dominantDate: ordered[0]?.[0] ?? null,
+    dominantCount: ordered[0]?.[1] ?? 0,
+    dominantShare: total ? (ordered[0][1] / total) * 100 : null,
+  };
+}
