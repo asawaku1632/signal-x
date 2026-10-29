@@ -237,9 +237,10 @@ export function pairedDayCompletion(rows: ComparedRecord[]) {
 
 /** Sensitivity check: only use dates where both cohorts have all outcomes. */
 export function fullyObservedDayComparison(rows: ComparedRecord[]) {
-  const completeDates = new Set(pairedDayCompletion(rows).filter(day => day.bothComplete).map(day => day.date));
+  const pairedDates = pairedDayCompletion(rows);
+  const completeDates = new Set(pairedDates.filter(day => day.bothComplete).map(day => day.date));
   const comparison = sameDayComparison(rows.filter(row => completeDates.has(row.trade_date)));
-  return { ...comparison, excludedPartialDays: pairedDayCompletion(rows).filter(day => !day.bothComplete).length };
+  return { ...comparison, excludedPartialDays: pairedDates.filter(day => !day.bothComplete).length };
 }
 
 /** Evidence gate is informational only; it never activates trading or alerts. */
@@ -253,6 +254,8 @@ export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false
   if (concentration.dominantShare === null || concentration.dominantShare > 50) reasons.push("評価結果が特定の取引日に集中しています");
   if (riskRows.filter(r => validOutcome(r.return_5d) !== null).length < 30) reasons.push("下落群の評価済み観測が30件未満です");
   const coverage = cohortCoverageContrast(rows);
+  const finishedDates = new Set(riskRows.filter(r => validOutcome(r.return_5d) !== null).map(r => r.trade_date));
+  if (finishedDates.size < 5) reasons.push("下落群の評価済み取引日が5日未満です");
   if (coverage.risk.pending > 0 || coverage.other.pending > 0) reasons.push("5日後結果が未確定の観測が残っています");
   if (coverage.completionGapPoints !== null && Math.abs(coverage.completionGapPoints) > 10) reasons.push("2群の評価完了率に10ポイント超の差があります");
   return { status: "HOLD" as const, reasons, completeDays: complete.matchedDayCount, dominantShare: concentration.dominantShare,
