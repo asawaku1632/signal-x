@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion, fullyObservedDayComparison } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -235,4 +235,12 @@ test("paired-day completion distinguishes partial from fully observed dates", ()
  assert.equal(result[0].bothComplete,true);
  assert.equal(result[1].bothComplete,false);
  assert.equal(result[1].other.pending,1);
+});
+
+test("fully observed matched comparison excludes partially pending dates", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_change_pct:-6,previous_candidate_drop_over_5pct:true,return_5d:-10},{trade_date:"2026-10-19",previous_candidate_change_pct:0,previous_candidate_drop_over_5pct:false,return_5d:0},{trade_date:"2026-10-22",previous_candidate_change_pct:-6,previous_candidate_drop_over_5pct:true,return_5d:-2},{trade_date:"2026-10-22",previous_candidate_change_pct:0,previous_candidate_drop_over_5pct:false,return_5d:5},{trade_date:"2026-10-22",previous_candidate_change_pct:0,previous_candidate_drop_over_5pct:false,return_5d:null}];
+ const result=fullyObservedDayComparison(rows);
+ assert.equal(result.matchedDayCount,1);
+ assert.equal(result.dateBalancedGap,-10);
+ assert.equal(result.excludedPartialDays,1);
 });
