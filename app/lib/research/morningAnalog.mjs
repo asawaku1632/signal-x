@@ -15,12 +15,17 @@ const validDate = x => {
   const t=new Date(Date.UTC(y,m-1,d));
   return t.getUTCFullYear()===y&&t.getUTCMonth()===m-1&&t.getUTCDate()===d;
 };
-const priorSnapshot = (stamp, tradeDate) => typeof stamp === "string" &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
-  Number.isFinite(Date.parse(stamp)) &&
-  // Compare real instants against the JST start of the trade date. A UTC or
-  // negative-offset timestamp can have a different calendar date from JST.
-  Date.parse(stamp) < Date.parse(tradeDate + "T00:00:00+09:00");
+const priorSnapshot = (stamp, tradeDate) => {
+  if(typeof stamp!=="string"||
+     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp)||
+     !Number.isFinite(Date.parse(stamp)))return false;
+  const [year,month,day,hour,minute,second]=stamp.slice(0,19).match(/\d+/g).map(Number);
+  const offset=stamp.match(/([+-])(\d{2}):(\d{2})$/);
+  if(year<100||!validDate(stamp.slice(0,10))||hour>23||minute>59||second>59||
+     (offset&&(Number(offset[2])>23||Number(offset[3])>59)))return false;
+  // Compare instants, not calendar labels in different time zones.
+  return Date.parse(stamp)<Date.parse(tradeDate+"T00:00:00+09:00");
+};
 const quantile = (xs,q) => {
   if(!xs.length)return null;
   const sorted=[...xs].sort((a,b)=>a-b),p=(sorted.length-1)*q,i=Math.floor(p);
