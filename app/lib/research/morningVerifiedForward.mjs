@@ -17,8 +17,6 @@ const featureKeys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"
 export function prepareMorningForwardRows(inputs){
   if(!Array.isArray(inputs)||inputs.length>100000)throw Error("INVALID_MORNING_FORWARD_INPUT");
   const rows=[],excluded={unverifiedBars:0,missingFeatureProof:0,missingOutcomeProof:0,duplicate:0};
-  const grouped=new Map();
-  const counts=new Map();
   const counts=new Map();
   for(const input of inputs){
     if(codePattern.test(input?.code)&&/^\d{4}-\d{2}-\d{2}$/.test(input?.tradeDate??"")){
@@ -27,19 +25,8 @@ export function prepareMorningForwardRows(inputs){
     }
   }
   for(const input of inputs){
-    const rawKey=input?.code+"|"+input?.tradeDate;
-    if((counts.get(rawKey)??0)>1){excluded.duplicate++;continue;}
-    if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
-       /^\d{4}-\d{2}-\d{2}$/.test(input.tradeDate)){
-      const key=input.code+"|"+input.tradeDate;
-      counts.set(key,(counts.get(key)??0)+1);
-    }
-  }
-  for(const input of inputs){
-    if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
-       (counts.get(input.code+"|"+input.tradeDate)??0)>1){
-      excluded.duplicate++;continue;
-    }
+    const key=input?.code+"|"+input?.tradeDate;
+    if((counts.get(key)??0)>1){excluded.duplicate++;continue;}
     const outcome=adaptHistoricalMorning(input);
     if(!outcome.valid){excluded.unverifiedBars++;continue;}
     const {code,tradeDate,features,featureAvailableAt,outcomeAvailableAt}=input;
@@ -51,15 +38,7 @@ export function prepareMorningForwardRows(inputs){
        Date.parse(outcomeAvailableAt)<Date.parse(tradeDate+"T11:30:00+09:00")){
       excluded.missingOutcomeProof++;continue;
     }
-    const key=code+"|"+tradeDate;
-    const candidate={code,tradeDate,features,featureAvailableAt,outcomeAvailableAt,outcome};
-    const group=grouped.get(key)??[];
-    group.push(candidate);
-    grouped.set(key,group);
-  }
-  for(const group of grouped.values()){
-    if(group.length!==1){excluded.duplicate+=group.length;continue;}
-    rows.push(group[0]);
+    rows.push({code,tradeDate,features,featureAvailableAt,outcomeAvailableAt,outcome});
   }
   return {rows,excluded,sourceMetadataAssertedByInput:true,independentlyAuthenticated:false,signalEnabled:false};
 }
