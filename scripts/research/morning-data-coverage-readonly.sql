@@ -26,3 +26,12 @@ SELECT timeframe,provider,count(*)::bigint AS observations,
 FROM public.technical_bb_observation_snapshots
 GROUP BY timeframe,provider
 ORDER BY observations DESC;
+
+-- Distinguish insertion time, source timestamp and bar completion.
+-- Insertion after bar end alone does not prove a finalized source candle.
+SELECT count(*)::bigint AS total,
+       count(*) FILTER (WHERE created_at >= bar_end_at)::bigint AS created_after_bar_end,
+       count(*) FILTER (WHERE created_at < bar_end_at)::bigint AS created_before_bar_end,
+       count(*) FILTER (WHERE provider_timestamp >= bar_end_at)::bigint AS provider_stamp_after_bar_end,
+       count(*) FILTER (WHERE provider_timestamp < bar_end_at)::bigint AS provider_stamp_before_bar_end
+FROM public.technical_bb_observation_snapshots;
