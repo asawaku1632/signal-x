@@ -640,3 +640,10 @@ This is an intentionally **fail-closed SHADOW promotion proposal**, not an activ
 **Status by stage:** 1 inventory and descriptive studies exist; 2 a read-only evidence contract is implemented but qualified third-party as-of observations are not present in the inspected legacy schema; 3 retrospective research has found fragile/non-monotonic score behavior; 4 historical same-date comparisons exist but no independently proven fixed-horizon prospective trial; 5 an offline SHADOW comparison contract exists but no newly authorized live capture/deployment; 6 the offline review/gate has been implemented in a research branch, while **the validated conditions necessary for production integration have not been met**.
 
 A true stage-six production release requires independently licensed timestamped source observations, fixed prediction definitions, immutable prospective collection and outcomes, adequate independent date/month coverage, cost/slippage/benchmark sensitivity and explicit human review. This research PR must not migrate production tables, activate cron, send notifications, change rankings, or touch PR #216.
+
+
+## Stage-six timestamp correctness follow-up (2026-10-29)
+
+The offline `sixStagePromotionReview.mjs` snapshot/outcome validator now checks real calendar-day bounds, clock bounds, and timezone offset bounds in addition to syntactic timestamps. This rejects examples such as February 30, hour 24 and impossible offsets even if a JavaScript parser normalizes an input. The accompanying `six-stage-promotion-review.test.mjs` regression test exercises both predecision snapshots and later outcomes. The prior timestamp-availability change (`ddfe94a6`) passed CI; this follow-up's CI result must be checked independently.
+
+This is **input hygiene**, not proof that stored past market data is time-authenticated or independently licensed. The current production schema still lacks the required immutable predecision feature timestamp and quote provenance per legacy observation. Consequently, the research-only stage-six decision remains `DO_NOT_PROMOTE`, and no model, ranking, notification, database or deployment change is justified.
