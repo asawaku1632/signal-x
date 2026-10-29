@@ -80,3 +80,24 @@ export function outcomeCoverageByDate(rows: OutcomeRecord[]) {
     .map(([date, item]) => ({ date, ...item, pending: item.total - item.completed,
       completionRate: item.total ? 100 * item.completed / item.total : 0 }));
 }
+
+export function matchedDaySensitivity(rows: ComparedRecord[]) {
+  const comparison = sameDayComparison(rows);
+  const days = comparison.days;
+  const variants = days.map(excluded => {
+    const remaining = days.filter(day => day.date !== excluded.date);
+    return {
+      excludedDate: excluded.date,
+      remainingDays: remaining.length,
+      averageGap: remaining.length
+        ? remaining.reduce((sum, day) => sum + day.gap, 0) / remaining.length
+        : null,
+    };
+  });
+  const remainingMeans = variants.map(v => v.averageGap).filter((v): v is number => v !== null);
+  return {
+    variants,
+    minimum: remainingMeans.length ? Math.min(...remainingMeans) : null,
+    maximum: remainingMeans.length ? Math.max(...remainingMeans) : null,
+  };
+}
