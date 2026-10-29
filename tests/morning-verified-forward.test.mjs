@@ -27,6 +27,24 @@ test("export bridge rejects missing evidence and duplicates",()=>{
     {...valid,code:"9012",featureAvailableAt:"2026-10-27T09:00:00+09:00"},
     {...valid,code:"3456",outcomeAvailableAt:"2026-10-27T09:00:00+09:00"}
   ]);
-  assert.equal(prepared.rows.length,1);
-  assert.deepEqual(prepared.excluded,{unverifiedBars:1,missingFeatureProof:1,missingOutcomeProof:1,duplicate:1});
+  assert.equal(prepared.rows.length,0);
+  assert.deepEqual(prepared.excluded,{unverifiedBars:1,missingFeatureProof:1,missingOutcomeProof:1,duplicate:2});
+});
+
+test("duplicate export order never selects a favorable row",()=>{
+  const original=makeInput("2026-10-27");
+  const changed={...original,features:{...original.features,aiPower:99}};
+  for(const inputs of [[original,changed],[changed,original]]){
+    const result=prepareMorningForwardRows(inputs);
+    assert.equal(result.rows.length,0);
+    assert.equal(result.excluded.duplicate,2);
+  }
+});
+test("timestamps require full offset-aware ISO syntax",()=>{
+  const original=makeInput("2026-10-27");
+  for(const featureAvailableAt of ["2026-10-26","garbageZ","2026-10-26T18:00:00"]){
+    const result=prepareMorningForwardRows([{...original,featureAvailableAt}]);
+    assert.equal(result.rows.length,0);
+    assert.equal(result.excluded.missingFeatureProof,1);
+  }
 });
