@@ -57,7 +57,8 @@ export function describeSavedPriceCohorts(rows,{cutoff="2026-09-02",minGroup=10,
   return [k,{days:d.length,meanGapPp:round(avg(d.map(x=>x.gap))),highWonDays:d.filter(x=>x.gap>0).length}];
  }));
  const trimmed=[...days].sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap)).slice(Math.min(3,days.length));
- const topCodes=[...new Set(groups.high.map(x=>x.code))].map(code=>({code,n:groups.high.filter(x=>x.code===code).length})).sort((a,b)=>b.n-a.n||a.code.localeCompare(b.code)).slice(0,10);
+ const codeCounts=new Map();for(const x of groups.high)codeCounts.set(x.code,(codeCounts.get(x.code)||0)+1);
+ const topCodes=[...codeCounts].map(([code,n])=>({code,n})).sort((a,b)=>b.n-a.n||a.code.localeCompare(b.code)).slice(0,10);
  return {version:"SAVED_PRICE_EXPLORATORY_V1",scope:"RETROSPECTIVE_DESCRIPTIVE_ONLY",
   rowsInput:rows.length,rowsAccepted:accepted.length,excluded,
   cohorts:{high:summarize(groups.high),low:summarize(groups.low)},
