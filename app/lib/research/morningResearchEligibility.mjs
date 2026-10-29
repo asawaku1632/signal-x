@@ -14,9 +14,9 @@ export function classifyMorningResearchEvidence(record){
       reasons.push("MISSING_POSITIVE_CLOSE");
     if(!validTime(record.bar_end_at??record.barEndAt))
       reasons.push("MISSING_BAR_END_TIME");
-    if(!/^(?:\\d{4}|\\d{3}[A-Z])$/.test(record.code??""))
+    if(!/^(?:\d{4}|\d{3}[A-Z])$/.test(record.code??""))
       reasons.push("MISSING_STOCK_CODE");
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(record.observation_date??record.tradeDate??""))
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(record.observation_date??record.tradeDate??""))
       reasons.push("MISSING_OBSERVATION_DATE");
     const observationDate=record.observation_date??record.tradeDate;
     const end=record.bar_end_at??record.barEndAt;
