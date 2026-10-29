@@ -101,3 +101,10 @@ test("impossible calendar dates and clock values cannot prove feature availabili
     assert.equal(result.excluded.missingFeatureProof,1,featureAvailableAt);
   }
 });
+
+test("very early ISO years do not establish feature availability",()=>{
+  const row=makeInput("2026-10-27");
+  const report=prepareMorningForwardRows([{...row,featureAvailableAt:"0099-10-26T18:00:00+09:00"}]);
+  assert.equal(report.rows.length,0);
+  assert.equal(report.excluded.missingFeatureProof,1);
+});
