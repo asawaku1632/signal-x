@@ -37,3 +37,12 @@ test("reports rejected source and incomplete bars without claiming independent a
   assert.equal(summary.sourceCoverage.rejectedByReason.INCOMPLETE_MORNING_BARS,1);
   assert.equal(summary.sourceCoverage.independentlyAuthenticated,false);
 });
+
+test("out-of-range Unix seconds fail closed while other stocks remain reportable",()=>{
+  const huge={...input,code:"1234",bars:[{...bars[0],time:Number.MAX_SAFE_INTEGER},...bars.slice(1)]};
+  assert.deepEqual(adaptHistoricalMorning(huge),{valid:false,reason:"INVALID_TIMESTAMP"});
+  const report=aggregateHistoricalMorning([input,huge],{minSamples:1,dropThresholdPct:2});
+  assert.equal(report.sourceCoverage.received,2);
+  assert.equal(report.sourceCoverage.rejectedByReason.INVALID_TIMESTAMP,1);
+  assert.equal(report.samples,1);
+});
