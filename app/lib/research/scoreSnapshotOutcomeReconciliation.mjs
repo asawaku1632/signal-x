@@ -21,7 +21,7 @@ export function reconcileScoreSnapshotEvidence(snapshots,outcomes){
   const o=outcomeMap.get(key);
   if(!o){counts.waitingOutcome++;rows.push({key,status:"OUTCOME_PENDING"});continue;}
   const outcomeAt=o.availableAt;
-  if(typeof outcomeAt!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(outcomeAt)||!Number.isFinite(Date.parse(outcomeAt))||Date.parse(outcomeAt)<=Date.parse(s.capturedAt)||!Number.isFinite(o.nextPrice)||o.nextPrice<=0||typeof o.tradeDate!=="string"||!/^\d{4}-\d\d-\d\d$/.test(o.tradeDate)||o.tradeDate<=s.date){
+  if(typeof outcomeAt!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(outcomeAt)||!Number.isFinite(Date.parse(outcomeAt))||Date.parse(outcomeAt)<=Date.parse(s.date+"T23:59:59+09:00")||!Number.isFinite(o.nextPrice)||o.nextPrice<=0||typeof o.tradeDate!=="string"||!/^\d{4}-\d\d-\d\d$/.test(o.tradeDate)||o.tradeDate<=s.date||!Number.isFinite(Date.parse(o.tradeDate+"T00:00:00Z"))||new Date(o.tradeDate+"T00:00:00Z").toISOString().slice(0,10)!==o.tradeDate||Date.parse(outcomeAt)<Date.parse(o.tradeDate+"T00:00:00+09:00")){
    counts.postDecisionOutcome++;rows.push({key,status:"UNVERIFIED_OUTCOME_ORDER"});continue;
   }
   counts.descriptivePairs++;rows.push({key,status:"SELF_ATTESTED_DESCRIPTIVE_PAIR",returnPct:Number(((o.nextPrice/s.price-1)*100).toFixed(4))});
