@@ -230,7 +230,7 @@ test("walk-forward audit never uses target-day outcomes as selection history",()
   assert.equal(report.byMonth[0].rebound1pct.evaluated,1);
   assert.equal(report.byMonth[0].rebound1pct.meanAbsoluteErrorPct,0);
   assert.equal(report.rebound1pct.brierScore,0);
-  assert.deepEqual(report.expandingBaseline.rebound1pct,{evaluated:0,brierScore:null});
+  assert.deepEqual(report.expandingBaseline.rebound1pct,{evaluated:0,brierScore:null,modelBrierScore:null,improvement:null});
   assert.equal(report.byMonth[0].rebound1pct.brierScore,0);
   assert.equal(report.readyForTrading,false);
   assert.throws(()=>auditMorningAnalogsChronologically([target,target],[earlier,current],{minSamples:1}),/DUPLICATE_FORWARD_TARGET/);
@@ -257,4 +257,23 @@ test("forward audit refuses unproven and conflicting observed outcomes",()=>{
   }
   const duplicate=auditMorningAnalogsChronologically([target],[prior,current,{...current}],{minSamples:1});
   assert.equal(duplicate.rebound1pct.evaluated,0);
+});
+
+test("expanding baseline compares paired predictions without same-day leakage",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const dates=["2026-10-26","2026-10-27","2026-10-28"];
+  const previous=["2026-10-23","2026-10-26","2026-10-27"];
+  const history=dates.flatMap((date,i)=>["1234","5678"].map(code=>({
+    code,tradeDate:date,featureAvailableAt:previous[i]+"T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))
+  })));
+  const targets=history.filter(row=>row.tradeDate!=="2026-10-26").map(
+    ({code,tradeDate,featureAvailableAt,features})=>({code,tradeDate,featureAvailableAt,features}));
+  const report=auditMorningAnalogsChronologically(targets,history,{minSamples:1});
+  // Both stocks on the first evaluation date must not seed each other's baseline.
+  assert.equal(report.expandingBaseline.rebound1pct.evaluated,2);
+  assert.equal(report.expandingBaseline.rebound1pct.brierScore,0);
+  assert.equal(report.expandingBaseline.rebound1pct.modelBrierScore,0);
+  assert.equal(report.expandingBaseline.rebound1pct.improvement,0);
+  assert.equal(report.rebound1pct.evaluated,4);
 });
