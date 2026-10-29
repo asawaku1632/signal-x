@@ -17,7 +17,7 @@ export function reviewMorningForwardExport(exportData){
  // Per-date observed/expected pairs keep incomplete trading dates visible.
  const expectedByDate=new Map();
  for(const x of snapshots){
-  if(x&&typeof x.tradeDate==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x.tradeDate)){
+  if(x&&typeof x.tradeDate==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x.tradeDate)){
    expectedByDate.set(x.tradeDate,(expectedByDate.get(x.tradeDate)??0)+1);
   }
  }
