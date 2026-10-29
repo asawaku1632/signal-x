@@ -227,3 +227,26 @@ test("walk-forward audit never uses target-day outcomes as selection history",()
   assert.equal(report.readyForTrading,false);
   assert.throws(()=>auditMorningAnalogsChronologically([target,target],[earlier,current],{minSamples:1}),/DUPLICATE_FORWARD_TARGET/);
 });
+
+test("forward audit refuses unproven and conflicting observed outcomes",()=>{
+  const date="2026-10-28";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const prior={code:"1234",tradeDate:"2026-10-27",
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27"))};
+  const current={code:"1234",tradeDate:date,
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const target={code:"1234",tradeDate:date,
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const invalid of [
+    {...current,featureAvailableAt:"2026-10-28T09:05:00+09:00"},
+    {...current,outcome:{...current.outcome,bottomWindow:"15:00"}}
+  ]){
+    const report=auditMorningAnalogsChronologically([target],[prior,invalid],{minSamples:1});
+    assert.equal(report.rows[0].observed,false);
+    assert.equal(report.rebound1pct.evaluated,0);
+  }
+  const duplicate=auditMorningAnalogsChronologically([target],[prior,current,{...current}],{minSamples:1});
+  assert.equal(duplicate.rebound1pct.evaluated,0);
+});
