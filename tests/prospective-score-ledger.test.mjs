@@ -26,7 +26,7 @@ test("nonarray rejected",()=>assert.throws(()=>run({}),/INVALID_PROSPECTIVE_LEDG
 test("calendar invalid rejected",()=>assert.equal(run([{...base,date:"2026-11-31"}]).excluded.invalid,1));
 
 test("outcome before declared later trade date is excluded",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-03T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
-test("outcome at start of later trade date is chronologically plausible only",()=>{const x=run([{...base,outcomeAvailableAt:"2026-11-04T00:00:00+09:00"}]);assert.equal(x.eligibleRows,1);assert.equal(x.independentlyAuthenticatedByFunction,false);});
+test("daily outcome at start of later trade date is not yet observable",()=>{const x=run([{...base,outcomeAvailableAt:"2026-11-04T00:00:00+09:00"}]);assert.equal(x.eligibleRows,0);assert.equal(x.excluded.outcomeUnconfirmed,1);});
 test("outcome from an even later day must not validate prior unobserved date",()=>assert.equal(run([{...base,outcomeTradeDate:"2026-11-05",outcomeAvailableAt:"2026-11-04T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
 
 test("rejects impossible calendar day in feature timestamp",()=>assert.equal(run([{...base,featureAvailableAt:"2026-10-32T15:00:00+09:00"}]).excluded.featureNotAsOf,1));
@@ -45,3 +45,7 @@ test("duplicate group cannot suppress unrelated valid stock",()=>{
  const x=run([base,{...base,nextPrice:110},other]);
  assert.equal(x.eligibleRows,1);assert.equal(x.daily[0].highCount,1);
 });
+
+test("reject daily closing outcome before closing time",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T15:29:59+09:00"}]).excluded.outcomeUnconfirmed,1));
+test("accept post-close timestamp as chronology only, not provenance",()=>{const x=run([{...base,outcomeAvailableAt:"2026-11-04T15:30:00+09:00"}]);assert.equal(x.eligibleRows,1);assert.equal(x.independentlyAuthenticatedByFunction,false);assert.equal(x.readyForTrading,false);});
+test("timezone offset cannot bypass Japanese close boundary",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T06:29:59Z"}]).excluded.outcomeUnconfirmed,1));
