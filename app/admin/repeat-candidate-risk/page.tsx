@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
