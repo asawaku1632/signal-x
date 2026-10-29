@@ -35,3 +35,11 @@ SELECT count(*)::bigint AS total,
        count(*) FILTER (WHERE provider_timestamp >= bar_end_at)::bigint AS provider_stamp_after_bar_end,
        count(*) FILTER (WHERE provider_timestamp < bar_end_at)::bigint AS provider_stamp_before_bar_end
 FROM public.technical_bb_observation_snapshots;
+
+-- A retrospective feature row inserted after its observation date must not be
+-- presented as a contemporaneous feature snapshot in a walk-forward replay.
+-- This measures provenance risk; it does not independently prove publication time.
+SELECT count(*)::bigint AS rows_checked,
+       count(*) FILTER (WHERE created_at >= (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo') + interval '1 day')::bigint AS inserted_on_or_after_next_jst_day,
+       count(*) FILTER (WHERE created_at < (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo') + interval '1 day')::bigint AS inserted_before_next_jst_day
+FROM public.technical_bb_observation_snapshots;
