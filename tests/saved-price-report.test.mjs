@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {exploratoryReportFromText as run} from "../scripts/report-saved-price-exploration.mjs";
+const row=(code,s=85)=>({date:"2026-10-28",code,price:100,next_price:102,prior_score:s});
+test("SQL export gives historical results",()=>{const r=run(JSON.stringify([row("1234"),row("1235",70)]),{minGroup:1});assert.equal(r.inputRows,2);assert.equal(r.exploration.comparableDates,1);});
+test("raw reference research tier populated",()=>assert.equal(run(JSON.stringify([row("1234")])).useTiers.referenceResearch,1));
+test("report never claims verified trade performance",()=>{const x=run(JSON.stringify([row("1234")]));assert.equal(x.strictVerified,0);assert.equal(x.independentSourceVerification,false);assert.equal(x.liveSignalEnabled,false);});
+test("missing price captured for review",()=>assert.equal(run(JSON.stringify([{...row("1234"),next_price:null}])).useTiers.needsReview,1));
+test("rejects object payload",()=>assert.throws(()=>run("{}"),/INVALID_RESEARCH_ROWS/));
+test("rejects non-JSON",()=>assert.throws(()=>run("invalid")));
+test("rejects giant arrays",()=>assert.throws(()=>run(JSON.stringify(new Array(100001).fill(null))),/INVALID_RESEARCH_ROWS/));
+test("empty JSON is safe",()=>assert.equal(run("[]").exploration.rowsAccepted,0));
+test("cannot enable live signals with caller fields",()=>assert.equal(run(JSON.stringify([{...row("1234"),liveSignalEnabled:true,priorEvidenceVerified:true}])).liveSignalEnabled,false));
