@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion, fullyObservedDayComparison } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -59,6 +59,7 @@ export default function RepeatCandidateRiskPage() {
   const riskConcentration = useMemo(() => completedDateConcentration(verifiedRows.filter(r => r.previous_candidate_drop_over_5pct)), [verifiedRows]);
   const pairedCoverage = useMemo(() => pairedDayCompletion(verifiedRows), [verifiedRows]);
   const fullyObservedPairedDays = pairedCoverage.filter(day => day.bothComplete).length;
+  const fullyObserved = useMemo(() => fullyObservedDayComparison(verifiedRows), [verifiedRows]);
   const matched = useMemo(() => sameDayComparison(verifiedRows), [verifiedRows]);
   const sameDay = matched.days;
   const sensitivity = useMemo(() => matchedDaySensitivity(verifiedRows), [verifiedRows]);
@@ -113,7 +114,7 @@ export default function RepeatCandidateRiskPage() {
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">同じ判定日の5日後結果を比較</h2>
         <p className="mt-1 text-xs text-slate-600">両グループに評価済みデータがある日だけ表示。対象は再選出・POWER90以上で、同日でも業種や銘柄構成の差は残ります。</p>
-        <p className="mt-2 text-sm font-bold">同日差の日付均等平均：{matched.dateBalancedGap == null ? "未検証" : `${matched.dateBalancedGap > 0 ? "+" : ""}${matched.dateBalancedGap.toFixed(2)}pt`}（比較可能 {matched.matchedDayCount}日）</p>
+        <p className="mt-2 text-sm font-bold">全件確定日のみの日付均等差：{fullyObserved.dateBalancedGap == null ? "未検証" : `${fullyObserved.dateBalancedGap.toFixed(2)}pt`}（{fullyObserved.matchedDayCount}日）。一部未確定の日 {fullyObserved.excludedPartialDays}日はこの感度分析から除外。<span className="block mt-1">同日差の日付均等平均：{matched.dateBalancedGap == null ? "未検証" : `${matched.dateBalancedGap > 0 ? "+" : ""}${matched.dateBalancedGap.toFixed(2)}pt`}（比較可能 {matched.matchedDayCount}日）</span></p>
         {matched.matchedDayCount < 3 && <p className="text-xs text-rose-800">比較可能な取引日が3日未満です。同日比較でも再現性は未確認です。</p>}
         <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[540px] text-left text-xs">
           <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">5%超下落群</th><th className="p-2">その他</th><th className="p-2">平均との差</th></tr></thead>
