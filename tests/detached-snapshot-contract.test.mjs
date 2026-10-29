@@ -1,0 +1,16 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {createDetachedResearchSnapshot as build,inspectDetachedSnapshot as inspect} from "../app/lib/research/detachedSnapshotContract.mjs";
+const b={date:"2026-10-30",code:"1234",score:88.5,price:1234,capturedAt:"2026-10-30T09:04:59+09:00",sourceId:"research-provider",sourceVersion:"v1"};
+test("snapshot integrity stable",()=>{const x=build(b);assert.equal(inspect(x).structurallyIntact,true);assert.equal(x.digest.length,64);});
+test("tampered score detected",()=>{const x=build(b);assert.equal(inspect({...x,score:99}).structurallyIntact,false);});
+test("tampered price detected",()=>{const x=build(b);assert.equal(inspect({...x,price:999}).structurallyIntact,false);});
+test("capture at 09:05 excluded",()=>assert.throws(()=>build({...b,capturedAt:"2026-10-30T09:05:00+09:00"}),/INVALID_SNAPSHOT_CONTRACT/));
+test("capture after 09:05 excluded",()=>assert.throws(()=>build({...b,capturedAt:"2026-10-30T10:00:00+09:00"}),/INVALID_SNAPSHOT_CONTRACT/));
+test("naive timestamp rejected",()=>assert.throws(()=>build({...b,capturedAt:"2026-10-30T09:00:00"}),/INVALID_SNAPSHOT_CONTRACT/));
+test("invalid date rejected",()=>assert.throws(()=>build({...b,date:"2026-02-30"}),/INVALID_SNAPSHOT_CONTRACT/));
+test("missing source version rejected",()=>assert.throws(()=>build({...b,sourceVersion:""}),/INVALID_SNAPSHOT_CONTRACT/));
+test("nonpositive price rejected",()=>assert.throws(()=>build({...b,price:0}),/INVALID_SNAPSHOT_CONTRACT/));
+test("invalid code rejected",()=>assert.throws(()=>build({...b,code:"BAD"}),/INVALID_SNAPSHOT_CONTRACT/));
+test("alphanumeric code allowed",()=>assert.equal(build({...b,code:"590A"}).code,"590A"));
+test("no external verification claimed",()=>{const x=build(b);assert.equal(x.independentlyAuthenticated,false);assert.equal(inspect(x).externallyAuthenticated,false);assert.equal(x.usableForTrading,false);});
+test("missing snapshot invalid",()=>assert.equal(inspect(null).structurallyIntact,false));
