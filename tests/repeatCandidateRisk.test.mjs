@@ -36,8 +36,8 @@ test("research summary distinguishes observed outcomes from incomplete follow-up
 });
 
 test("same-day comparisons require both groups to have completed outcomes", () => {
-  assert.match(page, /byDate\.get\(row\.trade_date\)/);
-  assert.match(page, /group\.risk\.length && group\.other\.length/);
+  assert.match(page, /sameDayComparison\(data\?\.rows \|\| \[\]\)/);
+  assert.match(page, /matched\.days/);
   assert.match(page, /同じ判定日の5日後結果を比較/);
   assert.match(page, /業種や銘柄構成の差は残ります/);
   assert.match(page, /独立した終値検証・将来の再現性は未確認/);
@@ -176,4 +176,9 @@ test("audit 30: ui warns on truncation", () => {
 
 test("threshold comparison retains six decimal places", () => {
   assert.match(route, /NULLIF\(previous_candidate_price, 0\), 6\)/);
+});
+
+test("matched-day equal weight gap and coverage are visible", () => {
+  assert.match(page, /matched.dateBalancedGap/);
+  assert.match(page, /matched.matchedDayCount < 3/);
 });
