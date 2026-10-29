@@ -208,3 +208,7 @@ test("failed refresh clears stale research evidence", () => {
   assert.match(page, /古い集計を最新結果として表示しない/);
   assert.match(page, /cache: "no-store"/);
 });
+
+test("refresh clears old results before starting the next request", () => {
+  assert.match(page, /onClick=\{\(\) => \{ setData\(null\); setError\(""\);/); 
+});
