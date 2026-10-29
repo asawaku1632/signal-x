@@ -14,3 +14,5 @@ test("benchmark value and matching dated claimed snapshot remain nonauthorizing"
 import './predecision-evidence-audit.test.mjs';
 import './six-stage-promotion-review.test.mjs';
 import './legacy-research-coverage.test.mjs';
+
+import './morning-forward-ledger.test.mjs';
