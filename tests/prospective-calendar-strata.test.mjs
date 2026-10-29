@@ -6,3 +6,20 @@ test("small cohorts cannot establish month",()=>assert.equal(run([{...rows[0],hi
 test("duplicate days rejected rather than silently double-counted",()=>assert.throws(()=>run([rows[0],rows[0]]),/DUPLICATE/));
 test("invalid calendar day rejected",()=>assert.throws(()=>run([{...rows[0],date:"2026-11-31"}]),/STRATA_DATE/));
 test("input validation and no training approval",()=>{assert.throws(()=>run(null),/INVALID_CALENDAR_STRATA/);assert.equal(run(rows).readyForTraining,false);});
+
+test("one or two favorable days do not qualify as an adequately sampled month",()=>{
+ const result=run(rows);
+ assert.equal(result.positiveMeanMonths,1);
+ assert.equal(result.sufficientlyObservedMonths,0);
+ assert.equal(result.positiveSufficientMonths,0);
+ assert.equal(result.minDatesPerMonth,5);
+ assert.equal(result.months.every(m=>m.sufficientDates===false),true);
+ assert.equal(result.readyForTraining,false);
+});
+test("minimum monthly sample gate is configurable without redefining calendar months",()=>{
+ const result=run(rows,{minDatesPerMonth:2});
+ assert.equal(result.sufficientlyObservedMonths,1);
+ assert.equal(result.positiveSufficientMonths,0);
+ assert.equal(result.months.find(m=>m.month==="2026-11").sufficientDates,true);
+ assert.throws(()=>run(rows,{minDatesPerMonth:0}),/INVALID_MONTH_SAMPLE_GATE/);
+});
