@@ -14,9 +14,23 @@ export function reviewMorningForwardExport(exportData){
   date:g.date,pairs:g.count,baselineMean:g.baselineSum/g.count,candidateMean:g.candidateSum/g.count,
   improvementPp:(g.candidateSum-g.baselineSum)/g.count}));
  const gap=dates.length?dates.reduce((sum,d)=>sum+d.improvementPp,0)/dates.length:null;
+ const outcomeKeys=new Set(outcomes.filter(x=>x&&typeof x.experimentId==="string"&&typeof x.tradeDate==="string"&&typeof x.code==="string").map(x=>JSON.stringify([x.experimentId,x.tradeDate,x.code])));
+ const snapshotKeys=new Set(snapshots.filter(x=>x&&typeof x.experimentId==="string"&&typeof x.tradeDate==="string"&&typeof x.code==="string").map(x=>JSON.stringify([x.experimentId,x.tradeDate,x.code])));
+ const orphanOutcomeKeys=[...outcomeKeys].filter(k=>!snapshotKeys.has(k)).length;
+ const pairCoverage=snapshots.length?audit.pairedCount/snapshots.length:null;
+ const activeMonths=new Set(dates.map(d=>d.date.slice(0,7))).size;
+ const blockers=[];
+ if(!snapshots.length)blockers.push("NO_PREDECISION_SNAPSHOTS");
+ if(!outcomes.length)blockers.push("NO_MATURED_OUTCOMES");
+ if(pairCoverage===null||pairCoverage<0.9)blockers.push("INSUFFICIENT_PAIR_COVERAGE");
+ if(dates.length<20)blockers.push("INSUFFICIENT_FORWARD_DATES");
+ if(activeMonths<3)blockers.push("INSUFFICIENT_FORWARD_MONTHS");
+ if(orphanOutcomeKeys)blockers.push("ORPHAN_OUTCOMES");
+ blockers.push("INDEPENDENT_SOURCE_AND_TIME_AUTHENTICATION_REQUIRED");
  return {version:"OFFLINE_MORNING_FORWARD_EXPORT_V1",input:{snapshots:snapshots.length,outcomes:outcomes.length},
   reconciledPairs:audit.pairedCount,unmatchedSnapshots:snapshots.length-audit.pairedCount,
-  exclusions:audit.reasons,dates,observedDates:dates.length,
+  exclusions:audit.reasons,dates,observedDates:dates.length,observedMonths:activeMonths,
+  pairCoverage,orphanOutcomeKeys,blockers,
   equalDateImprovementPp:gap,independentlyAuthenticated:false,
   decision:"DO_NOT_PROMOTE",trainingEnabled:false,notificationsEnabled:false,tradingEnabled:false,
   note:"This is an exploratory summary of caller supplied export records, not independently authenticated 09:05 predictions or trading profitability."};
