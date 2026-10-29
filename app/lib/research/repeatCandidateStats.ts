@@ -241,3 +241,17 @@ export function fullyObservedDayComparison(rows: ComparedRecord[]) {
   const comparison = sameDayComparison(rows.filter(row => completeDates.has(row.trade_date)));
   return { ...comparison, excludedPartialDays: pairedDayCompletion(rows).filter(day => !day.bothComplete).length };
 }
+
+/** Evidence gate is informational only; it never activates trading or alerts. */
+export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false) {
+  const complete = fullyObservedDayComparison(rows);
+  const riskRows = rows.filter(r => r.previous_candidate_drop_over_5pct === true);
+  const concentration = completedDateConcentration(riskRows);
+  const reasons: string[] = [];
+  if (truncated) reasons.push("取得上限で集計対象が打ち切られています");
+  if (complete.matchedDayCount < 5) reasons.push("全件確定した比較可能な取引日が5日未満です");
+  if (concentration.dominantShare === null || concentration.dominantShare > 50) reasons.push("評価結果が特定の取引日に集中しています");
+  if (riskRows.filter(r => validOutcome(r.return_5d) !== null).length < 30) reasons.push("下落群の評価済み観測が30件未満です");
+  return { status: "HOLD" as const, reasons, completeDays: complete.matchedDayCount, dominantShare: concentration.dominantShare,
+    note: "暫定的な観測条件です。独立した市場価格照合と将来データでの再現性検証を必要とし、自動採用しません。" };
+}
