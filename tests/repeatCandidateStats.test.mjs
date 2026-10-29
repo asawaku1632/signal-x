@@ -190,3 +190,13 @@ test("median and positive share resist a single large outlier", () => {
   assert.ok(Math.abs(result.positiveRate-200/3)<1e-9);
   assert.equal(result.checked,3);
 });
+
+test("SQL exact drop flag overrides six-decimal rounded percentage", () => {
+  const rows=[
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-5,previous_candidate_drop_over_5pct:true,return_5d:-3},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-5,previous_candidate_drop_over_5pct:false,return_5d:1},
+  ];
+  assert.equal(sameDayComparison(rows).matchedDayCount,1);
+  assert.equal(sameDayComparison(rows).days[0].gap,-4);
+  assert.equal(thresholdSensitivity(rows,[5])[0].count,1);
+});
