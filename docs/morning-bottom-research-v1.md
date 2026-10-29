@@ -565,3 +565,9 @@ Based on the four months of previously retrieved bounded, read-only per-date SQL
 | 2026-10 | 19 | -0.0545 | -0.1621 | +0.0339 | yes |
 
 July and October change sign when the most unfavorable single eligible date is removed; August and September do not. This is **post-hoc robustness auditing**, not permission to discard losing days, tune cutoff 85 to these outcomes, reverse trades, or derive a probability. Overlapping securities and unknown `next_price` horizon, historical score version, provider rights and predecision timestamps are unresolved. Prospective independently sourced as-of observations and chronological holdouts are required before production use.
+
+### Swing AI POWER direction between consecutive high-score selections (read-only, 2026-10-29)
+
+Using the immediately preceding **saved high-score observation date** and matching stock code, 142 consecutive high-score stock/date pairs with existing five-day outcomes were classified by change in AI POWER. Power increased: 70 observations, mean stored 5d return **-1.7250%**, 29 positive; decreased: 63 observations, mean **-0.7984%**, 33 positive; unchanged: 9 observations, mean **+1.2481%**, 6 positive. Across 9 trading dates with >=3 observations in both increasing/decreasing cohorts, the **equal-date** mean increasing-minus-decreasing return was **-0.6808 percentage points** and increasing cohort outperformed on 4/9 days.
+
+This is retrospective, small and selection-conditioned on both days scoring >=85. Unchanged group is too small for a meaningful inference. Five-day outcomes overlap, and there is no independently authenticated pre-09:05 score provenance. Do not interpret negative mean as proof rising AI POWER causes underperformance; no scoring threshold, trading rule, training or notification changes are authorized from this exploration. Future forward protocol should fix cohort definitions and score collection times before results are known.
