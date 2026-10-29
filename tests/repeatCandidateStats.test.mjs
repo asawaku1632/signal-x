@@ -261,3 +261,11 @@ test("evidence gate reports pending outcome and cohort completion imbalance", ()
  assert.ok(result.reasons.some(reason => reason.includes("未確定")));
  assert.ok(result.reasons.some(reason => reason.includes("完了率")));
 });
+
+test("evidence gate requires risk results from multiple independent decision dates", () => {
+ const rows=Array.from({length:35},(_,i)=>({trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:-i}));
+ const result=repeatRiskEvidenceGate(rows);
+ assert.equal(result.status,"HOLD");
+ assert.ok(result.reasons.some(reason=>reason.includes("評価済み取引日が5日未満")));
+ assert.equal(result.dominantShare,100);
+});
