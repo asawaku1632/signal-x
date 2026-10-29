@@ -255,19 +255,25 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
   const uniqueTradeDates=new Set(evaluated.map(row=>row.tradeDate)).size;
   const uniqueMonths=new Set(evaluated.map(row=>row.tradeDate.slice(0,7))).size;
   const coverage={stocks:uniqueStocks,tradeDates:uniqueTradeDates,months:uniqueMonths};
-  // Baseline uses only already-observed targets, never a future holdout label.
-  // This is an evaluation benchmark, not an ex-ante tradable forecast.
+  // Evaluate baseline and analog forecasts on the SAME dated holdout rows.
+  // The expanding baseline may use only strictly earlier trade dates:
+  // different stocks on the same date are not independent prior evidence.
   const baseline=key=>{
-    const rows=results.filter(row=>typeof row[key]==="boolean");
-    if(rows.length<2)return {evaluated:0,brierScore:null};
-    let total=0,count=0;
-    for(let i=1;i<rows.length;i++){
-      const prior=rows.slice(0,i);
-      const rate=prior.filter(row=>row[key]).length/prior.length;
-      total+=(rate-(rows[i][key]?1:0))**2;
-      count++;
+    const predictionKey=key==="actualRebound1Pct"?"predictedRebound1Pct":"predictedRebound2Pct";
+    const scored=results.filter(row=>typeof row[key]==="boolean"&&finite(row[predictionKey]));
+    const paired=[];
+    for(const row of scored){
+      const earlier=scored.filter(prior=>prior.tradeDate<row.tradeDate);
+      if(!earlier.length)continue;
+      const base=earlier.filter(prior=>prior[key]).length/earlier.length;
+      const actual=row[key]?1:0;
+      paired.push({baselineError:(base-actual)**2,
+        modelError:(row[predictionKey]/100-actual)**2});
     }
-    return {evaluated:count,brierScore:round(total/count)};
+    return {evaluated:paired.length,
+      brierScore:paired.length?round(paired.reduce((sum,row)=>sum+row.baselineError,0)/paired.length):null,
+      modelBrierScore:paired.length?round(paired.reduce((sum,row)=>sum+row.modelError,0)/paired.length):null,
+      improvement:paired.length?round(paired.reduce((sum,row)=>sum+row.baselineError-row.modelError,0)/paired.length):null};
   };
   const expandingBaseline={
     rebound1pct:baseline("actualRebound1Pct"),
