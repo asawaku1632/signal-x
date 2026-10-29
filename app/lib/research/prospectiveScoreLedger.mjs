@@ -7,6 +7,7 @@ const FREEZE="2026-10-29";
 const date=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&!Number.isNaN(Date.parse(x+"T00:00:00Z"))&&new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
 const instant=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(x)&&Number.isFinite(Date.parse(x));
 const finite=x=>typeof x==="number"&&Number.isFinite(x);
+const strictInstant=x=>instant(x)&&new Date(Date.parse(x)).toISOString()===new Date(x).toISOString();
 const mean=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
 const rounded=x=>x===null?null:Number(x.toFixed(4));
 export function auditProspectiveScoreLedger(rows){
@@ -19,12 +20,12 @@ export function auditProspectiveScoreLedger(rows){
   if(r.date<=FREEZE){excluded.preFreeze++;continue;}
   const key=r.date+"|"+r.code;
   if(seen.has(key)){excluded.duplicate++;continue;}seen.add(key);
-  if(r.featureSnapshotVerified!==true||!instant(r.featureAvailableAt)||Date.parse(r.featureAvailableAt)>=Date.parse(r.date+"T00:00:00+09:00")){
+  if(r.featureSnapshotVerified!==true||!strictInstant(r.featureAvailableAt)||Date.parse(r.featureAvailableAt)>=Date.parse(r.date+"T00:00:00+09:00")){
     excluded.featureNotAsOf++;continue;
   }
   if(!finite(r.nextPrice)||r.nextPrice<=0){excluded.incompletePair++;continue;}
   if(r.outcomeSourceVerified!==true||!date(r.outcomeTradeDate)||r.outcomeTradeDate<=r.date||
-     !instant(r.outcomeAvailableAt)||Date.parse(r.outcomeAvailableAt)<=Date.parse(r.date+"T23:59:59+09:00")||
+     !strictInstant(r.outcomeAvailableAt)||Date.parse(r.outcomeAvailableAt)<=Date.parse(r.date+"T23:59:59+09:00")||
      Date.parse(r.outcomeAvailableAt)<Date.parse(r.outcomeTradeDate+"T00:00:00+09:00")){
     excluded.outcomeUnconfirmed++;continue;
   }
