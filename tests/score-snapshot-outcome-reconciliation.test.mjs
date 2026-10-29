@@ -12,3 +12,7 @@ test("outcome without later trade date rejected",()=>assert.equal(reconcile([sna
 test("outcome price absent rejected",()=>assert.equal(reconcile([snap()],[{...outcome(),nextPrice:0}]).counts.postDecisionOutcome,1));
 test("duplicate outcome key rejected",()=>assert.throws(()=>reconcile([],[outcome(),outcome()]),/DUPLICATE_OUTCOME_KEY/));
 test("invalid inputs rejected",()=>assert.throws(()=>reconcile(null,[]),/INVALID_SCORE_EVIDENCE_INPUT/));
+
+test("same-day outcome observation fails even if after snapshot",()=>assert.equal(reconcile([snap()],[{...outcome(),availableAt:"2026-10-30T16:00:00+09:00"}]).counts.postDecisionOutcome,1));
+test("outcome before claimed later trade date fails",()=>assert.equal(reconcile([snap()],[{...outcome(),availableAt:"2026-11-01T16:00:00+09:00"}]).counts.postDecisionOutcome,1));
+test("impossible later calendar date fails",()=>assert.equal(reconcile([snap()],[{...outcome(),tradeDate:"2026-11-31"}]).counts.postDecisionOutcome,1));
