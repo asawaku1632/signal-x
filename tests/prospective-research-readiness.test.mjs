@@ -22,3 +22,17 @@ test("descriptive evidence remains distinct from independently attested proof",(
  assert.equal(x.evidence.chronologicalHoldoutVerified,false);
  assert.equal(x.trainingEnabled,false);
 });
+
+test("calendar analysis participates in readiness and never approves live features",()=>{
+ const x=summarize([]);
+ assert.ok(x.blockers.includes("INSUFFICIENT_WELL_SAMPLED_MONTHS"));
+ assert.equal(x.calendar.qualifyingMonths,0);
+ assert.equal(x.trainingEnabled,false);
+ assert.equal(x.notificationsEnabled,false);
+});
+test("sparse cohorts expose month coverage blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row]);
+ assert.ok(x.blockers.includes("LOW_MONTHLY_COHORT_COVERAGE"));
+ assert.equal(x.calendar.monthlyCoverage[0].qualifyingDates,0);
+});
