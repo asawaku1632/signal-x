@@ -63,7 +63,7 @@ test("largest-day exclusion exposes limited independent days", () => {
 
 test("pending outcomes remain distinct from observed returns by trade date", () => {
   assert.match(page, /pendingByDate = useMemo/);
-  assert.match(page, /group\.total - group\.completed/);
+  assert.match(page, /outcomeCoverageByDate/);
   assert.match(page, /5日後結果の確定状況/);
   assert.match(page, /未確定はゼロ損益ではありません/);
 });
@@ -190,4 +190,9 @@ test("provisional evidence gate never enables trading or alerts", () => {
   assert.match(page, /data\.truncated/);
   assert.match(page, /暫定的な注意表示/);
   assert.match(page, /AI売買判定や通知には反映しません/);
+});
+
+test("pending coverage displays per-day completion rate", () => {
+  assert.match(page, /day.completionRate.toFixed\(0\)/);
+  assert.match(page, /完了率/);
 });
