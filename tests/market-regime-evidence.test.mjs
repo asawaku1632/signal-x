@@ -11,3 +11,5 @@ test("invalid input rejected",()=>assert.throws(()=>run(null),/INVALID_REGIME_EV
 
 test("previous-day index capture is not a same-day morning observation",()=>{const x=run([{...base,capturedAt:"2026-10-29T16:00:00+09:00"}]);assert.equal(x.counts.notAsOf,1);assert.equal(x.verifiedRegimeDays,0);});
 test("same-day midnight capture stays unverified but structurally plausible",()=>{const x=run([{...base,capturedAt:"2026-10-30T00:00:00+09:00"}]);assert.equal(x.counts.structurallyPlausible,1);assert.equal(x.verifiedRegimeDays,0);});
+
+test("explicit prior close reference never counts as same day capture",()=>{const x=run([{...base,observationType:"PRIOR_CLOSE_REFERENCE",capturedAt:"2026-10-29T16:00:00+09:00"}]);assert.equal(x.counts.priorCloseReferenceOnly,1);assert.equal(x.counts.structurallyPlausible,0);assert.equal(x.days[0].status,"PRIOR_CLOSE_REFERENCE_ONLY");assert.equal(x.readyForTraining,false);});
