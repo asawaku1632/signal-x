@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -109,4 +109,12 @@ test("no matched pairs does not fabricate robustness", () => {
   const result=matchedDaySensitivity([{trade_date:"2026-10-23",previous_candidate_change_pct:-6,return_5d:null}]);
   assert.equal(result.minimum,null);
   assert.equal(result.maximum,null);
+});
+
+test("overall completion rate counts zero returns and excludes missing outcomes", () => {
+  const result = assessedOutcomeCoverage([{trade_date:"2026-10-19",return_5d:0},{trade_date:"2026-10-23",return_5d:null},{trade_date:"2026-10-26",return_5d:""}]);
+  assert.equal(result.checked,1);
+  assert.equal(result.pending,2);
+  assert.equal(result.completionRate,100/3);
+  assert.equal(assessedOutcomeCoverage([]).completionRate,null);
 });
