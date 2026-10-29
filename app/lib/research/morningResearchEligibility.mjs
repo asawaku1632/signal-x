@@ -1,6 +1,6 @@
 import {adaptHistoricalMorning} from "./morningHistoricalAdapter.mjs";
 /** Read-only classification of research evidence; never grants trading approval. */
-const validTime=x=>typeof x==="string"&&Number.isFinite(Date.parse(x));
+const validTime=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(x)&&Number.isFinite(Date.parse(x));
 export function classifyMorningResearchEvidence(record){
   if(!record||typeof record!=="object"||Array.isArray(record))
     return {kind:"UNRECOGNIZED",dailyIndicatorCandidate:false,morningOutcomeCandidate:false,
@@ -14,6 +14,10 @@ export function classifyMorningResearchEvidence(record){
       reasons.push("MISSING_POSITIVE_CLOSE");
     if(!validTime(record.bar_end_at??record.barEndAt))
       reasons.push("MISSING_BAR_END_TIME");
+    if(!/^(?:\\d{4}|\\d{3}[A-Z])$/.test(record.code??""))
+      reasons.push("MISSING_STOCK_CODE");
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(record.observation_date??record.tradeDate??""))
+      reasons.push("MISSING_OBSERVATION_DATE");
     return {kind:"DAILY_TECHNICAL_SNAPSHOT",
       dailyIndicatorCandidate:reasons.length===0,morningOutcomeCandidate:false,
       reasons,requiresIndependentSourceProof:true,requiresFeatureAvailabilityProof:true,
