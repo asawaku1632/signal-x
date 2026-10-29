@@ -29,3 +29,7 @@ test('unsafe PostgreSQL bigint above safe integer range is rejected',()=>assert.
 test('decimal and scientific notation counts are rejected',()=>{assert.throws(()=>run({...summary,wins:'3.0'}),/INVALID_AGGREGATE_COUNT/);assert.throws(()=>run({...summary,wins:'3e0'}),/INVALID_AGGREGATE_COUNT/)});
 test('negative bigint strings are rejected',()=>assert.throws(()=>run({...summary,wins:'-1'}),/INVALID_AGGREGATE_COUNT/));
 test('daily bigint strings must be safe integers',()=>assert.throws(()=>run(summary,[{...daily[0],rows:'9007199254740993'}]),/INVALID_DAILY_AGGREGATE/));
+
+test('duplicate group count cannot exceed duplicate extra rows',()=>assert.throws(()=>run(summary,daily,{duplicate_stock_date_groups:2,duplicate_extra_rows:1}),/IMPOSSIBLE_AGGREGATE_COUNT/));
+test('unsafe sum of individually safe result counts is rejected',()=>assert.throws(()=>run({...summary,total_rows:Number.MAX_SAFE_INTEGER,wins:Number.MAX_SAFE_INTEGER,losses:2,holds:0,unknowns:0},[]),/INCONSISTENT_RESULT_TOTALS/));
+test('unsafe sum of individually safe daily counts is rejected',()=>assert.throws(()=>run({...summary,total_rows:Number.MAX_SAFE_INTEGER,distinct_signal_dates:2,wins:0,losses:0,holds:0,unknowns:Number.MAX_SAFE_INTEGER,checked_rows:0,future_prices:0,return_rows:0},[{signal_date:'2026-08-21',rows:Number.MAX_SAFE_INTEGER,resolved:0,evaluated:0,priced:0},{signal_date:'2026-08-28',rows:1,resolved:0,evaluated:0,priced:0}]),/UNSAFE_DAILY_TOTALS/));
