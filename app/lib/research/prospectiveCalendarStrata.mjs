@@ -41,6 +41,9 @@ export function auditProspectiveCalendarStrata(daily,options={}){
    concentratedInOneMonth:supported.length>=2&&largestMonthDates/supportedDates>0.6,
    meanMedianAndMajorityPositiveMonths:monthsWithMeanMedianAgreement,
    allSupportedMonthsConsistent:supported.length>=2&&monthsWithMeanMedianAgreement===supported.length,
+   // Descriptive cross-month evidence is more limited if one month dominates.
+   breadthWithoutSingleMonthConcentration:supported.length>=2&&
+     monthsWithMeanMedianAgreement===supported.length&&largestMonthDates/supportedDates<=0.6,
    independentlyValidated:false},
   qualifyingDates:daily.length-excludedDates,
   medianPositiveSufficientMonths:months.filter(x=>x.sufficientDates&&x.medianGapPp>0).length,
