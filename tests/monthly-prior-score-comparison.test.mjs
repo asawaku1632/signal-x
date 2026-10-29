@@ -1,0 +1,16 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {comparePriorSavedScoresByMonth as run} from "../app/lib/research/monthlyPriorScoreComparison.mjs";
+const r=(date,code,priorScore,nextPrice)=>({date,code,priorScore,price:100,nextPrice});
+const sample=[r("2026-09-01","1234",85,105),r("2026-09-01","1235",84,100),r("2026-09-02","1234",85,98),r("2026-09-02","1235",84,99),r("2026-10-01","1234",85,103),r("2026-10-01","1235",84,100)];
+test("month-level equal-date gaps",()=>{const x=run(sample,{minPerGroup:1});assert.equal(x.monthly.length,2);assert.equal(x.monthly[0].meanGapPp,2);assert.equal(x.monthly[1].meanGapPp,3);});
+test("high days counted",()=>assert.equal(run(sample,{minPerGroup:1}).monthly[0].highWonDays,1));
+test("default minimum prevents thin cohorts",()=>assert.equal(run(sample).monthly.length,0));
+test("threshold 85 high",()=>assert.equal(run(sample.slice(0,2),{minPerGroup:1}).monthly[0].meanGapPp,5));
+test("duplicate exclusion",()=>assert.equal(run([...sample,sample[0]],{minPerGroup:1}).excluded.duplicate,1));
+test("invalid date",()=>assert.equal(run([...sample,r("2026-02-30","1236",90,100)],{minPerGroup:1}).excluded.invalid,1));
+test("missing prior",()=>assert.equal(run([...sample,r("2026-09-03","1236",null,101)],{minPerGroup:1}).excluded.missingPrior,1));
+test("missing price",()=>assert.equal(run([...sample,r("2026-09-03","1236",90,0)],{minPerGroup:1}).excluded.missingPrice,1));
+test("no prediction flag",()=>assert.equal(run(sample).predictiveValidation,false));
+test("empty input",()=>assert.equal(run([]).monthly.length,0));
+test("rejects bad options",()=>assert.throws(()=>run([],{minPerGroup:0}),/INVALID_MONTH_COMPARISON/));
