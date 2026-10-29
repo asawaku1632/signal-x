@@ -8,6 +8,7 @@ import {readFileSync} from "node:fs";
 import {researchPriorScoreDailyGaps} from "../app/lib/research/priorScoreRobustness.mjs";
 import {classifyResearchEvidence} from "../app/lib/research/evidenceClassifier.mjs";
 import {normalizeDailyExportRows} from "../app/lib/research/dailyExportNormalizer.mjs";
+import {summarizeExportEvidence} from "../app/lib/research/exportEvidenceCoverage.mjs";
 export function parseResearchFile(raw){
  if(typeof raw!=="string"||Buffer.byteLength(raw)>25*1024*1024)throw Error("INVALID_RESEARCH_FILE_SIZE");
  const parsed=JSON.parse(raw);
@@ -28,6 +29,7 @@ export function reportFromText(raw){
  const fromSql=parsed.some(x=>x&&typeof x==="object"&&Object.hasOwn(x,"next_price"));
  const rows=fromSql?normalizeDailyExportRows(parsed):parsed;
  const inputAudit=auditResearchRows(rows);
+ const evidenceCoverage=summarizeExportEvidence(rows);
  const classification=classifyResearchEvidence(rows);
  // Only pass rows whose claims are structurally consistent; assertions are NOT authentication.
  // Map the canonical evidence source date to the existing daily-gap evaluator.
@@ -35,7 +37,7 @@ export function reportFromText(raw){
   .map(row=>({...row,outcomeDate:row.sourceDate}));
  const report=researchPriorScoreDailyGaps(eligibleRows);
  return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,sqlExportNormalized:fromSql,
-   inputAudit,evidenceClassification:{
+   inputAudit,evidenceCoverage,evidenceClassification:{
      version:classification.version,summary:classification.summary,
      independentlyVerified:false,warning:classification.warning
    },assertedRowsPassedToAnalysis:eligibleRows.length,...report};
