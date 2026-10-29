@@ -161,3 +161,20 @@ test("months with zero qualifying days remain visible as excluded coverage",()=>
  assert.equal(report.excludedDates,2);
  assert.equal(report.readyForTraining,false);
 });
+
+test("monthly coverage includes fully excluded months and reconciles each month",()=>{
+ const report=run([
+  {date:"2026-09-01",highCount:9,lowCount:10,gapPp:1},
+  {date:"2026-09-02",highCount:10,lowCount:9,gapPp:1},
+  {date:"2026-10-01",highCount:10,lowCount:10,gapPp:1},
+  {date:"2026-10-02",highCount:10,lowCount:10,gapPp:2},
+  {date:"2026-10-03",highCount:10,lowCount:10,gapPp:NaN}
+ ]);
+ assert.deepEqual(report.monthlyCoverage,[
+  {month:"2026-09",receivedDates:2,qualifyingDates:0,excludedDates:2,qualifyingShare:0},
+  {month:"2026-10",receivedDates:3,qualifyingDates:2,excludedDates:1,qualifyingShare:2/3}
+ ]);
+ assert.ok(report.monthlyCoverage.every(x=>x.receivedDates===x.qualifyingDates+x.excludedDates));
+ assert.equal(report.readyForTraining,false);
+ assert.equal(report.readyForTrading,false);
+});
