@@ -36,7 +36,13 @@ export function aggregateHistoricalMorning(inputs,options={}){
     rejectedByReason[reason]=(rejectedByReason[reason]??0)+1;
   }
   const patterns=summarizeMorningDropPatterns(adapted,options);
+  const validRows=adapted.filter(row=>row.valid===true);
+  const cohortKeys=new Set(validRows.map(row=>row.code+"|"+row.date));
   return {...patterns,sourceCoverage:{
+    completeUniqueStockDays:cohortKeys.size,
+    completeDistinctStocks:new Set(validRows.map(row=>row.code)).size,
+    completeDistinctTradingDates:new Set(validRows.map(row=>row.date)).size,
+    completeDistinctMonths:new Set(validRows.map(row=>row.date.slice(0,7))).size,
     received:inputs.length,structurallyValid:adapted.filter(row=>row.valid===true).length,
     rejected:adapted.filter(row=>row.valid!==true).length,rejectedByReason,
     patternEligibleStockDays:patterns.samples,
