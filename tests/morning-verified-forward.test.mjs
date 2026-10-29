@@ -125,3 +125,36 @@ test("invalid non-leap-day publication is rejected",()=>{
   assert.equal(result.rows.length,0);
   assert.equal(result.excluded.missingFeatureProof,1);
 });
+
+test("invalid outcome calendar dates and timezone offsets are rejected",()=>{
+  const original=makeInput("2026-10-27");
+  for(const outcomeAvailableAt of [
+    "2026-02-30T12:00:00+09:00",
+    "2026-10-27T24:00:00+09:00",
+    "2026-10-27T12:60:00+09:00",
+    "2026-10-27T12:00:60+09:00",
+    "2026-10-27T12:00:00+24:00"
+  ]){
+    const prepared=prepareMorningForwardRows([{...original,outcomeAvailableAt}]);
+    assert.equal(prepared.rows.length,0,outcomeAvailableAt);
+    assert.equal(prepared.excluded.missingOutcomeProof,1,outcomeAvailableAt);
+  }
+});
+test("duplicate exclusion is independent of malformed source and input ordering",()=>{
+  const original=makeInput("2026-10-27");
+  const malformed={...original,bars:[],featureAvailableAt:"bad"};
+  for(const inputs of [[original,malformed],[malformed,original]]){
+    const result=prepareMorningForwardRows(inputs);
+    assert.equal(result.rows.length,0);
+    assert.deepEqual(result.excluded,{
+      unverifiedBars:0,missingFeatureProof:0,missingOutcomeProof:0,duplicate:2
+    });
+  }
+});
+test("empty export remains non-tradable and has zero evaluated samples",()=>{
+  const result=auditVerifiedMorningExports([],{minSamples:1});
+  assert.equal(result.accepted,0);
+  assert.equal(result.audit.targets,0);
+  assert.equal(result.audit.rebound1pct.evaluated,0);
+  assert.equal(result.readyForTrading,false);
+});
