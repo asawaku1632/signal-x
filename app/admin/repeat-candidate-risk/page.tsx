@@ -51,6 +51,7 @@ export default function RepeatCandidateRiskPage() {
     });
   }, [verifiedRows]);
   const overallCoverage = useMemo(() => assessedOutcomeCoverage(verifiedRows), [verifiedRows]);
+  const coverageContrast = useMemo(() => cohortCoverageContrast(verifiedRows), [verifiedRows]);
   const thresholds = useMemo(() => thresholdSensitivity(verifiedRows), [verifiedRows]);
   const dateAudit = useMemo(() => outcomeDateIntegrity(data?.rows || []), [data]);
   const calendarAudit = useMemo(() => outcomeCalendarAudit(data?.rows || []), [data]);
@@ -101,7 +102,7 @@ export default function RepeatCandidateRiskPage() {
           <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
           <p className="text-xs text-slate-600">銘柄件数で重み付けした5日後平均</p><p className="mt-1 text-xs">中央値：{pct(g.median)} ／ プラス率：{pct(g.positiveRate)}</p><p className="mt-2 text-sm font-bold">日付均等平均：{pct(g.dateBalancedAverage)}</p><p className="text-xs text-slate-600">記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
         </div>)}
-      </section><section className="rounded-xl border p-3">
+      </section><section className="rounded-xl border p-3"><h2 className="font-bold">群別の評価完了率・欠測の偏り</h2><p className="text-sm">5%超下落群：{coverageContrast.risk.checked}/{coverageContrast.risk.total}件（{coverageContrast.risk.completionRate?.toFixed(1) ?? "未検証"}%） ／ その他：{coverageContrast.other.checked}/{coverageContrast.other.total}件（{coverageContrast.other.completionRate?.toFixed(1) ?? "未検証"}%）</p><p className="mt-1 text-xs">完了率差：{coverageContrast.completionGapPoints == null ? "未検証" : `${coverageContrast.completionGapPoints.toFixed(1)}ポイント`}。欠測率が異なると、評価済み分だけの比較が偏るおそれがあります。</p></section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">下落率の閾値別感度（参考）</h2>
         <p className="text-xs text-slate-600">前回候補からの下落が3%、5%、7%を超えた群を比較。群は重複しており、投資シグナルの優劣や因果関係を示しません。</p>
         <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b"><th className="p-2">下落率</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th><th className="p-2">評価日</th><th className="p-2">日付均等平均</th></tr></thead>
