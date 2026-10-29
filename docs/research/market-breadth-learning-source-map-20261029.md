@@ -25,3 +25,9 @@ Scope: GitHub source inspection only. No production database query, no data migr
 `technical_bb_observation_results` in DEV contained six 5-trading-day event results but only four distinct stock-date outcomes over two observation dates in the earlier read-only audit. This cannot independently establish improved prediction quality.
 
 This document is a source map, not a claim that the legacy learning dataset has been inspected or that model performance has improved.
+
+## DEV database verification (read-only, 2026-10-29)
+
+A read-only `information_schema.tables` query on DEV project `jdtqwryiyxeuoraecorw` returned **zero matching public tables** for `daily_stock_results` and `learning_logs`. Therefore the PostgreSQL `daily_stock_results` used by the application's learning dashboard is **not present in the audited DEV Supabase public schema**. It may be in a separate PostgreSQL database or environment; this result alone cannot establish where it resides. SQLite `learning_logs` is a separate data source.
+
+No production database was queried. Do not interpret the absence of these two DEV tables as loss or absence of the user's accumulated learning history. Identify the authorized backing store and data provenance before attempting a cross-source join.
