@@ -144,7 +144,7 @@ test("calendar evidence report reconciles supported, insufficient and excluded d
  assert.equal(report.descriptiveMonthlyConsistency.supportedTradingDates,5);
  assert.equal(report.descriptiveMonthlyConsistency.unsupportedTradingDates,1);
  assert.equal(report.descriptiveMonthlyConsistency.unsupportedMonths,1);
- assert.deepEqual(report.descriptiveMonthlyConsistency.insufficientMonths,[{month:"2026-10",observedDates:1,missingDates:4}]);
+ assert.deepEqual(report.descriptiveMonthlyConsistency.insufficientMonths,[{month:"2026-10",observedDates:1,missingDates:4,additionalQualifyingDatesNeeded:4}]);
  assert.equal(report.descriptiveMonthlyConsistency.acceptedDateCoverage,true);
  assert.equal(report.readyForTrading,false);
 });
@@ -176,5 +176,24 @@ test("monthly coverage includes fully excluded months and reconciles each month"
  ]);
  assert.ok(report.monthlyCoverage.every(x=>x.receivedDates===x.qualifyingDates+x.excludedDates));
  assert.equal(report.readyForTraining,false);
+ assert.equal(report.readyForTrading,false);
+});
+
+test("fully excluded and low-validity months remain explicit completeness warnings",()=>{
+ const sample=[
+  {date:"2026-09-01",highCount:9,lowCount:10,gapPp:1},
+  {date:"2026-09-02",highCount:9,lowCount:10,gapPp:2},
+  {date:"2026-10-01",highCount:10,lowCount:10,gapPp:1},
+  {date:"2026-10-02",highCount:10,lowCount:10,gapPp:2},
+  {date:"2026-10-03",highCount:10,lowCount:10,gapPp:3},
+  {date:"2026-10-04",highCount:10,lowCount:10,gapPp:4},
+  {date:"2026-10-05",highCount:9,lowCount:10,gapPp:5}
+ ];
+ const report=run(sample);
+ assert.deepEqual(report.coverageAudit.fullyExcludedMonths,["2026-09"]);
+ assert.deepEqual(report.coverageAudit.lowCoverageMonths,["2026-09"]);
+ assert.equal(report.coverageAudit.worstMonthlyQualifyingShare,0);
+ assert.equal(report.monthlyCoverage.find(m=>m.month==="2026-10").qualifyingShare,0.8);
+ assert.equal(report.coverageAudit.independentlyValidated,false);
  assert.equal(report.readyForTrading,false);
 });
