@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {classifyMorningResearchEvidence as classify} from "../app/lib/research/morningResearchEligibility.mjs";
 
 test("daily technical snapshots cannot become intraday morning outcomes",()=>{
-  const row=classify({timeframe:"1D",close:100,bar_end_at:"2026-10-28T15:30:00+09:00"});
+  const row=classify({timeframe:"1D",code:"590A",observation_date:"2026-10-28",close:100,bar_end_at:"2026-10-28T15:30:00+09:00"});
   assert.equal(row.kind,"DAILY_TECHNICAL_SNAPSHOT");
   assert.equal(row.dailyIndicatorCandidate,true);
   assert.equal(row.morningOutcomeCandidate,false);
@@ -41,4 +41,11 @@ test("complete valid five-minute bars are only research candidates",()=>{
   assert.equal(row.morningOutcomeCandidate,true);
   assert.equal(row.readyForTrading,false);
   assert.equal(row.requiresIndependentSourceProof,true);
+});
+
+test("daily candidates need stock identity and observation date",()=>{
+  const row=classify({timeframe:"1D",close:100,bar_end_at:"2026-10-28T15:30:00+09:00"});
+  assert.equal(row.dailyIndicatorCandidate,false);
+  assert.ok(row.reasons.includes("MISSING_STOCK_CODE"));
+  assert.ok(row.reasons.includes("MISSING_OBSERVATION_DATE"));
 });
