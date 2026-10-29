@@ -23,3 +23,15 @@ test("minimum monthly sample gate is configurable without redefining calendar mo
  assert.equal(result.months.find(m=>m.month==="2026-11").sufficientDates,true);
  assert.throws(()=>run(rows,{minDatesPerMonth:0}),/INVALID_MONTH_SAMPLE_GATE/);
 });
+
+test("a single large positive day cannot hide a majority of negative days",()=>{
+ const days=[1,2,3,4,5].map((d,i)=>({date:`2026-12-0${d}`,highCount:10,lowCount:10,gapPp:i===0?20:-1}));
+ const report=run(days);
+ assert.equal(report.sufficientlyObservedMonths,1);
+ assert.equal(report.positiveSufficientMonths,1);
+ assert.equal(report.majorityPositiveSufficientMonths,0);
+ assert.equal(report.months[0].positiveDates,1);
+ assert.equal(report.months[0].positiveDateShare,0.2);
+ assert.equal(report.months[0].majorityPositive,false);
+ assert.equal(report.readyForTrading,false);
+});
