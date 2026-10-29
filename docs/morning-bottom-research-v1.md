@@ -352,3 +352,7 @@ A read-only production SQL grouped strictly positive `price`/`next_price` rows b
 ## Outlier sensitivity of same-date saved-score comparisons (2026-10-29, SELECT-only)
 
 In the same-record saved-score >=85 versus <85 daily comparison (each cohort >=10 per date), **69 dates** were comparable. The equally weighted mean high-minus-low gap across all dates was **-0.0927 percentage points**, with the high-score cohort higher on **31/69 dates**. Dropping the **three largest absolute daily gaps** (chosen retrospectively for sensitivity analysis, not a deployable rule) changed the mean to **-0.0645 pp**. The mean remained negative. This is a descriptive robustness check: saved scores, data-provider entitlement, true decision-time as-of, and executable price outcomes have not been independently authenticated. No threshold, notice, production code or trading recommendation was changed.
+
+## Median check on same-date score cohort gap (2026-10-29; SELECT-only)
+
+A further independently run read-only aggregate confirmed 69 eligible dates (both saved-score cohorts >=10 entries), mean high-minus-low **-0.0927 percentage points**, **median -0.0285 pp**, and high-score group outperforming on **31/69** dates (44.9%). Mean and median are negative. This is a same-record historical reference comparison and not evidence of score availability before decision time or executable returns; no production rollout is justified.
