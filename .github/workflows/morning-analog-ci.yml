@@ -26,6 +26,7 @@ on:
       - "scripts/report-prior-score-robustness.mjs"
       - "scripts/report-saved-price-exploration.mjs"
       - "scripts/report-prospective-score-ledger.mjs"
+      - "scripts/inspect-local-snapshot-ledger.mjs"
       - "tests/morning-analog.test.mjs"
       - "tests/morning-historical-adapter.test.mjs"
       - "tests/saved-daily-baseline.test.mjs"
