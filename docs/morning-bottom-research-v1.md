@@ -336,3 +336,7 @@ Added `offlineResearchBatch.mjs` and a manual `scripts/report-local-research-bat
 ## Deduplication and calendar validation for local outcome reconciliation (2026-10-29)
 
 The offline `detachedSnapshotReconciliation.mjs` now validates real Gregorian dates, ticker format, and a later source trade date. Multiple outcome rows sharing the same target trade date and code are counted once: additional records increment `duplicateOutcomes` rather than inflating reference observations or return statistics. Five new regression tests cover invalid February/end-of-month dates, malformed tickers, and repeated or conflicting outcome entries. This remains a local retrospective reference calculation without independent market/provider authentication; production DB and notifications are unchanged.
+
+## Historical export timestamp metadata propagation (2026-10-29)
+
+Extended the existing manual read-only SQL export template to include `daily_result_price_provenance.source_snapshot_created_at`; the offline daily export normalizer now exposes it as `sourceSnapshotCreatedAt`. This field refers to the **later outcome price's source observation**, not the earlier AI decision's as-of time. It is descriptive data and must never set `priorEvidenceVerified`, `outcomeProvenanceVerified`, or `priorAvailableAt` to trusted values: the normalizer intentionally leaves them false/false/null. Two additional tests enforce the export and normalization behavior. No historical data was backfilled into pre-09:05 snapshots, and no production writes or trading signals were added.
