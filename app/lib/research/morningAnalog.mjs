@@ -262,7 +262,8 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
         const scored=rows.filter(row=>typeof row[key]==="boolean"&&finite(row[predictionKey]));
         return {evaluated:scored.length,
           observedRatePct:scored.length?round(100*scored.filter(row=>row[key]).length/scored.length):null,
-          meanPredictedPct:average(scored.map(row=>row[predictionKey]))};
+          meanPredictedPct:average(scored.map(row=>row[predictionKey])),
+          meanAbsoluteErrorPct:scored.length?average(scored.map(row=>Math.abs(row[predictionKey]-(row[key]?100:0)))):null};
       };
       return {month,targets:rows.length,
         rebound1pct:stats("actualRebound1Pct"),
