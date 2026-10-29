@@ -10,6 +10,8 @@ const validStamp=value=>{
   const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(value);
   const [,y,m,d,h,min,sec]=match.map(Number);
   if(y<100||m<1||m>12||d<1||h>23||min>59||sec>59)return false;
+  const offset=value.match(/([+-])(\d{2}):(\d{2})$/);
+  if(offset&&(Number(offset[2])>23||Number(offset[3])>59))return false;
   const days=new Date(Date.UTC(y,m,0)).getUTCDate();
   return d<=days&&Number.isFinite(Date.parse(value));
 };
