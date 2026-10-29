@@ -13,6 +13,7 @@ on:
       - "app/lib/research/dailyEvidenceCounts.mjs"
       - "app/lib/research/researchUseTiers.mjs"
       - "app/lib/research/savedPriceExploration.mjs"
+      - "app/lib/research/savedScoreDrift.mjs"
       - "scripts/report-morning-bottom.mjs"
       - "scripts/report-prior-score-robustness.mjs"
       - "scripts/report-saved-price-exploration.mjs"
@@ -29,6 +30,7 @@ on:
       - "tests/research-use-tiers.test.mjs"
       - "tests/saved-price-exploration.test.mjs"
       - "tests/saved-price-report.test.mjs"
+      - "tests/saved-score-drift.test.mjs"
       - ".github/workflows/morning-analog-ci.yml"
   push:
     branches:
@@ -46,4 +48,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs tests/prior-score-robustness.test.mjs tests/prior-score-report.test.mjs tests/evidence-classifier.test.mjs tests/daily-export-template.test.mjs tests/daily-export-normalizer.test.mjs tests/export-evidence-coverage.test.mjs tests/daily-evidence-counts.test.mjs tests/research-use-tiers.test.mjs tests/saved-price-exploration.test.mjs tests/saved-price-report.test.mjs
+      - run: node --test tests/morning-analog.test.mjs tests/morning-historical-adapter.test.mjs tests/saved-daily-baseline.test.mjs tests/prior-score-robustness.test.mjs tests/prior-score-report.test.mjs tests/evidence-classifier.test.mjs tests/daily-export-template.test.mjs tests/daily-export-normalizer.test.mjs tests/export-evidence-coverage.test.mjs tests/daily-evidence-counts.test.mjs tests/research-use-tiers.test.mjs tests/saved-price-exploration.test.mjs tests/saved-price-report.test.mjs tests/saved-score-drift.test.mjs
