@@ -158,7 +158,7 @@ export function summarizeMorningDropPatterns(observations, options={}) {
   if(!Array.isArray(observations)||!Number.isInteger(minSamples)||minSamples<1||
      !positive(dropThresholdPct)||!Number.isInteger(binMinutes)||binMinutes<1||
      60%binMinutes!==0)throw Error("INVALID_PATTERN_OPTIONS");
-  const seen=new Set(),valid=[],excluded={invalid:0,duplicate:0,notSharpDrop:0};
+  const groups=new Map(),valid=[],excluded={invalid:0,duplicate:0,conflict:0,notSharpDrop:0};
   for(const row of observations){
     if(!row||row.valid!==true||!validDate(row.date)||
        (!hhmm(row.bottomWindow)||minute(row.bottomWindow)<540||minute(row.bottomWindow)>=690)||
@@ -170,8 +170,20 @@ export function summarizeMorningDropPatterns(observations, options={}) {
       excluded.invalid++;continue;
     }
     const id=row.code+"|"+row.date;
-    if(seen.has(id)){excluded.duplicate++;continue;}
-    seen.add(id);
+    const group=groups.get(id)??[];
+    group.push(row);
+    groups.set(id,group);
+  }
+  for(const group of groups.values()){
+    excluded.duplicate+=group.length-1;
+    const fingerprint=row=>JSON.stringify([
+      row.bottomWindow,row.bottomPrice,row.bottomDropPct,row.earlyDropPct,
+      row.intervalMinutes,row.laterHigh,row.reboundPct,row.rebound1pct,row.rebound2pct
+    ]);
+    if(group.some(row=>fingerprint(row)!==fingerprint(group[0]))){
+      excluded.conflict++;continue;
+    }
+    const row=group[0];
     if(row.earlyDropPct>-dropThresholdPct){excluded.notSharpDrop++;continue;}
     valid.push(row);
   }
