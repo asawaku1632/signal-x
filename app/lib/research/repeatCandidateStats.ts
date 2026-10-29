@@ -44,7 +44,7 @@ export function withoutLargestDay(rows: OutcomeRecord[]) {
   return { topDate, ...summarizeGroup(remaining) };
 }
 
-export type ComparedRecord = OutcomeRecord & { previous_candidate_change_pct: number | string | null };
+export type ComparedRecord = OutcomeRecord & { previous_candidate_change_pct: number | string | null; previous_candidate_drop_over_5pct?: boolean };
 
 export function sameDayComparison(rows: ComparedRecord[]) {
   const byDate = new Map<string, { risk: number[]; other: number[] }>();
@@ -53,7 +53,8 @@ export function sameDayComparison(rows: ComparedRecord[]) {
     const change = validOutcome(row.previous_candidate_change_pct);
     if (outcome === null || change === null) continue;
     const group = byDate.get(row.trade_date) ?? { risk: [], other: [] };
-    (change < -5 ? group.risk : group.other).push(outcome);
+    const isRisk = typeof row.previous_candidate_drop_over_5pct === "boolean" ? row.previous_candidate_drop_over_5pct : change < -5;
+    (isRisk ? group.risk : group.other).push(outcome);
     byDate.set(row.trade_date, group);
   }
   const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
