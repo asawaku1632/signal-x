@@ -36,7 +36,7 @@ test("research summary distinguishes observed outcomes from incomplete follow-up
 });
 
 test("same-day comparisons require both groups to have completed outcomes", () => {
-  assert.match(page, /sameDayComparison\(data\?\.rows \|\| \[\]\)/);
+  assert.match(page, /sameDayComparison\(verifiedRows\)/);
   assert.match(page, /matched\.days/);
   assert.match(page, /同じ判定日の5日後結果を比較/);
   assert.match(page, /業種や銘柄構成の差は残ります/);
