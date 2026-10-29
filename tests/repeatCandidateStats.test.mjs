@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -128,4 +128,17 @@ test("threshold sensitivity has nested cohorts and leaves missing outcomes pendi
  ]);
  assert.deepEqual(result.map(x=>[x.drop,x.count,x.checked,x.pending]),[[3,3,2,1],[5,2,1,1],[7,1,0,1]]);
  assert.equal(result[2].dateBalancedAverage,null);
+});
+
+test("outcome date audit catches missing and reversed date relationships", () => {
+  const audit = outcomeDateIntegrity([
+    { trade_date:"2026-10-19", return_5d:0, outcome_5d_date:null },
+    { trade_date:"2026-10-19", return_5d:null, outcome_5d_date:"2026-10-26" },
+    { trade_date:"2026-10-19", return_5d:-1, outcome_5d_date:"2026-10-16" },
+    { trade_date:"2026-10-19", return_5d:-1, outcome_5d_date:"2026-10-26" },
+  ]);
+  assert.deepEqual(audit, {returnWithoutDate:1,dateWithoutReturn:1,outcomeBeforeTrade:1,suspectCount:3});
+});
+test("complete consistent outcomes have no date integrity warnings", () => {
+  assert.equal(outcomeDateIntegrity([{trade_date:"2026-10-19",return_5d:0,outcome_5d_date:"2026-10-26"}]).suspectCount,0);
 });
