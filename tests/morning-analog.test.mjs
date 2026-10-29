@@ -191,3 +191,21 @@ test("bottom windows outside the morning session cannot enter research",()=>{
     assert.equal(pattern.excluded.invalid,1);
   }
 });
+
+test("conflicting duplicate later highs and early drops are never counted",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",
+    features,outcome:inspectMorning(date,100,makeBars(date))};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const outcome of [
+    {...row.outcome,laterHigh:(row.outcome.laterHigh??100)+1},
+    {...row.outcome,earlyDropPct:row.outcome.earlyDropPct-1},
+    {...row.outcome,intervalMinutes:10}
+  ]){
+    const conflict={...row,outcome};
+    for(const histories of [[row,conflict],[conflict,row]]){
+      assert.equal(summarizeAnalogs(target,histories,{minSamples:1}).samples,0);
+    }
+  }
+});
