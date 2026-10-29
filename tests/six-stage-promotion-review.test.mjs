@@ -38,3 +38,18 @@ test("even optimistic multi-month caller claims fail independent release review"
  assert.equal(x.stage6.independentlyValidated,false);
  assert.equal(x.trainingEnabled,false);
 });
+
+test("a snapshot from a previous day cannot masquerade as the 09:05 signal",()=>{
+ const s={...snap("2026-11-04","a"),recordedAt:"2026-11-03T08:59:00+09:00"};
+ const x=review({snapshots:[s],comparisons:[comp("2026-11-04","a")]});
+ assert.equal(x.stage6.comparisonDates,0);
+ assert.equal(x.stage6.rejectedUnanchoredComparisonRows,1);
+ assert.equal(x.stage6.decision,"DO_NOT_PROMOTE");
+});
+test("duplicated snapshot for same experiment and day invalidates matching outcome",()=>{
+ const s=snap("2026-11-04","a");
+ const x=review({snapshots:[s,{...s,recordedAt:"2026-11-04T09:00:00+09:00"}],comparisons:[comp("2026-11-04","a")]});
+ assert.equal(x.stage6.comparisonDates,0);
+ assert.equal(x.stage6.duplicateSnapshotExperimentDatePairs,1);
+ assert.ok(x.stage6.blockers.includes("DUPLICATE_SNAPSHOT_EXPERIMENT_DATE"));
+});
