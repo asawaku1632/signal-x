@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {auditLegacyOutcomeReadiness as audit} from '../../lib/research/marketBreadthLegacyOutcomeReadiness.mjs';
-const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:1000,nextPrice:1020,changePercent:2,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-28T15:30:00+09:00',evaluatedTradeDate:'2026-08-28',horizon:5,horizonUnit:'TRADING_DAY'});
+const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:1000,nextPrice:1020,changePercent:2,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-28T15:30:00+09:00',evaluatedTradeDate:'2026-08-28',horizon:5,horizonUnit:'TRADING_DAY',provider:'VERIFIED_FIXTURE',providerTimestamp:'2026-08-28T15:30:00+09:00',originalSignalGeneratedAt:'2026-08-21T09:00:00+09:00'});
 const check=(name,mutate,reason)=>test(name,()=>{const x=audit({rows:[mutate(row())]});assert.equal(x.counts.accepted,0);assert.ok(x.quarantined.some(q=>q.reasons?.includes(reason)))});
 test('valid sample remains research only',()=>{const x=audit({rows:[row()]});assert.equal(x.counts.accepted,1);assert.equal(x.aiPromotionAuthorized,false)});
 test('duplicate stock-date quarantines both',()=>{const x=audit({rows:[row(),row()]});assert.equal(x.counts.accepted,0);assert.equal(x.counts.quarantined,1)});
@@ -28,3 +28,9 @@ check('missing future trade date',r=>({...r,evaluatedTradeDate:null}),'MISSING_E
 check('future trade date before signal',r=>({...r,evaluatedTradeDate:'2026-08-20'}),'MISSING_EVALUATED_TRADE_DATE');
 check('calendar-day outcome cannot pass as trading-session outcome',r=>({...r,horizonUnit:'CALENDAR_DAY'}),'UNATTESTED_FIVE_SESSION_HORIZON');
 check('one-session outcome cannot pass as five-session outcome',r=>({...r,horizon:1}),'UNATTESTED_FIVE_SESSION_HORIZON');
+
+check('missing price provider provenance',r=>({...r,provider:null}),'UNVERIFIED_PRICE_PROVENANCE');
+check('missing provider timestamp',r=>({...r,providerTimestamp:null}),'UNVERIFIED_PRICE_PROVENANCE');
+check('missing original signal generation time',r=>({...r,originalSignalGeneratedAt:null}),'MISSING_OR_LATE_ORIGINAL_SIGNAL_TIME');
+check('original signal generated after record save',r=>({...r,originalSignalGeneratedAt:'2026-08-21T10:00:00+09:00'}),'MISSING_OR_LATE_ORIGINAL_SIGNAL_TIME');
+check('outcome checked before its future trade date',r=>({...r,checkedAt:'2026-08-27T15:30:00+09:00'}),'EVALUATION_CHECKED_BEFORE_FUTURE_DATE');
