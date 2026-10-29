@@ -98,3 +98,15 @@ test("sharp-drop breadth excludes duplicate exports and nonqualifying complete b
   assert.equal(report.sourceCoverage.patternDistinctMonths,1);
   assert.equal(report.excluded.duplicate,1);
 });
+
+test("conflicting full-bar exports are not counted as a qualifying sharp-drop stock-day",()=>{
+  const early={...input,bars:bars.map((b,i)=>({...b,low:i===3?90:98}))};
+  const conflict={...early,bars:early.bars.map((b,i)=>({...b,low:i===3?85:b.low}))};
+  const report=aggregateHistoricalMorning([early,conflict],{minSamples:1,dropThresholdPct:3});
+  assert.equal(report.sourceCoverage.completeUniqueStockDays,1);
+  assert.equal(report.sourceCoverage.patternEligibleStockDays,0);
+  assert.equal(report.sourceCoverage.patternDistinctStocks,0);
+  assert.equal(report.sourceCoverage.patternDistinctTradingDates,0);
+  assert.equal(report.sourceCoverage.patternDistinctMonths,0);
+  assert.equal(report.excluded.conflict,1);
+});
