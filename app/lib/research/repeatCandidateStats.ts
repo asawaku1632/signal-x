@@ -244,12 +244,13 @@ export function fullyObservedDayComparison(rows: ComparedRecord[]) {
 }
 
 /** Evidence gate is informational only; it never activates trading or alerts. */
-export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false) {
+export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false, discardedOutcomes = 0) {
   const complete = fullyObservedDayComparison(rows);
   const riskRows = rows.filter(r => r.previous_candidate_drop_over_5pct === true);
   const concentration = completedDateConcentration(riskRows);
   const reasons: string[] = [];
   if (truncated) reasons.push("取得上限で集計対象が打ち切られています");
+  if (discardedOutcomes > 0) reasons.push(`日付不整合によって${discardedOutcomes}件の5日後結果を集計から除外しました`);
   if (complete.matchedDayCount < 5) reasons.push("全件確定した比較可能な取引日が5日未満です");
   if (concentration.dominantShare === null || concentration.dominantShare > 50) reasons.push("評価結果が特定の取引日に集中しています");
   if (riskRows.filter(r => validOutcome(r.return_5d) !== null).length < 30) reasons.push("下落群の評価済み観測が30件未満です");
@@ -259,7 +260,7 @@ export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false
   if (coverage.risk.pending > 0 || coverage.other.pending > 0) reasons.push("5日後結果が未確定の観測が残っています");
   if (coverage.completionGapPoints !== null && Math.abs(coverage.completionGapPoints) > 10) reasons.push("2群の評価完了率に10ポイント超の差があります");
   const followUp = [
-    { task: "独立した価格・結果日を照合", ready: false, detail: "保存価格と外部市場データの一致は未確認" },
+    { task: "独立した価格・結果日を照合", ready: false, detail: `保存価格と外部市場データの一致は未確認／日付不整合で除外 ${discardedOutcomes}件` },
     { task: "異なる取引日を追加検証", ready: complete.matchedDayCount >= 5, detail: `全件確定の比較日 ${complete.matchedDayCount}日` },
     { task: "日付集中を再評価", ready: concentration.dominantShare !== null && concentration.dominantShare <= 50, detail: `最多日の占有率 ${concentration.dominantShare?.toFixed(1) ?? "未検証"}%` },
     { task: "未確定結果を追跡", ready: coverage.risk.pending === 0 && coverage.other.pending === 0, detail: `未確定 ${coverage.risk.pending + coverage.other.pending}件` },
