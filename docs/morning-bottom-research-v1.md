@@ -629,3 +629,14 @@ Research-only `app/lib/research/fiveStageResearchGate.mjs` and `tests/five-stage
 5. Fail closed: always `DO_NOT_DEPLOY`, `trainingEnabled=false`, `notificationsEnabled=false`, `tradingEnabled=false` and `productionChanged=false`. At least 20 independent forward dates/3 months are provisional research gates, not automatic deployment permission; require independent review and real walk-forward evidence.
 
 Next real execution dependency: deploy an explicitly approved, provenance-backed and immutable pre-09:05 observation source, then accumulate enough truly future results for a fixed baseline-versus-candidate replay. Do not merge unrelated PR #216 or change production without authorization.
+
+
+## Roadmap stages 1–6 integration (2026-10-29, research branch only)
+
+The offline `reviewSixStagePromotion` composes the existing five-stage research gate with the strict UTC predecision evidence audit. Stage 6 matches claimant-attested predecision snapshot and later outcome by **experimentId plus trade date**, excludes duplicate experiment-date rows, counts paired dates/months, and computes an equal-date candidate-minus-baseline comparison. Missing benchmarks, unanchored comparisons and source-evidence gaps must not be reclassified as verified success.
+
+This is an intentionally **fail-closed SHADOW promotion proposal**, not an active experiment runner, production scoring upgrade, or demonstrated financial edge. Even 21 uniformly positive mock dates across three months do not authorize a rollout. Caller flags alone cannot independently authenticate timestamps, provider licenses, fills or risk; the function outputs `DO_NOT_PROMOTE`, disables training/ranking/notifications/trading and records `productionChanged:false` regardless of favorable inputs.
+
+**Status by stage:** 1 inventory and descriptive studies exist; 2 a read-only evidence contract is implemented but qualified third-party as-of observations are not present in the inspected legacy schema; 3 retrospective research has found fragile/non-monotonic score behavior; 4 historical same-date comparisons exist but no independently proven fixed-horizon prospective trial; 5 an offline SHADOW comparison contract exists but no newly authorized live capture/deployment; 6 the offline review/gate has been implemented in a research branch, while **the validated conditions necessary for production integration have not been met**.
+
+A true stage-six production release requires independently licensed timestamped source observations, fixed prediction definitions, immutable prospective collection and outcomes, adequate independent date/month coverage, cost/slippage/benchmark sensitivity and explicit human review. This research PR must not migrate production tables, activate cron, send notifications, change rankings, or touch PR #216.
