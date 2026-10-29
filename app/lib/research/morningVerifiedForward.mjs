@@ -6,8 +6,8 @@ import {adaptHistoricalMorning} from "./morningHistoricalAdapter.mjs";
 import {auditMorningAnalogsChronologically} from "./morningAnalog.mjs";
 const codePattern=/^(?:\d{4}|\d{3}[A-Z])$/;
 const validStamp=value=>typeof value==="string" &&
-  !Number.isNaN(Date.parse(value)) &&
-  /(?:Z|[+-]\d{2}:\d{2})$/.test(value);
+  Number.isFinite(Date.parse(value)) &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value);
 const featureKeys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
 export function prepareMorningForwardRows(inputs){
   if(!Array.isArray(inputs)||inputs.length>100000)throw Error("INVALID_MORNING_FORWARD_INPUT");
