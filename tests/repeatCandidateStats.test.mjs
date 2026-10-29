@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -90,4 +90,23 @@ test("daily coverage excludes pending outcomes from completion", () => {
 });
 test("empty daily coverage remains empty", () => {
   assert.deepEqual(outcomeCoverageByDate([]),[]);
+});
+
+test("matched-day exclusion reports range over independent dates", () => {
+  const rows = [
+    {trade_date:"2026-10-16",previous_candidate_change_pct:-6,return_5d:-10},
+    {trade_date:"2026-10-16",previous_candidate_change_pct:0,return_5d:0},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-6,return_5d:5},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:0,return_5d:1},
+  ];
+  const result=matchedDaySensitivity(rows);
+  assert.equal(result.variants.length,2);
+  assert.equal(result.minimum,-10);
+  assert.equal(result.maximum,4);
+  assert.ok(result.variants.every(v=>v.remainingDays===1));
+});
+test("no matched pairs does not fabricate robustness", () => {
+  const result=matchedDaySensitivity([{trade_date:"2026-10-23",previous_candidate_change_pct:-6,return_5d:null}]);
+  assert.equal(result.minimum,null);
+  assert.equal(result.maximum,null);
 });
