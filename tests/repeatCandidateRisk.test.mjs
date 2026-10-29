@@ -212,3 +212,10 @@ test("failed refresh clears stale research evidence", () => {
 test("refresh clears old results before starting the next request", () => {
   assert.match(page, /onClick=\{\(\) => \{ setData\(null\); setError\(""\);/); 
 });
+
+test("pending-only toggle filters list and leaves summary based on all rows", () => {
+  assert.match(page, /showPendingOnly/);
+  assert.match(page, /!showPendingOnly \|\| n\(r.return_5d\) == null/);
+  assert.match(page, /上の統計は全取得データ/);
+  assert.match(page, /5日後結果が未確定の記録のみ/);
+});
