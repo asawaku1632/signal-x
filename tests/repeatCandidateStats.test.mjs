@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -199,4 +199,18 @@ test("SQL exact drop flag overrides six-decimal rounded percentage", () => {
   assert.equal(sameDayComparison(rows).matchedDayCount,1);
   assert.equal(sameDayComparison(rows).days[0].gap,-4);
   assert.equal(thresholdSensitivity(rows,[5])[0].count,1);
+});
+
+test("completed day concentration excludes pending records", () => {
+  const result=completedDateConcentration([
+    {trade_date:"2026-10-19",return_5d:-10},
+    {trade_date:"2026-10-19",return_5d:0},
+    {trade_date:"2026-10-22",return_5d:-2},
+    {trade_date:"2026-10-23",return_5d:null},
+  ]);
+  assert.equal(result.total,3);
+  assert.equal(result.days,2);
+  assert.equal(result.dominantDate,"2026-10-19");
+  assert.ok(Math.abs(result.dominantShare-200/3)<1e-9);
+  assert.equal(completedDateConcentration([]).dominantShare,null);
 });
