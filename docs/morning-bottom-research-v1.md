@@ -551,3 +551,17 @@ Compare each high-score stock selection with the **immediately preceding saved o
 High-score consecutive overlap shares were **9.92%** on 2026-10-09 (13/131), **9.80%** on 2026-10-19 (10/102), and **12.90%** on 2026-10-22 (8/62). Across the nine days overlap varied from 9.80% to 37.25%. On 2026-10-09, consecutive versus rotated groups averaged **+2.858%** versus **-4.254%**; on 2026-10-19 **-3.158%** versus **-5.926%**; but on 2026-10-21 **-1.325%** versus **+0.734%**, showing that relative performance reverses.
 
 These findings are exploratory and stock-weighted, not an independent validation. Repeated codes, overlapping five-day horizons, unknown cohort composition, and **no verified pre-09:05 score snapshots** prevent causal interpretations or promotion to trading rules. Preserve the fixed 85-point cutoff in research; any concentration filter must be prespecified and tested on independent prospective observations. No model, trading, production or notification change.
+
+
+## Equal-date leave-one-date-out sensitivity (2026-10-29; offline descriptive)
+
+Based on the four months of previously retrieved bounded, read-only per-date SQL means, compute an **equal-date mean high-minus-low return gap** and repeat after omitting each eligible date once. Input high/low means were rounded to 4 decimal places in SQL; treat the following as approximate percentage-point statistics rather than executable portfolio returns.
+
+| Month | Eligible dates | Original mean pp | Min mean after excluding any one date pp | Max mean after excluding any one date pp | Positive on any exclusion? |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 2026-07 | 11 | -0.1941 | -0.3624 | +0.0242 | yes |
+| 2026-08 | 17 | -0.0820 | -0.1260 | -0.0420 | no |
+| 2026-09 | 21 | -0.0873 | -0.1370 | -0.0505 | no |
+| 2026-10 | 19 | -0.0545 | -0.1621 | +0.0339 | yes |
+
+July and October change sign when the most unfavorable single eligible date is removed; August and September do not. This is **post-hoc robustness auditing**, not permission to discard losing days, tune cutoff 85 to these outcomes, reverse trades, or derive a probability. Overlapping securities and unknown `next_price` horizon, historical score version, provider rights and predecision timestamps are unresolved. Prospective independently sourced as-of observations and chronological holdouts are required before production use.
