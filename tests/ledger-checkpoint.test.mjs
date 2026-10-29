@@ -1,0 +1,18 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {createDetachedResearchSnapshot as create} from "../app/lib/research/detachedSnapshotContract.mjs";
+import {planLocalSnapshotAppend as add} from "../app/lib/research/localSnapshotLedger.mjs";
+import {makeLedgerCheckpoint as make,verifyLedgerCheckpoint as verify} from "../app/lib/research/ledgerCheckpoint.mjs";
+const b={date:"2026-10-30",code:"1234",score:85,price:100,capturedAt:"2026-10-30T09:04:00+09:00",sourceId:"s",sourceVersion:"v1"};
+const one=add([],create(b)),two=add([one],create({...b,code:"1235"}));
+const checkpoint=make([one],"2026-10-30T10:00:00+09:00");
+test("checkpoint matches prefix after append",()=>assert.equal(verify([one,two],checkpoint).valid,true));
+test("checkpoint matches same ledger",()=>assert.equal(verify([one],checkpoint).valid,true));
+test("truncation detected",()=>assert.equal(verify([],checkpoint).reason,"TRUNCATED"));
+test("replacement detected",()=>{const other=add([],create({...b,code:"4321"}));assert.equal(verify([other],checkpoint).reason,"CHECKPOINT_MISMATCH");});
+test("corrupt record detected",()=>assert.equal(verify([{...one,recordDigest:"bad"}],checkpoint).reason,"LEDGER_CORRUPT"));
+test("checkpoint tampered",()=>assert.equal(verify([one],{...checkpoint,head:"a".repeat(64)}).valid,false));
+test("invalid timestamp refused",()=>assert.throws(()=>make([one],"now"),/INVALID_CHECKPOINT_TIMESTAMP/));
+test("invalid ledger refused",()=>assert.throws(()=>make([{...one,recordDigest:"bad"}],"2026-10-30T10:00:00+09:00"),/INVALID_LEDGER_FOR_CHECKPOINT/));
+test("checkpoint not externally attested",()=>{assert.equal(checkpoint.externallyWitnessed,false);assert.equal(verify([one],checkpoint).externallyAuthenticated,false);});
+test("invalid checkpoint refused",()=>assert.equal(verify([one],null).reason,"INVALID_CHECKPOINT"));
+test("empty checkpoint valid",()=>assert.equal(verify([],make([],"2026-10-30T10:00:00Z")).valid,true));
