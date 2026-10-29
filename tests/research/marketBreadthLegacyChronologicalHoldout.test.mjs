@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {evaluateLegacyChronologicalHoldout as evaluate} from '../../lib/research/marketBreadthLegacyChronologicalHoldout.mjs';
-const rows=[['2026-08-01',1],['2026-08-02',3],['2026-08-03',-2],['2026-08-04',4],['2026-08-05',1],['2026-08-06',-1],['2026-08-07',2],['2026-08-08',5]].map(([date,changePercent])=>({date,code:'9983',score:85,changePercent}));
+const rows=[['2026-08-01',1],['2026-08-02',3],['2026-08-03',-2],['2026-08-04',4],['2026-08-05',1],['2026-08-06',-1],['2026-08-07',2],['2026-08-08',5]].map(([date,changePercent])=>({date,code:'9983',score:85,changePercent,evaluatedTradeDate:new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10)}));
 const audit=(accepted=rows)=>({researchOnly:true,aiPromotionAuthorized:false,accepted,counts:{quarantined:0,rejected:0}});
 test('chronological split preserves future holdout',()=>{const x=evaluate({audit:audit(),holdoutDate:'2026-08-06',minimumTrainingDates:4});assert.equal(x.training.observations,4);assert.equal(x.holdout.observations,3);assert.equal(x.diagnosticEligible,true)});
 test('holdout never authorizes AI promotion',()=>{const x=evaluate({audit:audit(),holdoutDate:'2026-08-06'});assert.equal(x.aiPromotionAuthorized,false);assert.equal(x.independentImprovementVerified,false)});
