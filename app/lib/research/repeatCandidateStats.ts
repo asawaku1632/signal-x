@@ -53,7 +53,7 @@ export function sameDayComparison(rows: ComparedRecord[]) {
     const change = validOutcome(row.previous_candidate_change_pct);
     if (outcome === null || (change === null && typeof row.previous_candidate_drop_over_5pct !== "boolean")) continue;
     const group = byDate.get(row.trade_date) ?? { risk: [], other: [] };
-    const isRisk = typeof row.previous_candidate_drop_over_5pct === "boolean" ? row.previous_candidate_drop_over_5pct : change < -5;
+    const isRisk = typeof row.previous_candidate_drop_over_5pct === "boolean" ? row.previous_candidate_drop_over_5pct : change !== null && change < -5;
     (isRisk ? group.risk : group.other).push(outcome);
     byDate.set(row.trade_date, group);
   }
