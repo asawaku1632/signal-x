@@ -228,6 +228,7 @@ test("walk-forward audit never uses target-day outcomes as selection history",()
   assert.equal(report.byMonth.length,1);
   assert.equal(report.byMonth[0].month,"2026-10");
   assert.equal(report.byMonth[0].rebound1pct.evaluated,1);
+  assert.equal(report.byMonth[0].rebound1pct.meanAbsoluteErrorPct,0);
   assert.equal(report.readyForTrading,false);
   assert.throws(()=>auditMorningAnalogsChronologically([target,target],[earlier,current],{minSamples:1}),/DUPLICATE_FORWARD_TARGET/);
 });
