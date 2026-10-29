@@ -15,3 +15,14 @@ SELECT 'research_scan_feature_captures',count(*)::bigint,0::bigint,0::bigint,0::
 FROM public.research_scan_feature_captures;
 -- This inventory cannot establish complete 09:00-11:30 five-minute OHLC coverage.
 -- Never convert counts of saved indicators into intraday-bar or rebound sample counts.
+
+-- Feature availability is useful for daily analogs, but does NOT prove intraday outcomes.
+SELECT timeframe,provider,count(*)::bigint AS observations,
+       count(*) FILTER (WHERE bar_start_at IS NOT NULL AND bar_end_at IS NOT NULL)::bigint AS with_bar_bounds,
+       count(*) FILTER (WHERE provider_timestamp IS NOT NULL)::bigint AS with_provider_timestamp,
+       count(*) FILTER (WHERE volume_ratio_20 IS NOT NULL)::bigint AS with_volume_ratio,
+       count(*) FILTER (WHERE rsi14 IS NOT NULL)::bigint AS with_rsi,
+       count(*) FILTER (WHERE macd IS NOT NULL)::bigint AS with_macd
+FROM public.technical_bb_observation_snapshots
+GROUP BY timeframe,provider
+ORDER BY observations DESC;
