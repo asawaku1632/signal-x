@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -49,6 +49,7 @@ export default function RepeatCandidateRiskPage() {
   }, [data]);
   const matched = useMemo(() => sameDayComparison(data?.rows || []), [data]);
   const sameDay = matched.days;
+  const sensitivity = useMemo(() => matchedDaySensitivity(data?.rows || []), [data]);
   const concentration = useMemo(() => {
     const eligible = (data?.rows || []).filter(r =>
       n(r.previous_candidate_change_pct) != null && (n(r.previous_candidate_change_pct) as number) < -5 && n(r.return_5d) != null);
@@ -104,6 +105,7 @@ export default function RepeatCandidateRiskPage() {
           </tr>)}</tbody>
         </table></div>
         {sameDay.length === 0 && <p className="mt-2 text-sm text-slate-500">同一日に両群の結果が揃った記録はまだありません。</p>}
+        {sameDay.length > 0 && <p className="mt-2 text-xs text-slate-700">比較可能な日を1日ずつ除外した平均との差：{sensitivity.minimum == null ? "未検証" : `${sensitivity.minimum.toFixed(2)}〜${sensitivity.maximum?.toFixed(2)}pt`}（残る判定日 {Math.max(0, matched.matchedDayCount - 1)}日）。少数日の場合、頑健性の証明にはなりません。</p>}
         <p className="mt-2 text-xs text-amber-800">記録件数が少ない日や市場急変時に偏り得ます。独立した終値検証・将来の再現性は未確認です。</p>
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">5日後結果の確定状況（5%超下落群）</h2>
