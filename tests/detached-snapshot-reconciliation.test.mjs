@@ -15,3 +15,9 @@ test("no input",()=>assert.equal(run([]).stats.input,0));
 test("invalid input",()=>assert.throws(()=>run(null),/INVALID_SHADOW_RECONCILIATION/));
 test("invalid outcomes",()=>assert.throws(()=>run([],null),/INVALID_SHADOW_RECONCILIATION/));
 test("unmatched uses date and code",()=>assert.equal(run([a],[{...o,code:"5678"}]).stats.unmatchedOutcomes,1));
+
+test("duplicate later outcomes counted once",()=>{const r=run([a],[o,o]);assert.equal(r.stats.matchedOutcomes,1);assert.equal(r.stats.duplicateOutcomes,1);assert.equal(r.matches.length,1);});
+test("invalid calendar source date refused",()=>assert.equal(run([a],[{...o,sourceDate:"2026-11-31"}]).stats.invalidOutcomes,1));
+test("invalid calendar target date refused",()=>assert.equal(run([a],[{...o,date:"2026-02-30"}]).stats.invalidOutcomes,1));
+test("malformed ticker refused",()=>assert.equal(run([a],[{...o,code:"bad"}]).stats.invalidOutcomes,1));
+test("later outcomes for same target cannot double count",()=>{const r=run([a],[o,{...o,sourceDate:"2026-11-03",sourcePrice:108}]);assert.equal(r.stats.matchedOutcomes,1);assert.equal(r.stats.duplicateOutcomes,1);});
