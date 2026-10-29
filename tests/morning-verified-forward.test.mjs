@@ -86,3 +86,18 @@ test("duplicate dates use actual ISO date syntax, not escaped regex literals",()
   assert.equal(result.rows.length,0);
   assert.equal(result.excluded.duplicate,2);
 });
+
+test("impossible calendar dates and clock values cannot prove feature availability",()=>{
+  const original=makeInput("2026-10-27");
+  for(const featureAvailableAt of [
+    "2026-02-30T18:00:00+09:00",
+    "2026-10-26T24:00:00+09:00",
+    "2026-10-26T18:60:00+09:00",
+    "2026-10-26T18:00:60+09:00",
+    "2026-10-26T18:00:00+24:00"
+  ]){
+    const result=prepareMorningForwardRows([{...original,featureAvailableAt}]);
+    assert.equal(result.rows.length,0,featureAvailableAt);
+    assert.equal(result.excluded.missingFeatureProof,1,featureAvailableAt);
+  }
+});
