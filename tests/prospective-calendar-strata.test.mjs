@@ -35,3 +35,12 @@ test("a single large positive day cannot hide a majority of negative days",()=>{
  assert.equal(report.months[0].majorityPositive,false);
  assert.equal(report.readyForTrading,false);
 });
+
+test("monthly median exposes a single outsized positive day",()=>{
+ const days=[1,2,3,4,5].map((d,i)=>({date:`2026-12-0${d}`,highCount:10,lowCount:10,gapPp:i===0?20:-1}));
+ const report=run(days);
+ assert.equal(report.months[0].meanGapPp,3.2);
+ assert.equal(report.months[0].medianGapPp,-1);
+ assert.equal(report.months[0].majorityPositive,false);
+ assert.equal(report.readyForTrading,false);
+});
