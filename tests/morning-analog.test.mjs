@@ -277,3 +277,18 @@ test("expanding baseline compares paired predictions without same-day leakage",(
   assert.equal(report.expandingBaseline.rebound1pct.improvement,0);
   assert.equal(report.rebound1pct.evaluated,4);
 });
+
+test("strict outcome availability rejects hindsight and missing provenance",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const row={code:"1234",tradeDate:date,
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const strict={minSamples:1,requireOutcomeAvailability:true};
+  assert.equal(summarizeAnalogs(target,[row],strict).samples,0);
+  for(const stamp of ["2026-10-28T00:00:00+09:00","2026-10-27T11:00:00+09:00","not-a-date"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],strict).samples,0);
+  }
+  assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:"2026-10-27T16:00:00+09:00"}],strict).samples,1);
+});
