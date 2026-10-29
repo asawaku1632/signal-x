@@ -101,3 +101,10 @@ export function matchedDaySensitivity(rows: ComparedRecord[]) {
     maximum: remainingMeans.length ? Math.max(...remainingMeans) : null,
   };
 }
+
+export function assessedOutcomeCoverage(rows: OutcomeRecord[]) {
+  const total = rows.length;
+  const checked = rows.filter(row => validOutcome(row.return_5d) !== null).length;
+  return { total, checked, pending: total - checked,
+    completionRate: total ? checked / total * 100 : null };
+}
