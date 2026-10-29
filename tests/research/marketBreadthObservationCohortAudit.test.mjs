@@ -31,3 +31,7 @@ test('median of three distinct observations is central return',()=>{const x=audi
 test('by-date summary separates observation dates',()=>{const x=audit({rows:[r('9983',-3),r('9432',1),{...r('9983',2),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.byDate.length,2);assert.deepEqual(x.byDate.map(d=>d.stockDateCount),[2,1]);assert.deepEqual(x.byDate.map(d=>d.meanReturnPercent),[-1,2]);assert.deepEqual(x.byDate.map(d=>d.positiveRate),[0.5,1])});
 test('empty by-date summary is empty, not fabricated',()=>{assert.deepEqual(audit().byDate,[])});
 test('event-type duplicates do not inflate daily denominator',()=>{const x=audit({rows:[r('9983',-3),r('9983',-3),r('9432',1)]});assert.equal(x.byDate[0].stockDateCount,2)});
+
+test('equal-date mean prevents large dates from dominating date-level summary',()=>{const x=audit({rows:[r('9983',-3),r('9432',-3),r('8591',-3),{...r('9983',9),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.descriptiveStats.meanReturnPercent,0);assert.equal(x.descriptiveStats.equalDateMeanReturnPercent,3)});
+test('empty equal-date mean is null',()=>{assert.equal(audit().descriptiveStats.equalDateMeanReturnPercent,null)});
+test('one-date equal-date mean equals ordinary mean',()=>{const x=audit({rows:[r('9983',-3),r('9432',1)]});assert.equal(x.descriptiveStats.equalDateMeanReturnPercent,-1)});
