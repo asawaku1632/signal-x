@@ -253,3 +253,11 @@ test("risk evidence gate remains HOLD despite favorable sample statistics", () =
   assert.ok(result.reasons.some(reason => reason.includes("集中")));
   assert.ok(repeatRiskEvidenceGate(rows,true).reasons.some(reason => reason.includes("打ち切られ")));
 });
+
+test("evidence gate reports pending outcome and cohort completion imbalance", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:-8},{trade_date:"2026-10-23",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:null},{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:1}];
+ const result=repeatRiskEvidenceGate(rows);
+ assert.equal(result.status,"HOLD");
+ assert.ok(result.reasons.some(reason => reason.includes("未確定")));
+ assert.ok(result.reasons.some(reason => reason.includes("完了率")));
+});
