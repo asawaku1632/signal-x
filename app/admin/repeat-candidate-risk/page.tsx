@@ -60,7 +60,8 @@ export default function RepeatCandidateRiskPage() {
   const pairedCoverage = useMemo(() => pairedDayCompletion(verifiedRows), [verifiedRows]);
   const fullyObservedPairedDays = pairedCoverage.filter(day => day.bothComplete).length;
   const fullyObserved = useMemo(() => fullyObservedDayComparison(verifiedRows), [verifiedRows]);
-  const evidenceGate = useMemo(() => repeatRiskEvidenceGate(verifiedRows, Boolean(data?.truncated)), [verifiedRows, data?.truncated]);
+  const discardedOutcomeCount = useMemo(() => (data?.rows || []).reduce((count, row, i) => count + (n(row.return_5d) !== null && n(verifiedRows[i]?.return_5d ?? null) === null ? 1 : 0), 0), [data, verifiedRows]);
+  const evidenceGate = useMemo(() => repeatRiskEvidenceGate(verifiedRows, Boolean(data?.truncated), discardedOutcomeCount), [verifiedRows, data?.truncated, discardedOutcomeCount]);
   const matched = useMemo(() => sameDayComparison(verifiedRows), [verifiedRows]);
   const sameDay = matched.days;
   const sensitivity = useMemo(() => matchedDaySensitivity(verifiedRows), [verifiedRows]);
