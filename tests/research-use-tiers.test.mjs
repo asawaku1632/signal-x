@@ -11,3 +11,7 @@ test("zero price excluded",()=>assert.equal(run([{price:0,nextPrice:100}]).summa
 test("null row handled",()=>assert.equal(run([null]).summary.needsReview,1));
 test("invalid input rejected",()=>assert.throws(()=>run(null),/INVALID_RESEARCH_USE_ROWS/));
 test("categories partition input",()=>{const r=run([base,{}, {...base,sourceLinked:true}]);assert.equal(Object.values(r.summary).reduce((a,b)=>a+b,0),3);});
+
+test("missing next price is review, not silently omitted",()=>assert.equal(run([{price:100,nextPrice:null}]).summary.needsReview,1));
+test("NaN price is review, not silently omitted",()=>assert.equal(run([{price:Number.NaN,nextPrice:101}]).summary.needsReview,1));
+test("production-derived aggregate partition sums",()=>{const x=[58847,11436,1006];assert.equal(x.reduce((a,b)=>a+b,0),71289);});
