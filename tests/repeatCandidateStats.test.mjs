@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion, fullyObservedDayComparison } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion, fullyObservedDayComparison, repeatRiskEvidenceGate } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -243,4 +243,13 @@ test("fully observed matched comparison excludes partially pending dates", () =>
  assert.equal(result.matchedDayCount,1);
  assert.equal(result.dateBalancedGap,-10);
  assert.equal(result.excludedPartialDays,1);
+});
+
+test("risk evidence gate remains HOLD despite favorable sample statistics", () => {
+  const rows=[{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:-10},{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:2}];
+  const result=repeatRiskEvidenceGate(rows);
+  assert.equal(result.status,"HOLD");
+  assert.equal(result.completeDays,1);
+  assert.ok(result.reasons.some(reason => reason.includes("集中")));
+  assert.ok(repeatRiskEvidenceGate(rows,true).reasons.some(reason => reason.includes("打ち切られ")));
 });
