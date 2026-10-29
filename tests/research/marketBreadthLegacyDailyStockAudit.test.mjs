@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditLegacyDailyStockRows as audit} from '../../lib/research/marketBreadthLegacyDailyStockAudit.mjs';
+const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:3000,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-22T09:05:00+09:00'});
+test('valid row remains shadow-only',()=>{const x=audit({rows:[row()]});assert.equal(x.counts.accepted,1);assert.equal(x.aiPromotionAuthorized,false)});
+test('duplicates quarantine entire stock-date group',()=>{const x=audit({rows:[row(),row()]});assert.equal(x.counts.accepted,0);assert.equal(x.counts.duplicateGroups,1)});
+test('different codes remain distinct',()=>{assert.equal(audit({rows:[row(),row('9432')]}).counts.accepted,2)});
+test('invalid stock code excluded',()=>{assert.equal(audit({rows:[row('__FIXTURE__')]}).counts.rejected,1)});
+test('invalid score excluded',()=>{assert.equal(audit({rows:[{...row(),score:101}]}).counts.rejected,1)});
+test('invalid price excluded',()=>{assert.equal(audit({rows:[{...row(),price:0}]}).counts.rejected,1)});
+test('invalid result excluded',()=>{assert.equal(audit({rows:[{...row(),result:'MAYBE'}]}).counts.rejected,1)});
+test('missing created timestamp excluded',()=>{assert.equal(audit({rows:[{...row(),createdAt:null}]}).counts.rejected,1)});
+test('postdated creation is not temporally plausible',()=>{assert.equal(audit({rows:[{...row(),createdAt:'2026-08-23T09:05:00+09:00'}]}).counts.temporallyPlausible,0)});
+test('missing checked timestamp is not temporally plausible',()=>{assert.equal(audit({rows:[{...row(),checkedAt:null}]}).counts.temporallyPlausible,0)});
+test('empty dataset is safe',()=>{assert.equal(audit().counts.accepted,0)});
+test('non-array dataset fails closed',()=>{assert.throws(()=>audit({rows:{}}),/INVALID_LEGACY_ROWS/)});
