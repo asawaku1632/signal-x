@@ -142,7 +142,7 @@ export function excludeUnverifiedDatedOutcomes<T extends OutcomeDatedRecord>(row
     const outcome = validOutcome(row.return_5d);
     if (outcome === null) return row;
     const date = row.outcome_5d_date?.trim() ?? "";
-    const validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(date)
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
       && date >= row.trade_date
       && !Number.isNaN(Date.parse(date + "T00:00:00Z"))
       && new Date(date + "T00:00:00Z").toISOString().slice(0, 10) === date;
