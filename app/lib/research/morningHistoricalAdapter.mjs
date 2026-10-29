@@ -12,6 +12,10 @@ export function adaptHistoricalMorning(input){
      !Array.isArray(bars)||typeof source!=="string"||!source.trim()||licenseVerified!==true||
      timestampSemantics!=="BAR_START"||exchangeTimezone!=="Asia/Tokyo")
     return {valid:false,reason:"UNVERIFIED_SOURCE_OR_METADATA"};
+  // A complete intraday outcome must not be reconstructed from daily
+  // indicator snapshots or another bar interval.
+  if(intervalMinutes!==5||input?.timeframe==="1D"||input?.timeframe==="DAILY")
+    return {valid:false,reason:"NOT_FIVE_MINUTE_INTRADAY_BARS"};
   const converted=[];
   for(const b of bars){
     if(!Number.isInteger(b?.time)||b.time<=0)return {valid:false,reason:"INVALID_TIMESTAMP"};
