@@ -32,3 +32,19 @@ export function assessMorningResearchReadiness(inventory){
     note:"Counts must come from independently audited exports; database snapshot counts are not five-minute OHLCV evidence."
   });
 }
+
+/** Bridge a supplied offline audit to readiness without elevating source assertions.
+ * Only an independent, external provenance review may populate verified counts.
+ */
+export function readinessFromMorningAudit(report,{priorFeatureRows=0,fiveMinuteBarStockDays=0,provenanceVerifiedStockDays=0}={}){
+  if(!report||report.version!=="VERIFIED_MORNING_EXPORT_AUDIT_V1"||
+     !Number.isSafeInteger(report.accepted)||report.accepted<0||
+     !Number.isSafeInteger(report.inputCount)||report.inputCount<report.accepted)
+    throw Error("INVALID_MORNING_AUDIT_REPORT");
+  // An accepted adapter row is not independently verified source evidence.
+  // No implicit upgrade to a verified join, even when supplied exports pass adapter checks.
+  return assessMorningResearchReadiness({
+    priorFeatureRows,fiveMinuteBarStockDays,provenanceVerifiedStockDays,
+    joinedStockDays:0,forwardEvaluatedStockDays:0
+  });
+}
