@@ -49,3 +49,13 @@ test("daily candidates need stock identity and observation date",()=>{
   assert.ok(row.reasons.includes("MISSING_STOCK_CODE"));
   assert.ok(row.reasons.includes("MISSING_OBSERVATION_DATE"));
 });
+
+test("daily observation date must agree with bar end in Tokyo",()=>{
+  const base={timeframe:"1D",code:"590A",close:100,
+    bar_end_at:"2026-10-28T15:30:00+09:00"};
+  const good=classify({...base,observation_date:"2026-10-28"});
+  assert.equal(good.dailyIndicatorCandidate,true);
+  const wrong=classify({...base,observation_date:"2026-10-27"});
+  assert.equal(wrong.dailyIndicatorCandidate,false);
+  assert.ok(wrong.reasons.includes("BAR_END_DATE_MISMATCH"));
+});
