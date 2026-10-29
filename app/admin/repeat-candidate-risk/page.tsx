@@ -81,9 +81,9 @@ export default function RepeatCandidateRiskPage() {
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
   }, [verifiedRows]);
-  const pendingByDate = useMemo(() => outcomeCoverageByDate(verifiedRows.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5)), [verifiedRows]);
+  const pendingByDate = useMemo(() => outcomeCoverageByDate(verifiedRows.filter(r => r.previous_candidate_drop_over_5pct)), [verifiedRows]);
   const rows = useMemo(() => verifiedRows.filter(r =>
-    (!onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5) &&
+    (!onlyDrop || r.previous_candidate_drop_over_5pct) &&
     (!showPendingOnly || n(r.return_5d) == null)), [verifiedRows, onlyDrop, showPendingOnly]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
     <div className="mx-auto max-w-3xl space-y-4 rounded-2xl bg-white p-4">
