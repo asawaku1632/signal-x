@@ -20,7 +20,7 @@ SELECT trade_date::text AS trade_date, code, name, ai_power, entry_price,
   return_5d, outcome_5d_date::text AS outcome_5d_date, captured_at,
   candidate_number, previous_candidate_date::text AS previous_candidate_date,
   previous_candidate_price,
-  ROUND(100 * (entry_price - previous_candidate_price) / NULLIF(previous_candidate_price, 0), 3)
+  ROUND(100 * (entry_price - previous_candidate_price) / NULLIF(previous_candidate_price, 0), 6)
     AS previous_candidate_change_pct
 FROM candidate_history
 WHERE candidate_number > 1 AND previous_candidate_price > 0 AND ai_power >= 90
