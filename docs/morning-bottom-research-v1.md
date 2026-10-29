@@ -286,3 +286,7 @@ A separate production SELECT grouped all 71,289 saved daily rows by `left(date,7
 ## Stored score >=85 by month (2026-10-29, read-only)
 
 June: 67/1,427 (4.70%); July: 3,719/15,383 (24.18%); August: 5,127/16,308 (31.44%); September: 3,584/20,060 (17.87%); October: 1,563/18,111 (8.63%). This is a descriptive saved-score distribution, not a proof of changing market or model accuracy. Scoring definitions may differ by date. Added `savedScoreDrift.mjs` and 9 regression tests; research CI run #171 passed. No live signal changes.
+
+## Month-by-month same-date prior-saved-score comparison (2026-10-29, read-only)
+
+A retrospective SQL comparison of stored **previous** score >=85 versus <85, requiring at least 10 observations per cohort per date and equal weighting of eligible dates, found: June 1 comparable day / -0.1737 percentage points / high group won 0; July 11 days / -0.1140 pp / won 6; August 17 days / -0.1001 pp / won 7; September 21 days / -0.0096 pp / won 10; October 18 days / +0.3138 pp / won 11. These results used the full price-paired daily population, unlike the narrower reference-only subset; no prior-score availability timestamp or execution-price provenance was authenticated. October's positive average does not imply a stable predictive edge, given small date counts, month-dependent score distributions and prior retrospective testing. Added pure offline `monthlyPriorScoreComparison.mjs`, 11 regression tests, and CI coverage. This is NOT a prospective test or notification criterion.
