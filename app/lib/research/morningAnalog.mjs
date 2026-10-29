@@ -10,7 +10,7 @@ const round = x => Number(x.toFixed(4));
 const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
 const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
 const validDate = x => {
-  if(typeof x!=="string"||!/^\\d{4}-\\d{2}-\\d{2}$/.test(x))return false;
+  if(typeof x!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(x))return false;
   const [y,m,d]=x.split("-").map(Number);
   const t=new Date(Date.UTC(y,m-1,d));
   return t.getUTCFullYear()===y&&t.getUTCMonth()===m-1&&t.getUTCDate()===d;
