@@ -110,3 +110,16 @@ test("conflicting full-bar exports are not counted as a qualifying sharp-drop st
   assert.equal(report.sourceCoverage.patternDistinctMonths,0);
   assert.equal(report.excluded.conflict,1);
 });
+
+test("coverage separates conflicting full-bar stock-days from usable observations",()=>{
+  const conflict={...input,bars:bars.map((bar,i)=>({...bar,low:i===8?85:bar.low}))};
+  const other={...input,code:"1234"};
+  const report=aggregateHistoricalMorning([input,conflict,other],{minSamples:1,dropThresholdPct:2});
+  assert.equal(report.sourceCoverage.received,3);
+  assert.equal(report.sourceCoverage.completeUniqueStockDays,2);
+  assert.equal(report.sourceCoverage.conflictingCompleteStockDays,1);
+  assert.equal(report.sourceCoverage.conflictFreeCompleteStockDays,1);
+  assert.equal(report.sourceCoverage.patternEligibleStockDays,1);
+  assert.equal(report.excluded.conflict,1);
+  assert.equal(report.sourceCoverage.readyForLiveUse,false);
+});
