@@ -297,3 +297,8 @@ test("weekday audit does not normalize impossible calendar dates", () => {
  const rows=[{trade_date:"2026-10-19",outcome_5d_date:"2026-02-30",return_5d:-2},{trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:1}];
  assert.deepEqual(weekdayGapAudit(rows),{assessed:1,weekdayMismatch:0,insufficientCalendarEvidence:1});
 });
+
+test("exact cohort flag remains valid when rounded change is absent", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:true,return_5d:-2},{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:false,return_5d:0}];
+ assert.equal(sameDayComparison(rows).dateBalancedGap,-2);
+});
