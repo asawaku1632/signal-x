@@ -302,3 +302,16 @@ test("exact cohort flag remains valid when rounded change is absent", () => {
  const rows=[{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:true,return_5d:-2},{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:false,return_5d:0}];
  assert.equal(sameDayComparison(rows).dateBalancedGap,-2);
 });
+
+test("impossible loss below minus 100 percent is excluded without touching raw evidence", () => {
+ const rows=[
+  {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:-101},
+  {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:-100},
+  {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:128.0405}
+ ];
+ const cleaned=excludeUnverifiedDatedOutcomes(rows);
+ assert.equal(cleaned[0].return_5d,null);
+ assert.equal(rows[0].return_5d,-101);
+ assert.equal(summarizeGroup(cleaned).checked,2);
+ assert.equal(summarizeGroup(cleaned).average,14.020249999999997);
+});
