@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {auditLegacyOutcomeReadiness as audit} from '../../lib/research/marketBreadthLegacyOutcomeReadiness.mjs';
-const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:1000,nextPrice:1020,changePercent:2,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-28T15:30:00+09:00'});
+const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:1000,nextPrice:1020,changePercent:2,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-28T15:30:00+09:00',evaluatedTradeDate:'2026-08-28',horizon:5,horizonUnit:'TRADING_DAY'});
 const check=(name,mutate,reason)=>test(name,()=>{const x=audit({rows:[mutate(row())]});assert.equal(x.counts.accepted,0);assert.ok(x.quarantined.some(q=>q.reasons?.includes(reason)))});
 test('valid sample remains research only',()=>{const x=audit({rows:[row()]});assert.equal(x.counts.accepted,1);assert.equal(x.aiPromotionAuthorized,false)});
 test('duplicate stock-date quarantines both',()=>{const x=audit({rows:[row(),row()]});assert.equal(x.counts.accepted,0);assert.equal(x.counts.quarantined,1)});
@@ -22,4 +22,9 @@ test('non-array input rejected',()=>{assert.throws(()=>audit({rows:{}}),/INVALID
 test('empty input has no fabricated performance',()=>{assert.equal(audit().counts.accepted,0)});
 test('UTC timestamp mapped to Tokyo date',()=>{assert.equal(audit({rows:[{...row(),createdAt:'2026-08-21T00:05:00Z'}]}).counts.accepted,1)});
 test('one date two stocks has one independent date',()=>{const x=audit({rows:[row(),row('9432')]});assert.equal(x.counts.distinctDates,1);assert.equal(x.counts.distinctCodes,2)});
-test('same stock on two dates remains separate',()=>{const x=audit({rows:[row(),{...row(),date:'2026-08-28',createdAt:'2026-08-28T09:05:00+09:00',checkedAt:'2026-09-04T15:30:00+09:00'}]});assert.equal(x.counts.accepted,2);assert.equal(x.counts.distinctDates,2)});
+test('same stock on two dates remains separate',()=>{const x=audit({rows:[row(),{...row(),date:'2026-08-28',createdAt:'2026-08-28T09:05:00+09:00',checkedAt:'2026-09-04T15:30:00+09:00',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.counts.accepted,2);assert.equal(x.counts.distinctDates,2)});
+
+check('missing future trade date',r=>({...r,evaluatedTradeDate:null}),'MISSING_EVALUATED_TRADE_DATE');
+check('future trade date before signal',r=>({...r,evaluatedTradeDate:'2026-08-20'}),'MISSING_EVALUATED_TRADE_DATE');
+check('calendar-day outcome cannot pass as trading-session outcome',r=>({...r,horizonUnit:'CALENDAR_DAY'}),'UNATTESTED_FIVE_SESSION_HORIZON');
+check('one-session outcome cannot pass as five-session outcome',r=>({...r,horizon:1}),'UNATTESTED_FIVE_SESSION_HORIZON');
