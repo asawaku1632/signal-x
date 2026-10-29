@@ -62,7 +62,9 @@ test("stored shadow research run summaries cannot masquerade as complete intrada
 test("complete morning bars are distinct from opening-drop cohort eligibility",()=>{
   const flatBars=bars.map((b,i)=>({...b,low:98,high:101}));
   const mild={...input,code:"1234",bars:flatBars};
-  const stats=aggregateHistoricalMorning([input,mild],{minSamples:1,dropThresholdPct:3});
+  // The base fixture bottoms at 09:40, outside the 09:00–09:30 sharp-drop gate.
+  const earlyDrop={...input,bars:bars.map((bar,i)=>({...bar,low:i===3?90:98}))};
+  const stats=aggregateHistoricalMorning([earlyDrop,mild],{minSamples:1,dropThresholdPct:3});
   assert.equal(stats.sourceCoverage.received,2);
   assert.equal(stats.sourceCoverage.structurallyValid,2);
   assert.equal(stats.sourceCoverage.patternEligibleStockDays,1);
