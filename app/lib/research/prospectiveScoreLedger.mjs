@@ -7,7 +7,7 @@ const FREEZE="2026-10-29";
 const date=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&!Number.isNaN(Date.parse(x+"T00:00:00Z"))&&new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
 const instant=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(x)&&Number.isFinite(Date.parse(x));
 const finite=x=>typeof x==="number"&&Number.isFinite(x);
-const strictInstant=x=>instant(x)&&new Date(Date.parse(x)).toISOString()===new Date(x).toISOString();
+const strictInstant=x=>{if(!instant(x))return false;const m=/^(\d{4}-\d\d-\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(Z|[+-](\d\d):(\d\d))$/.exec(x);return !!m&&date(m[1])&&Number(m[2])<24&&Number(m[3])<60&&Number(m[4])<60&&(!m[6]||(Number(m[6])<=23&&Number(m[7])<60));};
 const mean=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
 const rounded=x=>x===null?null:Number(x.toFixed(4));
 export function auditProspectiveScoreLedger(rows){
