@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast, pairedDayCompletion } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -226,4 +226,13 @@ test("cohort outcome completion exposes missingness imbalance", () => {
   assert.equal(result.other.completionRate,100);
   assert.equal(result.completionGapPoints,-50);
   assert.equal(cohortCoverageContrast([]).completionGapPoints,null);
+});
+
+test("paired-day completion distinguishes partial from fully observed dates", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:-3},{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:null},{trade_date:"2026-10-22",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:1},{trade_date:"2026-10-22",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:2}];
+ const result=pairedDayCompletion(rows);
+ assert.equal(result.length,2);
+ assert.equal(result[0].bothComplete,true);
+ assert.equal(result[1].bothComplete,false);
+ assert.equal(result[1].other.pending,1);
 });
