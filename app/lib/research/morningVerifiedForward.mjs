@@ -6,15 +6,12 @@ import {adaptHistoricalMorning} from "./morningHistoricalAdapter.mjs";
 import {auditMorningAnalogsChronologically} from "./morningAnalog.mjs";
 const codePattern=/^(?:\d{4}|\d{3}[A-Z])$/;
 const validStamp=value=>{
-  if(typeof value!=="string"||
-     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)||
-     !Number.isFinite(Date.parse(value)))return false;
-  // Date.parse normalizes impossible dates (e.g. February 30) on some runtimes.
-  const [year,month,day,hour,minute,second]=value.slice(0,19).match(/\d+/g).map(Number);
-  const offset=value.match(/([+-])(\d{2}):(\d{2})$/);
-  if(year<100||hour>23||minute>59||second>59||month<1||month>12||
-     day<1||day>new Date(Date.UTC(year,month,0)).getUTCDate())return false;
-  return !offset||(Number(offset[2])<=23&&Number(offset[3])<=59);
+  if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value))return false;
+  const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(value);
+  const [,y,m,d,h,min,sec]=match.map(Number);
+  if(y<100||m<1||m>12||d<1||h>23||min>59||sec>59)return false;
+  const days=new Date(Date.UTC(y,m,0)).getUTCDate();
+  return d<=days&&Number.isFinite(Date.parse(value));
 };
 const featureKeys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
 export function prepareMorningForwardRows(inputs){
@@ -22,7 +19,16 @@ export function prepareMorningForwardRows(inputs){
   const rows=[],excluded={unverifiedBars:0,missingFeatureProof:0,missingOutcomeProof:0,duplicate:0};
   const grouped=new Map();
   const counts=new Map();
+  const counts=new Map();
   for(const input of inputs){
+    if(codePattern.test(input?.code)&&/^\d{4}-\d{2}-\d{2}$/.test(input?.tradeDate??"")){
+      const key=input.code+"|"+input.tradeDate;
+      counts.set(key,(counts.get(key)??0)+1);
+    }
+  }
+  for(const input of inputs){
+    const rawKey=input?.code+"|"+input?.tradeDate;
+    if((counts.get(rawKey)??0)>1){excluded.duplicate++;continue;}
     if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
        /^\d{4}-\d{2}-\d{2}$/.test(input.tradeDate)){
       const key=input.code+"|"+input.tradeDate;
