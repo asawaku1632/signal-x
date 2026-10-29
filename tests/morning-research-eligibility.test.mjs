@@ -59,3 +59,10 @@ test("daily observation date must agree with bar end in Tokyo",()=>{
   assert.equal(wrong.dailyIndicatorCandidate,false);
   assert.ok(wrong.reasons.includes("BAR_END_DATE_MISMATCH"));
 });
+
+test("four-digit stock codes remain eligible when all daily fields are valid",()=>{
+  const row=classify({timeframe:"1D",code:"9984",observation_date:"2026-10-28",
+    close:5000,bar_end_at:"2026-10-28T15:30:00+09:00"});
+  assert.equal(row.dailyIndicatorCandidate,true);
+  assert.deepEqual(row.reasons,[]);
+});
