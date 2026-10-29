@@ -313,5 +313,5 @@ test("impossible loss below minus 100 percent is excluded without touching raw e
  assert.equal(cleaned[0].return_5d,null);
  assert.equal(rows[0].return_5d,-101);
  assert.equal(summarizeGroup(cleaned).checked,2);
- assert.equal(summarizeGroup(cleaned).average,14.020249999999997);
+ assert.ok(Math.abs(summarizeGroup(cleaned).average - 14.02025) < 1e-8);
 });
