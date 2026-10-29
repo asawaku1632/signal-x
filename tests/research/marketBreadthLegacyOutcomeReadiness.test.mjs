@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditLegacyOutcomeReadiness as audit} from '../../lib/research/marketBreadthLegacyOutcomeReadiness.mjs';
+const row=(code='9983')=>({date:'2026-08-21',code,score:88,price:1000,nextPrice:1020,changePercent:2,result:'WIN',createdAt:'2026-08-21T09:05:00+09:00',checkedAt:'2026-08-28T15:30:00+09:00',evaluatedTradeDate:'2026-08-28',horizon:5,horizonUnit:'TRADING_DAY',provider:'VERIFIED_FIXTURE',providerTimestamp:'2026-08-28T15:30:00+09:00',originalSignalGeneratedAt:'2026-08-21T09:00:00+09:00'});
+const check=(name,mutate,reason)=>test(name,()=>{const x=audit({rows:[mutate(row())]});assert.equal(x.counts.accepted,0);assert.ok(x.quarantined.some(q=>q.reasons?.includes(reason)))});
+test('valid sample remains research only',()=>{const x=audit({rows:[row()]});assert.equal(x.counts.accepted,1);assert.equal(x.aiPromotionAuthorized,false)});
+test('duplicate stock-date quarantines both',()=>{const x=audit({rows:[row(),row()]});assert.equal(x.counts.accepted,0);assert.equal(x.counts.quarantined,1)});
+test('different stock codes remain independent',()=>{assert.equal(audit({rows:[row(),row('9432')]}).counts.accepted,2)});
+check('wrong save day',r=>({...r,createdAt:'2026-08-22T09:05:00+09:00'}),'SAVED_ON_DIFFERENT_TOKYO_DATE');
+check('missing evaluation timestamp',r=>({...r,checkedAt:null}),'MISSING_OR_INVALID_EVALUATION_TIME');
+check('evaluation before save',r=>({...r,checkedAt:'2026-08-21T08:00:00+09:00'}),'MISSING_OR_INVALID_EVALUATION_TIME');
+check('pending outcome',r=>({...r,result:'UNKNOWN'}),'NOT_FINAL_WIN_LOSE');
+check('hold outcome',r=>({...r,result:'HOLD'}),'NOT_FINAL_WIN_LOSE');
+check('missing future price',r=>({...r,nextPrice:null}),'MISSING_FUTURE_PRICE');
+check('zero future price',r=>({...r,nextPrice:0}),'MISSING_FUTURE_PRICE');
+check('impossible loss',r=>({...r,changePercent:-101}),'INVALID_CHANGE_PERCENT');
+check('inconsistent price and return',r=>({...r,changePercent:7}),'PRICE_RETURN_MISMATCH');
+test('invalid stock code rejected',()=>{assert.equal(audit({rows:[row('__TEST__')]}).counts.rejected,1)});
+test('invalid score rejected',()=>{assert.equal(audit({rows:[{...row(),score:101}]}).counts.rejected,1)});
+test('invalid entry price rejected',()=>{assert.equal(audit({rows:[{...row(),price:0}]}).counts.rejected,1)});
+test('non-array input rejected',()=>{assert.throws(()=>audit({rows:{}}),/INVALID_LEGACY_OUTCOME_INPUT/)});
+test('empty input has no fabricated performance',()=>{assert.equal(audit().counts.accepted,0)});
+test('UTC timestamp mapped to Tokyo date',()=>{assert.equal(audit({rows:[{...row(),createdAt:'2026-08-21T00:05:00Z'}]}).counts.accepted,1)});
+test('one date two stocks has one independent date',()=>{const x=audit({rows:[row(),row('9432')]});assert.equal(x.counts.distinctDates,1);assert.equal(x.counts.distinctCodes,2)});
+test('same stock on two dates remains separate',()=>{const x=audit({rows:[row(),{...row(),date:'2026-08-28',createdAt:'2026-08-28T09:05:00+09:00',checkedAt:'2026-09-04T15:30:00+09:00',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.counts.accepted,2);assert.equal(x.counts.distinctDates,2)});
+
+check('missing future trade date',r=>({...r,evaluatedTradeDate:null}),'MISSING_EVALUATED_TRADE_DATE');
+check('future trade date before signal',r=>({...r,evaluatedTradeDate:'2026-08-20'}),'MISSING_EVALUATED_TRADE_DATE');
+check('calendar-day outcome cannot pass as trading-session outcome',r=>({...r,horizonUnit:'CALENDAR_DAY'}),'UNATTESTED_FIVE_SESSION_HORIZON');
+check('one-session outcome cannot pass as five-session outcome',r=>({...r,horizon:1}),'UNATTESTED_FIVE_SESSION_HORIZON');
+
+check('missing price provider provenance',r=>({...r,provider:null}),'UNVERIFIED_PRICE_PROVENANCE');
+check('missing provider timestamp',r=>({...r,providerTimestamp:null}),'UNVERIFIED_PRICE_PROVENANCE');
+check('missing original signal generation time',r=>({...r,originalSignalGeneratedAt:null}),'MISSING_OR_LATE_ORIGINAL_SIGNAL_TIME');
+check('original signal generated after record save',r=>({...r,originalSignalGeneratedAt:'2026-08-21T10:00:00+09:00'}),'MISSING_OR_LATE_ORIGINAL_SIGNAL_TIME');
+check('outcome checked before its future trade date',r=>({...r,checkedAt:'2026-08-27T15:30:00+09:00'}),'EVALUATION_CHECKED_BEFORE_FUTURE_DATE');

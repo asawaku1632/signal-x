@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {verifyMarketBreadthResearchPair as check} from '../../lib/research/marketBreadthEvidenceGate.mjs';
+const row={tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',signalGeneratedAt:'2026-10-28T09:15:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',outcomeDate:'2026-11-05',horizonTradingDays:5,marketStatus:'INDEX_BREADTH_DIVERGENCE',return5dPct:2};
+const e={signalRecordId:'signal:20261028:641A',marketRecordId:'market:20261028:001',outcomeRecordId:'outcome:20261105:641A',tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',signalProvenanceVerified:true,signalGeneratedAt:row.signalGeneratedAt,marketStatusVerified:true,marketStatus:'INDEX_BREADTH_DIVERGENCE',marketLicenseVerified:true,outcomeLicenseVerified:true,marketProvider:'licensed-market',outcomeProvider:'licensed-outcome',fiveTseSessionsVerified:true,outcomePriceVerified:true,verifiedReturn5dPct:2,outcomeDate:row.outcomeDate};
+test('accepts independently verified research evidence only',()=>{const r=check(row,e);assert.equal(r.eligible,true);assert.equal(r.productionEligible,false)});
+test('rejects absent independent signal evidence',()=>assert.equal(check(row,{...e,signalProvenanceVerified:false}).eligible,false));
+test('rejects mismatched signal timestamp',()=>assert.equal(check(row,{...e,signalGeneratedAt:'2026-10-28T09:16:00+09:00'}).eligible,false));
+test('rejects market license missing',()=>assert.equal(check(row,{...e,marketLicenseVerified:false}).eligible,false));
+test('rejects outcome license missing',()=>assert.equal(check(row,{...e,outcomeLicenseVerified:false}).eligible,false));
+test('rejects unverified trading calendar',()=>assert.equal(check(row,{...e,fiveTseSessionsVerified:false}).eligible,false));
+test('rejects unverified price',()=>assert.equal(check(row,{...e,outcomePriceVerified:false}).eligible,false));
+test('rejects mismatched outcome date',()=>assert.equal(check(row,{...e,outcomeDate:'2026-11-06'}).eligible,false));
+test('rejects market data after signal',()=>assert.equal(check({...row,marketObservedAt:'2026-10-28T09:20:00+09:00'},e).eligible,false));
+test('rejects non-finite return',()=>assert.equal(check({...row,return5dPct:NaN},e).eligible,false));
+test('rejects unknown provider',()=>assert.equal(check(row,{...e,marketProvider:''}).eligible,false));
+test('rejects evidence without independent record ids',()=>assert.equal(check(row,{...e,signalRecordId:null}).reason,'INDEPENDENT_RECORD_IDS_MISSING'));
+test('rejects evidence bound to another security',()=>assert.equal(check(row,{...e,code:'3001'}).reason,'EVIDENCE_ROW_BINDING_MISMATCH'));
+test('rejects evidence with reused source record IDs',()=>assert.equal(check(row,{...e,outcomeRecordId:e.marketRecordId}).reason,'INDEPENDENT_RECORD_IDS_MISSING'));
+test('rejects altered five-day return despite verified flag',()=>assert.equal(check({...row,return5dPct:3},e).reason,'FIVE_DAY_OUTCOME_UNVERIFIED'));
+test('rejects outcome date inconsistent with evaluation timestamp',()=>assert.equal(check({...row,outcomeDate:'2026-11-06'},{...e,outcomeDate:'2026-11-06'}).reason,'TRADE_DATE_TIMESTAMP_MISMATCH'));
+
+test('rejects impossible trade calendar date',()=>assert.equal(check({...row,tradeDate:'2026-02-30'},{...e,tradeDate:'2026-02-30'}).reason,'TRADE_DATE_INVALID'));
+test('rejects impossible outcome calendar date',()=>assert.equal(check({...row,outcomeDate:'2026-11-31'},{...e,outcomeDate:'2026-11-31'}).reason,'TRADE_DATE_INVALID'));
+
+test('rejects impossible signal timestamp day',()=>{const t='2026-02-30T09:15:00+09:00';assert.equal(check({...row,signalGeneratedAt:t},{...e,signalGeneratedAt:t}).reason,'AS_OF_TIME_INVALID')});
+test('rejects invalid market timestamp clock',()=>{const t='2026-10-28T25:00:00+09:00';assert.equal(check({...row,marketObservedAt:t},{...e,marketObservedAt:t}).reason,'AS_OF_TIME_INVALID')});
+test('rejects impossible evaluation timestamp day',()=>{const t='2026-11-31T15:30:00+09:00';assert.equal(check({...row,evaluatedAt:t},{...e,evaluatedAt:t}).reason,'AS_OF_TIME_INVALID')});

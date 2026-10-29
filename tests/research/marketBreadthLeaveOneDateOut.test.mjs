@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reviewMarketBreadthLeaveOneDateOut as review} from '../../lib/research/marketBreadthLeaveOneDateOut.mjs';
+const sessions=['2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-04','2026-11-05','2026-11-06','2026-11-09','2026-11-10','2026-11-11'];
+const row=(code,date,r,b=0)=>({code,tradeDate:date,signalRecordId:'research:'+code+date,baselineRecordId:'baseline:'+code+date,researchReturnPercent:r,baselineReturnPercent:b,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+test('all leave-one-date-out means positive without production promotion',()=>{const x=review({pairs:[row('641A',sessions[0],2),row('590A',sessions[5],3),row('7203',sessions[10],4)],verifiedSessions:sessions,minSelectedDates:2});assert.equal(x.descriptiveLeaveOneDateOutPositive,true);assert.equal(x.aiPromotionAuthorized,false);assert.equal(x.results.CODE_ASC.omitted.length,3)});
+test('one dominant positive date fails robustness after omission',()=>{const x=review({pairs:[row('641A',sessions[0],-2),row('590A',sessions[5],-1),row('7203',sessions[10],20)],verifiedSessions:sessions,minSelectedDates:2});assert.equal(x.descriptiveLeaveOneDateOutPositive,false)});
+test('insufficient dates do not qualify',()=>{const x=review({pairs:[row('641A',sessions[0],5)],verifiedSessions:sessions,minSelectedDates:2});assert.equal(x.descriptiveLeaveOneDateOutPositive,false)});
+test('empty sample never qualifies',()=>{const x=review({pairs:[],verifiedSessions:sessions,minSelectedDates:2});assert.equal(x.descriptiveLeaveOneDateOutPositive,false)});
+test('minimum dates must be at least two',()=>{assert.throws(()=>review({verifiedSessions:sessions,minSelectedDates:1}),/INVALID_MIN_SELECTED_DATES/)});

@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reconcileMarketBreadthEvidence as reconcile} from '../../lib/research/marketBreadthEvidenceReconciliation.mjs';
+const buckets=[{source:'BB',tradeDate:'2026-08-10',eventCount:2,verifiedOutcomeCount:0}];
+const receipt=(id)=>({source:'BB',tradeDate:'2026-08-10',eventId:'event'+id,outcomeId:'outcome'+id,horizonSessions:5,originalSignalTimestampVerified:true,outcomePriceIndependentlyVerified:true,providerRightsVerified:true});
+test('unverified receipts are rejected',()=>{const x=reconcile({buckets,receipts:[{...receipt(1),providerRightsVerified:false}]});assert.equal(x.acceptedReceipts,0);assert.equal(x.aiPromotionAuthorized,false)});
+test('duplicate receipt cannot double-count evidence',()=>{const x=reconcile({buckets,receipts:[receipt(1),receipt(1)]});assert.equal(x.acceptedReceipts,1);assert.equal(x.rejectedReceipts,1)});
+test('more receipts than events are rejected',()=>{const x=reconcile({buckets,receipts:[receipt(1),receipt(2),receipt(3)]});assert.equal(x.acceptedReceipts,2);assert.equal(x.rejectedReceipts,1)});
+test('unknown trade date rejected',()=>{const x=reconcile({buckets,receipts:[{...receipt(1),tradeDate:'2026-08-11'}]});assert.equal(x.rejected[0].reason,'NO_EVENT_BUCKET')});
+test('empty evidence does not qualify',()=>{const x=reconcile({buckets,receipts:[]});assert.equal(x.eligibleForExternalAudit,false);assert.equal(x.independentImprovementVerified,false)});

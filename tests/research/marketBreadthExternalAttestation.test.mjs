@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,createHash,sign} from 'node:crypto';
+import {verifyMarketBreadthExternalAttestation as verify} from '../../lib/research/marketBreadthExternalAttestation.mjs';
+const {publicKey,privateKey}=generateKeyPairSync('ed25519');
+const pem=publicKey.export({type:'spki',format:'pem'});
+const fingerprint=createHash('sha256').update(publicKey.export({type:'spki',format:'der'})).digest('hex');
+const evidenceHash='a'.repeat(64);
+const signature=sign(null,Buffer.from(evidenceHash),privateKey).toString('base64');
+const args={attestation:{evidenceHash,signature},trustedPublicKeyPem:pem,trustedKeyFingerprint:fingerprint};
+test('valid signature is cryptographically valid but not independently trusted',()=>{const x=verify(args);assert.equal(x.signatureValid,true);assert.equal(x.independentlyTrusted,false);assert.equal(x.productionEligible,false)});
+test('tampered hash is rejected',()=>{const x=verify({...args,attestation:{evidenceHash:'b'.repeat(64),signature}});assert.equal(x.signatureValid,false);assert.equal(x.reason,'ATTESTATION_SIGNATURE_MISMATCH')});
+test('untrusted auditor fingerprint is rejected',()=>{const x=verify({...args,trustedKeyFingerprint:'0'.repeat(64)});assert.equal(x.reason,'AUDITOR_KEY_NOT_TRUSTED')});
+test('invalid signature is rejected',()=>{const x=verify({...args,attestation:{evidenceHash,signature:'AA=='}});assert.equal(x.reason,'INVALID_ATTESTATION_SIGNATURE')});
+test('missing attestation fails closed',()=>{const x=verify({});assert.equal(x.signatureValid,false);assert.equal(x.productionEligible,false)});

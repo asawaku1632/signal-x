@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateMarketBreadthCaptureEnvelope as check} from '../../lib/research/marketBreadthCaptureEnvelope.mjs';
+const valid={schemaVersion:'market-breadth-capture-envelope-v1',signalRecordId:'signal:20261028:641A',snapshotRecordId:'snapshot:20261028:001',sourceRecordId:'source:20261028:641A',code:'641A',tradeDate:'2026-10-28',barEndAt:'2026-10-28T09:00:00+09:00',sourceObservedAt:'2026-10-28T09:01:00+09:00',signalGeneratedAt:'2026-10-28T09:05:00+09:00',snapshotUpdatedAt:'2026-10-28T09:06:00+09:00',recordedAt:'2026-10-28T09:07:00+09:00',signalGeneratedAtOrigin:'INDEPENDENT_GENERATOR_RECORD',originalRecordVerified:true,providerRightsVerified:true,provider:'licensed-source',licenseRecordId:'license:verified:01',snapshotHash:'a'.repeat(64)};
+test('verified prospective envelope remains research-only',()=>{const x=check(valid);assert.equal(x.accepted,true);assert.equal(x.productionEligible,false)});
+test('backfilled insertion timestamp cannot masquerade as generation proof',()=>{const x=check({...valid,signalGeneratedAtOrigin:'DATABASE_INSERT_TIME'});assert.equal(x.reason,'INDEPENDENT_SIGNAL_PROOF_MISSING')});
+test('future market information cannot leak into earlier signal',()=>{const x=check({...valid,sourceObservedAt:'2026-10-28T09:08:00+09:00'});assert.equal(x.reason,'AS_OF_CHRONOLOGY_INVALID')});
+test('unlicensed source is rejected',()=>{const x=check({...valid,providerRightsVerified:false});assert.equal(x.reason,'PROVIDER_RIGHTS_UNVERIFIED')});
+test('tampered snapshot fingerprint is rejected',()=>{const x=check({...valid,snapshotHash:'not-a-hash'});assert.equal(x.reason,'SNAPSHOT_HASH_MISSING')});
+test('cross-date signal is rejected',()=>{const x=check({...valid,tradeDate:'2026-10-27'});assert.equal(x.reason,'TRADE_DATE_MISMATCH')});
+test('same evidence ID cannot serve multiple origins',()=>{const x=check({...valid,sourceRecordId:valid.signalRecordId});assert.equal(x.reason,'SOURCE_IDS_MISSING')});
+
+test('invalid dates and clock fields fail closed',()=>{
+ for(const bad of ['2026-02-30T09:00:00+09:00','2026-10-28T25:00:00+09:00','2026-10-28T09:61:00+09:00','2026-10-28T09:00:00+25:00','2026-10-28T09:00:00+09:99']){
+  assert.equal(check({...valid,sourceObservedAt:bad}).reason,'TIMESTAMPS_MISSING',bad);
+ }
+});

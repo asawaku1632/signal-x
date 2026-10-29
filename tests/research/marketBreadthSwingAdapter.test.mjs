@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {adaptSwingUniverseFiveDay} from '../../lib/research/marketBreadthSwingAdapter.mjs';
+const row={trade_date:'2026-10-28',code:'3001',captured_at:'2026-10-28T09:15:00+09:00',outcome_5d_date:'2026-11-05',return_5d:'1.25',rule_version:'ai_power_only_v1'};
+const verified=()=>({verified:true,exactlyFiveTseSessions:true,licensedPriceSource:true,evaluatedAt:'2026-11-05T15:30:00+09:00'});
+test('accepts verified source row',()=>assert.equal(adaptSwingUniverseFiveDay([row],verified).accepted[0].return5dPct,1.25));
+test('rejects without verification',()=>assert.equal(adaptSwingUniverseFiveDay([row],()=>({})).accepted.length,0));
+test('rejects wrong version',()=>assert.equal(adaptSwingUniverseFiveDay([{...row,rule_version:'other'}],verified).accepted.length,0));
+test('rejects missing outcome',()=>assert.equal(adaptSwingUniverseFiveDay([{...row,return_5d:null}],verified).accepted.length,0));
+test('requires verifier',()=>assert.throws(()=>adaptSwingUniverseFiveDay([row]),/INDEPENDENT_VERIFIER_REQUIRED/));

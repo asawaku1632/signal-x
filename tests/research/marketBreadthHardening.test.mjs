@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {classifyMarketBreadth} from '../../lib/research/marketBreadthShadow.mjs';
+import {compareBreadthForward} from '../../lib/research/marketBreadthForward.mjs';
+import {adaptSwingUniverseFiveDay} from '../../lib/research/marketBreadthSwingAdapter.mjs';
+const m={tradeDate:'2026-10-28',observedAt:'2026-10-28T11:30:00+09:00',source:'licensed',licenseVerified:true,nikkeiChangePct:1.5,topixChangePct:-0.02,advancers:491,decliners:1028,unchanged:34};
+const o={tradeDate:'2026-10-28',code:'3001',signalGeneratedAt:'2026-10-28T12:00:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',return5dPct:2,horizonTradingDays:5,outcomeVerified:true};
+test('third duplicate remains quarantined',()=>assert.equal(compareBreadthForward([m,m,m],[o]).rejected,1));
+test('JST calendar matches a UTC observation',()=>assert.equal(classifyMarketBreadth({...m,observedAt:'2026-10-28T02:30:00Z'}).status,'INDEX_BREADTH_DIVERGENCE'));
+test('non-string timestamp fails closed',()=>assert.equal(classifyMarketBreadth({...m,observedAt:1793179800000}).status,'UNAVAILABLE'));
+test('timezone-free timestamp fails closed',()=>assert.equal(classifyMarketBreadth({...m,observedAt:'2026-10-28T11:30:00'}).status,'UNAVAILABLE'));
+test('malformed timezone-free signal rejected',()=>assert.equal(compareBreadthForward([m],[{...o,signalGeneratedAt:'2026-10-28T12:00:00'}]).rejected,1));
+test('future market snapshot rejected as lookahead',()=>assert.equal(compareBreadthForward([m],[{...o,signalGeneratedAt:'2026-10-28T10:00:00+09:00'}]).rejected,1));
+test('unlicensed source excluded',()=>assert.equal(compareBreadthForward([{...m,licenseVerified:false}],[o]).rejected,1));
+test('empty string return rejected',()=>assert.equal(adaptSwingUniverseFiveDay([{trade_date:'2026-10-28',code:'3001',captured_at:o.signalGeneratedAt,outcome_5d_date:'2026-11-05',return_5d:'',rule_version:'ai_power_only_v1'}],()=>({verified:true,exactlyFiveTseSessions:true,licensedPriceSource:true,evaluatedAt:o.evaluatedAt})).accepted.length,0));
+test('no verifier is not allowed',()=>assert.throws(()=>adaptSwingUniverseFiveDay([]),/INDEPENDENT_VERIFIER_REQUIRED/));

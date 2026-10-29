@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {linkMarketBreadthForwardOutcome as link} from '../../lib/research/marketBreadthForwardLink.mjs';
+const captureReceipt={accepted:true,receiptVersion:'market-breadth-capture-receipt-v1',productionEligible:false,signalRecordId:'signal:20261028:641A',code:'641A',tradeDate:'2026-10-28',signalGeneratedAt:'2026-10-28T09:15:00+09:00'};
+const row={tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',signalGeneratedAt:captureReceipt.signalGeneratedAt,evaluatedAt:'2026-11-05T15:30:00+09:00',outcomeDate:'2026-11-05',horizonTradingDays:5,marketStatus:'INDEX_BREADTH_DIVERGENCE',return5dPct:2};
+const evidence={signalRecordId:captureReceipt.signalRecordId,marketRecordId:'market:20261028:001',outcomeRecordId:'outcome:20261105:641A',tradeDate:row.tradeDate,code:row.code,marketObservedAt:row.marketObservedAt,evaluatedAt:row.evaluatedAt,signalProvenanceVerified:true,signalGeneratedAt:row.signalGeneratedAt,marketStatusVerified:true,marketStatus:row.marketStatus,marketLicenseVerified:true,outcomeLicenseVerified:true,marketProvider:'licensed-market',outcomeProvider:'licensed-outcome',fiveTseSessionsVerified:true,outcomePriceVerified:true,verifiedReturn5dPct:2,outcomeDate:row.outcomeDate};
+const args={captureReceipt,row,evidence};
+test('fully attested fixture can be linked for research only',()=>{const x=link(args);assert.equal(x.linked,true);assert.equal(x.productionEligible,false);assert.equal(x.notificationEligible,false)});
+test('missing independent capture receipt blocks',()=>{assert.equal(link({...args,captureReceipt:null}).reason,'CAPTURE_RECEIPT_UNVERIFIED')});
+test('forged capture record ID blocks',()=>{assert.equal(link({...args,captureReceipt:{...captureReceipt,signalRecordId:'signal:forged:641A'}}).reason,'CAPTURE_OUTCOME_BINDING_MISMATCH')});
+test('different stock or signal time blocks',()=>{assert.equal(link({...args,row:{...row,code:'590A'}}).reason,'CAPTURE_OUTCOME_BINDING_MISMATCH');assert.equal(link({...args,row:{...row,signalGeneratedAt:'2026-10-28T09:16:00+09:00'}}).reason,'CAPTURE_OUTCOME_BINDING_MISMATCH')});
+test('unverified signal attestation blocks',()=>{assert.equal(link({...args,evidence:{...evidence,signalProvenanceVerified:false}}).reason,'INDEPENDENT_SIGNAL_ATTESTATION_MISSING')});
+test('missing provider license blocks',()=>{assert.equal(link({...args,evidence:{...evidence,outcomeLicenseVerified:false}}).reason,'PROVIDER_RIGHTS_UNVERIFIED')});
+test('missing five-session proof blocks',()=>{assert.equal(link({...args,evidence:{...evidence,fiveTseSessionsVerified:false}}).reason,'FIVE_DAY_OUTCOME_UNVERIFIED')});
+test('missing outcome evidence blocks',()=>{assert.equal(link({...args,evidence:null}).reason,'OUTCOME_EVIDENCE_MISSING')});

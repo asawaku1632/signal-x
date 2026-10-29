@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditMarketBreadthEvidence as audit} from '../../lib/research/marketBreadthEvidenceAudit.mjs';
+const row={tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',signalGeneratedAt:'2026-10-28T09:15:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',outcomeDate:'2026-11-05',horizonTradingDays:5,marketStatus:'INDEX_BREADTH_DIVERGENCE',return5dPct:2};
+const evidence={signalRecordId:'signal:20261028:641A',marketRecordId:'market:20261028:001',outcomeRecordId:'outcome:20261105:641A',tradeDate:'2026-10-28',code:'641A',marketObservedAt:'2026-10-28T09:00:00+09:00',evaluatedAt:'2026-11-05T15:30:00+09:00',signalProvenanceVerified:true,signalGeneratedAt:row.signalGeneratedAt,marketStatusVerified:true,marketStatus:'INDEX_BREADTH_DIVERGENCE',marketLicenseVerified:true,outcomeLicenseVerified:true,marketProvider:'licensed-market',outcomeProvider:'licensed-outcome',fiveTseSessionsVerified:true,outcomePriceVerified:true,verifiedReturn5dPct:2,outcomeDate:row.outcomeDate};
+test('audits independently verified research without production promotion',()=>{const r=audit([row],()=>evidence);assert.equal(r.acceptedCount,1);assert.equal(r.productionEligible,false)});
+test('missing provenance is rejected with reason',()=>{const r=audit([row],()=>({...evidence,signalProvenanceVerified:false}));assert.equal(r.rejectionCounts.SIGNAL_PROVENANCE_UNVERIFIED,1)});
+test('duplicate research pair is permanently quarantined',()=>{const r=audit([row,row,row],()=>evidence);assert.equal(r.acceptedCount,0);assert.equal(r.rejectionCounts.DUPLICATE_RESEARCH_PAIR,3)});
+test('resolver errors fail closed',()=>assert.equal(audit([row],()=>{throw Error('provider unavailable')}).rejectionCounts.EVIDENCE_LOOKUP_FAILED,1));
+test('resolver must be explicitly provided',()=>assert.throws(()=>audit([row]),/EVIDENCE_RESOLVER_REQUIRED/));
+test('empty research returns zero and never promotes',()=>{const r=audit([],()=>evidence);assert.equal(r.total,0);assert.equal(r.productionEligible,false)});
+test('unlicensed source is rejected',()=>assert.equal(audit([row],()=>({...evidence,outcomeLicenseVerified:false})).acceptedCount,0));
+
+test('different signal times on same security and date are both quarantined',()=>{const other={...row,signalGeneratedAt:'2026-10-28T09:16:00+09:00'};const a=audit([row,other],()=>evidence);assert.equal(a.acceptedCount,0);assert.equal(a.rejectionCounts.DUPLICATE_RESEARCH_PAIR,2)});
+test('different security codes are not treated as duplicates',()=>{const other={...row,code:'3001'};const a=audit([row,other],r=>({...evidence,code:r.code,signalRecordId:'signal:'+r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(a.acceptedCount,2)});
+
+test('reused signal source evidence across distinct securities is quarantined',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,0);assert.equal(result.rejectionCounts.REUSED_SOURCE_EVIDENCE,2)});
+test('distinct signal and outcome evidence can validate separate securities',()=>{const second={...row,code:'3001'};const result=audit([row,second],r=>({...evidence,code:r.code,signalRecordId:'signal:'+r.code,outcomeRecordId:'outcome:'+r.code}));assert.equal(result.acceptedCount,2)});
+
+test('accepted provenance lists only verified source record identifiers',()=>{const result=audit([row],()=>evidence);assert.equal(result.provenance.length,1);assert.equal(result.provenance[0].signalRecordId,evidence.signalRecordId);assert.equal(result.provenance[0].outcomeRecordId,evidence.outcomeRecordId);assert.equal(result.provenance[0].ruleVersion,'market-breadth-pair-evidence-v1')});
+test('rejected rows do not appear in provenance',()=>{const result=audit([row],()=>({...evidence,marketLicenseVerified:false}));assert.deepEqual(result.provenance,[])});

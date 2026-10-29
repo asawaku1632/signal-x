@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {reviewMarketBreadthOutOfSample as review} from '../../lib/research/marketBreadthOutOfSampleReview.mjs';
+const row=(id,date,ret)=>({signalRecordId:id,tradeDate:date,fiveSessionReturnPercent:ret,independentlyAudited:true});
+const split={trainingEndDate:'2026-09-30',holdoutStartDate:'2026-10-10',minHoldoutSignals:1,minHoldoutDates:1};
+test('chronological split never authorizes promotion',()=>{const x=review({...split,observations:[row('train','2026-09-20',5),row('test','2026-10-20',2)]});assert.equal(x.training.counts.valid,1);assert.equal(x.holdout.counts.valid,1);assert.equal(x.outOfSampleSampleReady,true);assert.equal(x.aiPromotionAuthorized,false)});
+test('embargo observations excluded from both periods',()=>{const x=review({...split,observations:[row('gap','2026-10-05',5)]});assert.equal(x.split.embargoedCount,1);assert.equal(x.holdout.counts.valid,0)});
+test('duplicate ID across split is quarantined',()=>{const x=review({...split,observations:[row('same','2026-09-20',5),row('same','2026-10-20',10)]});assert.equal(x.training.counts.valid,0);assert.equal(x.holdout.counts.valid,0)});
+test('unverified holdout outcome is not counted',()=>{const x=review({...split,observations:[{...row('a','2026-10-20',10),independentlyAudited:false}]});assert.equal(x.holdout.counts.valid,0);assert.equal(x.outOfSampleSampleReady,false)});
+test('invalid chronological split fails',()=>{assert.throws(()=>review({trainingEndDate:'2026-10-20',holdoutStartDate:'2026-10-10'}),/INVALID_CHRONOLOGICAL_SPLIT/)});

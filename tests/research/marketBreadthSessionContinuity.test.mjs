@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {assessMarketBreadthSessionContinuity as assess} from '../../lib/research/marketBreadthSessionContinuity.mjs';
+const row=(code,date)=>({code,tradeDate:date,signalRecordId:'research:'+code+date,baselineRecordId:'baseline:'+code+date,researchReturnPercent:5,baselineReturnPercent:2,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+const sessions=['2026-10-27','2026-10-28','2026-10-29','2026-10-30'];
+test('continuous verified sessions allow descriptive review',()=>{const x=assess({pairs:[row('641A',sessions[0]),row('590A',sessions[1])],verifiedSessions:sessions,minDates:2});assert.equal(x.consecutiveObservedSessions,true);assert.equal(x.serialEstimateUsableForDescriptiveReview,true);assert.equal(x.aiPromotionAuthorized,false)});
+test('missing middle session blocks estimate',()=>{const x=assess({pairs:[row('641A',sessions[0]),row('590A',sessions[2])],verifiedSessions:sessions,minDates:2});assert.equal(x.consecutiveObservedSessions,false);assert.equal(x.gaps[0].missingSessionCount,1);assert.equal(x.serialEstimate,null)});
+test('unknown trade date blocks continuity',()=>{const x=assess({pairs:[row('641A','2026-11-02')],verifiedSessions:sessions});assert.deepEqual(x.missingCalendarDates,['2026-11-02']);assert.equal(x.consecutiveObservedSessions,false)});
+test('no calendar is rejected',()=>{assert.throws(()=>assess({pairs:[]}),/VERIFIED_EXCHANGE_SESSIONS_REQUIRED/)});
+test('duplicate calendar dates are rejected',()=>{assert.throws(()=>assess({verifiedSessions:[sessions[0],sessions[0]]}),/VERIFIED_EXCHANGE_SESSIONS_REQUIRED/)});

@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditMarketBreadthFiveSessionOverlap as audit} from '../../lib/research/marketBreadthOverlapAudit.mjs';
+const dates=['2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-04'];
+const row=(code,date)=>({code,tradeDate:date,signalRecordId:'research:'+code+date,baselineRecordId:'baseline:'+code+date,researchReturnPercent:5,baselineReturnPercent:2,horizonSessions:5,researchIndependentlyAudited:true,baselineIndependentlyAudited:true,samePriceBasisVerified:true});
+test('nearby entry sessions overlap',()=>{const x=audit({pairs:[row('641A',dates[0]),row('590A',dates[1])],verifiedSessions:dates});assert.equal(x.overlappingWindowPairs,1);assert.equal(x.observationsWithOverlap,2);assert.equal(x.aiPromotionAuthorized,false)});
+test('windows five sessions apart do not overlap',()=>{const x=audit({pairs:[row('641A',dates[0]),row('590A',dates[5])],verifiedSessions:dates});assert.equal(x.overlappingWindowPairs,0);assert.equal(x.auditedWindows,2)});
+test('missing five-session horizon is blocked',()=>{const x=audit({pairs:[row('641A',dates[9])],verifiedSessions:dates});assert.equal(x.blockedWindows,1);assert.equal(x.auditedWindows,0)});
+test('duplicate pairs are quarantined',()=>{const a=row('641A',dates[0]);const x=audit({pairs:[a,a],verifiedSessions:dates});assert.equal(x.auditedWindows,0)});
+test('verified sessions are mandatory',()=>{assert.throws(()=>audit({pairs:[]}),/VERIFIED_EXCHANGE_SESSIONS_REQUIRED/)});

@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {intakeMarketBreadthForwardBundle as intake} from '../../lib/research/marketBreadthForwardIntake.mjs';
+const bundle=entries=>({schemaVersion:'market-breadth-forward-bundle-v1',entries});
+test('empty forward bundle yields no verified research evidence',()=>{const x=intake(bundle([]));assert.equal(x.submittedCount,0);assert.equal(x.linkedCount,0);assert.equal(x.productionEligible,false);assert.equal(x.notificationEligible,false);assert.equal(x.report.acceptedEvidenceCount,0)});
+test('unknown bundle schema is rejected',()=>{assert.throws(()=>intake({schemaVersion:'wrong',entries:[]}),/INVALID_FORWARD_BUNDLE/)});
+test('partial or malformed entries are rejected',()=>{assert.throws(()=>intake(bundle([{}])),/INVALID_FORWARD_BUNDLE_ENTRY/);assert.throws(()=>intake(bundle([null])),/INVALID_FORWARD_BUNDLE_ENTRY/)});
+test('incomplete but structurally valid entry is blocked by evidence gate',()=>{const x=intake(bundle([{envelope:{},sourceRecord:{},snapshotRecord:{},row:{},evidence:{}}]));assert.equal(x.linkedCount,0);assert.equal(x.rejected.length,1);assert.equal(x.productionEligible,false)});
+test('overlarge bundle is rejected',()=>{assert.throws(()=>intake(bundle(Array(100001).fill(null))),/FORWARD_BUNDLE_TOO_LARGE/)});
+test('output does not include raw input or secrets',()=>{const x=intake(bundle([{envelope:{providerKey:'sensitive-token'},sourceRecord:{},snapshotRecord:{},row:{},evidence:{}}]));assert.doesNotMatch(JSON.stringify(x),/sensitive-token/);assert.equal(Object.hasOwn(x,'entries'),false)});
