@@ -176,3 +176,18 @@ test("zero and negative interval observations are excluded from research",()=>{
   assert.equal(result.samples,1);
   assert.equal(result.excluded.invalid,2);
 });
+
+test("bottom windows outside the morning session cannot enter research",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const outcome=inspectMorning(date,100,makeBars(date,8));
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const time of ["08:55","11:30","15:00"]){
+    const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+      outcome:{...outcome,bottomWindow:time}};
+    assert.equal(summarizeAnalogs(target,[row],{minSamples:1}).samples,0);
+    const pattern=summarizeMorningDropPatterns([{...row.outcome,code:"1234"}],{minSamples:1,dropThresholdPct:2});
+    assert.equal(pattern.samples,0);
+    assert.equal(pattern.excluded.invalid,1);
+  }
+});
