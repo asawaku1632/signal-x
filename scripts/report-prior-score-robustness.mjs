@@ -7,6 +7,7 @@
 import {readFileSync} from "node:fs";
 import {researchPriorScoreDailyGaps} from "../app/lib/research/priorScoreRobustness.mjs";
 import {classifyResearchEvidence} from "../app/lib/research/evidenceClassifier.mjs";
+import {normalizeDailyExportRows} from "../app/lib/research/dailyExportNormalizer.mjs";
 export function parseResearchFile(raw){
  if(typeof raw!=="string"||Buffer.byteLength(raw)>25*1024*1024)throw Error("INVALID_RESEARCH_FILE_SIZE");
  const parsed=JSON.parse(raw);
@@ -23,7 +24,9 @@ export function auditResearchRows(rows){
  return {inputRows:rows.length,...counts,independentlyVerifiedByCli:false};
 }
 export function reportFromText(raw){
- const rows=parseResearchFile(raw);
+ const parsed=parseResearchFile(raw);
+ const fromSql=parsed.some(x=>x&&typeof x==="object"&&Object.hasOwn(x,"next_price"));
+ const rows=fromSql?normalizeDailyExportRows(parsed):parsed;
  const inputAudit=auditResearchRows(rows);
  const classification=classifyResearchEvidence(rows);
  // Only pass rows whose claims are structurally consistent; assertions are NOT authentication.
