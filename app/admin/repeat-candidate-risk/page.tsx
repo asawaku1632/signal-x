@@ -9,6 +9,7 @@ type Row = {
   return_5d: number | string | null; outcome_5d_date: string | null;
   previous_candidate_date: string; previous_candidate_price: number | string;
   previous_candidate_change_pct: number | string | null;
+  previous_candidate_drop_over_5pct: boolean;
 };
 type Response = { success: boolean; rows?: Row[]; truncated?: boolean; note?: string; error?: string; fetchedAt?: string };
 const n = (v: number | string | null) => {
@@ -42,8 +43,8 @@ export default function RepeatCandidateRiskPage() {
   const summary = useMemo(() => {
     const all = verifiedRows;
     const groups = [
-      { label: "前回比5%超下落", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5) },
-      { label: "その他の再選出", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) >= -5) },
+      { label: "前回比5%超下落", rows: all.filter(r => r.previous_candidate_drop_over_5pct) },
+      { label: "その他の再選出", rows: all.filter(r => !r.previous_candidate_drop_over_5pct) },
     ];
     return groups.map(g => {
       return { label: g.label, ...summarizeGroup(g.rows) };
@@ -59,7 +60,7 @@ export default function RepeatCandidateRiskPage() {
   const sensitivity = useMemo(() => matchedDaySensitivity(verifiedRows), [verifiedRows]);
   const concentration = useMemo(() => {
     const eligible = verifiedRows.filter(r =>
-      n(r.previous_candidate_change_pct) != null && (n(r.previous_candidate_change_pct) as number) < -5 && n(r.return_5d) != null);
+      r.previous_candidate_drop_over_5pct && n(r.return_5d) != null);
     const dates = new Map<string, number>();
     const codes = new Map<string, number>();
     for (const row of eligible) {
