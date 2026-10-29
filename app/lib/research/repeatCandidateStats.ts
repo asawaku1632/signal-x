@@ -119,7 +119,8 @@ export function thresholdSensitivity(rows: ComparedRecord[], thresholds = [3, 5,
   return thresholds.map(drop => {
     const atRisk = rows.filter(row => {
       const change = validOutcome(row.previous_candidate_change_pct);
-      return change !== null && change < -drop;
+      return change !== null && (drop === 5 && typeof row.previous_candidate_drop_over_5pct === "boolean"
+        ? row.previous_candidate_drop_over_5pct : change < -drop);
     });
     const result = summarizeGroup(atRisk);
     return { drop, ...result, pending: result.count - result.checked };
