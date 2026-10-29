@@ -31,10 +31,14 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
  const supported=months.filter(x=>x.sufficientDates);
+ const supportedDates=supported.reduce((n,m)=>n+m.dates,0);
+ const largestMonthDates=supported.length?Math.max(...supported.map(m=>m.dates)):0;
  const positiveMedianMonths=supported.filter(x=>x.medianGapPp>0).length;
  const monthsWithMeanMedianAgreement=supported.filter(x=>x.meanGapPp>0&&x.medianGapPp>0&&x.majorityPositive).length;
  return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
   descriptiveMonthlyConsistency:{supportedMonths:supported.length,positiveMedianMonths,
+   supportedTradingDates:supportedDates,largestMonthDateShare:supportedDates?largestMonthDates/supportedDates:null,
+   concentratedInOneMonth:supported.length>=2&&largestMonthDates/supportedDates>0.6,
    meanMedianAndMajorityPositiveMonths:monthsWithMeanMedianAgreement,
    allSupportedMonthsConsistent:supported.length>=2&&monthsWithMeanMedianAgreement===supported.length,
    independentlyValidated:false},
