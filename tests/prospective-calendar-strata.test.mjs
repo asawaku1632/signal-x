@@ -130,3 +130,21 @@ test("calendar breadth is not established by two uniformly positive but concentr
  assert.equal(balanced.descriptiveMonthlyConsistency.independentlyValidated,false);
  assert.equal(balanced.readyForTrading,false);
 });
+
+test("calendar evidence report reconciles supported, insufficient and excluded dates",()=>{
+ const input=[
+  {date:"2026-10-29",highCount:10,lowCount:10,gapPp:1},
+  {date:"2026-10-30",highCount:9,lowCount:10,gapPp:1},
+  ...Array.from({length:5},(_,i)=>({date:`2026-11-0${i+1}`,highCount:10,lowCount:10,gapPp:1}))
+ ];
+ const report=run(input);
+ assert.equal(report.receivedDates,7);
+ assert.equal(report.excludedDates,1);
+ assert.equal(report.qualifyingDates,6);
+ assert.equal(report.descriptiveMonthlyConsistency.supportedTradingDates,5);
+ assert.equal(report.descriptiveMonthlyConsistency.unsupportedTradingDates,1);
+ assert.equal(report.descriptiveMonthlyConsistency.unsupportedMonths,1);
+ assert.deepEqual(report.descriptiveMonthlyConsistency.insufficientMonths,[{month:"2026-10",observedDates:1,missingDates:4}]);
+ assert.equal(report.descriptiveMonthlyConsistency.acceptedDateCoverage,true);
+ assert.equal(report.readyForTrading,false);
+});
