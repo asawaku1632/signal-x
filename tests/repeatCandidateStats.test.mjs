@@ -287,3 +287,13 @@ test("discarded dated outcomes remain visible as independent HOLD reasons", () =
  assert.ok(gate.followUp[0].detail.includes("除外 1件"));
  assert.ok(!repeatRiskEvidenceGate(rows,false,0).reasons.some(x=>x.includes("日付不整合によって")));
 });
+
+test("exact database classification works even if display change is missing", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:true,return_5d:-4},{trade_date:"2026-10-19",previous_candidate_change_pct:null,previous_candidate_drop_over_5pct:false,return_5d:1}];
+ assert.equal(sameDayComparison(rows).matchedDayCount,1);
+ assert.equal(sameDayComparison(rows).dateBalancedGap,-5);
+});
+test("weekday audit does not normalize impossible calendar dates", () => {
+ const rows=[{trade_date:"2026-10-19",outcome_5d_date:"2026-02-30",return_5d:-2},{trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:1}];
+ assert.deepEqual(weekdayGapAudit(rows),{assessed:1,weekdayMismatch:0,insufficientCalendarEvidence:1});
+});
