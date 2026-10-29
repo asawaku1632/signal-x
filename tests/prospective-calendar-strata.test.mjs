@@ -89,3 +89,18 @@ test("primary exclusion categories reconcile even when a date has multiple failu
  assert.equal(Object.values(report.primaryExclusionReasons).reduce((sum,n)=>sum+n,0),report.excludedDates);
  assert.equal(report.readyForTraining,false);
 });
+
+test("cross-month consistency requires two supported months, and stays descriptive",()=>{
+ const makeMonth=(month,gaps)=>gaps.map((gap,i)=>({date:`${month}-${String(i+1).padStart(2,"0")}`,highCount:10,lowCount:10,gapPp:gap}));
+ const one=run(makeMonth("2026-11",[1,2,3,4,5]));
+ assert.equal(one.descriptiveMonthlyConsistency.allSupportedMonthsConsistent,false);
+ const both=run([...makeMonth("2026-11",[1,2,3,4,5]),...makeMonth("2026-12",[1,2,3,4,5])]);
+ assert.equal(both.descriptiveMonthlyConsistency.supportedMonths,2);
+ assert.equal(both.descriptiveMonthlyConsistency.meanMedianAndMajorityPositiveMonths,2);
+ assert.equal(both.descriptiveMonthlyConsistency.allSupportedMonthsConsistent,true);
+ assert.equal(both.descriptiveMonthlyConsistency.independentlyValidated,false);
+ assert.equal(both.readyForTraining,false);
+ assert.equal(both.readyForTrading,false);
+ const mixed=run([...makeMonth("2026-11",[1,2,3,4,5]),...makeMonth("2026-12",[20,-1,-1,-1,-1])]);
+ assert.equal(mixed.descriptiveMonthlyConsistency.allSupportedMonthsConsistent,false);
+});
