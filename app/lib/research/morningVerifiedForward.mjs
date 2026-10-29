@@ -13,7 +13,19 @@ export function prepareMorningForwardRows(inputs){
   if(!Array.isArray(inputs)||inputs.length>100000)throw Error("INVALID_MORNING_FORWARD_INPUT");
   const rows=[],excluded={unverifiedBars:0,missingFeatureProof:0,missingOutcomeProof:0,duplicate:0};
   const grouped=new Map();
+  const counts=new Map();
   for(const input of inputs){
+    if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
+       /^\\d{4}-\\d{2}-\\d{2}$/.test(input.tradeDate)){
+      const key=input.code+"|"+input.tradeDate;
+      counts.set(key,(counts.get(key)??0)+1);
+    }
+  }
+  for(const input of inputs){
+    if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
+       (counts.get(input.code+"|"+input.tradeDate)??0)>1){
+      excluded.duplicate++;continue;
+    }
     const outcome=adaptHistoricalMorning(input);
     if(!outcome.valid){excluded.unverifiedBars++;continue;}
     const {code,tradeDate,features,featureAvailableAt,outcomeAvailableAt}=input;
