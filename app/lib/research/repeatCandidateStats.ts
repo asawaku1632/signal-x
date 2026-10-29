@@ -119,3 +119,19 @@ export function thresholdSensitivity(rows: ComparedRecord[], thresholds = [3, 5,
     return { drop, ...result, pending: result.count - result.checked };
   });
 }
+
+export type OutcomeDatedRecord = OutcomeRecord & { outcome_5d_date: string | null };
+export function outcomeDateIntegrity(rows: OutcomeDatedRecord[]) {
+  let returnWithoutDate = 0;
+  let dateWithoutReturn = 0;
+  let outcomeBeforeTrade = 0;
+  for (const row of rows) {
+    const hasReturn = validOutcome(row.return_5d) !== null;
+    const date = row.outcome_5d_date?.trim() || null;
+    if (hasReturn && !date) returnWithoutDate++;
+    if (!hasReturn && date) dateWithoutReturn++;
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < row.trade_date) outcomeBeforeTrade++;
+  }
+  return { returnWithoutDate, dateWithoutReturn, outcomeBeforeTrade,
+    suspectCount: returnWithoutDate + dateWithoutReturn + outcomeBeforeTrade };
+}
