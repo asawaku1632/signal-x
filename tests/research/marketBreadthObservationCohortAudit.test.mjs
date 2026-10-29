@@ -35,3 +35,8 @@ test('event-type duplicates do not inflate daily denominator',()=>{const x=audit
 test('equal-date mean prevents large dates from dominating date-level summary',()=>{const x=audit({rows:[r('9983',-3),r('9432',-3),r('8591',-3),{...r('9983',9),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.descriptiveStats.meanReturnPercent,0);assert.equal(x.descriptiveStats.equalDateMeanReturnPercent,3)});
 test('empty equal-date mean is null',()=>{assert.equal(audit().descriptiveStats.equalDateMeanReturnPercent,null)});
 test('one-date equal-date mean equals ordinary mean',()=>{const x=audit({rows:[r('9983',-3),r('9432',1)]});assert.equal(x.descriptiveStats.equalDateMeanReturnPercent,-1)});
+
+test('leave-one-date-out flags opposing signs across dates',()=>{const x=audit({rows:[r('9983',-3),{...r('9432',2),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.leaveOneDateOut.length,2);assert.deepEqual(x.leaveOneDateOut.map(v=>v.signAgreement),[false,false]);assert.equal(x.aiPromotionAuthorized,false)});
+test('single date cannot support leave-one-date-out analysis',()=>{assert.deepEqual(audit({rows:[r()]}).leaveOneDateOut,[])});
+test('empty dataset cannot support leave-one-date-out analysis',()=>{assert.deepEqual(audit().leaveOneDateOut,[])});
+test('same direction across dates remains descriptive only',()=>{const x=audit({rows:[r('9983',2),{...r('9432',3),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.deepEqual(x.leaveOneDateOut.map(v=>v.signAgreement),[true,true]);assert.equal(x.independentImprovementVerified,false)});
