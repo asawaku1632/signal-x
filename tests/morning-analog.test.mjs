@@ -23,7 +23,7 @@ test("incomplete and inconsistent bars fail closed",()=>{
 });
 test("future outcomes and features available on the outcome date cannot leak",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
-  const target={tradeDate:"2026-10-28",features};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
   const make=(tradeDate,featureAvailableAt)=>({
     code:"1234",tradeDate,featureAvailableAt,features,
     outcome:inspectMorning(tradeDate,100,makeBars(tradeDate))
@@ -68,7 +68,7 @@ test("invalid observation dates are excluded rather than silently counted",()=>{
 
 test("1 and 2 percent rebound denominators are counted independently",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
-  const target={tradeDate:"2026-10-28",features};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
   const base={code:"1234",tradeDate:"2026-10-27",featureAvailableAt:"2026-10-26T18:00:00+09:00",features};
   const observation=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
   const result=summarizeAnalogs(target,[{...base,outcome:{...observation,rebound1pct:true,rebound2pct:null}}],{minSamples:1});
@@ -81,7 +81,7 @@ test("1 and 2 percent rebound denominators are counted independently",()=>{
 
 test("malformed prior-day snapshot stamps cannot enter analog comparisons",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
-  const target={tradeDate:"2026-10-28",features};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
   const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
   const make=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
   const result=summarizeAnalogs(target,[
@@ -95,7 +95,7 @@ test("malformed prior-day snapshot stamps cannot enter analog comparisons",()=>{
 });
 
 test("invalid analog selection limits and distance weights fail closed",()=>{
-  const target={tradeDate:"2026-10-28",features:{priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90}};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features:{priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90}};
   for(const options of [{maxAnalogs:0},{maxAnalogs:-1},{maxAnalogs:1.5},
       {weights:{priorReturnPct:-1,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}},
       {weights:{priorReturnPct:Infinity,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}}]){
@@ -106,7 +106,7 @@ test("invalid analog selection limits and distance weights fail closed",()=>{
 test("timestamp offsets are compared as instants before JST trading date",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
-  const target={tradeDate:"2026-10-28",features};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
   const history=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
   // 2026-10-26 23:00 JST, before the Oct 27 trading date.
   const valid="2026-10-26T14:00:00Z";
@@ -121,7 +121,7 @@ test("duplicate stock/date histories cannot inflate analog sample eligibility",(
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
     outcome:inspectMorning(date,100,makeBars(date))};
-  const result=summarizeAnalogs({tradeDate:"2026-10-28",features},[row,row,{...row}],{minSamples:2});
+  const result=summarizeAnalogs({tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features},[row,row,{...row}],{minSamples:2});
   assert.equal(result.samples,1);
   assert.equal(result.eligible,false);
   assert.equal(result.rebound1pct.rate,null);
@@ -133,7 +133,7 @@ test("conflicting duplicate stock/date observations are excluded regardless of i
   const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
     outcome:inspectMorning(date,100,makeBars(date))};
   const conflict={...row,outcome:{...row.outcome,rebound1pct:false}};
-  const target={tradeDate:"2026-10-28",features};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
   for(const histories of [[row,conflict],[conflict,row]]){
     const result=summarizeAnalogs(target,histories,{minSamples:1});
     assert.equal(result.samples,0);
@@ -145,6 +145,7 @@ test("conflicting duplicate stock/date observations are excluded regardless of i
 test("target feature snapshot cannot be from trading day or malformed time",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const target={tradeDate:"2026-10-28",features};
+  assert.throws(()=>summarizeAnalogs(target,[],{minSamples:1}),/TARGET_FEATURE_LOOKAHEAD/);
   for(const stamp of ["2026-10-28T09:05:00+09:00","2026-10-28T00:00:00+09:00","not-a-time"]){
     assert.throws(()=>summarizeAnalogs({...target,featureAvailableAt:stamp},[],{minSamples:1}),/TARGET_FEATURE_LOOKAHEAD/);
   }
