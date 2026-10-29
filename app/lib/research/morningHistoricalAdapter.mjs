@@ -15,6 +15,9 @@ export function adaptHistoricalMorning(input){
   const converted=[];
   for(const b of bars){
     if(!Number.isInteger(b?.time)||b.time<=0)return {valid:false,reason:"INVALID_TIMESTAMP"};
+    // Valid Unix seconds can still exceed JavaScript Date's representable range.
+    if(!Number.isFinite(b.time*1000)||!Number.isFinite(new Date(b.time*1000).getTime()))
+      return {valid:false,reason:"INVALID_TIMESTAMP"};
     const p=parts(b.time);
     const date=`${p.year}-${p.month}-${p.day}`;
     converted.push({date,time:`${p.hour}:${p.minute}`,
