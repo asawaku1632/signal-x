@@ -33,7 +33,7 @@ export default function RepeatCandidateRiskPage() {
         const result = await r.json() as Response;
         if (!r.ok || !result.success) throw new Error(result.error || "取得失敗");
         if (active) { setData(result); setError(""); }
-      }).catch(e => { if (active) setError(e instanceof Error ? e.message : "取得失敗"); })
+      }).catch(e => { if (active) { setData(null); setError(e instanceof Error ? e.message : "取得失敗"); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [reloadCount]);
@@ -83,7 +83,7 @@ export default function RepeatCandidateRiskPage() {
       <p className="text-sm text-slate-600">AI POWER90以上を対象に、前回CANDIDATE時の保存価格と、再選出時点の保存価格を比較します。AI POWERのみの簡易研究判定で、投資判断や通知には反映されません。</p>
       <div className="flex flex-wrap items-center gap-3 text-xs"><button type="button" disabled={loading} onClick={() => { setLoading(true); setReloadCount(n => n + 1); }} className="rounded-lg border px-3 py-2 disabled:opacity-50">保存結果を再取得</button><span>取得時刻：{data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) + " JST" : "未取得"}</span></div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyDrop} onChange={e => setOnlyDrop(e.target.checked)} /> 前回候補比で5%超下落した銘柄のみ</label>
-      {error && <p role="alert" className="text-rose-700">{error}</p>}
+      {error && <p role="alert" className="text-rose-700">再取得に失敗しました。古い集計を最新結果として表示しないため、表示をクリアしました：{error}</p>}
       {loading && <p role="status">研究データを取得中…</p>}
       {data && <><section aria-label="研究採用の暫定判定" className="rounded-xl border border-amber-300 bg-amber-50 p-3"><h2 className="text-base font-black">研究段階：本番判定への採用は保留</h2><p className="mt-1 text-sm">同日比較できた取引日は {matched.matchedDayCount}日、5%超下落群の評価済み取引日は {summary[0]?.days ?? 0}日です。</p><p className="mt-1 text-xs">参考確認項目：比較可能日3日以上・下落群の評価済み日3日以上・取得件数の打ち切りなし。これは実証済みの採用基準ではなく、少数日を見落とさないための暫定的な注意表示です。</p>{(matched.matchedDayCount < 3 || (summary[0]?.days ?? 0) < 3 || data.truncated) && <p className="mt-1 text-xs font-bold text-rose-800">サンプルまたは取得範囲が不足。将来の再現性・独立した価格検証が終わるまで、AI売買判定や通知には反映しません。</p>}</section>{data.truncated && <p role="alert" className="text-sm font-bold text-rose-700">取得上限1000件に達したため、下記の統計は全期間集計ではありません。</p>}<section aria-label="同日比較ではない参考集計" className="grid grid-cols-2 gap-2">
         {summary.map(g => <div key={g.label} className="rounded-xl border bg-slate-50 p-3">
