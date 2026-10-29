@@ -81,7 +81,7 @@ export default function RepeatCandidateRiskPage() {
       <a href="/admin/learning-hub" className="text-sm text-blue-700">← 学習管理へ</a>
       <h1 className="text-xl font-black">高POWER再選出・下落リスク｜研究専用</h1>
       <p className="text-sm text-slate-600">AI POWER90以上を対象に、前回CANDIDATE時の保存価格と、再選出時点の保存価格を比較します。AI POWERのみの簡易研究判定で、投資判断や通知には反映されません。</p>
-      <div className="flex flex-wrap items-center gap-3 text-xs"><button type="button" disabled={loading} onClick={() => { setLoading(true); setReloadCount(n => n + 1); }} className="rounded-lg border px-3 py-2 disabled:opacity-50">保存結果を再取得</button><span>取得時刻：{data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) + " JST" : "未取得"}</span></div>
+      <div className="flex flex-wrap items-center gap-3 text-xs"><button type="button" disabled={loading} onClick={() => { setData(null); setError(""); setLoading(true); setReloadCount(n => n + 1); }} className="rounded-lg border px-3 py-2 disabled:opacity-50">保存結果を再取得</button><span>取得時刻：{data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) + " JST" : "未取得"}</span></div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyDrop} onChange={e => setOnlyDrop(e.target.checked)} /> 前回候補比で5%超下落した銘柄のみ</label>
       {error && <p role="alert" className="text-rose-700">再取得に失敗しました。古い集計を最新結果として表示しないため、表示をクリアしました：{error}</p>}
       {loading && <p role="status">研究データを取得中…</p>}
