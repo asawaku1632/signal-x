@@ -115,3 +115,14 @@ test("timestamp offsets are compared as instants before JST trading date",()=>{
   const result=summarizeAnalogs(target,[history(valid),history(invalid)],{minSamples:2});
   assert.equal(result.samples,1);
 });
+
+test("duplicate stock/date histories cannot inflate analog sample eligibility",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const result=summarizeAnalogs({tradeDate:"2026-10-28",features},[row,row,{...row}],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+  assert.equal(result.rebound1pct.rate,null);
+});
