@@ -63,3 +63,16 @@ test("missing or predecision outcomes never count as matured results",()=>{
   assert.equal(x.stage6.decision,"DO_NOT_PROMOTE");
  }
 });
+
+test("impossible calendar dates in time evidence cannot qualify SHADOW outcomes",()=>{
+ const day="2026-11-04",original=snap(day,"a");
+ const bad=["2026-02-30T08:59:00+09:00","2026-11-04T24:00:00+09:00","2026-11-04T08:59:00+25:00"];
+ for(const recordedAt of bad){
+  const x=review({snapshots:[{...original,recordedAt}],comparisons:[comp(day,"a")]});
+  assert.equal(x.stage6.comparisonDates,0);
+ }
+ for(const outcomeAvailableAt of bad){
+  const x=review({snapshots:[original],comparisons:[{...comp(day,"a"),outcomeAvailableAt}]});
+  assert.equal(x.stage6.comparisonDates,0);
+ }
+});
