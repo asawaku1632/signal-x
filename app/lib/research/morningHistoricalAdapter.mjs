@@ -9,7 +9,7 @@ export function adaptHistoricalMorning(input){
   const {code,tradeDate,previousClose,intervalMinutes=5,bars,source,licenseVerified=false,
     timestampSemantics,exchangeTimezone}=input??{};
   if(!codePattern.test(code??"")||!datePattern.test(tradeDate??"")||
-     !Array.isArray(bars)||!source||licenseVerified!==true||
+     !Array.isArray(bars)||typeof source!=="string"||!source.trim()||licenseVerified!==true||
      timestampSemantics!=="BAR_START"||exchangeTimezone!=="Asia/Tokyo")
     return {valid:false,reason:"UNVERIFIED_SOURCE_OR_METADATA"};
   const converted=[];
@@ -25,5 +25,18 @@ export function adaptHistoricalMorning(input){
 }
 export function aggregateHistoricalMorning(inputs,options={}){
   if(!Array.isArray(inputs))throw Error("INVALID_HISTORICAL_INPUT");
-  return summarizeMorningDropPatterns(inputs.map(adaptHistoricalMorning),options);
+  const adapted=inputs.map(adaptHistoricalMorning);
+  const rejectedByReason={};
+  for(const row of adapted){
+    if(row.valid===true)continue;
+    const reason=typeof row.reason==="string"?row.reason:"UNKNOWN";
+    rejectedByReason[reason]=(rejectedByReason[reason]??0)+1;
+  }
+  const patterns=summarizeMorningDropPatterns(adapted,options);
+  return {...patterns,sourceCoverage:{
+    received:inputs.length,structurallyValid:adapted.filter(row=>row.valid===true).length,
+    rejected:adapted.filter(row=>row.valid!==true).length,rejectedByReason,
+    independentlyAuthenticated:false,
+    note:"Source and license flags are supplied by the caller, not independently verified here."
+  }};
 }
