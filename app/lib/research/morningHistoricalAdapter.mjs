@@ -74,6 +74,7 @@ export function aggregateHistoricalMorning(inputs,options={}){
     received:inputs.length,structurallyValid:adapted.filter(row=>row.valid===true).length,
     rejected:adapted.filter(row=>row.valid!==true).length,rejectedByReason,
     patternEligibleStockDays:patterns.samples,
+    completeButNotPatternEligibleStockDays:cohortKeys.size-conflictingCompleteStockDays-patterns.samples,
     patternDistinctStocks:new Set(eligibleCodes).size,
     patternDistinctTradingDates:new Set(eligibleDates).size,
     patternDistinctMonths:new Set(eligibleDates.map(date=>date.slice(0,7))).size,
