@@ -49,19 +49,25 @@ export function aggregateHistoricalMorning(inputs,options={}){
     byKey.set(key,group);
   }
   const eligibleKeys=[];
+  let conflictingCompleteStockDays=0;
   const identity=row=>JSON.stringify([
     row.bottomWindow,row.bottomPrice,row.bottomDropPct,row.earlyDropPct,
     row.intervalMinutes,row.laterHigh,row.reboundPct,row.rebound1pct,row.rebound2pct
   ]);
   const threshold=options.dropThresholdPct??3;
   for(const [key,group] of byKey){
-    if(group.some(row=>identity(row)!==identity(group[0])))continue;
+    if(group.some(row=>identity(row)!==identity(group[0]))){
+      conflictingCompleteStockDays++;
+      continue;
+    }
     if(group[0].earlyDropPct<=-threshold)eligibleKeys.push(key);
   }
   const eligibleCodes=eligibleKeys.map(key=>key.split("|")[0]);
   const eligibleDates=eligibleKeys.map(key=>key.split("|")[1]);
   return {...patterns,sourceCoverage:{
     completeUniqueStockDays:cohortKeys.size,
+    conflictingCompleteStockDays,
+    conflictFreeCompleteStockDays:cohortKeys.size-conflictingCompleteStockDays,
     completeDistinctStocks:new Set(validRows.map(row=>row.code)).size,
     completeDistinctTradingDates:new Set(validRows.map(row=>row.date)).size,
     completeDistinctMonths:new Set(validRows.map(row=>row.date.slice(0,7))).size,
