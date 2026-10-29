@@ -63,3 +63,17 @@ SELECT count(*)::bigint AS total,
        count(*) FILTER (WHERE volume_ratio_20>=0)::bigint AS nonnegative_volume_ratio,
        count(*) FILTER (WHERE abs(macd-macd_signal-macd_histogram)<=0.01)::bigint AS macd_arithmetic_consistent
 FROM public.technical_bb_observation_snapshots;
+
+-- Check internal Bollinger-band arithmetic; tolerance accommodates rounding.
+-- A valid identity does not establish that the underlying source is independent.
+SELECT count(*)::bigint AS total,
+       count(*) FILTER (WHERE bb_period>0 AND bb_middle>0 AND standard_deviation>=0
+         AND abs(bb_upper_1-(bb_middle+standard_deviation))<=0.02
+         AND abs(bb_lower_1-(bb_middle-standard_deviation))<=0.02
+         AND abs(bb_upper_2-(bb_middle+2*standard_deviation))<=0.02
+         AND abs(bb_lower_2-(bb_middle-2*standard_deviation))<=0.02
+         AND abs(bb_upper_3-(bb_middle+3*standard_deviation))<=0.02
+         AND abs(bb_lower_3-(bb_middle-3*standard_deviation))<=0.02)::bigint AS bands_match_sigma,
+       count(*) FILTER (WHERE standard_deviation>0 AND
+         abs(bb_sigma_position-((close-bb_middle)/standard_deviation))<=0.02)::bigint AS sigma_position_consistent
+FROM public.technical_bb_observation_snapshots;
