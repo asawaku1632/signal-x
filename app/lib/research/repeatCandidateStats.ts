@@ -252,6 +252,9 @@ export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false
   if (complete.matchedDayCount < 5) reasons.push("全件確定した比較可能な取引日が5日未満です");
   if (concentration.dominantShare === null || concentration.dominantShare > 50) reasons.push("評価結果が特定の取引日に集中しています");
   if (riskRows.filter(r => validOutcome(r.return_5d) !== null).length < 30) reasons.push("下落群の評価済み観測が30件未満です");
+  const coverage = cohortCoverageContrast(rows);
+  if (coverage.risk.pending > 0 || coverage.other.pending > 0) reasons.push("5日後結果が未確定の観測が残っています");
+  if (coverage.completionGapPoints !== null && Math.abs(coverage.completionGapPoints) > 10) reasons.push("2群の評価完了率に10ポイント超の差があります");
   return { status: "HOLD" as const, reasons, completeDays: complete.matchedDayCount, dominantShare: concentration.dominantShare,
     note: "暫定的な観測条件です。独立した市場価格照合と将来データでの再現性検証を必要とし、自動採用しません。" };
 }
