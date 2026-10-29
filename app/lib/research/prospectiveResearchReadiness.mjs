@@ -22,6 +22,9 @@ export function summarizeProspectiveResearch(rows, options={}){
  if(calendar.descriptiveMonthlyConsistency.supportedMonths>=minMonths&&!calendar.descriptiveMonthlyConsistency.allSupportedMonthsConsistent)blockers.push("CROSS_MONTH_CONSISTENCY_NOT_SHOWN");
  if(!ledger.independentlyAuthenticatedByFunction)blockers.push("EXTERNAL_AUTHENTICATION_MISSING");
  if(stability.leaveOneOutMeanRange?.[0]<=0)blockers.push("UNSTABLE_LEAVE_ONE_OUT");
+ if(stability.dates>=minDays&&stability.meanGapPp<=0)blockers.push("NO_POSITIVE_AVERAGE_GAP");
+ if(stability.dates>=minDays&&stability.medianGapPp<=0)blockers.push("NO_POSITIVE_MEDIAN_GAP");
+ if(stability.dates>=minDays&&stability.positiveGapDates<=stability.dates/2)blockers.push("NO_MAJORITY_POSITIVE_DATES");
  const candidateReview={status:"DO_NOT_PROMOTE",reason:"PROSPECTIVE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED",
   comparableDates:stability.dates,wellSampledMonths:calendar.descriptiveMonthlyConsistency.supportedMonths,
   missingQualityChecks:blockers,eligibleForModelUpdate:false,eligibleForLiveSignal:false};
