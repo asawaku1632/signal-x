@@ -37,3 +37,11 @@ test("impossible snapshot and outcome timestamps are rejected",()=>{
   assert.equal(r.pairedCount,0);assert.equal(r.reasons.invalidOutcome,1);
  }
 });
+
+test("separator characters in experiment identifiers never collide with distinct keys",()=>{
+ const a={...sample,experimentId:"group|part"};
+ const b={...sample,experimentId:"group",tradeDate:"2026-11-04|part"};
+ const r=reconcile({snapshots:[a,b],outcomes:[{...outcome,experimentId:"group|part"}]});
+ assert.equal(r.pairedCount,1);
+ assert.equal(r.reasons.duplicateSnapshot,0);
+});
