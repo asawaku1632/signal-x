@@ -51,7 +51,7 @@ export function sameDayComparison(rows: ComparedRecord[]) {
   for (const row of rows) {
     const outcome = validOutcome(row.return_5d);
     const change = validOutcome(row.previous_candidate_change_pct);
-    if (outcome === null || change === null) continue;
+    if (outcome === null || (change === null && typeof row.previous_candidate_drop_over_5pct !== "boolean")) continue;
     const group = byDate.get(row.trade_date) ?? { risk: [], other: [] };
     const isRisk = typeof row.previous_candidate_drop_over_5pct === "boolean" ? row.previous_candidate_drop_over_5pct : change < -5;
     (isRisk ? group.risk : group.other).push(outcome);
@@ -178,7 +178,10 @@ export function weekdayGapAudit(rows: OutcomeDatedRecord[]) {
     if (validOutcome(row.return_5d) === null) continue;
     const start = Date.parse(row.trade_date + "T00:00:00Z");
     const end = Date.parse((row.outcome_5d_date ?? "") + "T00:00:00Z");
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    const validStart = /^\d{4}-\d{2}-\d{2}$/.test(row.trade_date) && Number.isFinite(start) && new Date(start).toISOString().slice(0, 10) === row.trade_date;
+    const rawEnd = row.outcome_5d_date ?? "";
+    const validEnd = /^\d{4}-\d{2}-\d{2}$/.test(rawEnd) && Number.isFinite(end) && new Date(end).toISOString().slice(0, 10) === rawEnd;
+    if (!validStart || !validEnd || end <= start) {
       counts.insufficientCalendarEvidence++;
       continue;
     }
