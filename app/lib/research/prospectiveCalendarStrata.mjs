@@ -31,12 +31,17 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
  const supported=months.filter(x=>x.sufficientDates);
+ const unsupported=months.filter(x=>!x.sufficientDates);
+ const unsupportedTradingDates=unsupported.reduce((n,m)=>n+m.dates,0);
+ const insufficientMonths=unsupported.map(m=>({month:m.month,observedDates:m.dates,missingDates:Math.max(0,minDatesPerMonth-m.dates)}));
  const supportedDates=supported.reduce((n,m)=>n+m.dates,0);
  const largestMonthDates=supported.length?Math.max(...supported.map(m=>m.dates)):0;
  const positiveMedianMonths=supported.filter(x=>x.medianGapPp>0).length;
  const monthsWithMeanMedianAgreement=supported.filter(x=>x.meanGapPp>0&&x.medianGapPp>0&&x.majorityPositive).length;
  return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
   descriptiveMonthlyConsistency:{supportedMonths:supported.length,positiveMedianMonths,
+   unsupportedMonths:unsupported.length,unsupportedTradingDates,insufficientMonths,
+   acceptedDateCoverage:supportedDates+unsupportedTradingDates===daily.length-excludedDates,
    supportedTradingDates:supportedDates,largestMonthDateShare:supportedDates?largestMonthDates/supportedDates:null,
    concentratedInOneMonth:supported.length>=2&&largestMonthDates/supportedDates>0.6,
    meanMedianAndMajorityPositiveMonths:monthsWithMeanMedianAgreement,
