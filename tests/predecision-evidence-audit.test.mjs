@@ -30,3 +30,13 @@ test("reject invalid cutoff and impossible calendar dates",()=>{
  assert.throws(()=>audit(null,{cutoffUtc}),/INVALID_EVIDENCE_ROWS/);
  assert.equal(audit([{...valid,quoteObservedAtUtc:"2026-02-30T00:04:00Z"}],{cutoffUtc}).reasons.invalidTimestamp,1);
 });
+
+test("reject impossible UTC clock and offset-free timestamps in all evidence fields",()=>{
+ const invalid=["2026-02-30T00:04:00Z","2026-10-29T24:00:00Z","2026-10-29T00:60:00Z","2026-10-29T00:04:60Z"];
+ for(const field of ["featureGeneratedAtUtc","quoteObservedAtUtc","barEndedAtUtc"]){
+  for(const value of invalid){
+   assert.equal(audit([{...valid,[field]:value}],{cutoffUtc}).reasons.invalidTimestamp,1);
+  }
+ }
+ for(const value of invalid)assert.throws(()=>audit([],{cutoffUtc:value}),/INVALID_CUTOFF/);
+});
