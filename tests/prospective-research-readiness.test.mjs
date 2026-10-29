@@ -13,3 +13,12 @@ test("unverified as-of source gets explicit blocker",()=>{
  const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:false,featureAvailableAt:"2026-10-29T16:00:00+09:00"};
  assert.ok(summarize([row]).blockers.includes("FEATURE_AS_OF_EVIDENCE_MISSING"));
 });
+
+test("descriptive evidence remains distinct from independently attested proof",()=>{
+ const x=summarize([]);
+ assert.equal(x.evidence.observedTradingDates,0);
+ assert.equal(x.evidence.descriptiveMeanGapPp,null);
+ assert.equal(x.evidence.independentSourceAttestation,false);
+ assert.equal(x.evidence.chronologicalHoldoutVerified,false);
+ assert.equal(x.trainingEnabled,false);
+});
