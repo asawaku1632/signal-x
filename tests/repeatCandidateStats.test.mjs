@@ -214,3 +214,16 @@ test("completed day concentration excludes pending records", () => {
   assert.ok(Math.abs(result.dominantShare-200/3)<1e-9);
   assert.equal(completedDateConcentration([]).dominantShare,null);
 });
+
+test("cohort outcome completion exposes missingness imbalance", () => {
+  const rows=[
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-6,previous_candidate_drop_over_5pct:true,return_5d:-10},
+    {trade_date:"2026-10-23",previous_candidate_change_pct:-6,previous_candidate_drop_over_5pct:true,return_5d:null},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:0,previous_candidate_drop_over_5pct:false,return_5d:1},
+  ];
+  const result=cohortCoverageContrast(rows);
+  assert.equal(result.risk.completionRate,50);
+  assert.equal(result.other.completionRate,100);
+  assert.equal(result.completionGapPoints,-50);
+  assert.equal(cohortCoverageContrast([]).completionGapPoints,null);
+});
