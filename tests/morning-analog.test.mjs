@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {inspectMorning,summarizeAnalogs,summarizeMorningDropPatterns} from "../app/lib/research/morningAnalog.mjs";
+import {inspectMorning,summarizeAnalogs,summarizeMorningDropPatterns,auditMorningAnalogsChronologically} from "../app/lib/research/morningAnalog.mjs";
 
 const makeBars=(date,lowAt=3)=>Array.from({length:30},(_,i)=>{
   const h=9+Math.floor(i*5/60),m=(i*5)%60;
@@ -208,4 +208,22 @@ test("conflicting duplicate later highs and early drops are never counted",()=>{
       assert.equal(summarizeAnalogs(target,histories,{minSamples:1}).samples,0);
     }
   }
+});
+
+test("walk-forward audit never uses target-day outcomes as selection history",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row=(date,prior)=>({code:"1234",tradeDate:date,
+    featureAvailableAt:prior,features,
+    outcome:inspectMorning(date,100,makeBars(date))});
+  const earlier=row("2026-10-27","2026-10-26T18:00:00+09:00");
+  const current=row("2026-10-28","2026-10-27T18:00:00+09:00");
+  const target={code:current.code,tradeDate:current.tradeDate,
+    featureAvailableAt:current.featureAvailableAt,features};
+  const report=auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1});
+  assert.equal(report.targets,1);
+  assert.equal(report.eligible,1);
+  assert.equal(report.rows[0].samples,1);
+  assert.equal(report.rebound1pct.evaluated,1);
+  assert.equal(report.readyForTrading,false);
+  assert.throws(()=>auditMorningAnalogsChronologically([target,target],[earlier,current],{minSamples:1}),/DUPLICATE_FORWARD_TARGET/);
 });
