@@ -79,7 +79,16 @@ export function summarizeAnalogs(target, histories, options={}) {
     row.outcome.date===row.tradeDate &&
     positive(row.outcome.bottomPrice) && finite(row.outcome.bottomDropPct) &&
     hhmm(row.outcome.bottomWindow));
-  const ranked=pool.map(row=>({row,distance:keys.reduce((sum,k)=>
+  // One stock/date is one independent historical observation. Duplicate exports
+  // must not inflate sample size or rebound frequency.
+  const seen=new Set();
+  const unique=pool.filter(row=>{
+    if(typeof row.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(row.code))return false;
+    const key=row.code+"|"+row.tradeDate;
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+  const ranked=unique.map(row=>({row,distance:keys.reduce((sum,k)=>
     sum+Math.abs(row.features[k]-target.features[k])*(weights[k]??1),0)}))
     .sort((a,b)=>a.distance-b.distance || a.row.tradeDate.localeCompare(b.row.tradeDate));
   const selected=ranked.slice(0,maxAnalogs).map(x=>x.row);
