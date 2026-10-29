@@ -24,3 +24,7 @@ test("cannot authenticate caller",()=>assert.equal(run([base]).independentlyAuth
 test("empty safe",()=>assert.equal(run([]).status,"INSUFFICIENT_COMPARABLE_DATES"));
 test("nonarray rejected",()=>assert.throws(()=>run({}),/INVALID_PROSPECTIVE_LEDGER/));
 test("calendar invalid rejected",()=>assert.equal(run([{...base,date:"2026-11-31"}]).excluded.invalid,1));
+
+test("outcome before declared later trade date is excluded",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-03T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
+test("outcome at start of later trade date is chronologically plausible only",()=>{const x=run([{...base,outcomeAvailableAt:"2026-11-04T00:00:00+09:00"}]);assert.equal(x.eligibleRows,1);assert.equal(x.independentlyAuthenticatedByFunction,false);});
+test("outcome from an even later day must not validate prior unobserved date",()=>assert.equal(run([{...base,outcomeTradeDate:"2026-11-05",outcomeAvailableAt:"2026-11-04T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
