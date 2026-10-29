@@ -9,12 +9,13 @@ WITH previous_observations AS (
         lag(d.score) OVER(PARTITION BY d.code ORDER BY d.date) AS prior_score
  FROM public.daily_stock_results d
 ), source_rows AS (
- SELECT d.id,p.source_trade_date,p.source_price
+ SELECT d.id,p.source_trade_date,p.source_price,p.source_snapshot_created_at
  FROM public.daily_stock_results d
  LEFT JOIN public.daily_result_price_provenance p ON p.daily_result_id=d.id
 )
 SELECT d.date,d.code,d.price,d.next_price,d.prior_date,d.prior_score,
        p.source_trade_date AS source_date,p.source_price,
+       p.source_snapshot_created_at AS source_snapshot_created_at,
        NULL::text AS prior_available_at,
        false AS prior_evidence_verified,
        false AS outcome_provenance_verified
