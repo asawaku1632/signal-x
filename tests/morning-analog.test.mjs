@@ -216,7 +216,7 @@ test("walk-forward audit never uses target-day outcomes as selection history",()
     featureAvailableAt:prior,features,
     outcome:inspectMorning(date,100,makeBars(date))});
   const earlier=row("2026-10-27","2026-10-26T18:00:00+09:00");
-  const current=row("2026-10-28","2026-10-27T18:00:00+09:00");
+  const current={...row("2026-10-28","2026-10-27T18:00:00+09:00"),outcomeAvailableAt:"2026-10-28T12:00:00+09:00"};
   const target={code:current.code,tradeDate:current.tradeDate,
     featureAvailableAt:current.featureAvailableAt,features};
   const report=auditMorningAnalogsChronologically([target],[{...earlier,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},current],{minSamples:1});
@@ -243,7 +243,7 @@ test("forward audit refuses unproven and conflicting observed outcomes",()=>{
     featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
     outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27"))};
   const current={code:"1234",tradeDate:date,
-    featureAvailableAt:"2026-10-27T18:00:00+09:00",features,
+    outcomeAvailableAt:"2026-10-28T12:00:00+09:00",featureAvailableAt:"2026-10-27T18:00:00+09:00",features,
     outcome:inspectMorning(date,100,makeBars(date))};
   const target={code:"1234",tradeDate:date,
     featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
@@ -264,7 +264,7 @@ test("expanding baseline compares paired predictions without same-day leakage",(
   const dates=["2026-10-26","2026-10-27","2026-10-28"];
   const previous=["2026-10-23","2026-10-26","2026-10-27"];
   const history=dates.flatMap((date,i)=>["1234","5678"].map(code=>({
-    code,tradeDate:date,featureAvailableAt:previous[i]+"T18:00:00+09:00",features,
+    code,tradeDate:date,featureAvailableAt:previous[i]+"T18:00:00+09:00",outcomeAvailableAt:date+"T12:00:00+09:00",features,
     outcome:inspectMorning(date,100,makeBars(date))
   })));
   const targets=history.filter(row=>row.tradeDate!=="2026-10-26").map(
@@ -325,4 +325,22 @@ test("strict availability accepts ISO instants with offsets and rejects impossib
     assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],
       {minSamples:1,requireOutcomeAvailability:true}).samples,0);
   }
+});
+
+test("forward audit cannot score an outcome before morning observation is complete",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const history=(date,stamp,available)=>({code:"1234",tradeDate:date,
+    featureAvailableAt:stamp,outcomeAvailableAt:available,features,
+    outcome:inspectMorning(date,100,makeBars(date))});
+  const earlier=history("2026-10-27","2026-10-26T18:00:00+09:00","2026-10-27T12:00:00+09:00");
+  const target={code:"1234",tradeDate:"2026-10-28",
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const available of [undefined,"2026-10-28T10:00:00+09:00","invalid"]){
+    const current=history("2026-10-28",target.featureAvailableAt,available);
+    const result=auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1});
+    assert.equal(result.rows[0].observed,false);
+    assert.equal(result.rebound1pct.evaluated,0);
+  }
+  const current=history("2026-10-28",target.featureAvailableAt,"2026-10-28T12:00:00+09:00");
+  assert.equal(auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1}).rebound1pct.evaluated,1);
 });
