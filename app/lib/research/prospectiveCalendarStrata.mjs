@@ -12,8 +12,9 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   const month=row.date.slice(0,7),g=groups.get(month)??[];
   g.push(row.gapPp);groups.set(month,g);
  }
+ const median=values=>{const sorted=[...values].sort((a,b)=>a-b),mid=Math.floor(sorted.length/2);return Number((sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2).toFixed(4));};
  const months=[...groups].sort((a,b)=>a[0].localeCompare(b[0])).map(([month,gaps])=>({
-  month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),positiveDates:gaps.filter(x=>x>0).length,
+  month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),medianGapPp:median(gaps),positiveDates:gaps.filter(x=>x>0).length,
   positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
  return {months,qualifyingMonths:months.length,minDatesPerMonth,
