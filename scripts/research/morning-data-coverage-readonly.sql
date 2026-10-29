@@ -77,3 +77,14 @@ SELECT count(*)::bigint AS total,
        count(*) FILTER (WHERE standard_deviation>0 AND
          abs(bb_sigma_position-((close-bb_middle)/standard_deviation))<=0.02)::bigint AS sigma_position_consistent
 FROM public.technical_bb_observation_snapshots;
+
+-- Audit whether stored daily snapshots could even be considered for a
+-- point-in-time feature proof. These are candidate counts, NOT proof of
+-- source licensing, provider finalization, or live-trading eligibility.
+SELECT count(*)::bigint AS total,
+       count(*) FILTER (WHERE created_at < (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo')+interval '1 day')::bigint AS inserted_before_next_day,
+       count(*) FILTER (WHERE created_at >= (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo')+interval '1 day')::bigint AS inserted_on_or_after_next_day,
+       count(*) FILTER (WHERE provider_timestamp < bar_end_at)::bigint AS provider_before_bar_end,
+       count(*) FILTER (WHERE created_at >= bar_end_at)::bigint AS db_after_bar_end,
+       count(*) FILTER (WHERE metadata ? 'independent_feature_generated_at')::bigint AS explicit_independent_feature_time
+FROM public.technical_bb_observation_snapshots;
