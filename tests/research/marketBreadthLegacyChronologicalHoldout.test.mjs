@@ -24,3 +24,8 @@ test('large independent cohort handles duplicate detection efficiently',()=>{con
 test('missing outcome date is excluded and disclosed',()=>{const sample=rows.map((r,i)=>i===0?{...r,evaluatedTradeDate:undefined}:r);const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.excludedMissingTrainingOutcomeDates,1);assert.ok(x.reasons.includes('MISSING_TRAINING_OUTCOME_DATE'));assert.equal(x.training.observations,3)});
 test('null row is rejected as invalid input',()=>assert.throws(()=>evaluate({audit:audit([null]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
 test('missing stock code is rejected',()=>assert.throws(()=>evaluate({audit:audit([{...rows[0],code:undefined}]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
+
+test('same-day evaluation cannot enter training',()=>{const sample=rows.map((r,i)=>i===0?{...r,evaluatedTradeDate:r.date}:r);const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.excludedMissingTrainingOutcomeDates,1);assert.equal(x.training.observations,3)});
+test('impossible evaluated date cannot enter training',()=>{const sample=rows.map((r,i)=>i===0?{...r,evaluatedTradeDate:'2026-02-30'}:r);const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.excludedMissingTrainingOutcomeDates,1)});
+test('impossible original signal date is rejected',()=>assert.throws(()=>evaluate({audit:audit([{...rows[0],date:'2026-02-30'}]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
+test('returns below minus one hundred percent are rejected',()=>assert.throws(()=>evaluate({audit:audit([{...rows[0],changePercent:-101}]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
