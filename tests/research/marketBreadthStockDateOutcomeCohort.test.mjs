@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {summarizeStockDateOutcomes as summarize} from '../../lib/research/marketBreadthStockDateOutcomeCohort.mjs';
+const r=(date,code,returnPercent)=>({date,code,horizon:5,returnPercent});
+const observed=[r('2026-08-21','8591',1.6843826655764516),r('2026-08-21','8591',1.6843826655764516),r('2026-08-21','9432',1.5051173438500467),r('2026-08-21','9983',-3.0608080533260784),r('2026-08-21','9983',-3.0608080533260784),r('2026-08-28','9983',-3.031153522312658)];
+test('observed DEV six events become four stock-date outcomes',()=>{const x=summarize({rows:observed});assert.equal(x.counts.submittedEventRows,6);assert.equal(x.counts.acceptedStockDates,4);assert.equal(x.counts.duplicateEventRows,2);assert.equal(x.counts.distinctDates,2);assert.equal(x.counts.distinctCodes,3);assert.equal(x.summary.positiveStockDates,2);assert.equal(x.summary.negativeStockDates,2);assert.ok(Math.abs(x.summary.meanReturnPercent-(-0.7256153915530596))<0.0001);assert.equal(x.aiPromotionAuthorized,false)});
+test('conflicting same stock-date outcomes are quarantined together',()=>{const x=summarize({rows:[r('2026-08-21','8591',2),r('2026-08-21','8591',-2)]});assert.equal(x.counts.acceptedStockDates,0);assert.equal(x.counts.conflictingStockDates,1)});
+test('same stock on different dates is not merged',()=>{const x=summarize({rows:[r('2026-08-21','9983',1),r('2026-08-28','9983',-1)]});assert.equal(x.counts.acceptedStockDates,2)});
+test('different stock on same date is not merged',()=>{const x=summarize({rows:[r('2026-08-21','8591',1),r('2026-08-21','9432',-1)]});assert.equal(x.counts.acceptedStockDates,2)});
+test('fixture codes are rejected',()=>{const x=summarize({rows:[r('2026-08-21','__TEST__',1)]});assert.equal(x.counts.rejectedEventRows,1)});
+test('invalid calendar dates are rejected',()=>{const x=summarize({rows:[r('2026-02-30','8591',1)]});assert.equal(x.counts.rejectedEventRows,1)});
+test('returns below minus one hundred percent rejected',()=>{const x=summarize({rows:[r('2026-08-21','8591',-101)]});assert.equal(x.counts.rejectedEventRows,1)});
+test('different horizon is excluded',()=>{const x=summarize({rows:[{...r('2026-08-21','8591',1),horizon:1}]});assert.equal(x.counts.rejectedEventRows,1)});
+test('equal-date mean differs from stock-date mean when day counts differ',()=>{const x=summarize({rows:[r('2026-08-21','8591',2),r('2026-08-21','9432',2),r('2026-08-28','9983',-2)]});assert.ok(Math.abs(x.summary.meanReturnPercent-2/3)<1e-9);assert.equal(x.summary.equalDateMeanReturnPercent,0)});
+test('empty input returns null summaries',()=>{const x=summarize();assert.equal(x.summary.meanReturnPercent,null);assert.equal(x.counts.acceptedStockDates,0)});
+test('invalid tolerance fails closed',()=>assert.throws(()=>summarize({tolerance:2}),/INVALID_STOCK_DATE_COHORT_INPUT/));
+test('small rounding differences may be reconciled',()=>{const x=summarize({rows:[r('2026-08-21','8591',1),r('2026-08-21','8591',1.0000001)]});assert.equal(x.counts.acceptedStockDates,1)});
