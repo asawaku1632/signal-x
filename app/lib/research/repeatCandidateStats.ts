@@ -210,3 +210,17 @@ export function completedDateConcentration(rows: OutcomeRecord[]) {
     dominantShare: total ? (ordered[0][1] / total) * 100 : null,
   };
 }
+
+/** Compare outcome availability across exact risk cohorts, not their investment quality. */
+export function cohortCoverageContrast(rows: ComparedRecord[]) {
+  const risk = rows.filter(row => row.previous_candidate_drop_over_5pct === true);
+  const other = rows.filter(row => row.previous_candidate_drop_over_5pct === false);
+  const riskCoverage = assessedOutcomeCoverage(risk);
+  const otherCoverage = assessedOutcomeCoverage(other);
+  return {
+    risk: riskCoverage,
+    other: otherCoverage,
+    completionGapPoints: riskCoverage.completionRate === null || otherCoverage.completionRate === null
+      ? null : riskCoverage.completionRate - otherCoverage.completionRate,
+  };
+}
