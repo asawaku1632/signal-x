@@ -21,7 +21,8 @@ SELECT trade_date::text AS trade_date, code, name, ai_power, entry_price,
   candidate_number, previous_candidate_date::text AS previous_candidate_date,
   previous_candidate_price,
   ROUND(100 * (entry_price - previous_candidate_price) / NULLIF(previous_candidate_price, 0), 6)
-    AS previous_candidate_change_pct
+    AS previous_candidate_change_pct,
+  (entry_price < previous_candidate_price * 0.95) AS previous_candidate_drop_over_5pct
 FROM candidate_history
 WHERE candidate_number > 1 AND previous_candidate_price > 0 AND entry_price > 0 AND ai_power >= 90
 ORDER BY trade_date DESC, code ASC
