@@ -42,3 +42,15 @@ test("empty exports report no inferred coverage",()=>{
  assert.equal(r.pairCoverage,null);assert.equal(r.equalDateImprovementPp,null);
  assert.ok(r.blockers.includes("NO_PREDECISION_SNAPSHOTS"));
 });
+
+test("unmatched stocks keep their trading date visibly incomplete",()=>{
+ const a="2026-11-04",b="2026-11-05";
+ const r=review({snapshots:[snapshot(a,"7203"),snapshot(a,"6758"),snapshot(b,"9984")],
+  outcomes:[result(a,"7203",0,10),result(b,"9984",0,-2)]});
+ assert.deepEqual(r.dateCoverage.map(x=>x.coverage),[0.5,1]);
+ assert.equal(r.incompleteDates,1);assert.equal(r.completeDates,1);
+ assert.equal(r.equalDateImprovementPp,4);
+ assert.equal(r.completeDateImprovementPp,-2);
+ assert.ok(r.blockers.includes("INCOMPLETE_TRADING_DATES"));
+ assert.equal(r.decision,"DO_NOT_PROMOTE");
+});
