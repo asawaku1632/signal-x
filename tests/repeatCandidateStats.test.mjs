@@ -278,3 +278,12 @@ test("evidence checklist describes outstanding validation and never unlocks trad
  assert.equal(result.followUp[0].ready,false);
  assert.ok(result.followUp.some(x=>x.task.includes("取引日") && x.ready===false));
 });
+
+test("discarded dated outcomes remain visible as independent HOLD reasons", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:null},{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:3}];
+ const gate=repeatRiskEvidenceGate(rows,false,1);
+ assert.equal(gate.status,"HOLD");
+ assert.ok(gate.reasons.some(x=>x.includes("日付不整合") && x.includes("1件")));
+ assert.ok(gate.followUp[0].detail.includes("除外 1件"));
+ assert.ok(!repeatRiskEvidenceGate(rows,false,0).reasons.some(x=>x.includes("日付不整合によって")));
+});
