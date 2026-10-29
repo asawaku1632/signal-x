@@ -1,6 +1,13 @@
 /** Offline-only reconciliation for prospective 09:05 study records. No DB/API or trading effects. */
 const day=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+"T00:00:00Z"))&&new Date(s+"T00:00:00Z").toISOString().slice(0,10)===s;
-const stamp=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(s)&&Number.isFinite(Date.parse(s));
+const stamp=s=>{
+ if(typeof s!=="string"||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(s)||!Number.isFinite(Date.parse(s)))return false;
+ const y=Number(s.slice(0,4)),m=Number(s.slice(5,7)),d=Number(s.slice(8,10));
+ const hour=Number(s.slice(11,13)),minute=Number(s.slice(14,16)),second=Number(s.slice(17,19));
+ const offset=s.match(/([+-])(\d{2}):(\d{2})$/);
+ return y>=100&&m>=1&&m<=12&&d>=1&&d<=new Date(Date.UTC(y,m,0)).getUTCDate()&&
+  hour<=23&&minute<=59&&second<=59&&(!offset||(Number(offset[2])<=23&&Number(offset[3])<=59));
+};
 export function reconcileMorningForwardLedger({snapshots=[],outcomes=[]}={}){
  if(!Array.isArray(snapshots)||!Array.isArray(outcomes))throw Error("INVALID_LEDGER_INPUT");
  const key=x=>x.experimentId+"|"+x.tradeDate+"|"+x.code;
