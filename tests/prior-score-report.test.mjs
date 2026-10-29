@@ -44,3 +44,16 @@ test("rejects future feature timestamp even if asserted",()=>{
  assert.equal(result.evidenceClassification.summary.latePrior,1);
  assert.equal(result.assertedRowsPassedToAnalysis,0);
 });
+
+test("SQL-format export cannot self-certify provenance or enter analysis",()=>{
+ const rows=[{date:"2026-11-02",code:"1234",price:"100",next_price:"102",
+  prior_date:"2026-10-30",prior_score:"90",source_date:"2026-11-04",
+  source_price:"102",prior_available_at:"2026-10-30T15:00:00+09:00",
+  prior_evidence_verified:true,outcome_provenance_verified:true}];
+ const report=reportFromText(JSON.stringify(rows));
+ assert.equal(report.sqlExportNormalized,true);
+ assert.equal(report.evidenceClassification.summary.missingPrior,1);
+ assert.equal(report.assertedRowsPassedToAnalysis,0);
+ assert.equal(report.days,0);
+ assert.equal(report.evidenceClassification.independentlyVerified,false);
+});
