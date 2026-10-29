@@ -468,3 +468,26 @@ Of the 10 comparable trading dates, equal-date mean high-minus-low 5d return was
 The `swing_universe_observations` table includes price, AI power, decision status, rule version and outcomes, but **does not hold volume, volatility, sector or Nikkei regime features**. All 9,500 five-day-matured rows used `rule_version=ai_power_only_v1`; 845 high-score rows are `CANDIDATE`. The decision status is thus not independent explanatory evidence for the high-score group.
 
 Exploratory *stock-weighted* means by entry price (high >=85 versus low <85, return 5d): under JPY500 n=21 high +6.9908%, low n=368 -0.9752%; JPY500-999 n=59 high +0.0060%, low n=780 -0.1829%; JPY1000-2999 n=338 high -0.9018%, low n=4325 -0.2261%; JPY3000+ n=427 high -2.1454%, low n=3182 -1.3492%. These are **not** equal-date stratified results and may reflect price/day/sector concentration. Do not make trading thresholds from these bands. No source-verifiable pre-09:05 score snapshots were found in this table. Future work: prespecify price bins and validate on independent forward-captured snapshots, including liquidity and benchmark regime as separately evidenced features. No notifications, training or production edits authorized.
+
+
+## Read-only recent saved daily cohort (2026-10-29 audit; seven dates)
+
+SOURCE: production `public.daily_stock_results`, bounded `SELECT` queries only. This table contains daily saved scores and later saved prices; it is NOT complete intraday OHLC, and the stored `score` is not independently verified as current UI AI POWER. No claim about a morning bottom, tradability or signal performance.
+
+Between 2026-10-20 and 2026-10-28 inclusive: 7 stored dates, each with 953 rows, 6,671 total; all 6,671 have positive `price` and `next_price`; 0 null `next_price` in this bounded slice. These completeness counts **do not verify** quote provenance, observation as-of timestamp, forward horizon, or licensing.
+
+A separate bounded grouped read-only query compared stored `score >= 85` against `score < 85` using per-row `100*(next_price/price-1)`. Numbers are percentages, **not portfolio returns**. All eligible records belonged to exactly one band on these seven dates.
+
+| Stored date | High-score records | Low-score records | High mean % | Low mean % | High-minus-low pp |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-20 | 126 | 827 | -0.2861 | +0.7290 | -1.0151 |
+| 2026-10-21 | 51 | 902 | +1.1869 | -0.6954 | +1.8823 |
+| 2026-10-22 | 62 | 891 | -0.5684 | -0.5216 | -0.0468 |
+| 2026-10-23 | 50 | 903 | -0.8925 | +0.3850 | -1.2775 |
+| 2026-10-26 | 56 | 897 | -0.4796 | +0.1002 | -0.5798 |
+| 2026-10-27 | 29 | 924 | -1.0438 | -0.2390 | -0.8048 |
+| 2026-10-28 | 27 | 926 | -0.9503 | -0.4814 | -0.4689 |
+
+**Descriptive observation:** one of seven date-level mean score gaps is positive; six are negative. This is a short, selected recent window, NOT an out-of-sample test. Both group counts exceed 10 for every date, but the October monthly sample criterion is not proof of independent validation. Row-level mean prices were rounded to four decimals in SQL, so displayed gaps are differences of rounded means. Do not enable model training, live ranking or notifications based on these comparisons.
+
+Next real validation: verify pre-decision frozen score timestamps and unmodified provider source; independently certify each later-price horizon; perform chronological held-out comparisons across many months and regimes; obtain complete licensed intraday OHLC before claiming morning-low timing/rebound frequency.
