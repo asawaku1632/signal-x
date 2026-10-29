@@ -22,7 +22,9 @@ export function reviewSixStagePromotion({findings=[],snapshots=[],comparisons=[]
  const duplicateSnapshotKeys=[...snapshotCounts].filter(([,n])=>n>1).length;
  const eligible=comparisons.filter(x=>validDate(x?.tradeDate)&&typeof x?.experimentId==="string"&&
    snapKeys.has(x.experimentId+"|"+x.tradeDate)&&
-   x.outcomeSourceVerified===true&&Number.isFinite(x.baselineReturn)&&
+   x.outcomeSourceVerified===true&&validStamp(x.outcomeAvailableAt)&&
+   Date.parse(x.outcomeAvailableAt)>Date.parse(x.tradeDate+"T09:05:00+09:00")&&
+   Number.isFinite(x.baselineReturn)&&
    Number.isFinite(x.candidateReturn)&&Number.isFinite(x.benchmarkReturn));
  const seen=new Set(),duplicates=new Set();
  for(const x of eligible){const key=x.experimentId+"|"+x.tradeDate;if(seen.has(key))duplicates.add(key);seen.add(key);}
@@ -41,6 +43,7 @@ export function reviewSixStagePromotion({findings=[],snapshots=[],comparisons=[]
  if(forwardMonths<3)warnings.push("FORWARD_MONTHS_LT_3");
  if(duplicates.size)warnings.push("DUPLICATE_EXPERIMENT_DATE");
  if(duplicateSnapshotKeys)warnings.push("DUPLICATE_SNAPSHOT_EXPERIMENT_DATE");
+ if(comparisons.some(x=>!validStamp(x?.outcomeAvailableAt)||!validDate(x?.tradeDate)||Date.parse(x.outcomeAvailableAt)<=Date.parse(x.tradeDate+"T09:05:00+09:00")))warnings.push("OUTCOME_AVAILABILITY_NOT_PROVEN");
  if(!daily.length||mean(gaps)<=0)warnings.push("NO_MEASURED_CANDIDATE_ADVANTAGE");
  warnings.push("HUMAN_PRODUCTION_REVIEW_NOT_PERFORMED");
  return {version:"SIX_STAGE_RESEARCH_PROPOSAL_V1",stages1to5:previous,
