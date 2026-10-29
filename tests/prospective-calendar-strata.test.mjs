@@ -104,3 +104,17 @@ test("cross-month consistency requires two supported months, and stays descripti
  const mixed=run([...makeMonth("2026-11",[1,2,3,4,5]),...makeMonth("2026-12",[20,-1,-1,-1,-1])]);
  assert.equal(mixed.descriptiveMonthlyConsistency.allSupportedMonthsConsistent,false);
 });
+
+test("uneven months are flagged even when both monthly means look positive",()=>{
+ const dates=(month,count)=>Array.from({length:count},(_,i)=>({date:`${month}-${String(i+1).padStart(2,"0")}`,highCount:10,lowCount:10,gapPp:1}));
+ const report=run([...dates("2026-11",15),...dates("2026-12",5)]);
+ assert.equal(report.descriptiveMonthlyConsistency.supportedMonths,2);
+ assert.equal(report.descriptiveMonthlyConsistency.supportedTradingDates,20);
+ assert.equal(report.descriptiveMonthlyConsistency.largestMonthDateShare,0.75);
+ assert.equal(report.descriptiveMonthlyConsistency.concentratedInOneMonth,true);
+ assert.equal(report.descriptiveMonthlyConsistency.allSupportedMonthsConsistent,true);
+ assert.equal(report.descriptiveMonthlyConsistency.independentlyValidated,false);
+ assert.equal(report.readyForTrading,false);
+ const balanced=run([...dates("2026-11",5),...dates("2026-12",5)]);
+ assert.equal(balanced.descriptiveMonthlyConsistency.concentratedInOneMonth,false);
+});
