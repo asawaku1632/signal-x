@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {reviewCrashJoinedExport as run} from "../app/lib/research/crashJoinedExportReview.mjs";
+const row={event_date:"2026-10-22",code:"4498",category:"RESISTANCE",selected_at:"2026-10-22 07:55:47.880882+00",outcome_date:"2026-10-23",status:"OBSERVED",excess_return:"-2.9009",evaluated_at:"2026-10-23 07:55:47.859755+00"};
+test("real shaped saved join flows into both research views",()=>{const x=run([row]);assert.equal(x.acceptedRows,1);assert.equal(x.category.distinctEvents,1);assert.equal(x.event.independentDates,1);assert.equal(x.trainingEnabled,false);});
+test("missing outcome excluded",()=>assert.equal(run([{...row,status:"PENDING"}]).errors.missingOutcome,1));
+test("future evidence paradox excluded",()=>assert.equal(run([{...row,evaluated_at:"2026-10-22 07:55:47+00"}]).errors.chronology,1));
+test("same day outcome excluded",()=>assert.equal(run([{...row,outcome_date:row.event_date}]).errors.chronology,1));
+test("duplicate stock-day cannot double count",()=>{const x=run([row,row]);assert.equal(x.acceptedRows,1);assert.equal(x.errors.duplicates,1);});
+test("null return rejected",()=>assert.equal(run([{...row,excess_return:null}]).errors.missingOutcome,1));
+test("no independent certification",()=>{const x=run([row]);assert.equal(x.independentlyVerified,false);assert.equal(x.tradingEnabled,false);});
