@@ -158,3 +158,29 @@ test("empty export remains non-tradable and has zero evaluated samples",()=>{
   assert.equal(result.audit.rebound1pct.evaluated,0);
   assert.equal(result.readyForTrading,false);
 });
+
+test("daily candles cannot masquerade as complete five-minute morning evidence",()=>{
+  const original=makeInput("2026-10-27");
+  for(const invalid of [
+    {...original,intervalMinutes:1440,timeframe:"1D"},
+    {...original,bars:original.bars.slice(0,29)},
+    {...original,bars:original.bars.map((bar,i)=>i===1?{...bar,time:original.bars[0].time}:bar)}
+  ]){
+    const prepared=prepareMorningForwardRows([invalid]);
+    assert.equal(prepared.rows.length,0);
+    assert.equal(prepared.excluded.unverifiedBars,1);
+    assert.equal(prepared.signalEnabled,false);
+  }
+});
+test("same-day feature snapshots cannot be backdated into morning predictions",()=>{
+  const original=makeInput("2026-10-27");
+  for(const featureAvailableAt of [
+    "2026-10-27T00:00:00+09:00",
+    "2026-10-27T09:05:00+09:00",
+    "2026-10-26T15:00:00Z"
+  ]){
+    const prepared=prepareMorningForwardRows([{...original,featureAvailableAt}]);
+    assert.equal(prepared.rows.length,0,featureAvailableAt);
+    assert.equal(prepared.excluded.missingFeatureProof,1,featureAvailableAt);
+  }
+});
