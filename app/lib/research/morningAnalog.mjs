@@ -90,7 +90,7 @@ export function summarizeAnalogs(target, histories, options={}) {
   const cutoff=Date.parse(target.tradeDate+"T00:00:00+09:00");
   const outcomeAvailable=row=>!requireOutcomeAvailability ||
     (typeof row.outcomeAvailableAt==="string" &&
-     /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(row.outcomeAvailableAt) &&
+     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.outcomeAvailableAt) &&
      Number.isFinite(Date.parse(row.outcomeAvailableAt)) &&
      Date.parse(row.outcomeAvailableAt)<cutoff &&
      Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"));
