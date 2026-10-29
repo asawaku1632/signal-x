@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -49,6 +49,7 @@ export default function RepeatCandidateRiskPage() {
     });
   }, [data]);
   const overallCoverage = useMemo(() => assessedOutcomeCoverage(data?.rows || []), [data]);
+  const thresholds = useMemo(() => thresholdSensitivity(data?.rows || []), [data]);
   const matched = useMemo(() => sameDayComparison(data?.rows || []), [data]);
   const sameDay = matched.days;
   const sensitivity = useMemo(() => matchedDaySensitivity(data?.rows || []), [data]);
@@ -94,6 +95,12 @@ export default function RepeatCandidateRiskPage() {
           <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
           <p className="text-xs text-slate-600">銘柄件数で重み付けした5日後平均</p><p className="mt-2 text-sm font-bold">日付均等平均：{pct(g.dateBalancedAverage)}</p><p className="text-xs text-slate-600">記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
         </div>)}
+      </section><section className="rounded-xl border p-3">
+        <h2 className="text-base font-black">下落率の閾値別感度（参考）</h2>
+        <p className="text-xs text-slate-600">前回候補からの下落が3%、5%、7%を超えた群を比較。群は重複しており、投資シグナルの優劣や因果関係を示しません。</p>
+        <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b"><th className="p-2">下落率</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th><th className="p-2">評価日</th><th className="p-2">日付均等平均</th></tr></thead>
+        <tbody>{thresholds.map(t => <tr key={t.drop} className="border-b"><td className="p-2">{t.drop}%超</td><td className="p-2">{t.count}</td><td className="p-2">{t.checked}</td><td className="p-2">{t.pending}</td><td className="p-2">{t.days}日</td><td className="p-2">{pct(t.dateBalancedAverage)}</td></tr>)}</tbody></table></div>
+        <p className="mt-1 text-xs text-amber-800">閾値を後から選ぶと過剰適合につながります。独立した将来データでの再現性確認が必要です。</p>
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">同じ判定日の5日後結果を比較</h2>
         <p className="mt-1 text-xs text-slate-600">両グループに評価済みデータがある日だけ表示。対象は再選出・POWER90以上で、同日でも業種や銘柄構成の差は残ります。</p>
