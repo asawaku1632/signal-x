@@ -258,6 +258,12 @@ export function repeatRiskEvidenceGate(rows: ComparedRecord[], truncated = false
   if (finishedDates.size < 5) reasons.push("下落群の評価済み取引日が5日未満です");
   if (coverage.risk.pending > 0 || coverage.other.pending > 0) reasons.push("5日後結果が未確定の観測が残っています");
   if (coverage.completionGapPoints !== null && Math.abs(coverage.completionGapPoints) > 10) reasons.push("2群の評価完了率に10ポイント超の差があります");
-  return { status: "HOLD" as const, reasons, completeDays: complete.matchedDayCount, dominantShare: concentration.dominantShare,
+  const followUp = [
+    { task: "独立した価格・結果日を照合", ready: false, detail: "保存価格と外部市場データの一致は未確認" },
+    { task: "異なる取引日を追加検証", ready: complete.matchedDayCount >= 5, detail: `全件確定の比較日 ${complete.matchedDayCount}日` },
+    { task: "日付集中を再評価", ready: concentration.dominantShare !== null && concentration.dominantShare <= 50, detail: `最多日の占有率 ${concentration.dominantShare?.toFixed(1) ?? "未検証"}%` },
+    { task: "未確定結果を追跡", ready: coverage.risk.pending === 0 && coverage.other.pending === 0, detail: `未確定 ${coverage.risk.pending + coverage.other.pending}件` },
+  ];
+  return { status: "HOLD" as const, reasons, followUp, completeDays: complete.matchedDayCount, dominantShare: concentration.dominantShare,
     note: "暫定的な観測条件です。独立した市場価格照合と将来データでの再現性検証を必要とし、自動採用しません。" };
 }
