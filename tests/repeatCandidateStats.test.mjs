@@ -269,3 +269,12 @@ test("evidence gate requires risk results from multiple independent decision dat
  assert.ok(result.reasons.some(reason=>reason.includes("評価済み取引日が5日未満")));
  assert.equal(result.dominantShare,100);
 });
+
+test("evidence checklist describes outstanding validation and never unlocks trading", () => {
+ const rows=[{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:true,previous_candidate_change_pct:-6,return_5d:-8},{trade_date:"2026-10-19",previous_candidate_drop_over_5pct:false,previous_candidate_change_pct:0,return_5d:1}];
+ const result=repeatRiskEvidenceGate(rows);
+ assert.equal(result.status,"HOLD");
+ assert.equal(result.followUp.length,4);
+ assert.equal(result.followUp[0].ready,false);
+ assert.ok(result.followUp.some(x=>x.task.includes("取引日") && x.ready===false));
+});
