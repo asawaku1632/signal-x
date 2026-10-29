@@ -24,7 +24,7 @@ SELECT date::text AS signal_date,COUNT(*)::bigint AS rows,
  COUNT(*) FILTER (WHERE checked_at IS NOT NULL)::bigint AS evaluated,
  COUNT(*) FILTER (WHERE next_price IS NOT NULL AND next_price>0)::bigint AS priced
 FROM daily_stock_results
-GROUP BY date ORDER BY date DESC LIMIT 120;
+GROUP BY date ORDER BY date DESC;
 
 -- Duplicate dates/codes can bias a backtest, even if the primary key differs.
 SELECT COUNT(*)::bigint AS duplicate_stock_date_groups,
