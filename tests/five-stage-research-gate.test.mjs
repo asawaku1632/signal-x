@@ -9,3 +9,8 @@ test("bad input rejected",()=>assert.throws(()=>run({findings:null}),/INVALID_FI
 
 test("comparison without matching predecision record is not forward-anchored",()=>{const x=run({comparisons:[{tradeDate:"2026-11-03",baselineReturn:-2,candidateReturn:-1,outcomeSourceVerified:true}]});assert.equal(x.stage4.comparedDates,1);assert.equal(x.stage4.comparisonDatesWithClaimedSnapshots,0);assert.equal(x.stage4.worstDailyCandidateReturn,-1);assert.ok(x.stage5.blockers.includes("FORWARD_SNAPSHOT_COMPARISON_LINK_MISSING"));assert.ok(x.stage5.blockers.includes("BENCHMARK_COMPARISON_MISSING"));});
 test("benchmark value and matching dated claimed snapshot remain nonauthorizing",()=>{const x=run({snapshots:[{tradeDate:"2026-11-03",recordedAt:"2026-11-03T08:30:00+09:00",sourceVerified:true,independentTimeAttestation:true,outcomeNotYetKnown:true}],comparisons:[{tradeDate:"2026-11-03",baselineReturn:-2,candidateReturn:1,benchmarkReturn:0,outcomeSourceVerified:true}]});assert.equal(x.stage4.comparisonDatesWithClaimedSnapshots,1);assert.equal(x.stage4.benchmarkComparisons,1);assert.equal(x.stage5.decision,"DO_NOT_DEPLOY");});
+
+// Include stage-six and provenance regression suites in the established offline CI entrypoint.
+import './predecision-evidence-audit.test.mjs';
+import './six-stage-promotion-review.test.mjs';
+import './legacy-research-coverage.test.mjs';
