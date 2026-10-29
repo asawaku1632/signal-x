@@ -88,3 +88,15 @@ SELECT count(*)::bigint AS total,
        count(*) FILTER (WHERE created_at >= bar_end_at)::bigint AS db_after_bar_end,
        count(*) FILTER (WHERE metadata ? 'independent_feature_generated_at')::bigint AS explicit_independent_feature_time
 FROM public.technical_bb_observation_snapshots;
+
+-- Inventory the stored indicator source class without treating a daily
+-- technical snapshot as complete intraday outcome bars.
+SELECT COALESCE(timeframe,'<NULL>') AS timeframe,
+       COALESCE(provider,'<NULL>') AS provider,
+       COALESCE(timezone,'<NULL>') AS timezone,
+       COALESCE(rsi_availability,'<NULL>') AS rsi_availability,
+       COALESCE(macd_availability,'<NULL>') AS macd_availability,
+       count(*)::bigint AS rows
+FROM public.technical_bb_observation_snapshots
+GROUP BY 1,2,3,4,5
+ORDER BY rows DESC;
