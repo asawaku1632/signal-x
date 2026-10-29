@@ -61,3 +61,18 @@ test("monthly positive mean can conflict with negative median without model appr
  assert.equal(report.positiveSufficientMonths,1);
  assert.equal(report.readyForTrading,false);
 });
+
+test("excluded cohort reasons distinguish insufficient groups and invalid gap",()=>{
+ const bad=[
+  {date:"2026-12-01",highCount:9,lowCount:10,gapPp:1},
+  {date:"2026-12-02",highCount:10,lowCount:9,gapPp:2},
+  {date:"2026-12-03",highCount:10,lowCount:10,gapPp:NaN},
+  {date:"2026-12-04",highCount:9,lowCount:9,gapPp:NaN}
+ ];
+ const report=run(bad);
+ assert.equal(report.receivedDates,4);
+ assert.equal(report.excludedDates,4);
+ assert.deepEqual(report.exclusionReasons,{insufficientHigh:2,insufficientLow:2,invalidGap:2});
+ assert.equal(report.qualifyingDates,0);
+ assert.equal(report.readyForTraining,false);
+});
