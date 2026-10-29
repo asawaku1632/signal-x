@@ -234,3 +234,10 @@ export function pairedDayCompletion(rows: ComparedRecord[]) {
     return { date, risk, other, bothPresent: risk.total > 0 && other.total > 0, bothComplete: risk.total > 0 && other.total > 0 && risk.pending === 0 && other.pending === 0 };
   }).filter(d => d.bothPresent);
 }
+
+/** Sensitivity check: only use dates where both cohorts have all outcomes. */
+export function fullyObservedDayComparison(rows: ComparedRecord[]) {
+  const completeDates = new Set(pairedDayCompletion(rows).filter(day => day.bothComplete).map(day => day.date));
+  const comparison = sameDayComparison(rows.filter(row => completeDates.has(row.trade_date)));
+  return { ...comparison, excludedPartialDays: pairedDayCompletion(rows).filter(day => !day.bothComplete).length };
+}
