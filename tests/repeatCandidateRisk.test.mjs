@@ -182,3 +182,12 @@ test("matched-day equal weight gap and coverage are visible", () => {
   assert.match(page, /matched.dateBalancedGap/);
   assert.match(page, /matched.matchedDayCount < 3/);
 });
+
+test("provisional evidence gate never enables trading or alerts", () => {
+  assert.match(page, /研究段階：本番判定への採用は保留/);
+  assert.match(page, /matched\.matchedDayCount < 3/);
+  assert.match(page, /summary\[0\]\?\.days \?\? 0/);
+  assert.match(page, /data\.truncated/);
+  assert.match(page, /暫定的な注意表示/);
+  assert.match(page, /AI売買判定や通知には反映しません/);
+});
