@@ -14,3 +14,7 @@ test('postdated creation is not temporally plausible',()=>{assert.equal(audit({r
 test('missing checked timestamp is not temporally plausible',()=>{assert.equal(audit({rows:[{...row(),checkedAt:null}]}).counts.temporallyPlausible,0)});
 test('empty dataset is safe',()=>{assert.equal(audit().counts.accepted,0)});
 test('non-array dataset fails closed',()=>{assert.throws(()=>audit({rows:{}}),/INVALID_LEGACY_ROWS/)});
+
+test('UTC timestamp corresponding to Tokyo trade date remains plausible',()=>{const x=audit({rows:[{...row(),createdAt:'2026-08-21T00:05:00Z'}]});assert.equal(x.counts.temporallyPlausible,1)});
+test('UTC date before Tokyo trade date is normalized correctly',()=>{const x=audit({rows:[{...row(),createdAt:'2026-08-20T23:50:00Z'}]});assert.equal(x.counts.temporallyPlausible,1)});
+test('UTC date matching calendar date but next Tokyo date is not plausible',()=>{const x=audit({rows:[{...row(),createdAt:'2026-08-21T18:00:00Z',checkedAt:'2026-08-22T18:00:00Z'}]});assert.equal(x.counts.temporallyPlausible,0)});
