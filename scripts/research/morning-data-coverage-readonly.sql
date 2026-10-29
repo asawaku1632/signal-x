@@ -43,3 +43,13 @@ SELECT count(*)::bigint AS rows_checked,
        count(*) FILTER (WHERE created_at >= (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo') + interval '1 day')::bigint AS inserted_on_or_after_next_jst_day,
        count(*) FILTER (WHERE created_at < (observation_date::timestamp AT TIME ZONE 'Asia/Tokyo') + interval '1 day')::bigint AS inserted_before_next_jst_day
 FROM public.technical_bb_observation_snapshots;
+
+-- Structural checks only: matching dates and ordered bounds do not prove
+-- exchange-calendar validity, independent provenance, or final candle status.
+SELECT count(*)::bigint AS total,
+       count(*) FILTER (WHERE bar_start_at < bar_end_at)::bigint AS ordered_bars,
+       count(*) FILTER (WHERE (bar_end_at AT TIME ZONE 'Asia/Tokyo')::date=observation_date)::bigint AS end_date_matches_jst,
+       count(*) FILTER (WHERE (bar_start_at AT TIME ZONE 'Asia/Tokyo')::date=observation_date)::bigint AS start_date_matches_jst,
+       count(*) FILTER (WHERE created_at>=bar_end_at)::bigint AS inserted_after_bar_end,
+       count(*) FILTER (WHERE provider_timestamp>=bar_start_at AND provider_timestamp<=bar_end_at)::bigint AS provider_stamp_inside_bar
+FROM public.technical_bb_observation_snapshots;
