@@ -8,8 +8,9 @@ import {classifyPreopenResearchDates} from "../app/lib/research/preopenResearchP
 export function analyzePreopenExportJson(text){
  if(typeof text!=="string"||Buffer.byteLength(text)>5*1024*1024)throw Error("INVALID_PREOPEN_JSON_EXPORT");
  const data=JSON.parse(text);
- if(!Array.isArray(data))throw Error("EXPECTED_JSON_ARRAY");
- const rows=adaptPreopenDbRows(data);
+ const payload=Array.isArray(data)?data:(data&&typeof data==="object"&&Object.keys(data).length===1&&Array.isArray(data.approved_preopen_rows)?data.approved_preopen_rows:null);
+ if(!payload)throw Error("EXPECTED_JSON_ARRAY_OR_APPROVED_PREOPEN_ROWS");
+ const rows=adaptPreopenDbRows(payload);
  return {...classifyPreopenResearchDates(rows),inputMode:"MANUAL_OFFLINE_JSON_EXPORT",liveDbAccess:false};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
