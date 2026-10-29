@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {reviewSixStagePromotion as review} from "../app/lib/research/sixStagePromotionReview.mjs";
 const snap=(date,experimentId)=>({tradeDate:date,experimentId,recordedAt:date+"T08:59:00+09:00",
  sourceVerified:true,independentTimeAttestation:true,outcomeNotYetKnown:true});
-const comp=(date,experimentId,candidateReturn=1)=>({tradeDate:date,experimentId,baselineReturn:0,candidateReturn,benchmarkReturn:0,outcomeSourceVerified:true});
+const comp=(date,experimentId,candidateReturn=1)=>({tradeDate:date,experimentId,baselineReturn:0,candidateReturn,benchmarkReturn:0,outcomeSourceVerified:true,outcomeAvailableAt:date+"T16:00:00+09:00"});
 test("no verified inputs remain blocked at sixth stage",()=>{
  const x=review();assert.equal(x.stage6.decision,"DO_NOT_PROMOTE");
  assert.equal(x.stage6.comparisonDates,0);assert.equal(x.productionChanged,false);
@@ -52,4 +52,14 @@ test("duplicated snapshot for same experiment and day invalidates matching outco
  assert.equal(x.stage6.comparisonDates,0);
  assert.equal(x.stage6.duplicateSnapshotExperimentDatePairs,1);
  assert.ok(x.stage6.blockers.includes("DUPLICATE_SNAPSHOT_EXPERIMENT_DATE"));
+});
+
+test("missing or predecision outcomes never count as matured results",()=>{
+ const d="2026-11-04",s=snap(d,"a"),good=comp(d,"a");
+ for(const value of [undefined,"2026-11-04T09:04:59+09:00","2026-11-04 16:00:00"]){
+  const x=review({snapshots:[s],comparisons:[{...good,outcomeAvailableAt:value}]});
+  assert.equal(x.stage6.comparisonDates,0);
+  assert.ok(x.stage6.blockers.includes("OUTCOME_AVAILABILITY_NOT_PROVEN"));
+  assert.equal(x.stage6.decision,"DO_NOT_PROMOTE");
+ }
 });
