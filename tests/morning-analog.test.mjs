@@ -164,3 +164,15 @@ test("impossible calendar dates cannot enter morning research",()=>{
   assert.equal(stats.samples,0);
   assert.equal(stats.excluded.invalid,1);
 });
+
+test("zero and negative interval observations are excluded from research",()=>{
+  const date="2026-10-28";
+  const row={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const result=summarizeMorningDropPatterns([
+    {...row,intervalMinutes:0},
+    {...row,intervalMinutes:-5,code:"5678"},
+    {...row,intervalMinutes:5,code:"9012"}
+  ],{minSamples:1,dropThresholdPct:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.excluded.invalid,2);
+});
