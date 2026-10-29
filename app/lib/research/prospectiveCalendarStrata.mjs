@@ -5,6 +5,7 @@ export function auditProspectiveCalendarStrata(daily,options={}){
  if(!Array.isArray(daily))throw Error("INVALID_CALENDAR_STRATA");
  const used=new Set(),groups=new Map();
  let excludedDates=0;
+ const excludedByMonth=new Map();
  const exclusionReasons={insufficientHigh:0,insufficientLow:0,invalidGap:0};
  const primaryExclusionReasons={insufficientHigh:0,insufficientLow:0,invalidGap:0};
  for(const row of daily){
@@ -13,6 +14,8 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   used.add(row.date);
   if(!(Number.isInteger(row.highCount)&&row.highCount>=10&&Number.isInteger(row.lowCount)&&row.lowCount>=10&&Number.isFinite(row.gapPp))){
    excludedDates++;
+   const excludedMonth=row.date.slice(0,7);
+   excludedByMonth.set(excludedMonth,(excludedByMonth.get(excludedMonth)??0)+1);
    if(!Number.isInteger(row.highCount)||row.highCount<10)exclusionReasons.insufficientHigh++;
    if(!Number.isInteger(row.lowCount)||row.lowCount<10)exclusionReasons.insufficientLow++;
    if(!Number.isFinite(row.gapPp))exclusionReasons.invalidGap++;
@@ -39,6 +42,7 @@ export function auditProspectiveCalendarStrata(daily,options={}){
  const positiveMedianMonths=supported.filter(x=>x.medianGapPp>0).length;
  const monthsWithMeanMedianAgreement=supported.filter(x=>x.meanGapPp>0&&x.medianGapPp>0&&x.majorityPositive).length;
  return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
+  excludedByMonth:Object.fromEntries([...excludedByMonth].sort((a,b)=>a[0].localeCompare(b[0]))),
   descriptiveMonthlyConsistency:{supportedMonths:supported.length,positiveMedianMonths,
    unsupportedMonths:unsupported.length,unsupportedTradingDates,insufficientMonths,
    acceptedDateCoverage:supportedDates+unsupportedTradingDates===daily.length-excludedDates,
