@@ -17,3 +17,6 @@ test('equal date average does not overweight a busy day',()=>{const extra=[...ro
 
 test('training outcome that overlaps holdout is embargoed',()=>{const sample=rows.map((r,i)=>i===3?{...r,evaluatedTradeDate:'2026-08-07'}:r);const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.excludedOverlappingTrainingOutcomes,2);assert.equal(x.training.observations,3);assert.ok(x.reasons.includes('TRAINING_OUTCOME_OVERLAPS_HOLDOUT'))});
 test('duplicate stock-date in audited rows fails closed',()=>assert.throws(()=>evaluate({audit:audit([...rows,rows[0]]),holdoutDate:'2026-08-06'}),/DUPLICATE_AUDITED_STOCK_DATE/));
+
+test('impossible holdout calendar date rejected',()=>assert.throws(()=>evaluate({audit:audit(),holdoutDate:'2026-02-30'}),/INVALID_HOLDOUT_DATE/));
+test('large independent cohort handles duplicate detection efficiently',()=>{const sample=Array.from({length:2000},(_,i)=>({date:'2026-08-01',code:String(1000+i),score:80,changePercent:1,evaluatedTradeDate:'2026-08-02'}));const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.training.observations,2000)});
