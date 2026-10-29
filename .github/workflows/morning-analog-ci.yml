@@ -63,6 +63,7 @@ on:
       - "tests/preopen-weekend-policy.test.mjs"
       - "tests/preopen-research-partition.test.mjs"
       - "tests/preopen-db-adapter.test.mjs"
+      - "tests/preopen-seven-real-timestamps.test.mjs"
       - "tests/preopen-seven-observations.test.mjs"
       - "tests/preopen-seven-date-db-fixture.test.mjs"
       - ".github/workflows/morning-analog-ci.yml"
