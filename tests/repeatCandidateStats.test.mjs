@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -117,4 +117,15 @@ test("overall completion rate counts zero returns and excludes missing outcomes"
   assert.equal(result.pending,2);
   assert.ok(Math.abs(result.completionRate - 100/3) < 1e-10);
   assert.equal(assessedOutcomeCoverage([]).completionRate,null);
+});
+
+test("threshold sensitivity has nested cohorts and leaves missing outcomes pending", () => {
+ const result=thresholdSensitivity([
+ {trade_date:"2026-10-19",previous_candidate_change_pct:-4,return_5d:1},
+ {trade_date:"2026-10-19",previous_candidate_change_pct:-6,return_5d:-3},
+ {trade_date:"2026-10-20",previous_candidate_change_pct:-8,return_5d:null},
+ {trade_date:"2026-10-20",previous_candidate_change_pct:0,return_5d:9}
+ ]);
+ assert.deepEqual(result.map(x=>[x.drop,x.count,x.checked,x.pending]),[[3,3,2,1],[5,2,1,1],[7,1,0,1]]);
+ assert.equal(result[2].dateBalancedAverage,null);
 });
