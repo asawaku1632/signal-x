@@ -253,3 +253,10 @@ test("all down-five filters use exact SQL classification", () => {
   assert.ok(page.includes("!onlyDrop || r.previous_candidate_drop_over_5pct"));
   assert.ok(!page.includes("(n(r.previous_candidate_change_pct) ?? 0) < -5"));
 });
+
+test("research readiness shows dominant decision-day share", () => {
+  assert.ok(page.includes("completedDateConcentration"));
+  assert.ok(page.includes("riskConcentration.dominantShare"));
+  assert.ok(page.includes("日付集中や独立価格照合"));
+  assert.ok(page.includes("本番判定への採用は保留"));
+});
