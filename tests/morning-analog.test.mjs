@@ -141,3 +141,13 @@ test("conflicting duplicate stock/date observations are excluded regardless of i
     assert.equal(result.rebound1pct.rate,null);
   }
 });
+
+test("target feature snapshot cannot be from trading day or malformed time",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",features};
+  for(const stamp of ["2026-10-28T09:05:00+09:00","2026-10-28T00:00:00+09:00","not-a-time"]){
+    assert.throws(()=>summarizeAnalogs({...target,featureAvailableAt:stamp},[],{minSamples:1}),/TARGET_FEATURE_LOOKAHEAD/);
+  }
+  const valid=summarizeAnalogs({...target,featureAvailableAt:"2026-10-27T18:00:00+09:00"},[],{minSamples:1});
+  assert.equal(valid.samples,0);
+});
