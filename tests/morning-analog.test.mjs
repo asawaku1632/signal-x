@@ -25,7 +25,7 @@ test("future outcomes and features available on the outcome date cannot leak",()
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const target={tradeDate:"2026-10-28",features};
   const make=(tradeDate,featureAvailableAt)=>({
-    tradeDate,featureAvailableAt,features,
+    code:"1234",tradeDate,featureAvailableAt,features,
     outcome:inspectMorning(tradeDate,100,makeBars(tradeDate))
   });
   const result=summarizeAnalogs(target,[
@@ -69,7 +69,7 @@ test("invalid observation dates are excluded rather than silently counted",()=>{
 test("1 and 2 percent rebound denominators are counted independently",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const target={tradeDate:"2026-10-28",features};
-  const base={tradeDate:"2026-10-27",featureAvailableAt:"2026-10-26T18:00:00+09:00",features};
+  const base={code:"1234",tradeDate:"2026-10-27",featureAvailableAt:"2026-10-26T18:00:00+09:00",features};
   const observation=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
   const result=summarizeAnalogs(target,[{...base,outcome:{...observation,rebound1pct:true,rebound2pct:null}}],{minSamples:1});
   assert.equal(result.rebound1pct.observed,1);
@@ -83,7 +83,7 @@ test("malformed prior-day snapshot stamps cannot enter analog comparisons",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const target={tradeDate:"2026-10-28",features};
   const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
-  const make=stamp=>({tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
+  const make=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
   const result=summarizeAnalogs(target,[
     make("2026-10-26T18:00:00+09:00"),
     make("2026-10-26 garbage"),
@@ -107,7 +107,7 @@ test("timestamp offsets are compared as instants before JST trading date",()=>{
   const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
   const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
   const target={tradeDate:"2026-10-28",features};
-  const history=stamp=>({tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
+  const history=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
   // 2026-10-26 23:00 JST, before the Oct 27 trading date.
   const valid="2026-10-26T14:00:00Z";
   // 2026-10-27 10:00 JST; calendar date in -04:00 is still Oct 26.
