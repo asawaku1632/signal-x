@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {auditScoreDecisionTime as audit} from "../app/lib/research/scoreDecisionTimeGate.mjs";
+const decisionTime="2026-10-29T09:05:00+09:00";
+test("actual timestamp without timezone fails closed",()=>assert.equal(audit({createdAt:"2026-10-29 06:35:36.876655"},{decisionTime}).reason,"UNVERIFIED_CREATED_AT_TIMEZONE"));
+test("late score rejected",()=>assert.equal(audit({createdAt:"2026-10-29T09:06:00+09:00"},{decisionTime}).reason,"CREATED_AFTER_DECISION"));
+test("missing score timestamp rejected",()=>assert.equal(audit({},{decisionTime}).eligible,false));
+test("naive decision timestamp rejected",()=>assert.equal(audit({createdAt:"2026-10-29T08:30:00Z"},{decisionTime:"2026-10-29 09:05:00"}).reason,"INVALID_DECISION_INSTANT"));
+test("early timestamp without independent attestation remains unverified",()=>{const x=audit({createdAt:"2026-10-28T23:00:00Z"},{decisionTime});assert.equal(x.timeOrderPlausible,true);assert.equal(x.eligible,false);assert.equal(x.exAnteVerified,false);});
+test("checked timestamp must not precede origin",()=>assert.equal(audit({createdAt:"2026-10-28T23:00:00Z",checkedAt:"2026-10-28T22:00:00Z"},{decisionTime}).reason,"INVALID_OUTCOME_CHECK_TIME"));
+test("checked timestamp without timezone rejected",()=>assert.equal(audit({createdAt:"2026-10-28T23:00:00Z",checkedAt:"2026-10-29 06:50:24"},{decisionTime}).reason,"INVALID_OUTCOME_CHECK_TIME"));
