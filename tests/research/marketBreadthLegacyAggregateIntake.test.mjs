@@ -23,3 +23,9 @@ test('complete daily coverage reconciles rows and judged totals',()=>{const x=ru
 test('missing daily rows despite complete date coverage fail closed',()=>assert.throws(()=>run(summary,[{...daily[0],rows:3},daily[1]]),/INCOMPLETE_DAILY_RECONCILIATION/));
 test('missing judged results despite complete date coverage fail closed',()=>assert.throws(()=>run(summary,[{...daily[0],resolved:1},daily[1]]),/INCOMPLETE_DAILY_RECONCILIATION/));
 test('partial daily coverage is explicitly disclosed',()=>{const x=run(summary,[daily[0]]);assert.equal(x.coverage.dailyCoverageComplete,false);assert.equal(x.coverage.dailyRowsReconciled,false)});
+
+test('PostgreSQL bigint text counts are normalized without losing precision',()=>{const s=Object.fromEntries(Object.entries(summary).map(([k,v])=>typeof v==='number'?[k,String(v)]:[k,v]));const d=daily.map(r=>Object.fromEntries(Object.entries(r).map(([k,v])=>typeof v==='number'?[k,String(v)]:[k,v])));const x=run(s,d,{duplicate_stock_date_groups:'0',duplicate_extra_rows:'0'});assert.equal(x.coverage.rows,10);assert.equal(x.coverage.dailyRowsReconciled,true)});
+test('unsafe PostgreSQL bigint above safe integer range is rejected',()=>assert.throws(()=>run({...summary,total_rows:'9007199254740993'}),/INVALID_AGGREGATE_COUNT/));
+test('decimal and scientific notation counts are rejected',()=>{assert.throws(()=>run({...summary,wins:'3.0'}),/INVALID_AGGREGATE_COUNT/);assert.throws(()=>run({...summary,wins:'3e0'}),/INVALID_AGGREGATE_COUNT/)});
+test('negative bigint strings are rejected',()=>assert.throws(()=>run({...summary,wins:'-1'}),/INVALID_AGGREGATE_COUNT/));
+test('daily bigint strings must be safe integers',()=>assert.throws(()=>run(summary,[{...daily[0],rows:'9007199254740993'}]),/INVALID_DAILY_AGGREGATE/));
