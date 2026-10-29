@@ -282,3 +282,7 @@ A production SELECT grouped the **58,847** historical price-paired rows without 
 ## Whole-population saved score drift by month (2026-10-29, read-only)
 
 A separate production SELECT grouped all 71,289 saved daily rows by `left(date,7)` and averaged stored `score`: June 1,427 rows / mean 51.09; July 15,383 / 53.88; August 16,308 / 59.33; September 20,060 / 49.48; October 18,111 / 41.54. Totals sum to 71,289. These are stored score snapshots, not a stable or historically comparable version of AI POWER; scoring semantics and coverage can change. Do **not** interpret drift as changing market profitability or trading quality. Monthly sample counts are not equal and June/October coverage is partial. A separate planned prior-score-by-month return query could not be verified, so no new cross-month predictive gap is claimed. The query made no DB writes.
+
+## Stored score >=85 by month (2026-10-29, read-only)
+
+June: 67/1,427 (4.70%); July: 3,719/15,383 (24.18%); August: 5,127/16,308 (31.44%); September: 3,584/20,060 (17.87%); October: 1,563/18,111 (8.63%). This is a descriptive saved-score distribution, not a proof of changing market or model accuracy. Scoring definitions may differ by date. Added `savedScoreDrift.mjs` and 9 regression tests; research CI run #171 passed. No live signal changes.
