@@ -5,7 +5,7 @@ export function reviewCrashJoinedExport(rows){
  if(!Array.isArray(rows)||rows.length>10000)throw Error("INVALID_JOINED_CRASH_EXPORT");
  const accepted=[],errors={invalid:0,missingOutcome:0,chronology:0,duplicates:0},seen=new Set();
  const date=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x+"T00:00:00Z"))&&new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
- const parsed=x=>Date.parse(typeof x==="string"?x.replace(/([+-]\\d{2})$/,"$1:00"):x);
+ const parsed=x=>Date.parse(typeof x==="string"?x.replace(/([+-]\d{2})$/,"$1:00"):x);
  const stamp=x=>typeof x==="string"&&Number.isFinite(parsed(x))&&/^(\d{4}-\d\d-\d\d)[ T]\d\d:\d\d:\d\d/.test(x)&&/(Z|[+-]\d\d(?::?\d\d))$/.test(x);
  for(const r of rows){
   if(!r||!date(r.event_date)||typeof r.code!=="string"||!["REBOUND_WATCH","RESISTANCE"].includes(r.category)){errors.invalid++;continue;}
