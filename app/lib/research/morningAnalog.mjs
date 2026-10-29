@@ -83,7 +83,19 @@ export function summarizeAnalogs(target, histories, options={}) {
   // can silently influence historical similarity selection.
   if(!priorSnapshot(target.featureAvailableAt,target.tradeDate))
     throw Error("TARGET_FEATURE_LOOKAHEAD");
+  // Optional strict provenance mode for empirical replay: a prior day's outcome
+  // cannot enter the analog pool until its observation was actually available.
+  // Without this proof the result remains retrospective and non-tradable.
+  const requireOutcomeAvailability=options.requireOutcomeAvailability===true;
+  const cutoff=Date.parse(target.tradeDate+"T00:00:00+09:00");
+  const outcomeAvailable=row=>!requireOutcomeAvailability ||
+    (typeof row.outcomeAvailableAt==="string" &&
+     /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(row.outcomeAvailableAt) &&
+     Number.isFinite(Date.parse(row.outcomeAvailableAt)) &&
+     Date.parse(row.outcomeAvailableAt)<cutoff &&
+     Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"));
   const pool=histories.filter(row=>row && validDate(row.tradeDate) && row.tradeDate<target.tradeDate &&
+    outcomeAvailable(row) &&
     priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
     row.outcome.date===row.tradeDate &&
@@ -104,7 +116,7 @@ export function summarizeAnalogs(target, histories, options={}) {
   }
   const unique=[...grouped.values()].flatMap(rows=>{
     const fingerprint=row=>JSON.stringify({
-      featureAvailableAt:row.featureAvailableAt,features:keys.map(k=>row.features[k]),
+      featureAvailableAt:row.featureAvailableAt,outcomeAvailableAt:row.outcomeAvailableAt,features:keys.map(k=>row.features[k]),
       bottomPrice:row.outcome.bottomPrice,bottomDropPct:row.outcome.bottomDropPct,
       bottomWindow:row.outcome.bottomWindow,earlyDropPct:row.outcome.earlyDropPct,
       laterHigh:row.outcome.laterHigh,reboundPct:row.outcome.reboundPct,
