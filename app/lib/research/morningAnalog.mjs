@@ -9,6 +9,12 @@ const finite = x => typeof x === "number" && Number.isFinite(x);
 const round = x => Number(x.toFixed(4));
 const hhmm = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
 const minute = x => Number(x.slice(0,2))*60+Number(x.slice(3));
+const validDate = x => {
+  if(typeof x!=="string"||!/^\\d{4}-\\d{2}-\\d{2}$/.test(x))return false;
+  const [y,m,d]=x.split("-").map(Number);
+  const t=new Date(Date.UTC(y,m-1,d));
+  return t.getUTCFullYear()===y&&t.getUTCMonth()===m-1&&t.getUTCDate()===d;
+};
 const priorSnapshot = (stamp, tradeDate) => typeof stamp === "string" &&
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(stamp) &&
   Number.isFinite(Date.parse(stamp)) &&
@@ -26,7 +32,7 @@ export const MORNING_ANALOG_VERSION="MORNING_ANALOG_V1";
 /** Strict complete morning bars; no invented intra-bar ordering. */
 export function inspectMorning(tradeDate, previousClose, candles, options={}) {
   const interval=options.intervalMinutes??5;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)||!positive(previousClose)||
+  if(!validDate(tradeDate)||!positive(previousClose)||
      !Number.isInteger(interval)||interval<1||60%interval!==0||
      !Array.isArray(candles))return {valid:false,reason:"INVALID_INPUT"};
   const bars=candles.filter(b=>b?.date===tradeDate && hhmm(b.time) &&
@@ -62,7 +68,7 @@ export function inspectMorning(tradeDate, previousClose, candles, options={}) {
  */
 export function summarizeAnalogs(target, histories, options={}) {
   const minSamples=options.minSamples??30;
-  if(!target||!/^\d{4}-\d{2}-\d{2}$/.test(target.tradeDate)||
+  if(!target||!validDate(target.tradeDate)||
      !Array.isArray(histories)||!Number.isInteger(minSamples)||minSamples<1)
     throw Error("INVALID_ANALOG_INPUT");
   const keys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
@@ -77,7 +83,7 @@ export function summarizeAnalogs(target, histories, options={}) {
   // can silently influence historical similarity selection.
   if(!priorSnapshot(target.featureAvailableAt,target.tradeDate))
     throw Error("TARGET_FEATURE_LOOKAHEAD");
-  const pool=histories.filter(row=>row && row.tradeDate<target.tradeDate &&
+  const pool=histories.filter(row=>row && validDate(row.tradeDate) && row.tradeDate<target.tradeDate &&
     priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
     row.outcome.date===row.tradeDate &&
@@ -139,7 +145,7 @@ export function summarizeMorningDropPatterns(observations, options={}) {
      60%binMinutes!==0)throw Error("INVALID_PATTERN_OPTIONS");
   const seen=new Set(),valid=[],excluded={invalid:0,duplicate:0,notSharpDrop:0};
   for(const row of observations){
-    if(!row||row.valid!==true||!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||
+    if(!row||row.valid!==true||!validDate(row.date)||
        !hhmm(row.bottomWindow)||!positive(row.bottomPrice)||
        !finite(row.bottomDropPct)||!finite(row.earlyDropPct)||
        !Number.isInteger(row.intervalMinutes)||row.intervalMinutes>binMinutes||
