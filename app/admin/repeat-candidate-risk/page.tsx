@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -72,19 +72,7 @@ export default function RepeatCandidateRiskPage() {
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
   }, [data]);
-  const pendingByDate = useMemo(() => {
-    const groups = new Map<string, { total: number; completed: number }>();
-    for (const row of data?.rows || []) {
-      if ((n(row.previous_candidate_change_pct) ?? 0) >= -5) continue;
-      const group = groups.get(row.trade_date) ?? { total: 0, completed: 0 };
-      group.total++;
-      const outcome = n(row.return_5d);
-      if (outcome != null) group.completed++;
-      groups.set(row.trade_date, group);
-    }
-    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, group]) => ({ date, ...group, pending: group.total - group.completed }));
-  }, [data]);
+  const pendingByDate = useMemo(() => outcomeCoverageByDate((data?.rows || []).filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5)), [data]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     !onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5), [data, onlyDrop]);
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -121,10 +109,10 @@ export default function RepeatCandidateRiskPage() {
         <h2 className="text-base font-black">5日後結果の確定状況（5%超下落群）</h2>
         <p className="mt-1 text-xs text-slate-600">未確定はゼロ損益ではありません。結果が保存されるまで成績計算には含めません。</p>
         <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-xs">
-          <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th></tr></thead>
+          <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th><th className="p-2">完了率</th></tr></thead>
           <tbody>{pendingByDate.map(day => <tr key={day.date} className="border-b">
             <td className="p-2">{day.date}</td><td className="p-2">{day.total}</td>
-            <td className="p-2">{day.completed}</td><td className="p-2">{day.pending}</td>
+            <td className="p-2">{day.completed}</td><td className="p-2">{day.pending}</td><td className="p-2">{day.completionRate.toFixed(0)}%</td>
           </tr>)}</tbody>
         </table></div>
       </section><section className="rounded-xl border p-3">
