@@ -8,7 +8,7 @@ export function auditMarketRegimeEvidence(rows,{cutoffJst="09:05"}={}){
   if(typeof d!=="string"||!/^\d{4}-\d\d-\d\d$/.test(d)||!Number.isFinite(Date.parse(d+"T00:00:00Z"))||new Date(d+"T00:00:00Z").toISOString().slice(0,10)!==d){counts.invalid++;continue;}
   if(seen.has(d)){counts.duplicate++;days.push({date:d,status:"DUPLICATE_DATE"});continue;}seen.add(d);
   const captured=r?.capturedAt;
-  if(typeof captured!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(captured)||!Number.isFinite(Date.parse(captured))||Date.parse(captured)>=Date.parse(d+"T"+cutoffJst+":00+09:00")){counts.notAsOf++;days.push({date:d,status:"NOT_PREDECISION"});continue;}
+  if(typeof captured!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(captured)||!Number.isFinite(Date.parse(captured))||Date.parse(captured)>=Date.parse(d+"T"+cutoffJst+":00+09:00")||Date.parse(captured)<Date.parse(d+"T00:00:00+09:00")){counts.notAsOf++;days.push({date:d,status:"NOT_PREDECISION"});continue;}
   if(!Number.isFinite(r.nikkei)||r.nikkei<=0||!Number.isFinite(r.topix)||r.topix<=0){counts.invalid++;days.push({date:d,status:"INVALID_INDEX_VALUES"});continue;}
   counts.structurallyPlausible++;
   counts.sourceUnverified++;
