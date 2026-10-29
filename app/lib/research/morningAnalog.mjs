@@ -148,7 +148,7 @@ export function summarizeMorningDropPatterns(observations, options={}) {
     if(!row||row.valid!==true||!validDate(row.date)||
        !hhmm(row.bottomWindow)||!positive(row.bottomPrice)||
        !finite(row.bottomDropPct)||!finite(row.earlyDropPct)||
-       !Number.isInteger(row.intervalMinutes)||row.intervalMinutes>binMinutes||
+       !Number.isInteger(row.intervalMinutes)||row.intervalMinutes<1||row.intervalMinutes>binMinutes||
        binMinutes%row.intervalMinutes!==0||
        typeof row.code!=="string"||!row.code){
       excluded.invalid++;continue;
