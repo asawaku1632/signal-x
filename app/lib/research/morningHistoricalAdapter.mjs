@@ -38,6 +38,28 @@ export function aggregateHistoricalMorning(inputs,options={}){
   const patterns=summarizeMorningDropPatterns(adapted,options);
   const validRows=adapted.filter(row=>row.valid===true);
   const cohortKeys=new Set(validRows.map(row=>row.code+"|"+row.date));
+  // Only sharp-drop cohort keys without conflicting duplicate observations count.
+  // Their number must agree with the pattern summary; do not infer membership
+  // from full OHLC coverage alone.
+  const byKey=new Map();
+  for(const row of validRows){
+    const key=row.code+"|"+row.date;
+    const group=byKey.get(key)??[];
+    group.push(row);
+    byKey.set(key,group);
+  }
+  const eligibleKeys=[];
+  const identity=row=>JSON.stringify([
+    row.bottomWindow,row.bottomPrice,row.bottomDropPct,row.earlyDropPct,
+    row.intervalMinutes,row.laterHigh,row.reboundPct,row.rebound1pct,row.rebound2pct
+  ]);
+  const threshold=options.dropThresholdPct??3;
+  for(const [key,group] of byKey){
+    if(group.some(row=>identity(row)!==identity(group[0])))continue;
+    if(group[0].earlyDropPct<=-threshold)eligibleKeys.push(key);
+  }
+  const eligibleCodes=eligibleKeys.map(key=>key.split("|")[0]);
+  const eligibleDates=eligibleKeys.map(key=>key.split("|")[1]);
   return {...patterns,sourceCoverage:{
     completeUniqueStockDays:cohortKeys.size,
     completeDistinctStocks:new Set(validRows.map(row=>row.code)).size,
@@ -46,6 +68,9 @@ export function aggregateHistoricalMorning(inputs,options={}){
     received:inputs.length,structurallyValid:adapted.filter(row=>row.valid===true).length,
     rejected:adapted.filter(row=>row.valid!==true).length,rejectedByReason,
     patternEligibleStockDays:patterns.samples,
+    patternDistinctStocks:new Set(eligibleCodes).size,
+    patternDistinctTradingDates:new Set(eligibleDates).size,
+    patternDistinctMonths:new Set(eligibleDates.map(date=>date.slice(0,7))).size,
     patternExcludedAfterAdapter:patterns.excluded,
     // Complete bars alone do not mean the stock-day satisfied the opening-drop cohort.
     readyForLiveUse:false,
