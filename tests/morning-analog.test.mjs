@@ -308,3 +308,21 @@ test("forward audit excludes historical outcomes published after prediction date
   const good=auditMorningAnalogsChronologically([target],[{...row,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"}],{minSamples:1});
   assert.equal(good.rows[0].samples,1);
 });
+
+test("strict availability accepts ISO instants with offsets and rejects impossible timestamps",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const row={code:"1234",tradeDate:"2026-10-27",
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27"))};
+  for(const stamp of ["2026-10-27T12:00:00+09:00","2026-10-27T03:00:00Z",
+    "2026-10-26T23:00:00-04:00"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],
+      {minSamples:1,requireOutcomeAvailability:true}).samples,1);
+  }
+  for(const stamp of ["2026-10-27T99:00:00+09:00","2026-10-28T09:00:00+09:00",
+    "2026-10-27T10:00:00+09:00"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],
+      {minSamples:1,requireOutcomeAvailability:true}).samples,0);
+  }
+});
