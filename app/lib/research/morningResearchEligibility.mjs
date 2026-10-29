@@ -1,3 +1,4 @@
+import {adaptHistoricalMorning} from "./morningHistoricalAdapter.mjs";
 /** Read-only classification of research evidence; never grants trading approval. */
 const validTime=x=>typeof x==="string"&&Number.isFinite(Date.parse(x));
 export function classifyMorningResearchEvidence(record){
@@ -25,6 +26,10 @@ export function classifyMorningResearchEvidence(record){
       reasons.push("MISSING_BAR_TIME_SEMANTICS");
     if(record.licenseVerified!==true||!record.source)
       reasons.push("MISSING_SOURCE_ASSERTION");
+    if(reasons.length===0){
+      const adapted=adaptHistoricalMorning({...record,intervalMinutes:5});
+      if(!adapted.valid)reasons.push(adapted.reason??"INVALID_MORNING_BARS");
+    }
     return {kind:"FIVE_MINUTE_MORNING_EXPORT",
       dailyIndicatorCandidate:false,morningOutcomeCandidate:reasons.length===0,
       reasons,requiresIndependentSourceProof:true,requiresFeatureAvailabilityProof:true,
