@@ -234,7 +234,7 @@ test("admin research displays outcome date integrity without changing source dat
 
 test("pending list and research results share date-validated rows", () => {
   assert.ok(page.includes("verifiedRows.filter"));
-  assert.ok(page.includes("日付不整合で除外"));
+  assert.ok(page.includes("日付・騰落率不整合で除外"));
   assert.ok(page.includes("excludeUnverifiedDatedOutcomes"));
 });
 
