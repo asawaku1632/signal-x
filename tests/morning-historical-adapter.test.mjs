@@ -22,3 +22,18 @@ test("fail closed on missing license, timestamp semantics, or incomplete bars",(
   assert.equal(adaptHistoricalMorning({...input,timestampSemantics:"BAR_END"}).valid,false);
   assert.equal(adaptHistoricalMorning({...input,bars:bars.slice(1)}).valid,false);
 });
+
+test("reports rejected source and incomplete bars without claiming independent authentication",()=>{
+  const summary=aggregateHistoricalMorning([
+    input,{...input,code:"1234",licenseVerified:false},
+    {...input,code:"5678",bars:bars.slice(1)},
+    {...input,code:"9012",source:" "}
+  ],{minSamples:1,dropThresholdPct:2});
+  assert.equal(summary.samples,1);
+  assert.equal(summary.sourceCoverage.received,4);
+  assert.equal(summary.sourceCoverage.structurallyValid,1);
+  assert.equal(summary.sourceCoverage.rejected,3);
+  assert.equal(summary.sourceCoverage.rejectedByReason.UNVERIFIED_SOURCE_OR_METADATA,2);
+  assert.equal(summary.sourceCoverage.rejectedByReason.INCOMPLETE_MORNING_BARS,1);
+  assert.equal(summary.sourceCoverage.independentlyAuthenticated,false);
+});
