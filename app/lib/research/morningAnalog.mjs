@@ -73,6 +73,11 @@ export function summarizeAnalogs(target, histories, options={}) {
     throw Error("INVALID_ANALOG_OPTIONS");
   const usableFeatures = row => keys.every(k=>finite(row?.features?.[k]));
   if(!usableFeatures(target))throw Error("MISSING_PRIOR_DAY_FEATURES");
+  // Target features also need an as-of proof; otherwise target-day hindsight
+  // can silently influence historical similarity selection.
+  if(target.featureAvailableAt!==undefined &&
+     !priorSnapshot(target.featureAvailableAt,target.tradeDate))
+    throw Error("TARGET_FEATURE_LOOKAHEAD");
   const pool=histories.filter(row=>row && row.tradeDate<target.tradeDate &&
     priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
