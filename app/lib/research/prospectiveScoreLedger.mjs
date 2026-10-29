@@ -2,6 +2,7 @@
  * Prospective shadow ledger: fixed after 2026-10-29 JST.
  * Pure function. It never authenticates caller assertions, fetches quotes,
  * writes data, alerts users, or certifies a trading rule.
+ * nextPrice is conservatively treated as a completed daily closing observation.
  */
 const FREEZE="2026-10-29";
 const date=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&!Number.isNaN(Date.parse(x+"T00:00:00Z"))&&new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
@@ -32,7 +33,7 @@ export function auditProspectiveScoreLedger(rows){
   if(!finite(r.nextPrice)||r.nextPrice<=0){excluded.incompletePair++;continue;}
   if(r.outcomeSourceVerified!==true||!date(r.outcomeTradeDate)||r.outcomeTradeDate<=r.date||
      !strictInstant(r.outcomeAvailableAt)||Date.parse(r.outcomeAvailableAt)<=Date.parse(r.date+"T23:59:59+09:00")||
-     Date.parse(r.outcomeAvailableAt)<Date.parse(r.outcomeTradeDate+"T00:00:00+09:00")){
+     Date.parse(r.outcomeAvailableAt)<Date.parse(r.outcomeTradeDate+"T15:30:00+09:00")){
     excluded.outcomeUnconfirmed++;continue;
   }
   const bucket=groups.get(r.date)||{high:[],low:[]};
