@@ -32,3 +32,16 @@ test("outcome from an even later day must not validate prior unobserved date",()
 test("rejects impossible calendar day in feature timestamp",()=>assert.equal(run([{...base,featureAvailableAt:"2026-10-32T15:00:00+09:00"}]).excluded.featureNotAsOf,1));
 test("rejects impossible hour in outcome timestamp",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T25:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
 test("rejects invalid timezone offset minutes",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T17:00:00+09:70"}]).excluded.outcomeUnconfirmed,1));
+
+test("conflicting duplicate stock-day records never contribute regardless of order",()=>{
+ const conflicting={...base,nextPrice:70,priorScore:40};
+ for(const pair of [[base,conflicting],[conflicting,base]]){
+  const x=run(pair);assert.equal(x.eligibleRows,0);assert.equal(x.observedDays,0);
+  assert.equal(x.excluded.duplicate,1);assert.equal(x.readyForTrading,false);
+ }
+});
+test("duplicate group cannot suppress unrelated valid stock",()=>{
+ const other={...base,code:"4321"};
+ const x=run([base,{...base,nextPrice:110},other]);
+ assert.equal(x.eligibleRows,1);assert.equal(x.daily[0].highCount,1);
+});
