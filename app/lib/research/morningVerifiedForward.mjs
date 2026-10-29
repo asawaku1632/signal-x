@@ -12,7 +12,7 @@ const featureKeys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"
 export function prepareMorningForwardRows(inputs){
   if(!Array.isArray(inputs)||inputs.length>100000)throw Error("INVALID_MORNING_FORWARD_INPUT");
   const rows=[],excluded={unverifiedBars:0,missingFeatureProof:0,missingOutcomeProof:0,duplicate:0};
-  const seen=new Set();
+  const grouped=new Map();
   for(const input of inputs){
     const outcome=adaptHistoricalMorning(input);
     if(!outcome.valid){excluded.unverifiedBars++;continue;}
@@ -26,9 +26,14 @@ export function prepareMorningForwardRows(inputs){
       excluded.missingOutcomeProof++;continue;
     }
     const key=code+"|"+tradeDate;
-    if(seen.has(key)){excluded.duplicate++;continue;}
-    seen.add(key);
-    rows.push({code,tradeDate,features,featureAvailableAt,outcomeAvailableAt,outcome});
+    const candidate={code,tradeDate,features,featureAvailableAt,outcomeAvailableAt,outcome};
+    const group=grouped.get(key)??[];
+    group.push(candidate);
+    grouped.set(key,group);
+  }
+  for(const group of grouped.values()){
+    if(group.length!==1){excluded.duplicate+=group.length;continue;}
+    rows.push(group[0]);
   }
   return {rows,excluded,sourceVerifiedByAdapter:true,signalEnabled:false};
 }
