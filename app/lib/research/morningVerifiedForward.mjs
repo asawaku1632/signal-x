@@ -35,7 +35,7 @@ export function prepareMorningForwardRows(inputs){
     if(group.length!==1){excluded.duplicate+=group.length;continue;}
     rows.push(group[0]);
   }
-  return {rows,excluded,sourceVerifiedByAdapter:true,signalEnabled:false};
+  return {rows,excluded,sourceMetadataAssertedByInput:true,independentlyAuthenticated:false,signalEnabled:false};
 }
 export function auditVerifiedMorningExports(inputs,options={}){
   const prepared=prepareMorningForwardRows(inputs);
