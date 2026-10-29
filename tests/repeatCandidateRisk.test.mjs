@@ -196,3 +196,9 @@ test("pending coverage displays per-day completion rate", () => {
   assert.match(page, /day.completionRate.toFixed\(0\)/);
   assert.match(page, /完了率/);
 });
+
+test("matched day exclusion display never auto enables the trading signal", () => {
+  assert.match(page, /matchedDaySensitivity/);
+  assert.match(page, /少数日の場合、頑健性の証明にはなりません/);
+  assert.match(page, /本番判定への採用は保留/);
+});
