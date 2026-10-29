@@ -1,0 +1,16 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {auditSavedOutcomeRelationships as audit} from "../app/lib/research/savedOutcomeRelationAudit.mjs";
+const b={date:"2026-10-26",code:"1234",nextPrice:101,sourceDate:"2026-10-27",sourcePrice:101};
+test("consistent source relation",()=>assert.equal(audit([b]).counts.consistentOutcomeLink,1));
+test("no source",()=>assert.equal(audit([{...b,sourceDate:null}]).counts.missingReference,1));
+test("source earlier",()=>assert.equal(audit([{...b,sourceDate:"2026-10-25"}]).counts.nonfutureSourceDate,1));
+test("source same day",()=>assert.equal(audit([{...b,sourceDate:b.date}]).counts.nonfutureSourceDate,1));
+test("price mismatch",()=>assert.equal(audit([{...b,sourcePrice:99}]).counts.priceMismatch,1));
+test("floating tolerance",()=>assert.equal(audit([{...b,sourcePrice:101+1e-12}]).counts.consistentOutcomeLink,1));
+test("duplicates",()=>assert.equal(audit([b,b]).counts.duplicate,1));
+test("invalid price",()=>assert.equal(audit([{...b,nextPrice:0}]).counts.invalid,1));
+test("invalid date",()=>assert.equal(audit([{...b,date:"2026-02-30"}]).counts.invalid,1));
+test("invalid input",()=>assert.throws(()=>audit(null),/INVALID_OUTCOME_AUDIT_INPUT/));
+test("invalid tolerance",()=>assert.throws(()=>audit([],{priceTolerance:-1}),/INVALID_OUTCOME_AUDIT_INPUT/));
+test("never certifies trade readiness",()=>{const x=audit([b]);assert.equal(x.acceptedForSignals,0);assert.equal(x.independentlyVerifiedDecisionTime,false);assert.equal(x.independentlyVerifiedProvider,false);});
