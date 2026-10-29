@@ -33,6 +33,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "疑似購入なしで1・3・5・10取引日の株価を比較",
       },
       {
+        href: "/admin/repeat-candidate-risk", icon: "🔎",
+        title: "高POWER再選出・下落リスク", tag: "管理者専用・研究のみ",
+        detail: "前回候補からの保存価格の変化と5日後の結果を確認。売買判定には反映しません",
+      },
+      {
         href: "/admin/stock-win-rate-ranking", icon: "🏆",
         title: "全銘柄・勝敗ランキング", tag: "管理者専用",
         detail: "WIN・LOSE・勝率を全期間／直近30件で比較、母数で絞り込み",

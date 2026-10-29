@@ -1,0 +1,42 @@
+name: Repeat Candidate Risk Research CI
+on:
+  pull_request:
+    paths:
+      - "app/api/admin/repeat-candidate-risk/**"
+      - "app/admin/repeat-candidate-risk/**"
+      - "tests/repeatCandidateRisk.test.mjs"
+      - "tests/repeatCandidateStats.test.mjs"
+      - "tests/repeatCandidateValidatedList.test.mjs"
+      - "app/lib/research/repeatCandidateStats.ts"
+      - ".github/workflows/repeat-candidate-risk-ci.yml"
+  push:
+    branches:
+      - "research/repeat-candidate-risk-readonly-20261028"
+jobs:
+  safety-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Read-only and admin guard tests
+        run: node --test tests/repeatCandidateRisk.test.mjs tests/repeatCandidateValidatedList.test.mjs
+
+      - name: Executable research arithmetic regression tests
+        run: node --experimental-strip-types --test tests/repeatCandidateStats.test.mjs
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate Next.js route types
+        run: npx next typegen
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+      - name: Production build smoke test without live credentials
+        env:
+          DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/unused
+          NEXTAUTH_SECRET: research-ci-only-placeholder-not-for-production
+          NEXTAUTH_URL: http://127.0.0.1:3000
+          GOOGLE_CLIENT_ID: ""
+          GOOGLE_CLIENT_SECRET: ""
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
