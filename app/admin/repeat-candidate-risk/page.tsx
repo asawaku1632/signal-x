@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -47,6 +47,7 @@ export default function RepeatCandidateRiskPage() {
       return { label: g.label, ...summarizeGroup(g.rows) };
     });
   }, [data]);
+  const overallCoverage = useMemo(() => assessedOutcomeCoverage(data?.rows || []), [data]);
   const matched = useMemo(() => sameDayComparison(data?.rows || []), [data]);
   const sameDay = matched.days;
   const sensitivity = useMemo(() => matchedDaySensitivity(data?.rows || []), [data]);
@@ -85,7 +86,7 @@ export default function RepeatCandidateRiskPage() {
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyDrop} onChange={e => setOnlyDrop(e.target.checked)} /> 前回候補比で5%超下落した銘柄のみ</label>
       {error && <p role="alert" className="text-rose-700">再取得に失敗しました。古い集計を最新結果として表示しないため、表示をクリアしました：{error}</p>}
       {loading && <p role="status">研究データを取得中…</p>}
-      {data && <><section aria-label="研究採用の暫定判定" className="rounded-xl border border-amber-300 bg-amber-50 p-3"><h2 className="text-base font-black">研究段階：本番判定への採用は保留</h2><p className="mt-1 text-sm">同日比較できた取引日は {matched.matchedDayCount}日、5%超下落群の評価済み取引日は {summary[0]?.days ?? 0}日です。</p><p className="mt-1 text-xs">参考確認項目：比較可能日3日以上・下落群の評価済み日3日以上・取得件数の打ち切りなし。これは実証済みの採用基準ではなく、少数日を見落とさないための暫定的な注意表示です。</p>{(matched.matchedDayCount < 3 || (summary[0]?.days ?? 0) < 3 || data.truncated) && <p className="mt-1 text-xs font-bold text-rose-800">サンプルまたは取得範囲が不足。将来の再現性・独立した価格検証が終わるまで、AI売買判定や通知には反映しません。</p>}</section>{data.truncated && <p role="alert" className="text-sm font-bold text-rose-700">取得上限1000件に達したため、下記の統計は全期間集計ではありません。</p>}<section aria-label="同日比較ではない参考集計" className="grid grid-cols-2 gap-2">
+      {data && <><section aria-label="研究採用の暫定判定" className="rounded-xl border border-amber-300 bg-amber-50 p-3"><h2 className="text-base font-black">研究段階：本番判定への採用は保留</h2><p className="mt-1 text-sm">同日比較できた取引日は {matched.matchedDayCount}日、5%超下落群の評価済み取引日は {summary[0]?.days ?? 0}日です。全再選出の5日後評価完了率は {overallCoverage.completionRate == null ? "未検証" : `${overallCoverage.completionRate.toFixed(1)}%`}（評価済 {overallCoverage.checked}件／未確定 {overallCoverage.pending}件）。</p><p className="mt-1 text-xs">参考確認項目：比較可能日3日以上・下落群の評価済み日3日以上・取得件数の打ち切りなし。これは実証済みの採用基準ではなく、少数日を見落とさないための暫定的な注意表示です。</p>{(matched.matchedDayCount < 3 || (summary[0]?.days ?? 0) < 3 || data.truncated) && <p className="mt-1 text-xs font-bold text-rose-800">サンプルまたは取得範囲が不足。将来の再現性・独立した価格検証が終わるまで、AI売買判定や通知には反映しません。</p>}</section>{data.truncated && <p role="alert" className="text-sm font-bold text-rose-700">取得上限1000件に達したため、下記の統計は全期間集計ではありません。</p>}<section aria-label="同日比較ではない参考集計" className="grid grid-cols-2 gap-2">
         {summary.map(g => <div key={g.label} className="rounded-xl border bg-slate-50 p-3">
           <p className="text-xs font-bold">{g.label}</p><p className="mt-1 text-lg font-black">{pct(g.average)}</p>
           <p className="text-xs text-slate-600">銘柄件数で重み付けした5日後平均</p><p className="mt-2 text-sm font-bold">日付均等平均：{pct(g.dateBalancedAverage)}</p><p className="text-xs text-slate-600">記録 {g.count}件 ／ 評価済 {g.checked}件 ／ 評価日数 {g.days}日</p>
