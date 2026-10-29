@@ -219,3 +219,9 @@ test("pending-only toggle filters list and leaves summary based on all rows", ()
   assert.match(page, /上の統計は全取得データ/);
   assert.match(page, /5日後結果が未確定の記録のみ/);
 });
+
+test("threshold scenarios are observational and warn of overfitting", () => {
+ assert.match(page,/thresholdSensitivity/);
+ assert.match(page,/過剰適合/);
+ assert.match(page,/群は重複しており/);
+});
