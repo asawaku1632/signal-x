@@ -225,3 +225,9 @@ test("threshold scenarios are observational and warn of overfitting", () => {
  assert.match(page,/過剰適合/);
  assert.match(page,/群は重複しており/);
 });
+
+test("admin research displays outcome date integrity without changing source data", () => {
+  assert.match(page, /outcomeDateIntegrity/);
+  assert.match(page, /5日後結果の日付整合性/);
+  assert.match(page, /保存データは変更しません/);
+});
