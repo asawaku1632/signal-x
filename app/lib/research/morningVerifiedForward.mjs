@@ -12,7 +12,7 @@ const validStamp=value=>{
   // Date.parse normalizes impossible dates (e.g. February 30) on some runtimes.
   const [year,month,day,hour,minute,second]=value.slice(0,19).match(/\d+/g).map(Number);
   const offset=value.match(/([+-])(\d{2}):(\d{2})$/);
-  if(hour>23||minute>59||second>59||month<1||month>12||
+  if(year<100||hour>23||minute>59||second>59||month<1||month>12||
      day<1||day>new Date(Date.UTC(year,month,0)).getUTCDate())return false;
   return !offset||(Number(offset[2])<=23&&Number(offset[3])<=59);
 };
