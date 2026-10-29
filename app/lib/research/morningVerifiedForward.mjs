@@ -16,7 +16,7 @@ export function prepareMorningForwardRows(inputs){
   const counts=new Map();
   for(const input of inputs){
     if(input && codePattern.test(input.code) && typeof input.tradeDate==="string" &&
-       /^\\d{4}-\\d{2}-\\d{2}$/.test(input.tradeDate)){
+       /^\d{4}-\d{2}-\d{2}$/.test(input.tradeDate)){
       const key=input.code+"|"+input.tradeDate;
       counts.set(key,(counts.get(key)??0)+1);
     }
