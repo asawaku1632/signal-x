@@ -42,16 +42,22 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   excludedDates:excludedByMonth.get(month)??0,
   qualifyingShare:(validDatesByMonth.get(month)??0)/receivedDates
  }));
+ const fullyExcludedMonths=monthlyCoverage.filter(m=>m.qualifyingDates===0).map(m=>m.month);
+ const lowCoverageMonths=monthlyCoverage.filter(m=>m.qualifyingShare<0.8).map(m=>m.month);
+ const worstMonthlyQualifyingShare=monthlyCoverage.length?Math.min(...monthlyCoverage.map(m=>m.qualifyingShare)):null;
  const supported=months.filter(x=>x.sufficientDates);
  const unsupported=months.filter(x=>!x.sufficientDates);
  const unsupportedTradingDates=unsupported.reduce((n,m)=>n+m.dates,0);
- const insufficientMonths=unsupported.map(m=>({month:m.month,observedDates:m.dates,missingDates:Math.max(0,minDatesPerMonth-m.dates)}));
+ const insufficientMonths=unsupported.map(m=>({month:m.month,observedDates:m.dates,missingDates:Math.max(0,minDatesPerMonth-m.dates),additionalQualifyingDatesNeeded:Math.max(0,minDatesPerMonth-m.dates)}));
  const supportedDates=supported.reduce((n,m)=>n+m.dates,0);
  const largestMonthDates=supported.length?Math.max(...supported.map(m=>m.dates)):0;
  const positiveMedianMonths=supported.filter(x=>x.medianGapPp>0).length;
  const monthsWithMeanMedianAgreement=supported.filter(x=>x.meanGapPp>0&&x.medianGapPp>0&&x.majorityPositive).length;
  return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
   monthlyCoverage,
+  coverageAudit:{fullyExcludedMonths,lowCoverageMonths,worstMonthlyQualifyingShare,
+   lowCoverageThreshold:0.8, // Descriptive completeness flag, not statistical validation.
+   independentlyValidated:false},
   excludedByMonth:Object.fromEntries([...excludedByMonth].sort((a,b)=>a[0].localeCompare(b[0]))),
   descriptiveMonthlyConsistency:{supportedMonths:supported.length,positiveMedianMonths,
    unsupportedMonths:unsupported.length,unsupportedTradingDates,insufficientMonths,
