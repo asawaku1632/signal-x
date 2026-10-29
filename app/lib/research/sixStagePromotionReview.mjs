@@ -3,7 +3,14 @@ import {reviewFiveStageResearch} from "./fiveStageResearchGate.mjs";
 import {auditPredecisionEvidence} from "./predecisionEvidenceAudit.mjs";
 
 const validDate=d=>typeof d==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+"T00:00:00Z"))&&new Date(d+"T00:00:00Z").toISOString().slice(0,10)===d;
-const validStamp=x=>typeof x==="string"&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(x)&&Number.isFinite(Date.parse(x));
+const validStamp=x=>{
+ if(typeof x!=="string"||!/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)?(?:Z|[+-]\\d\\d:\\d\\d)$/.test(x)||!Number.isFinite(Date.parse(x)))return false;
+ const y=Number(x.slice(0,4)),m=Number(x.slice(5,7)),d=Number(x.slice(8,10));
+ const h=Number(x.slice(11,13)),min=Number(x.slice(14,16)),sec=Number(x.slice(17,19));
+ const tz=x.match(/([+-])(\\d\\d):(\\d\\d)$/);
+ return y>=100&&m>=1&&m<=12&&d>=1&&d<=new Date(Date.UTC(y,m,0)).getUTCDate()&&
+  h<=23&&min<=59&&sec<=59&&(!tz||(Number(tz[2])<=23&&Number(tz[3])<=59));
+};
 const mean=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
 export function reviewSixStagePromotion({findings=[],snapshots=[],comparisons=[],evidence=[],cutoffUtc="2026-10-29T00:05:00Z"}={}){
  const previous=reviewFiveStageResearch({findings,snapshots,comparisons});
