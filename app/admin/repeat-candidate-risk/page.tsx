@@ -56,7 +56,7 @@ export default function RepeatCandidateRiskPage() {
   const dateAudit = useMemo(() => outcomeDateIntegrity(data?.rows || []), [data]);
   const calendarAudit = useMemo(() => outcomeCalendarAudit(data?.rows || []), [data]);
   const weekdayAudit = useMemo(() => weekdayGapAudit(data?.rows || []), [data]);
-  const riskConcentration = useMemo(() => completedDateConcentration(verifiedRows.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5)), [verifiedRows]);
+  const riskConcentration = useMemo(() => completedDateConcentration(verifiedRows.filter(r => r.previous_candidate_drop_over_5pct)), [verifiedRows]);
   const matched = useMemo(() => sameDayComparison(verifiedRows), [verifiedRows]);
   const sameDay = matched.days;
   const sensitivity = useMemo(() => matchedDaySensitivity(verifiedRows), [verifiedRows]);
