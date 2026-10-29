@@ -254,7 +254,21 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
   const uniqueTradeDates=new Set(evaluated.map(row=>row.tradeDate)).size;
   const uniqueMonths=new Set(evaluated.map(row=>row.tradeDate.slice(0,7))).size;
   const coverage={stocks:uniqueStocks,tradeDates:uniqueTradeDates,months:uniqueMonths};
-  return {version:"MORNING_ANALOG_FORWARD_AUDIT_V1",targets:results.length,
+  const byMonth=[...new Set(results.map(row=>row.tradeDate.slice(0,7)))].sort()
+    .map(month=>{
+      const rows=results.filter(row=>row.tradeDate.startsWith(month));
+      const stats=key=>{
+        const predictionKey=key==="actualRebound1Pct"?"predictedRebound1Pct":"predictedRebound2Pct";
+        const scored=rows.filter(row=>typeof row[key]==="boolean"&&finite(row[predictionKey]));
+        return {evaluated:scored.length,
+          observedRatePct:scored.length?round(100*scored.filter(row=>row[key]).length/scored.length):null,
+          meanPredictedPct:average(scored.map(row=>row[predictionKey]))};
+      };
+      return {month,targets:rows.length,
+        rebound1pct:stats("actualRebound1Pct"),
+        rebound2pct:stats("actualRebound2Pct")};
+    });
+  return {version:"MORNING_ANALOG_FORWARD_AUDIT_V1",targets:results.length,byMonth,
     eligible:results.filter(row=>row.eligible).length,coverage,
     rebound1pct:metrics("actualRebound1Pct"),
     rebound2pct:metrics("actualRebound2Pct"),
