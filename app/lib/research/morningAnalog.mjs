@@ -202,6 +202,7 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
   if(!Array.isArray(targets)||!Array.isArray(histories)||
      !Number.isInteger(options.minSamples??30)||(options.minSamples??30)<1)
     throw Error("INVALID_FORWARD_INPUT");
+  // A report is meaningful only when targets and outcome rows are independently dated.
   const ordered=[...targets].sort((a,b)=>
     String(a?.tradeDate??"").localeCompare(String(b?.tradeDate??"")) ||
     String(a?.code??"").localeCompare(String(b?.code??"")));
@@ -219,7 +220,15 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
       row.tradeDate===target.tradeDate && row.outcome?.valid===true &&
       row.outcome.date===target.tradeDate);
     // Multiple conflicting outcome exports cannot be silently selected.
-    const outcome=observed.length===1?observed[0].outcome:null;
+    const outcome=observed.length===1 &&
+      priorSnapshot(observed[0].featureAvailableAt,target.tradeDate) &&
+      observed[0].outcome?.valid===true &&
+      positive(observed[0].outcome.bottomPrice) &&
+      finite(observed[0].outcome.bottomDropPct) &&
+      hhmm(observed[0].outcome.bottomWindow) &&
+      minute(observed[0].outcome.bottomWindow)>=540 &&
+      minute(observed[0].outcome.bottomWindow)<690
+      ?observed[0].outcome:null;
     const usable=prediction.eligible&&outcome!==null;
     results.push({code:target.code,tradeDate:target.tradeDate,
       samples:prediction.samples,eligible:prediction.eligible,
