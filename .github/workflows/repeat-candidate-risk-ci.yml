@@ -6,6 +6,7 @@ on:
       - "app/admin/repeat-candidate-risk/**"
       - "tests/repeatCandidateRisk.test.mjs"
       - "tests/repeatCandidateStats.test.mjs"
+      - "tests/repeatCandidateValidatedList.test.mjs"
       - "app/lib/research/repeatCandidateStats.ts"
       - ".github/workflows/repeat-candidate-risk-ci.yml"
   push:
@@ -20,7 +21,7 @@ jobs:
         with:
           node-version: "22"
       - name: Read-only and admin guard tests
-        run: node --test tests/repeatCandidateRisk.test.mjs
+        run: node --test tests/repeatCandidateRisk.test.mjs tests/repeatCandidateValidatedList.test.mjs
 
       - name: Executable research arithmetic regression tests
         run: node --experimental-strip-types --test tests/repeatCandidateStats.test.mjs
