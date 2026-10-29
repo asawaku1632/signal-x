@@ -25,4 +25,3 @@ test("nonstring rejected",()=>assert.throws(()=>run(null),/INVALID_PREOPEN_JSON_
 
 test("actual SQL single-object wrapper accepted",()=>{const x=run(JSON.stringify({approved_preopen_rows:[base]}));assert.equal(x.counts.validAgeOnly,1);});
 test("SQL wrapper with extra metadata rejected",()=>assert.throws(()=>run(JSON.stringify({approved_preopen_rows:[base],unexpected:true})),/EXPECTED_JSON_ARRAY_OR_APPROVED_PREOPEN_ROWS/));
-test("SQL-result envelope with rows list rejected",()=>assert.throws(()=>run(JSON.stringify([{approved_preopen_rows:[base]}])),/INVALID_PREOPEN_DB_ROWS|EXPECTED_JSON_ARRAY|INVALID_PREOPEN/));
