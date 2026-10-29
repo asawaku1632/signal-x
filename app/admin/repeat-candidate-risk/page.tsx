@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -47,24 +47,8 @@ export default function RepeatCandidateRiskPage() {
       return { label: g.label, ...summarizeGroup(g.rows) };
     });
   }, [data]);
-  const sameDay = useMemo(() => {
-    const byDate = new Map<string, { risk: number[]; other: number[] }>();
-    for (const row of data?.rows || []) {
-      const value = n(row.return_5d);
-      const change = n(row.previous_candidate_change_pct);
-      if (value == null || change == null) continue;
-      const record = byDate.get(row.trade_date) ?? { risk: [], other: [] };
-      (change < -5 ? record.risk : record.other).push(value);
-      byDate.set(row.trade_date, record);
-    }
-    const avg = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
-    return [...byDate.entries()].filter(([, group]) => group.risk.length && group.other.length)
-      .sort(([a], [b]) => b.localeCompare(a)).map(([date, group]) => ({
-        date, riskCount: group.risk.length, otherCount: group.other.length,
-        riskMean: avg(group.risk), otherMean: avg(group.other),
-        gap: avg(group.risk) - avg(group.other),
-      }));
-  }, [data]);
+  const matched = useMemo(() => sameDayComparison(data?.rows || []), [data]);
+  const sameDay = matched.days;
   const concentration = useMemo(() => {
     const eligible = (data?.rows || []).filter(r =>
       n(r.previous_candidate_change_pct) != null && (n(r.previous_candidate_change_pct) as number) < -5 && n(r.return_5d) != null);
@@ -120,6 +104,8 @@ export default function RepeatCandidateRiskPage() {
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">同じ判定日の5日後結果を比較</h2>
         <p className="mt-1 text-xs text-slate-600">両グループに評価済みデータがある日だけ表示。対象は再選出・POWER90以上で、同日でも業種や銘柄構成の差は残ります。</p>
+        <p className="mt-2 text-sm font-bold">同日差の日付均等平均：{matched.dateBalancedGap == null ? "未検証" : `${matched.dateBalancedGap > 0 ? "+" : ""}${matched.dateBalancedGap.toFixed(2)}pt`}（比較可能 {matched.matchedDayCount}日）</p>
+        {matched.matchedDayCount < 3 && <p className="text-xs text-rose-800">比較可能な取引日が3日未満です。同日比較でも再現性は未確認です。</p>}
         <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[540px] text-left text-xs">
           <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">5%超下落群</th><th className="p-2">その他</th><th className="p-2">平均との差</th></tr></thead>
           <tbody>{sameDay.map(day => <tr key={day.date} className="border-b">
