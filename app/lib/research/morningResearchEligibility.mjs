@@ -18,6 +18,15 @@ export function classifyMorningResearchEvidence(record){
       reasons.push("MISSING_STOCK_CODE");
     if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(record.observation_date??record.tradeDate??""))
       reasons.push("MISSING_OBSERVATION_DATE");
+    const observationDate=record.observation_date??record.tradeDate;
+    const end=record.bar_end_at??record.barEndAt;
+    if(validTime(end)&&/^\d{4}-\d{2}-\d{2}$/.test(observationDate??"")){
+      const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Tokyo",
+        year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(end));
+      const fields=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+      const jstDate=fields.year+"-"+fields.month+"-"+fields.day;
+      if(jstDate!==observationDate)reasons.push("BAR_END_DATE_MISMATCH");
+    }
     return {kind:"DAILY_TECHNICAL_SNAPSHOT",
       dailyIndicatorCandidate:reasons.length===0,morningOutcomeCandidate:false,
       reasons,requiresIndependentSourceProof:true,requiresFeatureAvailabilityProof:true,
