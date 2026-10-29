@@ -157,3 +157,14 @@ test("invalid or missing outcome dates cannot enter performance statistics", () 
   assert.equal(rows[1].return_5d,-20);
   assert.equal(cleaned[4].return_5d,null);
 });
+
+test("calendar audit rejects impossible dates and same-day five-day outcomes", () => {
+  const rows=[
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-02-30",return_5d:1},
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-19",return_5d:1},
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:1},
+  ];
+  assert.deepEqual(outcomeCalendarAudit(rows),{invalidCalendarDate:1,sameDayOutcome:1});
+  const filtered=excludeUnverifiedDatedOutcomes(rows);
+  assert.equal(summarizeGroup(filtered).checked,1);
+});
