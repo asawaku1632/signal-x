@@ -39,6 +39,10 @@ export function aggregateHistoricalMorning(inputs,options={}){
   return {...patterns,sourceCoverage:{
     received:inputs.length,structurallyValid:adapted.filter(row=>row.valid===true).length,
     rejected:adapted.filter(row=>row.valid!==true).length,rejectedByReason,
+    patternEligibleStockDays:patterns.samples,
+    patternExcludedAfterAdapter:patterns.excluded,
+    // Complete bars alone do not mean the stock-day satisfied the opening-drop cohort.
+    readyForLiveUse:false,
     independentlyAuthenticated:false,
     note:"Source and license flags are supplied by the caller, not independently verified here."
   }};
