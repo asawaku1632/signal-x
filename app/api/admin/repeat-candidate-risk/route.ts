@@ -23,7 +23,7 @@ SELECT trade_date::text AS trade_date, code, name, ai_power, entry_price,
   ROUND(100 * (entry_price - previous_candidate_price) / NULLIF(previous_candidate_price, 0), 6)
     AS previous_candidate_change_pct
 FROM candidate_history
-WHERE candidate_number > 1 AND previous_candidate_price > 0 AND ai_power >= 90
+WHERE candidate_number > 1 AND previous_candidate_price > 0 AND entry_price > 0 AND ai_power >= 90
 ORDER BY trade_date DESC, code ASC
 LIMIT 1001
 `;
