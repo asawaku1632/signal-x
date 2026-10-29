@@ -173,3 +173,7 @@ test("audit 29: ui surfaces small sample warning", () => {
 test("audit 30: ui warns on truncation", () => {
   assert.ok(page.includes("data.truncated &&"));
 });
+
+test("threshold comparison retains six decimal places", () => {
+  assert.match(route, /NULLIF\(previous_candidate_price, 0\), 6\)/);
+});
