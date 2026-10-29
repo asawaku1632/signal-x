@@ -19,7 +19,12 @@ export function summarizeGroup(rows: OutcomeRecord[]) {
   }
   const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
   const dayMeans = [...byDay.values()].map(mean);
+  const sorted = [...completed].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length ? (sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2) : null;
   return {
+    median,
+    positiveRate: completed.length ? 100 * completed.filter(value => value > 0).length / completed.length : null,
     count: rows.length,
     checked: completed.length,
     days: byDay.size,
