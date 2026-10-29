@@ -360,3 +360,16 @@ test("conflicting morning outcome duplicates are excluded independent of input o
     assert.equal(result.bottomTimeCounts.reduce((sum,x)=>sum+x.count,0),1);
   }
 });
+
+test("direct analog audit rejects impossible publication timestamps",()=>{
+  const date="2026-10-28";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={code:"1234",tradeDate:date,features,featureAvailableAt:"2026-10-27T18:00:00+09:00"};
+  const history={code:"5678",tradeDate:"2026-10-27",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27")),
+    outcomeAvailableAt:"2026-10-27T12:00:00+09:00"};
+  for(const bad of ["2026-02-30T18:00:00+09:00","0099-10-26T18:00:00+09:00"]){
+    const report=summarizeAnalogs(target,[{...history,featureAvailableAt:bad}],{minSamples:1});
+    assert.equal(report.samples,0,bad);
+  }
+});
