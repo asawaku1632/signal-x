@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -76,4 +76,18 @@ test("exact -5 percent stays outside strict down5 group", () => {
   ]);
   assert.equal(result.matchedDayCount,1);
   assert.equal(result.days[0].gap,2);
+});
+
+test("daily coverage excludes pending outcomes from completion", () => {
+  const result=outcomeCoverageByDate([
+    {trade_date:"2026-10-23",return_5d:null},
+    {trade_date:"2026-10-23",return_5d:""},
+    {trade_date:"2026-10-23",return_5d:0},
+    {trade_date:"2026-10-19",return_5d:-3},
+  ]);
+  assert.deepEqual(result.map(x=>[x.date,x.total,x.completed,x.pending,x.completionRate]),
+    [["2026-10-23",3,1,2,100/3],["2026-10-19",1,1,0,100]]);
+});
+test("empty daily coverage remains empty", () => {
+  assert.deepEqual(outcomeCoverageByDate([]),[]);
 });
