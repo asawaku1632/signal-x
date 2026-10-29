@@ -18,3 +18,8 @@ test('rejects impossible calendar dates',()=>assert.throws(()=>run({...summary,f
 test('rejects daily dates outside summary range',()=>assert.throws(()=>run(summary,[{...daily[0],signal_date:'2026-09-01'}]),/DAILY_DATE_OUTSIDE_RANGE/));
 test('empty valid export remains nonpromotable',()=>{const empty={...summary,total_rows:0,distinct_signal_dates:0,distinct_stock_codes:0,first_signal_date:null,last_signal_date:null,wins:0,losses:0,holds:0,unknowns:0,checked_rows:0,future_prices:0,return_rows:0};const x=run(empty,[]);assert.equal(x.requiresFollowup,false);assert.equal(x.coverage.rows,0)});
 test('empty export with daily rows fails',()=>{const empty={...summary,total_rows:0,distinct_signal_dates:0,distinct_stock_codes:0,first_signal_date:null,last_signal_date:null,wins:0,losses:0,holds:0,unknowns:0,checked_rows:0,future_prices:0,return_rows:0};assert.throws(()=>run(empty,daily),/INCONSISTENT_EMPTY_EXPORT/)});
+
+test('complete daily coverage reconciles rows and judged totals',()=>{const x=run();assert.equal(x.coverage.dailyCoverageComplete,true);assert.equal(x.coverage.dailyRowsReconciled,true)});
+test('missing daily rows despite complete date coverage fail closed',()=>assert.throws(()=>run(summary,[{...daily[0],rows:3},daily[1]]),/INCOMPLETE_DAILY_RECONCILIATION/));
+test('missing judged results despite complete date coverage fail closed',()=>assert.throws(()=>run(summary,[{...daily[0],resolved:1},daily[1]]),/INCOMPLETE_DAILY_RECONCILIATION/));
+test('partial daily coverage is explicitly disclosed',()=>{const x=run(summary,[daily[0]]);assert.equal(x.coverage.dailyCoverageComplete,false);assert.equal(x.coverage.dailyRowsReconciled,false)});
