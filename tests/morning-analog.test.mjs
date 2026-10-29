@@ -344,3 +344,19 @@ test("forward audit cannot score an outcome before morning observation is comple
   const current=history("2026-10-28",target.featureAvailableAt,"2026-10-28T12:00:00+09:00");
   assert.equal(auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1}).rebound1pct.evaluated,1);
 });
+
+test("conflicting morning outcome duplicates are excluded independent of input order",()=>{
+  const date="2026-10-28";
+  const original={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const conflict={...original,rebound1pct:false};
+  const other={...inspectMorning(date,100,makeBars(date,8)),code:"5678"};
+  for(const observations of [[original,conflict,other],[conflict,original,other]]){
+    const result=summarizeMorningDropPatterns(observations,{minSamples:1,dropThresholdPct:2});
+    assert.equal(result.samples,1);
+    assert.equal(result.excluded.conflict,1);
+    assert.equal(result.excluded.duplicate,1);
+    assert.equal(result.rebound1pct.observed,1);
+    assert.equal(result.rebound1pct.rate,100);
+    assert.equal(result.bottomTimeCounts.reduce((sum,x)=>sum+x.count,0),1);
+  }
+});
