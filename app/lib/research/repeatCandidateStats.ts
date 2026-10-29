@@ -38,3 +38,32 @@ export function withoutLargestDay(rows: OutcomeRecord[]) {
   const remaining = rows.filter(row => row.trade_date !== topDate);
   return { topDate, ...summarizeGroup(remaining) };
 }
+
+export type ComparedRecord = OutcomeRecord & { previous_candidate_change_pct: number | string | null };
+
+export function sameDayComparison(rows: ComparedRecord[]) {
+  const byDate = new Map<string, { risk: number[]; other: number[] }>();
+  for (const row of rows) {
+    const outcome = validOutcome(row.return_5d);
+    const change = validOutcome(row.previous_candidate_change_pct);
+    if (outcome === null || change === null) continue;
+    const group = byDate.get(row.trade_date) ?? { risk: [], other: [] };
+    (change < -5 ? group.risk : group.other).push(outcome);
+    byDate.set(row.trade_date, group);
+  }
+  const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+  const matchedDays = [...byDate.entries()]
+    .filter(([, group]) => group.risk.length > 0 && group.other.length > 0)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, group]) => {
+      const riskMean = mean(group.risk);
+      const otherMean = mean(group.other);
+      return { date, riskCount: group.risk.length, otherCount: group.other.length,
+        riskMean, otherMean, gap: riskMean - otherMean };
+    });
+  return {
+    days: matchedDays,
+    dateBalancedGap: matchedDays.length ? mean(matchedDays.map(day => day.gap)) : null,
+    matchedDayCount: matchedDays.length,
+  };
+}
