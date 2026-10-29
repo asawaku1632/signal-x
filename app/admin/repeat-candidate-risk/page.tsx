@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity } from "@/app/lib/research/repeatCandidateStats";
+import { summarizeGroup, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes } from "@/app/lib/research/repeatCandidateStats";
 
 type Row = {
   trade_date: string; code: string; name: string;
@@ -38,8 +38,9 @@ export default function RepeatCandidateRiskPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [reloadCount]);
+  const verifiedRows = useMemo(() => excludeUnverifiedDatedOutcomes(data?.rows || []), [data]);
   const summary = useMemo(() => {
-    const all = data?.rows || [];
+    const all = verifiedRows;
     const groups = [
       { label: "前回比5%超下落", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5) },
       { label: "その他の再選出", rows: all.filter(r => (n(r.previous_candidate_change_pct) ?? 0) >= -5) },
@@ -47,15 +48,15 @@ export default function RepeatCandidateRiskPage() {
     return groups.map(g => {
       return { label: g.label, ...summarizeGroup(g.rows) };
     });
-  }, [data]);
-  const overallCoverage = useMemo(() => assessedOutcomeCoverage(data?.rows || []), [data]);
-  const thresholds = useMemo(() => thresholdSensitivity(data?.rows || []), [data]);
+  }, [verifiedRows]);
+  const overallCoverage = useMemo(() => assessedOutcomeCoverage(verifiedRows), [verifiedRows]);
+  const thresholds = useMemo(() => thresholdSensitivity(verifiedRows), [verifiedRows]);
   const dateAudit = useMemo(() => outcomeDateIntegrity(data?.rows || []), [data]);
-  const matched = useMemo(() => sameDayComparison(data?.rows || []), [data]);
+  const matched = useMemo(() => sameDayComparison(verifiedRows), [verifiedRows]);
   const sameDay = matched.days;
-  const sensitivity = useMemo(() => matchedDaySensitivity(data?.rows || []), [data]);
+  const sensitivity = useMemo(() => matchedDaySensitivity(verifiedRows), [verifiedRows]);
   const concentration = useMemo(() => {
-    const eligible = (data?.rows || []).filter(r =>
+    const eligible = verifiedRows.filter(r =>
       n(r.previous_candidate_change_pct) != null && (n(r.previous_candidate_change_pct) as number) < -5 && n(r.return_5d) != null);
     const dates = new Map<string, number>();
     const codes = new Map<string, number>();
@@ -76,8 +77,8 @@ export default function RepeatCandidateRiskPage() {
       remainingAverage: excluded.average,
       repeatedStocks: [...codes.values()].filter(count => count > 1).length,
     };
-  }, [data]);
-  const pendingByDate = useMemo(() => outcomeCoverageByDate((data?.rows || []).filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5)), [data]);
+  }, [verifiedRows]);
+  const pendingByDate = useMemo(() => outcomeCoverageByDate(verifiedRows.filter(r => (n(r.previous_candidate_change_pct) ?? 0) < -5)), [verifiedRows]);
   const rows = useMemo(() => (data?.rows || []).filter(r =>
     (!onlyDrop || (n(r.previous_candidate_change_pct) ?? 0) < -5) &&
     (!showPendingOnly || n(r.return_5d) == null)), [data, onlyDrop, showPendingOnly]);
@@ -121,7 +122,7 @@ export default function RepeatCandidateRiskPage() {
         <p className="mt-2 text-xs text-amber-800">記録件数が少ない日や市場急変時に偏り得ます。独立した終値検証・将来の再現性は未確認です。</p>
       </section><section className="rounded-xl border p-3">
         <h2 className="text-base font-black">5日後結果の確定状況（5%超下落群）</h2>
-        <p className="mt-1 text-xs text-slate-600">未確定はゼロ損益ではありません。結果が保存されるまで成績計算には含めません。</p>
+        <p className="mt-1 text-xs text-slate-600">未確定はゼロ損益ではありません。結果日が欠落・不正な評価値も研究統計から除外します。</p>
         <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-xs">
           <thead><tr className="border-b"><th className="p-2">判定日</th><th className="p-2">対象</th><th className="p-2">評価済</th><th className="p-2">未確定</th><th className="p-2">完了率</th></tr></thead>
           <tbody>{pendingByDate.map(day => <tr key={day.date} className="border-b">
