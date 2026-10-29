@@ -108,3 +108,20 @@ test("very early ISO years do not establish feature availability",()=>{
   assert.equal(report.rows.length,0);
   assert.equal(report.excluded.missingFeatureProof,1);
 });
+
+test("valid leap-day publication is accepted when earlier than target trade date",()=>{
+  const original=makeInput("2026-10-27");
+  const result=prepareMorningForwardRows([{
+    ...original,featureAvailableAt:"2024-02-29T18:00:00+09:00"
+  }]);
+  assert.equal(result.rows.length,1);
+  assert.equal(result.excluded.missingFeatureProof,0);
+});
+test("invalid non-leap-day publication is rejected",()=>{
+  const original=makeInput("2026-10-27");
+  const result=prepareMorningForwardRows([{
+    ...original,featureAvailableAt:"2025-02-29T18:00:00+09:00"
+  }]);
+  assert.equal(result.rows.length,0);
+  assert.equal(result.excluded.missingFeatureProof,1);
+});
