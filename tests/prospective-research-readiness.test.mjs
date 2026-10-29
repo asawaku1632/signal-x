@@ -50,3 +50,19 @@ test("sparse dates pass their coverage blockers to promotion review",()=>{
  assert.ok(x.candidateReview.missingQualityChecks.includes("LOW_MONTHLY_COHORT_COVERAGE"));
  assert.equal(x.candidateReview.status,"DO_NOT_PROMOTE");
 });
+
+test("negative average and median across comparable days block score advantage",()=>{
+ const rows=[];
+ for(let day=1;day<=3;day++){
+  const d=`2026-11-${String(day+1).padStart(2,"0")}`;
+  for(let i=0;i<20;i++)rows.push({date:d,code:String(1000+i),priorScore:i<10?90:60,price:100,
+    nextPrice:i<10?99:102,featureSnapshotVerified:true,featureAvailableAt:"2026-10-30T15:00:00+09:00",
+    outcomeSourceVerified:true,outcomeTradeDate:"2026-11-09",outcomeAvailableAt:"2026-11-09T16:00:00+09:00"});
+ }
+ const x=summarize(rows,{minDays:2,minMonths:2});
+ assert.equal(x.stability.dates,3);
+ assert.ok(x.blockers.includes("NO_POSITIVE_AVERAGE_GAP"));
+ assert.ok(x.blockers.includes("NO_POSITIVE_MEDIAN_GAP"));
+ assert.ok(x.blockers.includes("NO_MAJORITY_POSITIVE_DATES"));
+ assert.equal(x.trainingEnabled,false);
+});
