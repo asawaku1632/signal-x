@@ -604,3 +604,16 @@ A production SELECT on `information_schema.columns` confirmed `daily_stock_resul
 **Critical distinction:** `timestamp without time zone` stores no timezone or offset. Current query-session UTC does not independently establish the timezone interpretation, server-session settings and source lineage for every historical write. Application code uses `NOW()` in one insertion path, but historical producers and migrations may differ. Do **not** reinterpret 07:14 as Japan-local 07:14, or automatically certify 16:14 JST as the actual point at which the underlying score became available. An insert timestamp is not a frozen score-generation timestamp, and neither proves pre-09:05 eligibility.
 
 Requirements before any prospective use: establish per-producer timestamp provenance and actual timezone, immutable feature-generation time, quote observation/bar-end time with provider attribution, source-date horizon, and a strict as-of decision cutoff. None of these are established by these counts. No writes, training, trading or notifications.
+
+
+## Actual schema vs prospective predecision evidence contract (2026-10-29, SELECT-only)
+
+The offline `predecisionEvidenceAudit.mjs` CI passed at commit `c16a9d49`. It validates explicitly UTC timestamps and caller-attested provenance, and **always returns** `independentlyValidated:false`, `readyForTraining:false` and `readyForTrading:false`.
+
+A fresh read-only `information_schema.columns` inspection of production confirms:
+- `daily_stock_results` includes `date` (text), `score` (numeric), `price` (double precision), `created_at` and `checked_at` (both timestamp **without** timezone).
+- `daily_result_price_provenance` includes `recorded_at` (timestamptz), `source_price`, `source_row_id`, `source_table`, `source_trade_date` and `source_snapshot_created_at` (timestamp **without** timezone).
+
+The inspected schema does **not** provide an independently authenticated frozen score-generation timestamp, score version, quote observation/bar-end timestamps with UTC offset, or verified provider research-retention license for each stored historical record. `recorded_at` records provenance-row creation, not when a prior score first became available. Even when there is a provenance row linking later prices, this does **not** prove predecision input availability. It would be misleading to map legacy `created_at` into `featureGeneratedAtUtc`, mark `sourceVerified:true`, or infer a license from the table name.
+
+**Result: no legacy records may be counted as evidence-qualified from these fields alone.** This is a schema-evidence limitation, not a SQL count of individual rows with verified evidence. To obtain real qualified counts, first create independently sourced, strictly as-of, rights-verified observations in a separately reviewed future process; this PR does not add tables, ingestion, cron or production writes. No model promotion or notifications.
