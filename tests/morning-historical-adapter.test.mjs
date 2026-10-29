@@ -135,3 +135,20 @@ test("coverage accounts for all complete stock-days without treating flat days a
   assert.equal(c.completeButNotPatternEligibleStockDays,1);
   assert.equal(c.conflictFreeCompleteStockDays,c.patternEligibleStockDays+c.completeButNotPatternEligibleStockDays);
 });
+
+test("daily technical snapshots and non-five-minute bars are not morning outcomes",()=>{
+  for(const candidate of [
+    {...input,timeframe:"1D"},
+    {...input,timeframe:"DAILY"},
+    {...input,intervalMinutes:15}
+  ]){
+    const result=adaptHistoricalMorning(candidate);
+    assert.equal(result.valid,false);
+    assert.equal(result.reason,"NOT_FIVE_MINUTE_INTRADAY_BARS");
+  }
+  const report=aggregateHistoricalMorning([
+    {...input,timeframe:"1D"},input
+  ],{minSamples:1,dropThresholdPct:2});
+  assert.equal(report.sourceCoverage.rejectedByReason.NOT_FIVE_MINUTE_INTRADAY_BARS,1);
+  assert.equal(report.sourceCoverage.structurallyValid,1);
+});
