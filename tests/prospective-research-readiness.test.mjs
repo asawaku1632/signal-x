@@ -4,3 +4,12 @@ test("empty prospective evidence remains blocked",()=>{const r=summarize([]);ass
 test("reported verification cannot authorize trading",()=>{const r=summarize([],{minDays:2,minMonths:2});assert.equal(r.tradingEnabled,false);assert.equal(r.notificationsEnabled,false);});
 test("invalid month requirement rejected",()=>assert.throws(()=>summarize([],{minMonths:1}),/INVALID_MONTH_REQUIREMENT/));
 test("invalid ledger input rejected",()=>assert.throws(()=>summarize(null),/INVALID_PROSPECTIVE_LEDGER/));
+
+test("duplicate prospective stock/date inputs trigger explicit review blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row,row]);assert.ok(x.blockers.includes("DUPLICATE_STOCK_DAY_RECORDS"));assert.equal(x.trainingEnabled,false);
+});
+test("unverified as-of source gets explicit blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:false,featureAvailableAt:"2026-10-29T16:00:00+09:00"};
+ assert.ok(summarize([row]).blockers.includes("FEATURE_AS_OF_EVIDENCE_MISSING"));
+});
