@@ -8,3 +8,5 @@ test("independent prior evidence is not forged",()=>assert.match(RESEARCH_EXPORT
 test("outcome verification is not forged",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/false AS outcome_provenance_verified/));
 test("as-of timestamp is null until supported",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/NULL::text AS prior_available_at/));
 test("export is bounded",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/LIMIT 100000/));
+
+test("source snapshot timestamp exported without asserting verification",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/source_snapshot_created_at AS source_snapshot_created_at/));
