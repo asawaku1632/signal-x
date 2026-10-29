@@ -13,12 +13,18 @@ const rounded=x=>x===null?null:Number(x.toFixed(4));
 export function auditProspectiveScoreLedger(rows){
  if(!Array.isArray(rows))throw Error("INVALID_PROSPECTIVE_LEDGER");
  const seen=new Set(),groups=new Map();
+ // Quarantine every row of a duplicated stock/date group, regardless of input order.
+ const keyCounts=new Map();
+ for(const r of rows){if(r&&date(r.date)&&typeof r.code==="string"&&/^(?:\\d{4}|\\d{3}[A-Z])$/.test(r.code)&&r.date>FREEZE){
+  const k=r.date+"|"+r.code;keyCounts.set(k,(keyCounts.get(k)??0)+1);
+ }}
  const excluded={preFreeze:0,invalid:0,duplicate:0,featureNotAsOf:0,outcomeUnconfirmed:0,incompletePair:0};
  for(const r of rows){
   if(!r||!date(r.date)||typeof r.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(r.code)||
     !finite(r.priorScore)||!finite(r.price)||r.price<=0){excluded.invalid++;continue;}
   if(r.date<=FREEZE){excluded.preFreeze++;continue;}
   const key=r.date+"|"+r.code;
+  if(keyCounts.get(key)>1){if(seen.has(key))excluded.duplicate++;seen.add(key);continue;}
   if(seen.has(key)){excluded.duplicate++;continue;}seen.add(key);
   if(r.featureSnapshotVerified!==true||!strictInstant(r.featureAvailableAt)||Date.parse(r.featureAvailableAt)>=Date.parse(r.date+"T00:00:00+09:00")){
     excluded.featureNotAsOf++;continue;
