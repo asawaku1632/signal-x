@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit, completedDateConcentration, cohortCoverageContrast } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
