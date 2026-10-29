@@ -53,3 +53,13 @@ SELECT count(*)::bigint AS total,
        count(*) FILTER (WHERE created_at>=bar_end_at)::bigint AS inserted_after_bar_end,
        count(*) FILTER (WHERE provider_timestamp>=bar_start_at AND provider_timestamp<=bar_end_at)::bigint AS provider_stamp_inside_bar
 FROM public.technical_bb_observation_snapshots;
+
+-- Basic indicator arithmetic and range checks; not a predictive accuracy test.
+SELECT count(*)::bigint AS total,
+       count(*) FILTER (WHERE close>0)::bigint AS positive_close,
+       count(*) FILTER (WHERE bb_lower_3<=bb_lower_2 AND bb_lower_2<=bb_lower_1 AND bb_lower_1<=bb_middle AND bb_middle<=bb_upper_1 AND bb_upper_1<=bb_upper_2 AND bb_upper_2<=bb_upper_3)::bigint AS ordered_bands,
+       count(*) FILTER (WHERE standard_deviation>=0)::bigint AS nonnegative_deviation,
+       count(*) FILTER (WHERE rsi14 BETWEEN 0 AND 100)::bigint AS bounded_rsi,
+       count(*) FILTER (WHERE volume_ratio_20>=0)::bigint AS nonnegative_volume_ratio,
+       count(*) FILTER (WHERE abs(macd-macd_signal-macd_histogram)<=0.01)::bigint AS macd_arithmetic_consistent
+FROM public.technical_bb_observation_snapshots;
