@@ -94,7 +94,13 @@ export function summarizeAnalogs(target, histories, options={}) {
      Number.isFinite(Date.parse(row.outcomeAvailableAt)) &&
      Date.parse(row.outcomeAvailableAt)<cutoff &&
      Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"));
+  // Strict as-of mode excludes outcomes that had not been published before
+  // the target trading date. Feature timestamps alone do not prove this.
+  const requireOutcomeAvailability=options.requireOutcomeAvailability===true;
   const pool=histories.filter(row=>row && validDate(row.tradeDate) && row.tradeDate<target.tradeDate &&
+    (!requireOutcomeAvailability ||
+      (priorSnapshot(row.outcomeAvailableAt,target.tradeDate) &&
+       Date.parse(row.outcomeAvailableAt)>=Date.parse(row.tradeDate+"T11:30:00+09:00"))) &&
     outcomeAvailable(row) &&
     priorSnapshot(row.featureAvailableAt,row.tradeDate) &&
     usableFeatures(row) && row.outcome?.valid===true &&
@@ -220,6 +226,9 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
     String(a?.code??"").localeCompare(String(b?.code??"")));
   const results=[];
   const seen=new Set();
+  // Walk-forward audits default to strict outcome availability; descriptive
+  // historical summaries can opt into this via the same option.
+  const strictOptions={...options,requireOutcomeAvailability:options.requireOutcomeAvailability!==false};
   for(const target of ordered){
     if(!target||!validDate(target.tradeDate)||
        typeof target.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(target.code))
@@ -227,7 +236,7 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
     const key=target.code+"|"+target.tradeDate;
     if(seen.has(key))throw Error("DUPLICATE_FORWARD_TARGET");
     seen.add(key);
-    const prediction=summarizeAnalogs(target,histories,options);
+    const prediction=summarizeAnalogs(target,histories,strictOptions);
     const observed=histories.filter(row=>row?.code===target.code &&
       row.tradeDate===target.tradeDate && row.outcome?.valid===true &&
       row.outcome.date===target.tradeDate);
@@ -311,6 +320,7 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
     rebound1pct:metrics("actualRebound1Pct"),
     rebound2pct:metrics("actualRebound2Pct"),
     rows:results,
+    outcomeAvailabilityRequired:strictOptions.requireOutcomeAvailability,
     signalEnabled:false,readyForTrading:false,
     note:"Retrospective walk-forward audit only. Requires independent verified data and prospective validation."};
 }
