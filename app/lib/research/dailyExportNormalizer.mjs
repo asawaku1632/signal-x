@@ -9,6 +9,7 @@ export function normalizeDailyExportRows(rows){
    nextPrice:numeric(row.next_price),priorDate:date(row.prior_date),
    priorScore:numeric(row.prior_score),sourceDate:date(row.source_date),
    sourcePrice:numeric(row.source_price),
+   sourceSnapshotCreatedAt:typeof row.source_snapshot_created_at==="string"?row.source_snapshot_created_at:null,
    priorAvailableAt:null,priorEvidenceVerified:false,
    outcomeProvenanceVerified:false};
  });
