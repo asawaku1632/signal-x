@@ -67,3 +67,14 @@ test("outcome timestamps reject missing offsets and dates before the session end
     assert.equal(prepared.excluded.missingOutcomeProof,1);
   }
 });
+
+test("invalid duplicate cannot silently leave a favorable valid stock-day",()=>{
+  const original=makeInput("2026-10-27");
+  const invalid={...original,licenseVerified:false};
+  for(const inputs of [[original,invalid],[invalid,original]]){
+    const prepared=prepareMorningForwardRows(inputs);
+    assert.equal(prepared.rows.length,0);
+    assert.equal(prepared.excluded.duplicate,2);
+    assert.equal(prepared.excluded.unverifiedBars,0);
+  }
+});
