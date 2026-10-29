@@ -1,0 +1,14 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {createDetachedResearchSnapshot} from "../app/lib/research/detachedSnapshotContract.mjs";
+import {reconcileScoreSnapshotEvidence as reconcile} from "../app/lib/research/scoreSnapshotOutcomeReconciliation.mjs";
+const snap=()=>createDetachedResearchSnapshot({date:"2026-10-30",code:"7203",score:85,price:1000,capturedAt:"2026-10-30T08:45:00+09:00",sourceId:"offline",sourceVersion:"1"});
+const outcome=()=>({date:"2026-10-30",code:"7203",tradeDate:"2026-11-02",nextPrice:1100,availableAt:"2026-11-02T16:00:00+09:00"});
+test("valid snapshot and later outcome only create descriptive pair",()=>{const r=reconcile([snap()],[outcome()]);assert.equal(r.counts.descriptivePairs,1);assert.equal(r.rows[0].returnPct,10);assert.equal(r.approvedForTrading,false);assert.equal(r.approvedForTraining,false);});
+test("tampered score digest rejected",()=>assert.equal(reconcile([{...snap(),score:99}],[outcome()]).counts.invalid,1));
+test("missing outcome remains pending",()=>assert.equal(reconcile([snap()],[]).counts.waitingOutcome,1));
+test("same snapshot duplicate excluded",()=>assert.equal(reconcile([snap(),snap()],[outcome()]).counts.duplicate,1));
+test("outcome available before snapshot rejected",()=>assert.equal(reconcile([snap()],[{...outcome(),availableAt:"2026-10-30T08:00:00+09:00"}]).counts.postDecisionOutcome,1));
+test("outcome without later trade date rejected",()=>assert.equal(reconcile([snap()],[{...outcome(),tradeDate:undefined}]).counts.postDecisionOutcome,1));
+test("outcome price absent rejected",()=>assert.equal(reconcile([snap()],[{...outcome(),nextPrice:0}]).counts.postDecisionOutcome,1));
+test("duplicate outcome key rejected",()=>assert.throws(()=>reconcile([],[outcome(),outcome()]),/DUPLICATE_OUTCOME_KEY/));
+test("invalid inputs rejected",()=>assert.throws(()=>reconcile(null,[]),/INVALID_SCORE_EVIDENCE_INPUT/));
