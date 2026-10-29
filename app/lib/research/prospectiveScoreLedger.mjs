@@ -15,7 +15,7 @@ export function auditProspectiveScoreLedger(rows){
  const seen=new Set(),groups=new Map();
  // Quarantine every row of a duplicated stock/date group, regardless of input order.
  const keyCounts=new Map();
- for(const r of rows){if(r&&date(r.date)&&typeof r.code==="string"&&/^(?:\\d{4}|\\d{3}[A-Z])$/.test(r.code)&&r.date>FREEZE){
+ for(const r of rows){if(r&&date(r.date)&&typeof r.code==="string"&&/^(?:\d{4}|\d{3}[A-Z])$/.test(r.code)&&r.date>FREEZE){
   const k=r.date+"|"+r.code;keyCounts.set(k,(keyCounts.get(k)??0)+1);
  }}
  const excluded={preFreeze:0,invalid:0,duplicate:0,featureNotAsOf:0,outcomeUnconfirmed:0,incompletePair:0};
