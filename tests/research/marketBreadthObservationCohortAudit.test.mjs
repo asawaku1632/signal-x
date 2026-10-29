@@ -40,3 +40,6 @@ test('leave-one-date-out flags opposing signs across dates',()=>{const x=audit({
 test('single date cannot support leave-one-date-out analysis',()=>{assert.deepEqual(audit({rows:[r()]}).leaveOneDateOut,[])});
 test('empty dataset cannot support leave-one-date-out analysis',()=>{assert.deepEqual(audit().leaveOneDateOut,[])});
 test('same direction across dates remains descriptive only',()=>{const x=audit({rows:[r('9983',2),{...r('9432',3),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.deepEqual(x.leaveOneDateOut.map(v=>v.signAgreement),[true,true]);assert.equal(x.independentImprovementVerified,false)});
+
+test('two-date sensitivity is explicitly insufficient evidence',()=>{const x=audit({rows:[r(),{...r(),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'}]});assert.equal(x.sensitivity.insufficientDates,true);assert.equal(x.sensitivity.leaveOneDateOutComparable,false)});
+test('three-date sensitivity remains descriptive, not promotion',()=>{const x=audit({rows:[r(),{...r(),tradeDate:'2026-08-28',evaluatedTradeDate:'2026-09-04'},{...r(),tradeDate:'2026-09-04',evaluatedTradeDate:'2026-09-11'}]});assert.equal(x.sensitivity.insufficientDates,false);assert.equal(x.sensitivity.reason,'DESCRIPTIVE_ONLY');assert.equal(x.aiPromotionAuthorized,false)});
