@@ -48,3 +48,22 @@ test("timestamps require full offset-aware ISO syntax",()=>{
     assert.equal(result.excluded.missingFeatureProof,1);
   }
 });
+
+test("source claims are not independent authentication",()=>{
+  const prepared=prepareMorningForwardRows([makeInput("2026-10-27")]);
+  assert.equal(prepared.rows.length,1);
+  assert.equal(prepared.sourceMetadataAssertedByInput,true);
+  assert.equal(prepared.independentlyAuthenticated,false);
+  assert.equal(prepared.signalEnabled,false);
+});
+test("outcome timestamps reject missing offsets and dates before the session ends",()=>{
+  const original=makeInput("2026-10-27");
+  for(const outcomeAvailableAt of [
+    "2026-10-27T12:00:00","2026-10-27",
+    "2026-10-27T11:29:59+09:00"
+  ]){
+    const prepared=prepareMorningForwardRows([{...original,outcomeAvailableAt}]);
+    assert.equal(prepared.rows.length,0);
+    assert.equal(prepared.excluded.missingOutcomeProof,1);
+  }
+});
