@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -42,4 +42,38 @@ test("negative outcome and observed zero count as evaluated", () => {
   const result=summarizeGroup([{trade_date:"2026-10-19",return_5d:"0"},{trade_date:"2026-10-19",return_5d:"-2.5"}]);
   assert.equal(result.checked,2);
   assert.equal(result.average,-1.25);
+});
+
+test("matched-day difference weights days equally, not rows", () => {
+  const records = [
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-6,return_5d:-10},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-7,return_5d:-20},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:0,return_5d:0},
+    {trade_date:"2026-10-16",previous_candidate_change_pct:-6,return_5d:5},
+    {trade_date:"2026-10-16",previous_candidate_change_pct:0,return_5d:1},
+    {trade_date:"2026-10-23",previous_candidate_change_pct:-6,return_5d:null},
+  ];
+  const result=sameDayComparison(records);
+  assert.equal(result.matchedDayCount,2);
+  assert.equal(result.days[0].gap,-15);
+  assert.equal(result.days[1].gap,4);
+  assert.equal(result.dateBalancedGap,-5.5);
+});
+test("unmatched dates and pending data never enter paired comparison", () => {
+  const result=sameDayComparison([
+    {trade_date:"2026-10-16",previous_candidate_change_pct:-6,return_5d:-3},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:0,return_5d:8},
+    {trade_date:"2026-10-23",previous_candidate_change_pct:-6,return_5d:null},
+    {trade_date:"2026-10-23",previous_candidate_change_pct:0,return_5d:2},
+  ]);
+  assert.equal(result.matchedDayCount,0);
+  assert.equal(result.dateBalancedGap,null);
+});
+test("exact -5 percent stays outside strict down5 group", () => {
+  const result=sameDayComparison([
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-5,return_5d:1},
+    {trade_date:"2026-10-19",previous_candidate_change_pct:-5.000001,return_5d:3},
+  ]);
+  assert.equal(result.matchedDayCount,1);
+  assert.equal(result.days[0].gap,2);
 });
