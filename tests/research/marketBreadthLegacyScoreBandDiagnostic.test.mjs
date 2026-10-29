@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluateLegacyScoreBands as evaluate} from '../../lib/research/marketBreadthLegacyScoreBandDiagnostic.mjs';
+const row=(date,code,score,changePercent)=>({date,code,score,changePercent,evaluatedTradeDate:'2026-09-01'});
+const rows=['2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07'].flatMap((date,i)=>[row(date,'9983',90,i+1),row(date,'9432',40,-1)]);
+const audit=(accepted=rows)=>({researchOnly:true,aiPromotionAuthorized:false,accepted,counts:{quarantined:0,rejected:0}});
+test('paired date spread compares scores on the same date',()=>{const x=evaluate({audit:audit()});assert.equal(x.pairedDates,5);assert.equal(x.pairedDateMeanSpreadPercent,4);assert.equal(x.diagnosticEligible,true)});
+test('never authorizes model promotion',()=>{const x=evaluate({audit:audit()});assert.equal(x.aiPromotionAuthorized,false);assert.equal(x.independentImprovementVerified,false);assert.equal(x.productionEligible,false)});
+test('high and low score cohorts are separated',()=>{const x=evaluate({audit:audit()});assert.equal(x.high.observations,5);assert.equal(x.low.observations,5);assert.equal(x.high.meanReturnPercent,3);assert.equal(x.low.meanReturnPercent,-1)});
+test('empty rows report null without inventing evidence',()=>{const x=evaluate({audit:audit([])});assert.equal(x.pairedDateMeanSpreadPercent,null);assert.equal(x.diagnosticEligible,false)});
+test('one-sided dates are not paired',()=>{const x=evaluate({audit:audit(rows.slice(0,2).concat(row('2026-08-10','9983',90,99)))});assert.equal(x.pairedDates,1);assert.equal(x.pairedDateMeanSpreadPercent,2)});
+test('missing audited status is rejected',()=>assert.throws(()=>evaluate({audit:{accepted:rows}}),/REQUIRES_SHADOW_AUDIT/));
+test('invalid cutoff rejected',()=>assert.throws(()=>evaluate({audit:audit(),cutoff:101}),/INVALID_DIAGNOSTIC_OPTIONS/));
+test('impossible return rejected',()=>assert.throws(()=>evaluate({audit:audit([row('2026-08-03','9983',90,-101)])}),/INVALID_AUDITED_ROW/));
+test('invalid evaluation date rejected',()=>assert.throws(()=>evaluate({audit:audit([{...rows[0],evaluatedTradeDate:'2026-02-30'}])}),/INVALID_AUDITED_ROW/));
+test('duplicate stock/date rejected',()=>assert.throws(()=>evaluate({audit:audit([...rows,rows[0]])}),/DUPLICATE_AUDITED_STOCK_DATE/));
+test('quarantined sources remain disclosed',()=>{const x=evaluate({audit:{...audit(),counts:{quarantined:1,rejected:2}}});assert.ok(x.reasons.includes('EXCLUDED_UNVERIFIED_ROWS'))});
+test('score cutoff equal to score belongs in high group',()=>{const x=evaluate({audit:audit(),cutoff:90});assert.equal(x.high.observations,5)});
