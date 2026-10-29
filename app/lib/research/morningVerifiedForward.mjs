@@ -5,9 +5,17 @@
 import {adaptHistoricalMorning} from "./morningHistoricalAdapter.mjs";
 import {auditMorningAnalogsChronologically} from "./morningAnalog.mjs";
 const codePattern=/^(?:\d{4}|\d{3}[A-Z])$/;
-const validStamp=value=>typeof value==="string" &&
-  Number.isFinite(Date.parse(value)) &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value);
+const validStamp=value=>{
+  if(typeof value!=="string"||
+     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)||
+     !Number.isFinite(Date.parse(value)))return false;
+  // Date.parse normalizes impossible dates (e.g. February 30) on some runtimes.
+  const [year,month,day,hour,minute,second]=value.slice(0,19).match(/\d+/g).map(Number);
+  const offset=value.match(/([+-])(\d{2}):(\d{2})$/);
+  if(hour>23||minute>59||second>59||month<1||month>12||
+     day<1||day>new Date(Date.UTC(year,month,0)).getUTCDate())return false;
+  return !offset||(Number(offset[2])<=23&&Number(offset[3])<=59);
+};
 const featureKeys=["priorReturnPct","priorRangePct","priorVolumeRatio","aiPower"];
 export function prepareMorningForwardRows(inputs){
   if(!Array.isArray(inputs)||inputs.length>100000)throw Error("INVALID_MORNING_FORWARD_INPUT");
