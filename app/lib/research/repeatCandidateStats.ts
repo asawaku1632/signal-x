@@ -163,3 +163,25 @@ export function outcomeCalendarAudit(rows: OutcomeDatedRecord[]) {
   }
   return { invalidCalendarDate, sameDayOutcome };
 }
+
+/** Weekday-only screening, not a JPX trading-calendar verification (holidays are unknown). */
+export function weekdayGapAudit(rows: OutcomeDatedRecord[]) {
+  const counts = { assessed: 0, weekdayMismatch: 0, insufficientCalendarEvidence: 0 };
+  for (const row of rows) {
+    if (validOutcome(row.return_5d) === null) continue;
+    const start = Date.parse(row.trade_date + "T00:00:00Z");
+    const end = Date.parse((row.outcome_5d_date ?? "") + "T00:00:00Z");
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      counts.insufficientCalendarEvidence++;
+      continue;
+    }
+    let weekdays = 0;
+    for (let at = start + 86400000; at <= end && weekdays <= 10; at += 86400000) {
+      const dow = new Date(at).getUTCDay();
+      if (dow !== 0 && dow !== 6) weekdays++;
+    }
+    counts.assessed++;
+    if (weekdays !== 5) counts.weekdayMismatch++;
+  }
+  return counts;
+}
