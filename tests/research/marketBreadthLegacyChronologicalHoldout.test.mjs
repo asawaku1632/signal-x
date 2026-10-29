@@ -20,3 +20,7 @@ test('duplicate stock-date in audited rows fails closed',()=>assert.throws(()=>e
 
 test('impossible holdout calendar date rejected',()=>assert.throws(()=>evaluate({audit:audit(),holdoutDate:'2026-02-30'}),/INVALID_HOLDOUT_DATE/));
 test('large independent cohort handles duplicate detection efficiently',()=>{const sample=Array.from({length:2000},(_,i)=>({date:'2026-08-01',code:String(1000+i),score:80,changePercent:1,evaluatedTradeDate:'2026-08-02'}));const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.training.observations,2000)});
+
+test('missing outcome date is excluded and disclosed',()=>{const sample=rows.map((r,i)=>i===0?{...r,evaluatedTradeDate:undefined}:r);const x=evaluate({audit:audit(sample),holdoutDate:'2026-08-06'});assert.equal(x.excludedMissingTrainingOutcomeDates,1);assert.ok(x.reasons.includes('MISSING_TRAINING_OUTCOME_DATE'));assert.equal(x.training.observations,3)});
+test('null row is rejected as invalid input',()=>assert.throws(()=>evaluate({audit:audit([null]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
+test('missing stock code is rejected',()=>assert.throws(()=>evaluate({audit:audit([{...rows[0],code:undefined}]),holdoutDate:'2026-08-06'}),/INVALID_AUDITED_ROW/));
