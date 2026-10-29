@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {summarizeSavedScoreDrift as run} from "../app/lib/research/savedScoreDrift.mjs";
+test("month average and high share",()=>{const r=run([{date:"2026-08-03",score:85},{date:"2026-08-04",score:55}]);assert.equal(r.months[0].meanScore,70);assert.equal(r.months[0].highRatePct,50);});
+test("sort months",()=>assert.deepEqual(run([{date:"2026-10-01",score:20},{date:"2026-08-01",score:30}]).months.map(x=>x.month),["2026-08","2026-10"]));
+test("85 included in high",()=>assert.equal(run([{date:"2026-08-03",score:85}]).months[0].highCount,1));
+test("missing score rejected",()=>assert.equal(run([{date:"2026-08-03"}]).excluded.invalid,1));
+test("non numeric score rejected",()=>assert.equal(run([{date:"2026-08-03",score:"85"}]).excluded.invalid,1));
+test("zero valid stored score",()=>assert.equal(run([{date:"2026-08-03",score:0}]).months[0].meanScore,0));
+test("empty safe",()=>assert.equal(run([]).months.length,0));
+test("input array required",()=>assert.throws(()=>run(null),/INVALID_SCORE_DRIFT_INPUT/));
+test("not signal eligible",()=>assert.equal(run([]).signalEligible,false));
