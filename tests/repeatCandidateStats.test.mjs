@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
-  assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
+  assert.deepEqual(summarizeGroup([]), {median:null,positiveRate:null,count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
 });
 test("null and blank outcomes never become zero", () => {
   assert.equal(validOutcome(null),null);
@@ -177,4 +177,16 @@ test("weekday-only five-day screening counts completed outcomes without assuming
     {trade_date:"2026-10-19",outcome_5d_date:null,return_5d:null},
   ];
   assert.deepEqual(weekdayGapAudit(rows),{assessed:2,weekdayMismatch:1,insufficientCalendarEvidence:1});
+});
+
+test("median and positive share resist a single large outlier", () => {
+  const result=summarizeGroup([
+    {trade_date:"2026-10-19",return_5d:-10},
+    {trade_date:"2026-10-19",return_5d:2},
+    {trade_date:"2026-10-22",return_5d:80},
+    {trade_date:"2026-10-23",return_5d:null},
+  ]);
+  assert.equal(result.median,2);
+  assert.ok(Math.abs(result.positiveRate-200/3)<1e-9);
+  assert.equal(result.checked,3);
 });
