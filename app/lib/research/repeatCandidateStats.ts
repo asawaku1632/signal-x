@@ -148,6 +148,8 @@ export function excludeUnverifiedDatedOutcomes<T extends OutcomeDatedRecord>(row
   return rows.map(row => {
     const outcome = validOutcome(row.return_5d);
     if (outcome === null) return row;
+    // A simple long-position percentage return cannot fall below -100%.
+    if (outcome < -100) return { ...row, return_5d: null };
     const date = row.outcome_5d_date?.trim() ?? "";
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
       && date > row.trade_date
