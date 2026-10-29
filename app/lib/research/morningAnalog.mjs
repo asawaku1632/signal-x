@@ -209,7 +209,7 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
   const seen=new Set();
   for(const target of ordered){
     if(!target||!validDate(target.tradeDate)||
-       typeof target.code!=="string"||!/^(?:\\d{4}|\\d{3}[A-Z])$/.test(target.code))
+       typeof target.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(target.code))
       throw Error("INVALID_FORWARD_TARGET");
     const key=target.code+"|"+target.tradeDate;
     if(seen.has(key))throw Error("DUPLICATE_FORWARD_TARGET");
