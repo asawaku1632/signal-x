@@ -86,3 +86,15 @@ test("coverage counts distinct stock-days, stocks, dates and months without coun
   assert.equal(stats.excluded.duplicate,1);
   assert.equal(stats.sourceCoverage.independentlyAuthenticated,false);
 });
+
+test("sharp-drop breadth excludes duplicate exports and nonqualifying complete bars",()=>{
+  const early={...input,bars:bars.map((b,i)=>({...b,low:i===3?90:98}))};
+  const mild={...input,code:"1234",bars:bars.map(b=>({...b,low:98,high:101}))};
+  const report=aggregateHistoricalMorning([early,early,mild],{minSamples:1,dropThresholdPct:3});
+  assert.equal(report.sourceCoverage.completeUniqueStockDays,2);
+  assert.equal(report.sourceCoverage.patternEligibleStockDays,1);
+  assert.equal(report.sourceCoverage.patternDistinctStocks,1);
+  assert.equal(report.sourceCoverage.patternDistinctTradingDates,1);
+  assert.equal(report.sourceCoverage.patternDistinctMonths,1);
+  assert.equal(report.excluded.duplicate,1);
+});
