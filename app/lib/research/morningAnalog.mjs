@@ -246,7 +246,8 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
       observedWins:rows.filter(row=>row[key]).length,
       meanPredictedPct:average(rows.map(row=>row[pkey])),
       observedRatePct:rows.length?round(100*rows.filter(row=>row[key]).length/rows.length):null,
-      meanAbsoluteErrorPct:rows.length?average(rows.map(row=>Math.abs(row[pkey]-(row[key]?100:0)))):null};
+      meanAbsoluteErrorPct:rows.length?average(rows.map(row=>Math.abs(row[pkey]-(row[key]?100:0)))):null,
+      brierScore:rows.length?average(rows.map(row=>Math.pow(row[pkey]/100-(row[key]?1:0),2))):null};
   };
   const evaluated=results.filter(row=>row.actualRebound1Pct!==null ||
     row.actualRebound2Pct!==null);
@@ -263,7 +264,8 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
         return {evaluated:scored.length,
           observedRatePct:scored.length?round(100*scored.filter(row=>row[key]).length/scored.length):null,
           meanPredictedPct:average(scored.map(row=>row[predictionKey])),
-          meanAbsoluteErrorPct:scored.length?average(scored.map(row=>Math.abs(row[predictionKey]-(row[key]?100:0)))):null};
+          meanAbsoluteErrorPct:scored.length?average(scored.map(row=>Math.abs(row[predictionKey]-(row[key]?100:0)))):null,
+          brierScore:scored.length?average(scored.map(row=>Math.pow(row[predictionKey]/100-(row[key]?1:0),2))):null};
       };
       return {month,targets:rows.length,
         rebound1pct:stats("actualRebound1Pct"),
