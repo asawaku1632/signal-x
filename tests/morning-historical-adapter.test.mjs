@@ -123,3 +123,15 @@ test("coverage separates conflicting full-bar stock-days from usable observation
   assert.equal(report.excluded.conflict,1);
   assert.equal(report.sourceCoverage.readyForLiveUse,false);
 });
+
+test("coverage accounts for all complete stock-days without treating flat days as missing",()=>{
+  const early={...input,bars:bars.map((bar,i)=>({...bar,low:i===3?90:98}))};
+  const flat={...input,code:"1234",bars:bars.map(bar=>({...bar,low:98,high:101}))};
+  const report=aggregateHistoricalMorning([early,flat],{minSamples:1,dropThresholdPct:3});
+  const c=report.sourceCoverage;
+  assert.equal(c.completeUniqueStockDays,2);
+  assert.equal(c.conflictingCompleteStockDays,0);
+  assert.equal(c.patternEligibleStockDays,1);
+  assert.equal(c.completeButNotPatternEligibleStockDays,1);
+  assert.equal(c.conflictFreeCompleteStockDays,c.patternEligibleStockDays+c.completeButNotPatternEligibleStockDays);
+});
