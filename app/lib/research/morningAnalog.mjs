@@ -81,12 +81,24 @@ export function summarizeAnalogs(target, histories, options={}) {
     hhmm(row.outcome.bottomWindow));
   // One stock/date is one independent historical observation. Duplicate exports
   // must not inflate sample size or rebound frequency.
-  const seen=new Set();
-  const unique=pool.filter(row=>{
-    if(typeof row.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(row.code))return false;
+  // Conflicting duplicate exports are ambiguous: exclude the entire key,
+  // rather than allowing input order to choose a favorable outcome.
+  const grouped=new Map();
+  for(const row of pool){
+    if(typeof row.code!=="string"||!/^(?:\d{4}|\d{3}[A-Z])$/.test(row.code))continue;
     const key=row.code+"|"+row.tradeDate;
-    if(seen.has(key))return false;
-    seen.add(key);return true;
+    const rows=grouped.get(key)??[];
+    rows.push(row);
+    grouped.set(key,rows);
+  }
+  const unique=[...grouped.values()].flatMap(rows=>{
+    const fingerprint=row=>JSON.stringify({
+      featureAvailableAt:row.featureAvailableAt,features:keys.map(k=>row.features[k]),
+      bottomPrice:row.outcome.bottomPrice,bottomDropPct:row.outcome.bottomDropPct,
+      bottomWindow:row.outcome.bottomWindow,rebound1pct:row.outcome.rebound1pct,
+      rebound2pct:row.outcome.rebound2pct
+    });
+    return rows.every(row=>fingerprint(row)===fingerprint(rows[0]))?[rows[0]]:[];
   });
   const ranked=unique.map(row=>({row,distance:keys.reduce((sum,k)=>
     sum+Math.abs(row.features[k]-target.features[k])*(weights[k]??1),0)}))
