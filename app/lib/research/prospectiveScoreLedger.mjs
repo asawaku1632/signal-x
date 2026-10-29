@@ -24,7 +24,8 @@ export function auditProspectiveScoreLedger(rows){
   }
   if(!finite(r.nextPrice)||r.nextPrice<=0){excluded.incompletePair++;continue;}
   if(r.outcomeSourceVerified!==true||!date(r.outcomeTradeDate)||r.outcomeTradeDate<=r.date||
-     !instant(r.outcomeAvailableAt)||Date.parse(r.outcomeAvailableAt)<=Date.parse(r.date+"T23:59:59+09:00")){
+     !instant(r.outcomeAvailableAt)||Date.parse(r.outcomeAvailableAt)<=Date.parse(r.date+"T23:59:59+09:00")||
+     Date.parse(r.outcomeAvailableAt)<Date.parse(r.outcomeTradeDate+"T00:00:00+09:00")){
     excluded.outcomeUnconfirmed++;continue;
   }
   const bucket=groups.get(r.date)||{high:[],low:[]};
