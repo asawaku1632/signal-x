@@ -571,3 +571,21 @@ July and October change sign when the most unfavorable single eligible date is r
 Using the immediately preceding **saved high-score observation date** and matching stock code, 142 consecutive high-score stock/date pairs with existing five-day outcomes were classified by change in AI POWER. Power increased: 70 observations, mean stored 5d return **-1.7250%**, 29 positive; decreased: 63 observations, mean **-0.7984%**, 33 positive; unchanged: 9 observations, mean **+1.2481%**, 6 positive. Across 9 trading dates with >=3 observations in both increasing/decreasing cohorts, the **equal-date** mean increasing-minus-decreasing return was **-0.6808 percentage points** and increasing cohort outperformed on 4/9 days.
 
 This is retrospective, small and selection-conditioned on both days scoring >=85. Unchanged group is too small for a meaningful inference. Five-day outcomes overlap, and there is no independently authenticated pre-09:05 score provenance. Do not interpret negative mean as proof rising AI POWER causes underperformance; no scoring threshold, trading rule, training or notification changes are authorized from this exploration. Future forward protocol should fix cohort definitions and score collection times before results are known.
+
+
+## Saved-score timestamp and next-price audit (2026-10-29, production SELECT-only)
+
+Code inspection: `app/lib/dailyLearning.ts` stores `score = stock.score ?? stock.aiPower ?? 0`, with `created_at=NOW()`. The score is not an immutable, independently verified *pre-09:05* model feature. `app/lib/learning/checkDailyRunner.ts` selects the **next available saved date with adequate coverage** and derives `next_price` from the matching stock's saved `price`; the chosen date must be retained per observation rather than inferred as an arbitrary fixed five-day horizon or verified market fill.
+
+A read-only monthly count of `public.daily_stock_results` for July–October showed all records with non-null `created_at` and the same **stored calendar date** as row `date`:
+
+| Month | Rows | Same-calendar-date created_at | Later-calendar-date created_at |
+| --- | ---: | ---: | ---: |
+| 2026-07 | 15,383 | 15,383 | 0 |
+| 2026-08 | 16,308 | 16,308 | 0 |
+| 2026-09 | 20,060 | 20,060 | 0 |
+| 2026-10 | 18,111 | 18,111 | 0 |
+
+A separate raw database-clock hour query returned nonzero values recorded at/after 09:05 in July (964) and August (960), with zero in September/October. **DO NOT interpret these hour buckets as Japan-market 09:05 evidence**: `created_at` has not been independently established as a timezone-aware Japan-local frozen signal generation timestamp; displayed values include e.g. `2026-07-01 01:06:14` and `2026-10-01 07:14:40`. The reported `created_at` calendar day itself does not authenticate decision time or bar-end time. Source and license, provider revision, score-generation timing and outcome horizon remain unresolved.
+
+**Gate stays closed:** these saved rows are useful for retrospective descriptive learning, but cannot validate 09:05 live decisions, morning lows, trading fills or independent forward performance. First establish source timestamps and timezone conversion explicitly, track score algorithm version, freeze features before the forecast cutoff, and verify price provenance and actual future observation times. No production changes.
