@@ -88,7 +88,8 @@ export function summarizeAnalogs(target, histories, options={}) {
     usableFeatures(row) && row.outcome?.valid===true &&
     row.outcome.date===row.tradeDate &&
     positive(row.outcome.bottomPrice) && finite(row.outcome.bottomDropPct) &&
-    hhmm(row.outcome.bottomWindow));
+    hhmm(row.outcome.bottomWindow) && minute(row.outcome.bottomWindow)>=540 &&
+    minute(row.outcome.bottomWindow)<690);
   // One stock/date is one independent historical observation. Duplicate exports
   // must not inflate sample size or rebound frequency.
   // Conflicting duplicate exports are ambiguous: exclude the entire key,
@@ -146,7 +147,8 @@ export function summarizeMorningDropPatterns(observations, options={}) {
   const seen=new Set(),valid=[],excluded={invalid:0,duplicate:0,notSharpDrop:0};
   for(const row of observations){
     if(!row||row.valid!==true||!validDate(row.date)||
-       !hhmm(row.bottomWindow)||!positive(row.bottomPrice)||
+       (!hhmm(row.bottomWindow)||minute(row.bottomWindow)<540||minute(row.bottomWindow)>=690)||
+       !positive(row.bottomPrice)||
        !finite(row.bottomDropPct)||!finite(row.earlyDropPct)||
        !Number.isInteger(row.intervalMinutes)||row.intervalMinutes<1||row.intervalMinutes>binMinutes||
        binMinutes%row.intervalMinutes!==0||
