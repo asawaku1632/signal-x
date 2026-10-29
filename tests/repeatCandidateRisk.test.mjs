@@ -237,3 +237,8 @@ test("pending list and research results share date-validated rows", () => {
   assert.ok(page.includes("日付不整合で除外"));
   assert.ok(page.includes("excludeUnverifiedDatedOutcomes"));
 });
+
+test("repeat comparison requires valid positive current price", () => {
+  assert.ok(route.includes("entry_price > 0"));
+  assert.ok(route.includes("previous_candidate_price > 0"));
+});
