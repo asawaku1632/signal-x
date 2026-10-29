@@ -25,3 +25,15 @@ test("after-decision snapshot and unlicensed source rejected",()=>{
 test("unknown or premature outcomes excluded",()=>{
  assert.equal(reconcile({snapshots:[sample],outcomes:[{...outcome,outcomeAvailableAt:"2026-11-04T09:04:00+09:00"}]}).reasons.invalidOutcome,1);
 });
+
+test("impossible snapshot and outcome timestamps are rejected",()=>{
+ const invalid=["2026-02-30T08:59:00+09:00","2026-11-04T24:00:00+09:00","2026-11-04T09:00:00+25:00"];
+ for(const recordedAt of invalid){
+  const r=reconcile({snapshots:[{...sample,recordedAt}],outcomes:[outcome]});
+  assert.equal(r.pairedCount,0);assert.equal(r.reasons.invalidPredecision,1);
+ }
+ for(const outcomeAvailableAt of invalid){
+  const r=reconcile({snapshots:[sample],outcomes:[{...outcome,outcomeAvailableAt}]});
+  assert.equal(r.pairedCount,0);assert.equal(r.reasons.invalidOutcome,1);
+ }
+});
