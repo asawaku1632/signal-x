@@ -28,3 +28,7 @@ test("calendar invalid rejected",()=>assert.equal(run([{...base,date:"2026-11-31
 test("outcome before declared later trade date is excluded",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-03T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
 test("outcome at start of later trade date is chronologically plausible only",()=>{const x=run([{...base,outcomeAvailableAt:"2026-11-04T00:00:00+09:00"}]);assert.equal(x.eligibleRows,1);assert.equal(x.independentlyAuthenticatedByFunction,false);});
 test("outcome from an even later day must not validate prior unobserved date",()=>assert.equal(run([{...base,outcomeTradeDate:"2026-11-05",outcomeAvailableAt:"2026-11-04T16:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
+
+test("rejects impossible calendar day in feature timestamp",()=>assert.equal(run([{...base,featureAvailableAt:"2026-10-32T15:00:00+09:00"}]).excluded.featureNotAsOf,1));
+test("rejects impossible hour in outcome timestamp",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T25:00:00+09:00"}]).excluded.outcomeUnconfirmed,1));
+test("rejects invalid timezone offset minutes",()=>assert.equal(run([{...base,outcomeAvailableAt:"2026-11-04T17:00:00+09:70"}]).excluded.outcomeUnconfirmed,1));
