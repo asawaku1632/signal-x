@@ -6,6 +6,7 @@ export function auditProspectiveCalendarStrata(daily,options={}){
  const used=new Set(),groups=new Map();
  let excludedDates=0;
  const exclusionReasons={insufficientHigh:0,insufficientLow:0,invalidGap:0};
+ const primaryExclusionReasons={insufficientHigh:0,insufficientLow:0,invalidGap:0};
  for(const row of daily){
   if(!row||typeof row.date!=="string"||!/^\d{4}-\d\d-\d\d$/.test(row.date)||!Number.isFinite(Date.parse(row.date+"T00:00:00Z"))||
    new Date(row.date+"T00:00:00Z").toISOString().slice(0,10)!==row.date||used.has(row.date))throw Error("INVALID_OR_DUPLICATE_STRATA_DATE");
@@ -15,6 +16,10 @@ export function auditProspectiveCalendarStrata(daily,options={}){
    if(!Number.isInteger(row.highCount)||row.highCount<10)exclusionReasons.insufficientHigh++;
    if(!Number.isInteger(row.lowCount)||row.lowCount<10)exclusionReasons.insufficientLow++;
    if(!Number.isFinite(row.gapPp))exclusionReasons.invalidGap++;
+   // One primary reason per excluded date, so category totals reconcile.
+   const primary=(!Number.isInteger(row.highCount)||row.highCount<10)?"insufficientHigh":
+     (!Number.isInteger(row.lowCount)||row.lowCount<10)?"insufficientLow":"invalidGap";
+   primaryExclusionReasons[primary]++;
    continue;
   }
   const month=row.date.slice(0,7),g=groups.get(month)??[];
@@ -25,7 +30,7 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),medianGapPp:median(gaps),positiveDates:gaps.filter(x=>x>0).length,
   positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
- return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,
+ return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
   qualifyingDates:daily.length-excludedDates,
   medianPositiveSufficientMonths:months.filter(x=>x.sufficientDates&&x.medianGapPp>0).length,
   conflictingMeanMedianMonths:months.filter(x=>x.sufficientDates&&Math.sign(x.meanGapPp)!==Math.sign(x.medianGapPp)).length,
