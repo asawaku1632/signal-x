@@ -219,7 +219,7 @@ test("walk-forward audit never uses target-day outcomes as selection history",()
   const current=row("2026-10-28","2026-10-27T18:00:00+09:00");
   const target={code:current.code,tradeDate:current.tradeDate,
     featureAvailableAt:current.featureAvailableAt,features};
-  const report=auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1});
+  const report=auditMorningAnalogsChronologically([target],[{...earlier,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},current],{minSamples:1});
   assert.equal(report.targets,1);
   assert.equal(report.eligible,1);
   assert.equal(report.rows[0].samples,1);
@@ -251,11 +251,11 @@ test("forward audit refuses unproven and conflicting observed outcomes",()=>{
     {...current,featureAvailableAt:"2026-10-28T09:05:00+09:00"},
     {...current,outcome:{...current.outcome,bottomWindow:"15:00"}}
   ]){
-    const report=auditMorningAnalogsChronologically([target],[prior,invalid],{minSamples:1});
+    const report=auditMorningAnalogsChronologically([target],[{...prior,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},invalid],{minSamples:1});
     assert.equal(report.rows[0].observed,false);
     assert.equal(report.rebound1pct.evaluated,0);
   }
-  const duplicate=auditMorningAnalogsChronologically([target],[prior,current,{...current}],{minSamples:1});
+  const duplicate=auditMorningAnalogsChronologically([target],[{...prior,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},current,{...current}],{minSamples:1});
   assert.equal(duplicate.rebound1pct.evaluated,0);
 });
 
@@ -269,7 +269,7 @@ test("expanding baseline compares paired predictions without same-day leakage",(
   })));
   const targets=history.filter(row=>row.tradeDate!=="2026-10-26").map(
     ({code,tradeDate,featureAvailableAt,features})=>({code,tradeDate,featureAvailableAt,features}));
-  const report=auditMorningAnalogsChronologically(targets,history,{minSamples:1});
+  const report=auditMorningAnalogsChronologically(targets,history.map(row=>({...row,outcomeAvailableAt:row.tradeDate+"T12:00:00+09:00"})),{minSamples:1});
   // Both stocks on the first evaluation date must not seed each other's baseline.
   assert.equal(report.expandingBaseline.rebound1pct.evaluated,2);
   assert.equal(report.expandingBaseline.rebound1pct.brierScore,0);
@@ -291,4 +291,20 @@ test("strict outcome availability rejects hindsight and missing provenance",()=>
     assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],strict).samples,0);
   }
   assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:"2026-10-27T16:00:00+09:00"}],strict).samples,1);
+});
+
+test("forward audit excludes historical outcomes published after prediction date",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",
+    features,outcome:inspectMorning(date,100,makeBars(date))};
+  const target={code:"1234",tradeDate:"2026-10-28",
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const stamp of [undefined,"2026-10-28T09:00:00+09:00","2026-10-27T10:00:00+09:00"]){
+    const report=auditMorningAnalogsChronologically([target],[{...row,outcomeAvailableAt:stamp}],{minSamples:1});
+    assert.equal(report.rows[0].samples,0);
+    assert.equal(report.outcomeAvailabilityRequired,true);
+  }
+  const good=auditMorningAnalogsChronologically([target],[{...row,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"}],{minSamples:1});
+  assert.equal(good.rows[0].samples,1);
 });
