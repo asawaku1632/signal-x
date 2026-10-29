@@ -36,3 +36,17 @@ test("sparse cohorts expose month coverage blocker",()=>{
  assert.ok(x.blockers.includes("LOW_MONTHLY_COHORT_COVERAGE"));
  assert.equal(x.calendar.monthlyCoverage[0].qualifyingDates,0);
 });
+
+test("favorable-looking summary never promotes unauthenticated research",()=>{
+ const x=summarize([]);
+ assert.equal(x.candidateReview.status,"DO_NOT_PROMOTE");
+ assert.equal(x.candidateReview.eligibleForModelUpdate,false);
+ assert.equal(x.candidateReview.eligibleForLiveSignal,false);
+ assert.ok(x.candidateReview.missingQualityChecks.includes("EXTERNAL_AUTHENTICATION_MISSING"));
+});
+test("sparse dates pass their coverage blockers to promotion review",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row]);
+ assert.ok(x.candidateReview.missingQualityChecks.includes("LOW_MONTHLY_COHORT_COVERAGE"));
+ assert.equal(x.candidateReview.status,"DO_NOT_PROMOTE");
+});
