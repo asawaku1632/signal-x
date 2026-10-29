@@ -16,5 +16,6 @@ export function summarizeProspectiveResearch(rows, options={}){
  if(stability.months<minMonths)blockers.push("INSUFFICIENT_MONTHS");
  if(!ledger.independentlyAuthenticatedByFunction)blockers.push("EXTERNAL_AUTHENTICATION_MISSING");
  if(stability.leaveOneOutMeanRange?.[0]<=0)blockers.push("UNSTABLE_LEAVE_ONE_OUT");
- return {ledger,stability,blockers,reviewOnly:true,trainingEnabled:false,tradingEnabled:false,notificationsEnabled:false};
+ const evidence={observedTradingDates:stability.dates,observedMonths:stability.months,descriptiveMeanGapPp:stability.meanGapPp,descriptiveMedianGapPp:stability.medianGapPp,independentSourceAttestation:false,chronologicalHoldoutVerified:false};
+ return {ledger,stability,evidence,blockers,reviewOnly:true,trainingEnabled:false,tradingEnabled:false,notificationsEnabled:false};
 }
