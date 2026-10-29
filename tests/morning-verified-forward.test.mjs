@@ -78,3 +78,11 @@ test("invalid duplicate cannot silently leave a favorable valid stock-day",()=>{
     assert.equal(prepared.excluded.unverifiedBars,0);
   }
 });
+
+test("duplicate dates use actual ISO date syntax, not escaped regex literals",()=>{
+  const input=makeInput("2026-10-27");
+  const invalid={...input,licenseVerified:false};
+  const result=prepareMorningForwardRows([input,invalid]);
+  assert.equal(result.rows.length,0);
+  assert.equal(result.excluded.duplicate,2);
+});
