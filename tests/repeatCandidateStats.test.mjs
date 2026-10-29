@@ -115,6 +115,6 @@ test("overall completion rate counts zero returns and excludes missing outcomes"
   const result = assessedOutcomeCoverage([{trade_date:"2026-10-19",return_5d:0},{trade_date:"2026-10-23",return_5d:null},{trade_date:"2026-10-26",return_5d:""}]);
   assert.equal(result.checked,1);
   assert.equal(result.pending,2);
-  assert.equal(result.completionRate,100/3);
+  assert.ok(Math.abs(result.completionRate - 100/3) < 1e-10);
   assert.equal(assessedOutcomeCoverage([]).completionRate,null);
 });
