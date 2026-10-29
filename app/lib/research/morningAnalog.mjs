@@ -237,6 +237,10 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
     // Multiple conflicting outcome exports cannot be silently selected.
     const outcome=observed.length===1 &&
       priorSnapshot(observed[0].featureAvailableAt,target.tradeDate) &&
+      typeof observed[0].outcomeAvailableAt==="string" &&
+      /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(observed[0].outcomeAvailableAt) &&
+      Number.isFinite(Date.parse(observed[0].outcomeAvailableAt)) &&
+      Date.parse(observed[0].outcomeAvailableAt)>=Date.parse(target.tradeDate+"T11:30:00+09:00") &&
       observed[0].outcome?.valid===true &&
       positive(observed[0].outcome.bottomPrice) &&
       finite(observed[0].outcome.bottomDropPct) &&
