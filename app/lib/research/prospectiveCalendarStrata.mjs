@@ -30,7 +30,14 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),medianGapPp:median(gaps),positiveDates:gaps.filter(x=>x>0).length,
   positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
+ const supported=months.filter(x=>x.sufficientDates);
+ const positiveMedianMonths=supported.filter(x=>x.medianGapPp>0).length;
+ const monthsWithMeanMedianAgreement=supported.filter(x=>x.meanGapPp>0&&x.medianGapPp>0&&x.majorityPositive).length;
  return {months,qualifyingMonths:months.length,minDatesPerMonth,receivedDates:daily.length,excludedDates,exclusionReasons,primaryExclusionReasons,
+  descriptiveMonthlyConsistency:{supportedMonths:supported.length,positiveMedianMonths,
+   meanMedianAndMajorityPositiveMonths:monthsWithMeanMedianAgreement,
+   allSupportedMonthsConsistent:supported.length>=2&&monthsWithMeanMedianAgreement===supported.length,
+   independentlyValidated:false},
   qualifyingDates:daily.length-excludedDates,
   medianPositiveSufficientMonths:months.filter(x=>x.sufficientDates&&x.medianGapPp>0).length,
   conflictingMeanMedianMonths:months.filter(x=>x.sufficientDates&&Math.sign(x.meanGapPp)!==Math.sign(x.medianGapPp)).length,
