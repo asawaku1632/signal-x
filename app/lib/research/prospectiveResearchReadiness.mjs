@@ -22,6 +22,9 @@ export function summarizeProspectiveResearch(rows, options={}){
  if(calendar.descriptiveMonthlyConsistency.supportedMonths>=minMonths&&!calendar.descriptiveMonthlyConsistency.allSupportedMonthsConsistent)blockers.push("CROSS_MONTH_CONSISTENCY_NOT_SHOWN");
  if(!ledger.independentlyAuthenticatedByFunction)blockers.push("EXTERNAL_AUTHENTICATION_MISSING");
  if(stability.leaveOneOutMeanRange?.[0]<=0)blockers.push("UNSTABLE_LEAVE_ONE_OUT");
+ const candidateReview={status:"DO_NOT_PROMOTE",reason:"PROSPECTIVE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED",
+  comparableDates:stability.dates,wellSampledMonths:calendar.descriptiveMonthlyConsistency.supportedMonths,
+  missingQualityChecks:blockers,eligibleForModelUpdate:false,eligibleForLiveSignal:false};
  const evidence={observedTradingDates:stability.dates,observedMonths:stability.months,descriptiveMeanGapPp:stability.meanGapPp,descriptiveMedianGapPp:stability.medianGapPp,independentSourceAttestation:false,chronologicalHoldoutVerified:false};
- return {ledger,stability,calendar,evidence,blockers,reviewOnly:true,trainingEnabled:false,tradingEnabled:false,notificationsEnabled:false};
+ return {ledger,stability,calendar,evidence,candidateReview,blockers,reviewOnly:true,trainingEnabled:false,tradingEnabled:false,notificationsEnabled:false};
 }
