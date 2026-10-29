@@ -192,3 +192,58 @@ export function summarizeMorningDropPatterns(observations, options={}) {
       rate:reb2.length>=minSamples?round(100*reb2.filter(x=>x.rebound2pct).length/reb2.length):null},
     note:"Retrospective frequency, not an executable or validated next-day prediction."};
 }
+
+
+/**
+ * Walk-forward audit: each dated target is evaluated using strictly earlier
+ * histories. Retrospective research only; no trading signal or notification.
+ */
+export function auditMorningAnalogsChronologically(targets, histories, options={}) {
+  if(!Array.isArray(targets)||!Array.isArray(histories)||
+     !Number.isInteger(options.minSamples??30)||(options.minSamples??30)<1)
+    throw Error("INVALID_FORWARD_INPUT");
+  const ordered=[...targets].sort((a,b)=>
+    String(a?.tradeDate??"").localeCompare(String(b?.tradeDate??"")) ||
+    String(a?.code??"").localeCompare(String(b?.code??"")));
+  const results=[];
+  const seen=new Set();
+  for(const target of ordered){
+    if(!target||!validDate(target.tradeDate)||
+       typeof target.code!=="string"||!/^(?:\\d{4}|\\d{3}[A-Z])$/.test(target.code))
+      throw Error("INVALID_FORWARD_TARGET");
+    const key=target.code+"|"+target.tradeDate;
+    if(seen.has(key))throw Error("DUPLICATE_FORWARD_TARGET");
+    seen.add(key);
+    const prediction=summarizeAnalogs(target,histories,options);
+    const observed=histories.filter(row=>row?.code===target.code &&
+      row.tradeDate===target.tradeDate && row.outcome?.valid===true &&
+      row.outcome.date===target.tradeDate);
+    // Multiple conflicting outcome exports cannot be silently selected.
+    const outcome=observed.length===1?observed[0].outcome:null;
+    const usable=prediction.eligible&&outcome!==null;
+    results.push({code:target.code,tradeDate:target.tradeDate,
+      samples:prediction.samples,eligible:prediction.eligible,
+      observed:outcome!==null,
+      predictedRebound1Pct:prediction.rebound1pct.rate,
+      predictedRebound2Pct:prediction.rebound2pct.rate,
+      actualRebound1Pct:usable&&typeof outcome.rebound1pct==="boolean"?outcome.rebound1pct:null,
+      actualRebound2Pct:usable&&typeof outcome.rebound2pct==="boolean"?outcome.rebound2pct:null});
+  }
+  const metrics=key=>{
+    const rows=results.filter(row=>typeof row[key]==="boolean" &&
+      finite(row[key==="actualRebound1Pct"?"predictedRebound1Pct":"predictedRebound2Pct"]));
+    const pkey=key==="actualRebound1Pct"?"predictedRebound1Pct":"predictedRebound2Pct";
+    return {evaluated:rows.length,
+      observedWins:rows.filter(row=>row[key]).length,
+      meanPredictedPct:average(rows.map(row=>row[pkey])),
+      observedRatePct:rows.length?round(100*rows.filter(row=>row[key]).length/rows.length):null,
+      meanAbsoluteErrorPct:rows.length?average(rows.map(row=>Math.abs(row[pkey]-(row[key]?100:0)))):null};
+  };
+  return {version:"MORNING_ANALOG_FORWARD_AUDIT_V1",targets:results.length,
+    eligible:results.filter(row=>row.eligible).length,
+    rebound1pct:metrics("actualRebound1Pct"),
+    rebound2pct:metrics("actualRebound2Pct"),
+    rows:results,
+    signalEnabled:false,readyForTrading:false,
+    note:"Retrospective walk-forward audit only. Requires independent verified data and prospective validation."};
+}
