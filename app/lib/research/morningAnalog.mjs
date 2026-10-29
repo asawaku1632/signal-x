@@ -255,6 +255,23 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
   const uniqueTradeDates=new Set(evaluated.map(row=>row.tradeDate)).size;
   const uniqueMonths=new Set(evaluated.map(row=>row.tradeDate.slice(0,7))).size;
   const coverage={stocks:uniqueStocks,tradeDates:uniqueTradeDates,months:uniqueMonths};
+  // Baseline uses only already-observed targets, never a future holdout label.
+  // This is an evaluation benchmark, not an ex-ante tradable forecast.
+  const baseline=key=>{
+    const rows=results.filter(row=>typeof row[key]==="boolean");
+    if(rows.length<2)return {evaluated:0,brierScore:null};
+    let total=0,count=0;
+    for(let i=1;i<rows.length;i++){
+      const prior=rows.slice(0,i);
+      const rate=prior.filter(row=>row[key]).length/prior.length;
+      total+=(rate-(rows[i][key]?1:0))**2;
+      count++;
+    }
+    return {evaluated:count,brierScore:round(total/count)};
+  };
+  const expandingBaseline={
+    rebound1pct:baseline("actualRebound1Pct"),
+    rebound2pct:baseline("actualRebound2Pct")};
   const byMonth=[...new Set(results.map(row=>row.tradeDate.slice(0,7)))].sort()
     .map(month=>{
       const rows=results.filter(row=>row.tradeDate.startsWith(month));
@@ -272,7 +289,7 @@ export function auditMorningAnalogsChronologically(targets, histories, options={
         rebound2pct:stats("actualRebound2Pct")};
     });
   return {version:"MORNING_ANALOG_FORWARD_AUDIT_V1",targets:results.length,byMonth,
-    eligible:results.filter(row=>row.eligible).length,coverage,
+    eligible:results.filter(row=>row.eligible).length,coverage,expandingBaseline,
     rebound1pct:metrics("actualRebound1Pct"),
     rebound2pct:metrics("actualRebound2Pct"),
     rows:results,
