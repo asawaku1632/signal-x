@@ -108,3 +108,14 @@ export function assessedOutcomeCoverage(rows: OutcomeRecord[]) {
   return { total, checked, pending: total - checked,
     completionRate: total ? checked / total * 100 : null };
 }
+
+export function thresholdSensitivity(rows: ComparedRecord[], thresholds = [3, 5, 7]) {
+  return thresholds.map(drop => {
+    const atRisk = rows.filter(row => {
+      const change = validOutcome(row.previous_candidate_change_pct);
+      return change !== null && change < -drop;
+    });
+    const result = summarizeGroup(atRisk);
+    return { drop, ...result, pending: result.count - result.checked };
+  });
+}
