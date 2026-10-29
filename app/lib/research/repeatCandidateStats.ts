@@ -143,9 +143,23 @@ export function excludeUnverifiedDatedOutcomes<T extends OutcomeDatedRecord>(row
     if (outcome === null) return row;
     const date = row.outcome_5d_date?.trim() ?? "";
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
-      && date >= row.trade_date
+      && date > row.trade_date
       && !Number.isNaN(Date.parse(date + "T00:00:00Z"))
       && new Date(date + "T00:00:00Z").toISOString().slice(0, 10) === date;
     return validDate ? row : { ...row, return_5d: null };
   });
+}
+
+/** Audit only the saved dates; this cannot verify exchange trading calendars or prices. */
+export function outcomeCalendarAudit(rows: OutcomeDatedRecord[]) {
+  let invalidCalendarDate = 0;
+  let sameDayOutcome = 0;
+  for (const row of rows) {
+    const date = row.outcome_5d_date?.trim();
+    if (!date) continue;
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? Date.parse(date + "T00:00:00Z") : NaN;
+    if (!Number.isFinite(parsed) || new Date(parsed).toISOString().slice(0, 10) !== date) invalidCalendarDate++;
+    else if (date === row.trade_date) sameDayOutcome++;
+  }
+  return { invalidCalendarDate, sameDayOutcome };
 }
