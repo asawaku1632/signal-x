@@ -34,7 +34,7 @@ export function reportFromText(raw){
  const eligibleRows=rows.filter((_,i)=>classification.results[i].status==="EVIDENCE_ASSERTED")
   .map(row=>({...row,outcomeDate:row.sourceDate}));
  const report=researchPriorScoreDailyGaps(eligibleRows);
- return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,
+ return {researchOnly:true,source:"USER_APPROVED_LOCAL_FILE",recordCount:rows.length,sqlExportNormalized:fromSql,
    inputAudit,evidenceClassification:{
      version:classification.version,summary:classification.summary,
      independentlyVerified:false,warning:classification.warning
