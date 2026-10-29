@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -141,4 +141,19 @@ test("outcome date audit catches missing and reversed date relationships", () =>
 });
 test("complete consistent outcomes have no date integrity warnings", () => {
   assert.equal(outcomeDateIntegrity([{trade_date:"2026-10-19",return_5d:0,outcome_5d_date:"2026-10-26"}]).suspectCount,0);
+});
+
+test("invalid or missing outcome dates cannot enter performance statistics", () => {
+  const rows = [
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:3},
+    {trade_date:"2026-10-19",outcome_5d_date:null,return_5d:-20},
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-16",return_5d:-50},
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-02-30",return_5d:12},
+    {trade_date:"2026-10-23",outcome_5d_date:null,return_5d:null},
+  ];
+  const cleaned=excludeUnverifiedDatedOutcomes(rows);
+  assert.equal(summarizeGroup(cleaned).checked,1);
+  assert.equal(summarizeGroup(cleaned).average,3);
+  assert.equal(rows[1].return_5d,-20);
+  assert.equal(cleaned[4].return_5d,null);
 });
