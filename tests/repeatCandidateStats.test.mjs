@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit } from "../app/lib/research/repeatCandidateStats.ts";
+import { summarizeGroup, validOutcome, withoutLargestDay, sameDayComparison, outcomeCoverageByDate, matchedDaySensitivity, assessedOutcomeCoverage, thresholdSensitivity, outcomeDateIntegrity, excludeUnverifiedDatedOutcomes, outcomeCalendarAudit, weekdayGapAudit } from "../app/lib/research/repeatCandidateStats.ts";
 
 test("no observations stays unverified rather than zero return", () => {
   assert.deepEqual(summarizeGroup([]), {count:0,checked:0,days:0,average:null,dateBalancedAverage:null});
@@ -167,4 +167,14 @@ test("calendar audit rejects impossible dates and same-day five-day outcomes", (
   assert.deepEqual(outcomeCalendarAudit(rows),{invalidCalendarDate:1,sameDayOutcome:1});
   const filtered=excludeUnverifiedDatedOutcomes(rows);
   assert.equal(summarizeGroup(filtered).checked,1);
+});
+
+test("weekday-only five-day screening counts completed outcomes without assuming holidays", () => {
+  const rows=[
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-26",return_5d:-2},
+    {trade_date:"2026-10-19",outcome_5d_date:"2026-10-23",return_5d:1},
+    {trade_date:"2026-10-19",outcome_5d_date:null,return_5d:4},
+    {trade_date:"2026-10-19",outcome_5d_date:null,return_5d:null},
+  ];
+  assert.deepEqual(weekdayGapAudit(rows),{assessed:2,weekdayMismatch:1,insufficientCalendarEvidence:1});
 });
