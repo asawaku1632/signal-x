@@ -18,7 +18,11 @@ test("stale FX excluded",()=>{
 });
 test("duplicate trade day excluded",()=>assert.equal(run(JSON.stringify([base,base])).counts.duplicateDate,1));
 test("empty array accepted",()=>assert.equal(run("[]").counts.total,0));
-test("non-array rejected",()=>assert.throws(()=>run("{}"),/EXPECTED_JSON_ARRAY/));
+test("non-array rejected",()=>assert.throws(()=>run("{}"),/EXPECTED_JSON_ARRAY_OR_APPROVED_PREOPEN_ROWS/));
 test("invalid JSON rejected",()=>assert.throws(()=>run("{oops"),SyntaxError));
 test("oversized export rejected",()=>assert.throws(()=>run(" ".repeat(5*1024*1024+1)),/INVALID_PREOPEN_JSON_EXPORT/));
 test("nonstring rejected",()=>assert.throws(()=>run(null),/INVALID_PREOPEN_JSON_EXPORT/));
+
+test("actual SQL single-object wrapper accepted",()=>{const x=run(JSON.stringify({approved_preopen_rows:[base]}));assert.equal(x.counts.validAgeOnly,1);});
+test("SQL wrapper with extra metadata rejected",()=>assert.throws(()=>run(JSON.stringify({approved_preopen_rows:[base],unexpected:true})),/EXPECTED_JSON_ARRAY_OR_APPROVED_PREOPEN_ROWS/));
+test("SQL-result envelope with rows list rejected",()=>assert.throws(()=>run(JSON.stringify([{approved_preopen_rows:[base]}])),/INVALID_PREOPEN_DB_ROWS|EXPECTED_JSON_ARRAY|INVALID_PREOPEN/));
