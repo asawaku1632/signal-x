@@ -527,3 +527,19 @@ Saved five-day outcomes with AI POWER >=85 comprise 845 stock-date records but o
 Compare each day's high-score codes against **any previously selected high-score code** in this sample (not merely the immediately preceding trade date). On 2026-10-09: 13 previously selected high-score stocks averaged +2.8578% five-day return, versus 118 first-observed high-score stocks at -4.2537%. On 2026-10-19: 61 previously selected stocks averaged -6.7755%, versus 41 first-observed stocks at -3.9862%. The direction reverses across weak dates; no reliable rule for new-versus-recurring selections is supported. This grouping uses observed selections within this limited saved window, not a complete lifetime stock history.
 
 Do **not** multiply the 845 observations into independent trading experiments. This is a retrospective post-09:05 research set with no independently authenticated as-of scores or outcome source. Test any pre-specified concentration/turnover hypothesis only on new independently timestamped future observations; no changes to training, live signals, notification or production.
+
+
+## Equal-date four-month follow-up (read-only, 2026-10-29)
+
+Batched **bounded SELECT-only** queries grouped by saved `date` for July, August and October 2026, continuing the separately audited September dates. Each day contributes one high-minus-low comparison with `score>=85` and `score<85`, positive `price` and `next_price`, and **both groups >=10**. Group means were rounded to 4 decimals by SQL before calculating daily gaps, so reported mean differences are approximate. No independent source/as-of validation, trading-cost or five-minute bar confirmation.
+
+| Month | Stored dates | Comparable dates | Equal-date mean high-minus-low pp | Median pp | High positive dates |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2026-07 | 16 | 11 | -0.1941 | -0.1207 | 4 |
+| 2026-08 | 18 | 17 | -0.0820 | -0.0945 | 7 |
+| 2026-09 | 21 | 21 | -0.0873 | -0.0285 | 9 |
+| 2026-10 | 19 | 19 | -0.0545 | +0.0286 | 10 |
+
+July's first five stored dates (2026-07-01 through 07-07) had zero high-score records and were excluded rather than assigned a 0% high return. August 13 had only 5 high-score rows and 15 low-score rows and was excluded. A July 19 row group was zero-gap, and the August 10 daily difference is -0.0001pp from rounded SQL means, so tiny differences should not be interpreted as economic effects. June had only two stored dates and has not been certified under the default minimum sample gate.
+
+All four comparable month-level equal-date mean differences are negative, unlike some positive **row-weighted** aggregate differences. This is direct evidence of how aggregation and missing cohort support change the descriptive result; it is **not** proof that the present AI POWER predicts losses or that inverting signals is profitable. Daily snapshots need independently frozen predecision timestamp provenance, consistent later-price horizon and verified provider rights; date-level observations may share correlated stock and market exposures. No training, live ranking, notification or deployment authorization follows.
