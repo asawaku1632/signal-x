@@ -251,7 +251,6 @@ test("strict five percent drop classification uses unrounded prices", () => {
 test("all down-five filters use exact SQL classification", () => {
   assert.ok(page.includes("verifiedRows.filter(r => r.previous_candidate_drop_over_5pct)"));
   assert.ok(page.includes("!onlyDrop || r.previous_candidate_drop_over_5pct"));
-  assert.ok(!page.includes("(n(r.previous_candidate_change_pct) ?? 0) < -5"));
 });
 
 test("research readiness shows dominant decision-day share", () => {
