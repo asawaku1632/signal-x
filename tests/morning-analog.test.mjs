@@ -126,3 +126,18 @@ test("duplicate stock/date histories cannot inflate analog sample eligibility",(
   assert.equal(result.eligible,false);
   assert.equal(result.rebound1pct.rate,null);
 });
+
+test("conflicting duplicate stock/date observations are excluded regardless of input order",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const conflict={...row,outcome:{...row.outcome,rebound1pct:false}};
+  const target={tradeDate:"2026-10-28",features};
+  for(const histories of [[row,conflict],[conflict,row]]){
+    const result=summarizeAnalogs(target,histories,{minSamples:1});
+    assert.equal(result.samples,0);
+    assert.equal(result.eligible,false);
+    assert.equal(result.rebound1pct.rate,null);
+  }
+});
