@@ -152,3 +152,15 @@ test("target feature snapshot cannot be from trading day or malformed time",()=>
   const valid=summarizeAnalogs({...target,featureAvailableAt:"2026-10-27T18:00:00+09:00"},[],{minSamples:1});
   assert.equal(valid.samples,0);
 });
+
+test("impossible calendar dates cannot enter morning research",()=>{
+  assert.equal(inspectMorning("2026-02-30",100,makeBars("2026-02-30")).valid,false);
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  assert.throws(()=>summarizeAnalogs({
+    tradeDate:"2026-02-30",featureAvailableAt:"2026-02-27T18:00:00+09:00",features
+  },[]),/INVALID_ANALOG_INPUT/);
+  const good={...inspectMorning("2026-10-28",100,makeBars("2026-10-28")),code:"1234"};
+  const stats=summarizeMorningDropPatterns([{...good,date:"2026-02-30"}],{minSamples:1,dropThresholdPct:2});
+  assert.equal(stats.samples,0);
+  assert.equal(stats.excluded.invalid,1);
+});
