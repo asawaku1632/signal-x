@@ -148,3 +148,16 @@ test("calendar evidence report reconciles supported, insufficient and excluded d
  assert.equal(report.descriptiveMonthlyConsistency.acceptedDateCoverage,true);
  assert.equal(report.readyForTrading,false);
 });
+
+test("months with zero qualifying days remain visible as excluded coverage",()=>{
+ const report=run([
+  {date:"2026-09-01",highCount:9,lowCount:10,gapPp:1},
+  {date:"2026-09-02",highCount:10,lowCount:9,gapPp:1},
+  {date:"2026-10-01",highCount:10,lowCount:10,gapPp:1}
+ ]);
+ assert.deepEqual(report.excludedByMonth,{"2026-09":2});
+ assert.equal(report.qualifyingMonths,1);
+ assert.equal(report.qualifyingDates,1);
+ assert.equal(report.excludedDates,2);
+ assert.equal(report.readyForTraining,false);
+});
