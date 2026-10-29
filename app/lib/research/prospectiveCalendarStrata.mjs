@@ -13,12 +13,14 @@ export function auditProspectiveCalendarStrata(daily,options={}){
   g.push(row.gapPp);groups.set(month,g);
  }
  const months=[...groups].sort((a,b)=>a[0].localeCompare(b[0])).map(([month,gaps])=>({
-  month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),positiveDates:gaps.filter(x=>x>0).length
+  month,dates:gaps.length,sufficientDates:gaps.length>=minDatesPerMonth,meanGapPp:Number((gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(4)),positiveDates:gaps.filter(x=>x>0).length,
+  positiveDateShare:gaps.filter(x=>x>0).length/gaps.length,majorityPositive:gaps.filter(x=>x>0).length>gaps.length/2
  }));
  return {months,qualifyingMonths:months.length,minDatesPerMonth,
   sufficientlyObservedMonths:months.filter(x=>x.sufficientDates).length,
   positiveMeanMonths:months.filter(x=>x.meanGapPp>0).length,
   positiveSufficientMonths:months.filter(x=>x.sufficientDates&&x.meanGapPp>0).length,
+  majorityPositiveSufficientMonths:months.filter(x=>x.sufficientDates&&x.majorityPositive).length,
   actualMarketRegimeKnown:false,readyForTraining:false,readyForTrading:false,
   warning:"Calendar months are not market regimes; benchmark returns and verified predecision market labels are required for regime claims."};
 }
