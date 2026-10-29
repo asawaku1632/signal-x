@@ -157,7 +157,7 @@ export default function RepeatCandidateRiskPage() {
             <td className="p-2">{r.previous_candidate_date}</td>
             <td className="p-2 font-semibold">{pct(r.previous_candidate_change_pct)}</td>
             <td className="p-2">{n(r.ai_power)?.toFixed(1) ?? "不明"}</td>
-            <td className="p-2">{pct(r.return_5d)}{n(r.return_5d) == null && (data?.rows || []).some(original => original.trade_date === r.trade_date && original.code === r.code && n(original.return_5d) != null) ? "（日付不整合で除外）" : ""}</td>
+            <td className="p-2">{pct(r.return_5d)}{n(r.return_5d) == null && (data?.rows || []).some(original => original.trade_date === r.trade_date && original.code === r.code && n(original.return_5d) != null) ? "（日付・騰落率不整合で除外）" : ""}</td>
             <td className="p-2">{r.outcome_5d_date || "未確定"}</td>
           </tr>)}</tbody>
         </table></div>
