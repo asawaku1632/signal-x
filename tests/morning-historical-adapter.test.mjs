@@ -72,3 +72,17 @@ test("complete morning bars are distinct from opening-drop cohort eligibility",(
   assert.equal(stats.sourceCoverage.readyForLiveUse,false);
   assert.equal(stats.samples,1);
 });
+
+test("coverage counts distinct stock-days, stocks, dates and months without counting duplicate exports as independent",()=>{
+  const a=input;
+  const b={...input,code:"1234"};
+  const stats=aggregateHistoricalMorning([a,a,b],{minSamples:1,dropThresholdPct:2});
+  assert.equal(stats.sourceCoverage.structurallyValid,3);
+  assert.equal(stats.sourceCoverage.completeUniqueStockDays,2);
+  assert.equal(stats.sourceCoverage.completeDistinctStocks,2);
+  assert.equal(stats.sourceCoverage.completeDistinctTradingDates,1);
+  assert.equal(stats.sourceCoverage.completeDistinctMonths,1);
+  assert.equal(stats.samples,2);
+  assert.equal(stats.excluded.duplicate,1);
+  assert.equal(stats.sourceCoverage.independentlyAuthenticated,false);
+});
