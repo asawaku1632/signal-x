@@ -10,7 +10,7 @@ const stamp=s=>{
 };
 export function reconcileMorningForwardLedger({snapshots=[],outcomes=[]}={}){
  if(!Array.isArray(snapshots)||!Array.isArray(outcomes))throw Error("INVALID_LEDGER_INPUT");
- const key=x=>x.experimentId+"|"+x.tradeDate+"|"+x.code;
+ const key=x=>JSON.stringify([x.experimentId,x.tradeDate,x.code]);
  const snapshotsByKey=new Map(),outcomesByKey=new Map();
  for(const s of snapshots){if(!s||!day(s.tradeDate)||typeof s.code!=="string"||!s.code||typeof s.experimentId!=="string"||!s.experimentId)continue;
   const k=key(s),list=snapshotsByKey.get(k)??[];list.push(s);snapshotsByKey.set(k,list);}
