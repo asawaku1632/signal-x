@@ -6,7 +6,7 @@ test("empty exports fail closed",()=>{
   const r=joinMorningResearchExports([],[]);
   assert.equal(r.accepted,0);
   assert.equal(r.signalEnabled,false);
-  assert.equal(r.results,null);
+  assert.equal(r.results?.accepted,0);
 });
 test("unmatched bar export cannot be joined",()=>{
   const r=joinMorningResearchExports([], [{code:"9984",tradeDate:"2026-10-27"}]);
