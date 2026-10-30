@@ -95,3 +95,9 @@ test("malformed forward coverage never enters owner preview", () => {
 test("future observations fail closed", () => {
   assert.ok(evaluate({ observedAt: "2099-01-01T00:00:00Z" }).reasons.includes("FUTURE_OBSERVATION_TIME"));
 });
+
+test("fractional purchase price is not rounded into budget", () => {
+  const result = evaluate({ priceYen: 999.999 });
+  assert.equal(result.eligibleForOwnerPreview, false);
+  assert.ok(result.reasons.includes("OUTSIDE_100_SHARE_BUDGET"));
+});
