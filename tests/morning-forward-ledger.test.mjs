@@ -56,3 +56,20 @@ test("same-day forward outcome must be available after the Japanese market close
  assert.equal(r.pairedCount,1);
  assert.equal(r.readyForTrading,false);
 });
+
+test("declared later outcome date must have reached its own closing boundary",()=>{
+ const d="2026-11-05";
+ for(const o of [
+  {...outcome,outcomeTradeDate:d,outcomeAvailableAt:"2026-11-04T16:00:00+09:00"},
+  {...outcome,outcomeTradeDate:d,outcomeAvailableAt:"2026-11-05T15:29:59+09:00"},
+  {...outcome,outcomeTradeDate:"2026-11-03"},
+  {...outcome,outcomeTradeDate:"2026-02-30"}
+ ]){
+  const r=reconcile({snapshots:[sample],outcomes:[o]});
+  assert.equal(r.pairedCount,0);
+  assert.equal(r.reasons.invalidOutcome,1);
+ }
+ const valid=reconcile({snapshots:[sample],outcomes:[{...outcome,outcomeTradeDate:d,outcomeAvailableAt:"2026-11-05T15:30:00+09:00"}]});
+ assert.equal(valid.pairedCount,1);
+ assert.equal(valid.decision,"DO_NOT_PROMOTE");
+});
