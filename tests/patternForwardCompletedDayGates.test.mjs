@@ -23,10 +23,10 @@ test("minimum completed outcome sample gates remain intact", () => {
 });
 
 test("PROMISING and VALIDATED code gates require completed five-day outcomes", () => {
-  const completedCodes = /COUNT\\(DISTINCT code\\) FILTER \\(WHERE return_5d IS NOT NULL\\) >= (?:30|15)/g;
+  const completedCodes = /COUNT\(DISTINCT code\) FILTER \(WHERE return_5d IS NOT NULL\) >= (?:30|15)/g;
   const gates = [...statsSql.matchAll(completedCodes)];
   assert.equal(gates.length, 4, "both status and reason branches must use completed codes");
   assert.equal(gates.filter((match) => match[0].endsWith("30")).length, 2);
   assert.equal(gates.filter((match) => match[0].endsWith("15")).length, 2);
-  assert.doesNotMatch(statsSql, /COUNT\\(DISTINCT code\\) >= (?:30|15)/);
+  assert.doesNotMatch(statsSql, /COUNT\(DISTINCT code\) >= (?:30|15)/);
 });
