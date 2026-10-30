@@ -34,3 +34,21 @@ test("invalid inputs are rejected",()=>{
   assert.throws(()=>joinMorningResearchExports(null,[]));
   assert.throws(()=>joinMorningResearchExports([],null));
 });
+
+test("duplicate bar keys are excluded without selecting a preferred copy",()=>{
+  const bar={code:"9984",tradeDate:"2026-10-27",timeframe:"1D"};
+  const r=joinMorningResearchExports([feature],[bar,{...bar}]);
+  assert.equal(r.candidates,0);
+  assert.equal(r.duplicateKeys,2);
+  assert.equal(r.accepted,0);
+  assert.equal(r.signalEnabled,false);
+});
+test("a valid-looking key cannot bypass required bar provenance",()=>{
+  const bar={code:"9984",tradeDate:"2026-10-27",intervalMinutes:5,licenseVerified:true};
+  const r=joinMorningResearchExports([feature],[bar]);
+  assert.equal(r.candidates,1);
+  assert.equal(r.accepted,0);
+  assert.equal(r.excluded.unverifiedBars,1);
+  assert.equal(r.independentlyAuthenticated,false);
+  assert.equal(r.readyForTrading,false);
+});
