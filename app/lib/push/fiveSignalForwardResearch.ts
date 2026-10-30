@@ -15,7 +15,7 @@ export async function getFiveSignalForwardResearch(limit = 100): Promise<Forward
     "SELECT name, to_regclass('public.' || name) IS NOT NULL AS exists FROM unnest($1::text[]) AS name",
     [required],
   );
-  if (check.rows.some((row) => !row.exists)) return [];
+  if (check.rows.some((row) => !row.exists)) throw new Error("FORWARD_RESEARCH_TABLES_MISSING");
   const result = await pool.query<{
     trade_date: string | Date;
     code: string;
