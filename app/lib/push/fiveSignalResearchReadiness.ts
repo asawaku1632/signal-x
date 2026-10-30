@@ -40,7 +40,7 @@ export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): Rese
   if (!FIVE_SIGNAL_RESEARCH_ALERTS.some(({ key }) => key === input.signal)) reasons.push("UNKNOWN_SIGNAL");
   if (!/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(input.code)) reasons.push("INVALID_CODE");
   if (input.code === "9984") reasons.push("EXCLUDED_CODE");
-  if (!input.observedAt || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(input.observedAt) || !Number.isFinite(Date.parse(input.observedAt))) reasons.push("MISSING_OBSERVATION_TIME");
+  if (!input.observedAt || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(input.observedAt) || !Number.isFinite(Date.parse(input.observedAt))) reasons.push("MISSING_OBSERVATION_TIME");
   if (input.priceYen === null || !Number.isFinite(input.priceYen) || input.priceYen <= 0) {
     reasons.push("MISSING_VALID_PRICE");
   }
