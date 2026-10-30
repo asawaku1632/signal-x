@@ -50,12 +50,14 @@ export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): Rese
   if (!input.evidenceVerified) reasons.push("UNVERIFIED_RESEARCH");
   if (![input.completedForwardDays, input.completedForwardCodes, input.completedForwardObservations].every(
     (value) => Number.isSafeInteger(value) && value >= 0,
-  ) || input.completedForwardDays < 15 || input.completedForwardCodes < 30 ||
+  )) reasons.push("INVALID_FORWARD_COUNTS");
+  else if (input.completedForwardDays < 15 || input.completedForwardCodes < 30 ||
       input.completedForwardObservations < 50) reasons.push("INSUFFICIENT_FORWARD_COVERAGE");
   if (!["BULLISH", "BEARISH", "NONE", "UNKNOWN"].includes(input.divergence)) reasons.push("INVALID_DIVERGENCE");
   if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
   if (input.momentumPct === null || !Number.isFinite(input.momentumPct)) reasons.push("MOMENTUM_UNAVAILABLE");
-  if (input.volumeRatio20d === null || !Number.isFinite(input.volumeRatio20d) || input.volumeRatio20d < 0) reasons.push("VOLUME_UNAVAILABLE");
+  if (input.volumeRatio20d !== null && (!Number.isFinite(input.volumeRatio20d) || input.volumeRatio20d < 0)) reasons.push("INVALID_VOLUME_RATIO");
+  else if (input.volumeRatio20d === null) reasons.push("VOLUME_UNAVAILABLE");
   return {
     eligibleForOwnerPreview: input.isOwner && reasons.every((reason) =>
       reason === "UNVERIFIED_RESEARCH" || reason === "INSUFFICIENT_FORWARD_COVERAGE" ||
