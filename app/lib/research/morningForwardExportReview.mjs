@@ -1,10 +1,12 @@
 /** Offline research export adapter; never fetches quotes, writes a database, or certifies caller assertions. */
 import {reconcileMorningForwardLedger} from "./morningForwardLedger.mjs";
+import {auditMorningCaptureReadiness} from "./morningCaptureReadiness.mjs";
 export function reviewMorningForwardExport(exportData){
  if(!exportData||typeof exportData!=="object"||Array.isArray(exportData))throw Error("INVALID_FORWARD_EXPORT");
  const {snapshots,outcomes}=exportData;
  if(!Array.isArray(snapshots)||!Array.isArray(outcomes)||snapshots.length>100000||outcomes.length>100000)throw Error("INVALID_FORWARD_EXPORT_ARRAYS");
  const audit=reconcileMorningForwardLedger({snapshots,outcomes});
+ const captureReadiness=auditMorningCaptureReadiness({snapshots,outcomes});
  const byDate=new Map();
  for(const row of audit.paired){
   const g=byDate.get(row.tradeDate)??{date:row.tradeDate,count:0,baselineSum:0,candidateSum:0};
@@ -41,6 +43,8 @@ export function reviewMorningForwardExport(exportData){
  const pairCoverage=snapshots.length?audit.pairedCount/snapshots.length:null;
  const activeMonths=new Set(dates.map(d=>d.date.slice(0,7))).size;
  const blockers=[];
+ if(captureReadiness.snapshot.complete<snapshots.length)blockers.push("SNAPSHOT_CAPTURE_METADATA_INCOMPLETE");
+ if(captureReadiness.outcome.complete<outcomes.length)blockers.push("OUTCOME_CAPTURE_METADATA_INCOMPLETE");
  if(!snapshots.length)blockers.push("NO_PREDECISION_SNAPSHOTS");
  if(!outcomes.length)blockers.push("NO_MATURED_OUTCOMES");
  if(pairCoverage===null||pairCoverage<0.9)blockers.push("INSUFFICIENT_PAIR_COVERAGE");
@@ -54,7 +58,7 @@ export function reviewMorningForwardExport(exportData){
  return {version:"OFFLINE_MORNING_FORWARD_EXPORT_V1",input:{snapshots:snapshots.length,outcomes:outcomes.length},
   reconciledPairs:audit.pairedCount,unmatchedSnapshots:snapshots.length-audit.pairedCount,
   exclusions:audit.reasons,dates,observedDates:dates.length,observedMonths:activeMonths,
-  pairCoverage,orphanOutcomeKeys,blockers,dateCoverage,incompleteDates,completeDates,
+  pairCoverage,orphanOutcomeKeys,blockers,captureReadiness,dateCoverage,incompleteDates,completeDates,
   completeDateImprovementPp:finiteMeans?completeDateImprovementPp:null,
   positiveDays:finiteMeans?positiveDays:null,nonfiniteDateAggregates,datesWith10Pairs:heldOutDays.length,
   tenPairDateImprovementPp:finiteMeans?heldOutGap:null,
