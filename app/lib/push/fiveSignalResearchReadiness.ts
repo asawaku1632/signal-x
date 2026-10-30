@@ -47,9 +47,12 @@ export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): Rese
     ? Math.round(input.priceYen * 100) : null;
   if (budgetYen === null || budgetYen < 100_000 || budgetYen > 500_000) reasons.push("OUTSIDE_100_SHARE_BUDGET");
   if (!input.evidenceVerified) reasons.push("UNVERIFIED_RESEARCH");
-  if (input.completedForwardDays < 15 || input.completedForwardCodes < 30 ||
+  if (![input.completedForwardDays, input.completedForwardCodes, input.completedForwardObservations].every(
+    (value) => Number.isSafeInteger(value) && value >= 0,
+  ) || input.completedForwardDays < 15 || input.completedForwardCodes < 30 ||
       input.completedForwardObservations < 50) reasons.push("INSUFFICIENT_FORWARD_COVERAGE");
-  if (!["BULLISH", "BEARISH", "NONE", "UNKNOWN"].includes(input.divergence)) reasons.push("INVALID_DIVERGENCE");\n  if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
+  if (!["BULLISH", "BEARISH", "NONE", "UNKNOWN"].includes(input.divergence)) reasons.push("INVALID_DIVERGENCE");
+  if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
   if (input.momentumPct === null || !Number.isFinite(input.momentumPct)) reasons.push("MOMENTUM_UNAVAILABLE");
   if (input.volumeRatio20d === null || !Number.isFinite(input.volumeRatio20d)) reasons.push("VOLUME_UNAVAILABLE");
   return {
