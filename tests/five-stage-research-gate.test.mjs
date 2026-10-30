@@ -18,3 +18,5 @@ import './legacy-research-coverage.test.mjs';
 import './morning-forward-ledger.test.mjs';
 
 import './morning-forward-export-review.test.mjs';
+
+import './morning-capture-readiness.test.mjs';
