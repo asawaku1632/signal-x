@@ -54,3 +54,19 @@ test("unmatched stocks keep their trading date visibly incomplete",()=>{
  assert.ok(r.blockers.includes("INCOMPLETE_TRADING_DATES"));
  assert.equal(r.decision,"DO_NOT_PROMOTE");
 });
+
+test("sample-depth audit separates thin dates from ten-pair dates",()=>{
+ const d="2026-11-04",s=Array.from({length:10},(_,i)=>snapshot(d,String(1000+i)));
+ const o=s.map((x,i)=>result(d,x.code,0,i===0?10:0));
+ const r=review({snapshots:s,outcomes:o});
+ assert.equal(r.datesWith10Pairs,1);
+ assert.equal(r.tenPairDateImprovementPp,1);
+ assert.equal(r.positiveDays,1);
+ assert.equal(r.decision,"DO_NOT_PROMOTE");
+});
+test("thin samples remain unqualified for ten-pair comparison",()=>{
+ const d="2026-11-04",r=review({snapshots:[snapshot(d,"7203")],outcomes:[result(d,"7203",0,2)]});
+ assert.equal(r.datesWith10Pairs,0);
+ assert.equal(r.tenPairDateImprovementPp,null);
+ assert.ok(r.blockers.includes("NO_DATES_WITH_10_PAIRS"));
+});
