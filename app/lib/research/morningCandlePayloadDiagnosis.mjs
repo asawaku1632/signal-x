@@ -22,7 +22,7 @@ export function diagnoseOpeningChartPayload(payload, httpStatus=200){
 
 /** Checks bar *timestamps* only. No quote values, rights, or predecision availability attested. */
 export function diagnoseOpeningBarClock(payload,tradeDate){
- if(typeof tradeDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate))throw Error("INVALID_TRADE_DATE");
+ if(typeof tradeDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)||!Number.isFinite(Date.parse(tradeDate+"T00:00:00Z"))||new Date(tradeDate+"T00:00:00Z").toISOString().slice(0,10)!==tradeDate)throw Error("INVALID_TRADE_DATE");
  const times=payload?.chart?.result?.[0]?.timestamp;
  if(!Array.isArray(times))return {kind:"NO_BAR_TIMESTAMPS",hasOpeningPair:false};
  const found=new Set();
