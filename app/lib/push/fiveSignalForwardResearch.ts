@@ -34,7 +34,20 @@ export async function getFiveSignalForwardResearch(limit = 100): Promise<Forward
       WHERE validation_mode = 'FORWARD' AND observation_flag = true AND signal_version = 'TPR_V1'
     )
     SELECT trade_date, code, research, result_5d FROM observations
-    WHERE code <> '9984'
+    WHERE code <> '9984' AND code ~ '^[0-9]{4}$|^[0-9]{3}[A-Z]
+    ORDER BY trade_date DESC, code, research
+    LIMIT $1
+  `, [size]);
+  return result.rows.map((row) => ({
+    tradeDate: row.trade_date instanceof Date
+      ? row.trade_date.toISOString().slice(0, 10)
+      : String(row.trade_date).slice(0, 10),
+    code: row.code,
+    research: row.research,
+    result5d: row.result_5d === null || !Number.isFinite(Number(row.result_5d)) ? null : Number(row.result_5d),
+  }));
+}
+
     ORDER BY trade_date DESC, code, research
     LIMIT $1
   `, [size]);
