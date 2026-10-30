@@ -17,3 +17,18 @@ test("invalid collection rejected and empty lists kept",()=>{
  assert.throws(()=>audit({snapshots:null}),/INVALID_CAPTURE_ROWS/);
  assert.equal(audit().snapshot.records,0);
 });
+
+test("present but malformed source timing and outcome values are counted separately",()=>{
+ const r=audit({snapshots:[{experimentId:"e",tradeDate:"2026-02-30",code:"7203",recordedAt:"invalid",
+  featureGeneratedAtUtc:"invalid",quoteObservedAtUtc:"invalid",barEndedAtUtc:"invalid",
+  provider:"source",scoreVersion:"v1",sourceVerified:true,researchUseAllowed:true}],
+  outcomes:[{experimentId:"e",tradeDate:"2026-11-04",code:"7203",outcomeTradeDate:"2026-02-30",
+  outcomeAvailableAt:"invalid",outcomeSourceVerified:true,baselineReturn:"1",candidateReturn:Infinity}]});
+ assert.equal(r.snapshot.complete,1);
+ assert.equal(r.malformed.snapshots.tradeDate,1);
+ assert.equal(r.malformed.snapshots.recordedAt,1);
+ assert.equal(r.malformed.outcomes.outcomeTradeDate,1);
+ assert.equal(r.malformed.outcomes.baselineReturn,1);
+ assert.equal(r.malformed.outcomes.candidateReturn,1);
+ assert.equal(r.independentlyAuthenticated,false);
+});
