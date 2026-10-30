@@ -19,3 +19,23 @@ export function diagnoseOpeningChartPayload(payload, httpStatus=200){
  return {kind:"STRUCTURALLY_PRESENT",httpStatus:status,barCount:times.length,hasFiveMinuteData:true,
   note:"Only shape checked: neither valid 09:00/09:05 candles nor licensing/decision-time provenance has been established."};
 }
+
+/** Checks bar *timestamps* only. No quote values, rights, or predecision availability attested. */
+export function diagnoseOpeningBarClock(payload,tradeDate){
+ if(typeof tradeDate!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate))throw Error("INVALID_TRADE_DATE");
+ const times=payload?.chart?.result?.[0]?.timestamp;
+ if(!Array.isArray(times))return {kind:"NO_BAR_TIMESTAMPS",hasOpeningPair:false};
+ const found=new Set();
+ for(const t of times){
+  if(!Number.isSafeInteger(t)||t<=0)continue;
+  const d=new Date(t*1000);
+  if(!Number.isFinite(d.getTime()))continue;
+  const p=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(d);
+  const get=k=>p.find(x=>x.type===k)?.value;
+  if(get("year")+"-"+get("month")+"-"+get("day")!==tradeDate)continue;
+  found.add(get("hour")+":"+get("minute"));
+ }
+ return {kind:found.has("09:00")&&found.has("09:05")?"OPENING_PAIR_TIMESTAMPS_PRESENT":"OPENING_PAIR_TIMESTAMPS_MISSING",
+  hasOpeningPair:found.has("09:00")&&found.has("09:05"),has0900:found.has("09:00"),has0905:found.has("09:05"),
+  sourceAuthenticated:false,barEndAuthenticated:false};
+}
