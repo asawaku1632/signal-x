@@ -45,3 +45,14 @@ test("separator characters in experiment identifiers never collide with distinct
  assert.equal(r.pairedCount,1);
  assert.equal(r.reasons.duplicateSnapshot,0);
 });
+
+test("same-day forward outcome must be available after the Japanese market close",()=>{
+ for(const at of ["2026-11-04T09:06:00+09:00","2026-11-04T15:29:59+09:00","2026-11-04T06:29:59Z"]){
+  const r=reconcile({snapshots:[sample],outcomes:[{...outcome,outcomeAvailableAt:at}]});
+  assert.equal(r.pairedCount,0);
+  assert.equal(r.reasons.invalidOutcome,1);
+ }
+ const r=reconcile({snapshots:[sample],outcomes:[{...outcome,outcomeAvailableAt:"2026-11-04T15:30:00+09:00"}]});
+ assert.equal(r.pairedCount,1);
+ assert.equal(r.readyForTrading,false);
+});
