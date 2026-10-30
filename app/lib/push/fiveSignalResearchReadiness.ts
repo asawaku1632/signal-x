@@ -37,9 +37,10 @@ export type ResearchAlertReadiness = {
 export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): ResearchAlertReadiness {
   const reasons: string[] = [];
   if (!input.isOwner) reasons.push("OWNER_ONLY");
+  if (!FIVE_SIGNAL_RESEARCH_ALERTS.some(({ key }) => key === input.signal)) reasons.push("UNKNOWN_SIGNAL");
   if (!/^(?:[0-9]{4}|[0-9]{3}[A-Z])$/.test(input.code)) reasons.push("INVALID_CODE");
   if (input.code === "9984") reasons.push("EXCLUDED_CODE");
-  if (!input.observedAt || !Number.isFinite(Date.parse(input.observedAt))) reasons.push("MISSING_OBSERVATION_TIME");
+  if (!input.observedAt || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(input.observedAt) || !Number.isFinite(Date.parse(input.observedAt))) reasons.push("MISSING_OBSERVATION_TIME");
   if (input.priceYen === null || !Number.isFinite(input.priceYen) || input.priceYen <= 0) {
     reasons.push("MISSING_VALID_PRICE");
   }
@@ -54,7 +55,7 @@ export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): Rese
   if (!["BULLISH", "BEARISH", "NONE", "UNKNOWN"].includes(input.divergence)) reasons.push("INVALID_DIVERGENCE");
   if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
   if (input.momentumPct === null || !Number.isFinite(input.momentumPct)) reasons.push("MOMENTUM_UNAVAILABLE");
-  if (input.volumeRatio20d === null || !Number.isFinite(input.volumeRatio20d)) reasons.push("VOLUME_UNAVAILABLE");
+  if (input.volumeRatio20d === null || !Number.isFinite(input.volumeRatio20d) || input.volumeRatio20d < 0) reasons.push("VOLUME_UNAVAILABLE");
   return {
     eligibleForOwnerPreview: input.isOwner && reasons.every((reason) =>
       reason === "UNVERIFIED_RESEARCH" || reason === "INSUFFICIENT_FORWARD_COVERAGE" ||
