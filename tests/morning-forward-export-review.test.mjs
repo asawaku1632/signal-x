@@ -84,3 +84,12 @@ test("overflowed daily return sums cannot produce a headline performance metric"
  assert.ok(r.blockers.includes("NONFINITE_DATE_AGGREGATE"));
  assert.equal(r.decision,"DO_NOT_PROMOTE");
 });
+
+test("report shows missing capture metadata",()=>{
+ const d="2026-11-04";const r=review({snapshots:[snapshot(d,"7203")],outcomes:[result(d,"7203",0,1)]});
+ assert.equal(r.captureReadiness.snapshot.missingByField.provider,1);
+ assert.equal(r.captureReadiness.outcome.missingByField.outcomeTradeDate,1);
+ assert.ok(r.blockers.includes("SNAPSHOT_CAPTURE_METADATA_INCOMPLETE"));
+ assert.ok(r.blockers.includes("OUTCOME_CAPTURE_METADATA_INCOMPLETE"));
+ assert.equal(r.decision,"DO_NOT_PROMOTE");
+});
