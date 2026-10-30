@@ -27,7 +27,7 @@ export function reconcileMorningForwardLedger({snapshots=[],outcomes=[]}={}){
   if(!stamp(s.recordedAt)||Date.parse(s.recordedAt)>=cutoff||Date.parse(s.recordedAt)<Date.parse(s.tradeDate+"T00:00:00+09:00")){reasons.invalidPredecision++;continue;}
   if(s.sourceVerified!==true||s.researchUseAllowed!==true){reasons.missingRights++;continue;}
   const o=os[0];
-  if(!stamp(o.outcomeAvailableAt)||Date.parse(o.outcomeAvailableAt)<=cutoff||o.outcomeSourceVerified!==true||
+  if(!stamp(o.outcomeAvailableAt)||Date.parse(o.outcomeAvailableAt)<Date.parse(s.tradeDate+"T15:30:00+09:00")||o.outcomeSourceVerified!==true||
      !Number.isFinite(o.baselineReturn)||!Number.isFinite(o.candidateReturn)){reasons.invalidOutcome++;continue;}
   paired.push({experimentId:s.experimentId,tradeDate:s.tradeDate,code:s.code,
    recordedAt:s.recordedAt,outcomeAvailableAt:o.outcomeAvailableAt,
