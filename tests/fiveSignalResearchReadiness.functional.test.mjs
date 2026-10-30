@@ -65,3 +65,20 @@ test("bearish divergence, unknown momentum, and unverified research never permit
     assert.equal(evaluate(overrides).eligibleForDelivery, false);
   }
 });
+
+test("unknown signal is rejected from owner preview", () => {
+  const result = evaluate({ signal: "other" });
+  assert.equal(result.eligibleForOwnerPreview, false);
+  assert.ok(result.reasons.includes("UNKNOWN_SIGNAL"));
+});
+
+test("timezone-free timestamp is rejected", () => {
+  const result = evaluate({ observedAt: "2026-10-30T15:00:00" });
+  assert.equal(result.eligibleForOwnerPreview, false);
+  assert.ok(result.reasons.includes("MISSING_OBSERVATION_TIME"));
+});
+
+test("invalid volume ratio cannot pass the gate", () => {
+  const result = evaluate({ volumeRatio20d: -2 });
+  assert.ok(result.reasons.includes("VOLUME_UNAVAILABLE"));
+});
