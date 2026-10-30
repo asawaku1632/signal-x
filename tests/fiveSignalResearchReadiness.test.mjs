@@ -23,3 +23,14 @@ test("100-share budget, excluded stock, provenance and forward coverage are guar
     "BEARISH_DIVERGENCE_WARNING", "MOMENTUM_UNAVAILABLE", "VOLUME_UNAVAILABLE",
   ]) assert.ok(source.includes(required), required);
 });
+
+test("invalid forward counts and divergence must fail closed", () => {
+  assert.match(source, /Number\.isSafeInteger\(value\)/);
+  assert.match(source, /INVALID_DIVERGENCE/);
+});
+
+test("research preview is never a delivery authorization", () => {
+  assert.match(source, /eligibleForDelivery:\s*false/);
+  assert.match(source, /OWNER_ONLY/);
+  assert.match(source, /EXCLUDED_CODE/);
+});
