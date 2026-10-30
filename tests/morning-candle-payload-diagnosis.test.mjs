@@ -36,3 +36,9 @@ test("opening clock requires same-day 09:00 and 09:05 bar starts",()=>{
  assert.equal(diagnoseOpeningBarClock(payload([ts("09:00:00"),ts("09:05:00")]),"2026-10-29").hasOpeningPair,false);
  assert.equal(diagnoseOpeningBarClock({},date).kind,"NO_BAR_TIMESTAMPS");
 });
+
+test("opening bar clock rejects impossible calendar dates instead of silently matching nothing",()=>{
+ for(const day of ["2026-02-30","2026-13-01","2026-00-12","not-a-date"])
+  assert.throws(()=>diagnoseOpeningBarClock({},day),/INVALID_TRADE_DATE/);
+ assert.equal(diagnoseOpeningBarClock({},"2026-02-28").kind,"NO_BAR_TIMESTAMPS");
+});
