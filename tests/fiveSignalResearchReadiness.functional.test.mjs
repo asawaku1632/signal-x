@@ -1,10 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 const moduleUrl = new URL("../app/lib/push/fiveSignalResearchReadiness.ts", import.meta.url).href;
-const modulePath = fileURLToPath(new URL("../app/lib/push/fiveSignalResearchReadiness.ts", import.meta.url));
 
 function evaluate(overrides = {}) {
   const input = {
