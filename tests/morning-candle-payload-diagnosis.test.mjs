@@ -12,7 +12,7 @@ test("metadata checker distinguishes missing chart payload sections",()=>{
 });
 test("malformed and empty arrays remain diagnostically distinct",()=>{
  const base=good.chart.result[0];
- assert.equal(diagnose({chart:{result:[{...base,timestamp:[]}]}}).kind,"ARRAY_LENGTH_MISMATCH");
+ assert.equal(diagnose({chart:{result:[{...base,timestamp:[1]}]}}).kind,"ARRAY_LENGTH_MISMATCH");
  assert.equal(diagnose({chart:{result:[{...base,indicators:{quote:[{...base.indicators.quote[0],volume:null}]}}]}}).kind,"MISSING_QUOTE_FIELDS");
  assert.equal(diagnose({chart:{result:[{timestamp:[],indicators:{quote:[{open:[],high:[],low:[],close:[],volume:[]}]}}]}}).kind,"EMPTY_TIMESTAMPS");
 });
