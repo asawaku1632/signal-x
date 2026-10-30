@@ -25,3 +25,9 @@ test("research API is owner only and does not activate push", () => {
   assert.match(route, /automaticRelease: false/);
   assert.match(route, /notificationsSent: 0/);
 });
+
+test("missing historical tables are not mistaken for empty research", () => {
+  assert.match(loader, /to_regclass/);
+  assert.match(loader, /FORWARD_RESEARCH_TABLES_MISSING/);
+  assert.match(route, /SOURCE_UNAVAILABLE/);
+});
