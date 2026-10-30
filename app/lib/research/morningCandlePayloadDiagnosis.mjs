@@ -14,8 +14,8 @@ export function diagnoseOpeningChartPayload(payload, httpStatus=200){
  const missing=fields.filter(k=>!Array.isArray(quote[k]));
  if(missing.length)return {kind:"MISSING_QUOTE_FIELDS",httpStatus:status,missingFields:missing,hasFiveMinuteData:false};
  const lengths=Object.fromEntries(fields.map(k=>[k,quote[k].length]));
- if(times.length===0)return {kind:"EMPTY_TIMESTAMPS",httpStatus:status,barCount:0,hasFiveMinuteData:false};
  if(fields.some(k=>quote[k].length!==times.length))return {kind:"ARRAY_LENGTH_MISMATCH",httpStatus:status,barCount:times.length,fieldLengths:lengths,hasFiveMinuteData:false};
+ if(times.length===0)return {kind:"EMPTY_TIMESTAMPS",httpStatus:status,barCount:0,hasFiveMinuteData:false};
  return {kind:"STRUCTURALLY_PRESENT",httpStatus:status,barCount:times.length,hasFiveMinuteData:true,
   note:"Only shape checked: neither valid 09:00/09:05 candles nor licensing/decision-time provenance has been established."};
 }
