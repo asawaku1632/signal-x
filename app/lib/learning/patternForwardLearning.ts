@@ -307,7 +307,7 @@ export async function refreshPatternForwardStats(): Promise<void> {
       CASE
         WHEN MAX(direction) = 'NEUTRAL' THEN 'OBSERVATION_ONLY'
         WHEN COUNT(return_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL) >= 30
           AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL) >= 15
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 60
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) >= 0.5
@@ -316,7 +316,7 @@ export async function refreshPatternForwardStats(): Promise<void> {
           ) > 0
           THEN 'VALIDATED'
         WHEN COUNT(return_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL) >= 15
           AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL) >= 8
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 55
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) > 0
@@ -327,7 +327,7 @@ export async function refreshPatternForwardStats(): Promise<void> {
         WHEN MAX(direction) = 'NEUTRAL'
           THEN 'Direction-neutral pattern: collect follow-up returns without win/loss scoring'
         WHEN COUNT(return_5d) >= 50
-          AND COUNT(DISTINCT code) >= 30
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL) >= 30
           AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL) >= 15
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 60
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) >= 0.5
@@ -336,7 +336,7 @@ export async function refreshPatternForwardStats(): Promise<void> {
           ) > 0
           THEN 'Forward 5-day validation criteria passed'
         WHEN COUNT(return_5d) >= 20
-          AND COUNT(DISTINCT code) >= 15
+          AND COUNT(DISTINCT code) FILTER (WHERE return_5d IS NOT NULL) >= 15
           AND COUNT(DISTINCT trade_date) FILTER (WHERE return_5d IS NOT NULL) >= 8
           AND 100.0 * COUNT(*) FILTER (WHERE success_5d IS TRUE) / NULLIF(COUNT(success_5d), 0) >= 55
           AND AVG(CASE WHEN direction = 'BUY' THEN return_5d WHEN direction = 'SELL' THEN -return_5d END) > 0
