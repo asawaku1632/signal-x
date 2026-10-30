@@ -1,0 +1,13 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {normalizePgTimestamp as stamp,adaptPreopenDbRows as adapt} from "../app/lib/research/preopenDbAdapter.mjs";
+import {classifyPreopenResearchDates as classify} from "../app/lib/research/preopenResearchPartition.mjs";
+const quotes={dow:{sourceTimestamp:"2026-10-23T13:30:00.000Z"},nasdaq:{sourceTimestamp:"2026-10-23T13:30:00.000Z"},usdJpy:{sourceTimestamp:"2026-10-25T23:45:08.000Z"}};
+test("Postgres +00 captured_at converts to explicit zone",()=>assert.equal(stamp("2026-10-25 23:45:10.053+00"),"2026-10-25T23:45:10.053+00:00"));
+test("Postgres +0900 accepts",()=>assert.equal(stamp("2026-10-26 08:45:10+0900"),"2026-10-26T08:45:10+09:00"));
+test("Postgres +09 accepts",()=>assert.equal(stamp("2026-10-26 08:45:10+09"),"2026-10-26T08:45:10+09:00"));
+test("ISO unchanged",()=>assert.equal(stamp("2026-10-26T08:45:10+09:00"),"2026-10-26T08:45:10+09:00"));
+test("naive timestamp rejected",()=>assert.equal(stamp("2026-10-26 08:45:10"),null));
+test("garbage rejected",()=>assert.equal(stamp("today"),null));
+test("null rejected",()=>assert.equal(stamp(null),null));
+test("adapter feeds successful Monday screening",()=>{const r=adapt([{trade_date:"2026-10-26",captured_at:"2026-10-25 23:45:10.053+00",quotes}]);assert.equal(classify(r).counts.validAgeOnly,1);});
+test("reject non-array",()=>assert.throws(()=>adapt(null),/INVALID_PREOPEN_DB_ROWS/));

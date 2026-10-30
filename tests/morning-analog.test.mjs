@@ -1,0 +1,375 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {inspectMorning,summarizeAnalogs,summarizeMorningDropPatterns,auditMorningAnalogsChronologically} from "../app/lib/research/morningAnalog.mjs";
+
+const makeBars=(date,lowAt=3)=>Array.from({length:30},(_,i)=>{
+  const h=9+Math.floor(i*5/60),m=(i*5)%60;
+  const low=i===lowAt?90:98;
+  return {date,time:String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"),
+    open:100,high:i>lowAt?103:101,low,close:100};
+});
+test("bottom window and later rebound use only completed same-day bars",()=>{
+  const result=inspectMorning("2026-10-28",100,makeBars("2026-10-28"));
+  assert.equal(result.valid,true);
+  assert.equal(result.bottomWindow,"09:15");
+  assert.equal(result.bottomPrice,90);
+  assert.equal(result.rebound1pct,true);
+  assert.equal(result.rebound2pct,true);
+});
+test("incomplete and inconsistent bars fail closed",()=>{
+  assert.equal(inspectMorning("2026-10-28",100,makeBars("2026-10-28").slice(1)).valid,false);
+  const bars=makeBars("2026-10-28");bars[4].low=105;
+  assert.equal(inspectMorning("2026-10-28",100,bars).valid,false);
+});
+test("future outcomes and features available on the outcome date cannot leak",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const make=(tradeDate,featureAvailableAt)=>({
+    code:"1234",tradeDate,featureAvailableAt,features,
+    outcome:inspectMorning(tradeDate,100,makeBars(tradeDate))
+  });
+  const result=summarizeAnalogs(target,[
+    make("2026-10-27","2026-10-26T18:00:00+09:00"),
+    make("2026-10-28","2026-10-27T18:00:00+09:00"),
+    make("2026-10-26","2026-10-26T10:00:00+09:00")
+  ],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+  assert.equal(result.rebound1pct.rate,null);
+});
+
+test("sharp-drop frequency counts bottom windows, deduplicates, and gates rates",()=>{
+  const date="2026-10-28";
+  const a={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const b={...inspectMorning(date,100,makeBars(date,8)),code:"5678"};
+  const result=summarizeMorningDropPatterns([a,b,a],{minSamples:2,dropThresholdPct:2});
+  assert.equal(result.samples,2);
+  assert.equal(result.excluded.duplicate,1);
+  assert.deepEqual(result.topWindows,[{windowStart:"09:40",windowEnd:"09:45",count:2}]);
+  assert.equal(result.rebound1pct.rate,100);
+  assert.equal(summarizeMorningDropPatterns([a],{minSamples:2,dropThresholdPct:2}).rebound1pct.rate,null);
+});
+test("early-drop filter does not confuse later selloff with opening drop",()=>{
+  const date="2026-10-28",bars=makeBars(date,12);
+  const result=summarizeMorningDropPatterns([
+    {...inspectMorning(date,100,bars),code:"1234"}
+  ],{minSamples:1,dropThresholdPct:3});
+  assert.equal(result.samples,0);
+  assert.equal(result.excluded.notSharpDrop,1);
+});
+
+test("invalid observation dates are excluded rather than silently counted",()=>{
+  const date="2026-10-28";
+  const good={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const result=summarizeMorningDropPatterns([good,{...good,date:"not-a-date",code:"5678"}],{minSamples:1,dropThresholdPct:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.excluded.invalid,1);
+});
+
+test("1 and 2 percent rebound denominators are counted independently",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const base={code:"1234",tradeDate:"2026-10-27",featureAvailableAt:"2026-10-26T18:00:00+09:00",features};
+  const observation=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
+  const result=summarizeAnalogs(target,[{...base,outcome:{...observation,rebound1pct:true,rebound2pct:null}}],{minSamples:1});
+  assert.equal(result.rebound1pct.observed,1);
+  assert.equal(result.rebound1pct.rate,100);
+  assert.equal(result.rebound2pct.observed,0);
+  assert.equal(result.rebound2pct.rate,null);
+});
+
+
+test("malformed prior-day snapshot stamps cannot enter analog comparisons",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
+  const make=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
+  const result=summarizeAnalogs(target,[
+    make("2026-10-26T18:00:00+09:00"),
+    make("2026-10-26 garbage"),
+    make("2026-10-27T08:00:00+09:00"),
+    make("2026-10-26T99:99:99+09:00")
+  ],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+});
+
+test("invalid analog selection limits and distance weights fail closed",()=>{
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features:{priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90}};
+  for(const options of [{maxAnalogs:0},{maxAnalogs:-1},{maxAnalogs:1.5},
+      {weights:{priorReturnPct:-1,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}},
+      {weights:{priorReturnPct:Infinity,priorRangePct:1,priorVolumeRatio:2,aiPower:0.1}}]){
+    assert.throws(()=>summarizeAnalogs(target,[],options),/INVALID_ANALOG_OPTIONS/);
+  }
+});
+
+test("timestamp offsets are compared as instants before JST trading date",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const outcome=inspectMorning("2026-10-27",100,makeBars("2026-10-27"));
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const history=stamp=>({code:"1234",tradeDate:"2026-10-27",featureAvailableAt:stamp,features,outcome});
+  // 2026-10-26 23:00 JST, before the Oct 27 trading date.
+  const valid="2026-10-26T14:00:00Z";
+  // 2026-10-27 10:00 JST; calendar date in -04:00 is still Oct 26.
+  const invalid="2026-10-26T21:00:00-04:00";
+  const result=summarizeAnalogs(target,[history(valid),history(invalid)],{minSamples:2});
+  assert.equal(result.samples,1);
+});
+
+test("duplicate stock/date histories cannot inflate analog sample eligibility",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const result=summarizeAnalogs({tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features},[row,row,{...row}],{minSamples:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.eligible,false);
+  assert.equal(result.rebound1pct.rate,null);
+});
+
+test("conflicting duplicate stock/date observations are excluded regardless of input order",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const conflict={...row,outcome:{...row.outcome,rebound1pct:false}};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const histories of [[row,conflict],[conflict,row]]){
+    const result=summarizeAnalogs(target,histories,{minSamples:1});
+    assert.equal(result.samples,0);
+    assert.equal(result.eligible,false);
+    assert.equal(result.rebound1pct.rate,null);
+  }
+});
+
+test("target feature snapshot cannot be from trading day or malformed time",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",features};
+  assert.throws(()=>summarizeAnalogs(target,[],{minSamples:1}),/TARGET_FEATURE_LOOKAHEAD/);
+  for(const stamp of ["2026-10-28T09:05:00+09:00","2026-10-28T00:00:00+09:00","not-a-time"]){
+    assert.throws(()=>summarizeAnalogs({...target,featureAvailableAt:stamp},[],{minSamples:1}),/TARGET_FEATURE_LOOKAHEAD/);
+  }
+  const valid=summarizeAnalogs({...target,featureAvailableAt:"2026-10-27T18:00:00+09:00"},[],{minSamples:1});
+  assert.equal(valid.samples,0);
+});
+
+test("impossible calendar dates cannot enter morning research",()=>{
+  assert.equal(inspectMorning("2026-02-30",100,makeBars("2026-02-30")).valid,false);
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  assert.throws(()=>summarizeAnalogs({
+    tradeDate:"2026-02-30",featureAvailableAt:"2026-02-27T18:00:00+09:00",features
+  },[]),/INVALID_ANALOG_INPUT/);
+  const good={...inspectMorning("2026-10-28",100,makeBars("2026-10-28")),code:"1234"};
+  const stats=summarizeMorningDropPatterns([{...good,date:"2026-02-30"}],{minSamples:1,dropThresholdPct:2});
+  assert.equal(stats.samples,0);
+  assert.equal(stats.excluded.invalid,1);
+});
+
+test("zero and negative interval observations are excluded from research",()=>{
+  const date="2026-10-28";
+  const row={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const result=summarizeMorningDropPatterns([
+    {...row,intervalMinutes:0},
+    {...row,intervalMinutes:-5,code:"5678"},
+    {...row,intervalMinutes:5,code:"9012"}
+  ],{minSamples:1,dropThresholdPct:2});
+  assert.equal(result.samples,1);
+  assert.equal(result.excluded.invalid,2);
+});
+
+test("bottom windows outside the morning session cannot enter research",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const outcome=inspectMorning(date,100,makeBars(date,8));
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const time of ["08:55","11:30","15:00"]){
+    const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+      outcome:{...outcome,bottomWindow:time}};
+    assert.equal(summarizeAnalogs(target,[row],{minSamples:1}).samples,0);
+    const pattern=summarizeMorningDropPatterns([{...row.outcome,code:"1234"}],{minSamples:1,dropThresholdPct:2});
+    assert.equal(pattern.samples,0);
+    assert.equal(pattern.excluded.invalid,1);
+  }
+});
+
+test("conflicting duplicate later highs and early drops are never counted",()=>{
+  const date="2026-10-27";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",
+    features,outcome:inspectMorning(date,100,makeBars(date))};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const outcome of [
+    {...row.outcome,laterHigh:(row.outcome.laterHigh??100)+1},
+    {...row.outcome,earlyDropPct:row.outcome.earlyDropPct-1},
+    {...row.outcome,intervalMinutes:10}
+  ]){
+    const conflict={...row,outcome};
+    for(const histories of [[row,conflict],[conflict,row]]){
+      assert.equal(summarizeAnalogs(target,histories,{minSamples:1}).samples,0);
+    }
+  }
+});
+
+test("walk-forward audit never uses target-day outcomes as selection history",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const row=(date,prior)=>({code:"1234",tradeDate:date,
+    featureAvailableAt:prior,features,
+    outcome:inspectMorning(date,100,makeBars(date))});
+  const earlier=row("2026-10-27","2026-10-26T18:00:00+09:00");
+  const current={...row("2026-10-28","2026-10-27T18:00:00+09:00"),outcomeAvailableAt:"2026-10-28T12:00:00+09:00"};
+  const target={code:current.code,tradeDate:current.tradeDate,
+    featureAvailableAt:current.featureAvailableAt,features};
+  const report=auditMorningAnalogsChronologically([target],[{...earlier,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},current],{minSamples:1});
+  assert.equal(report.targets,1);
+  assert.equal(report.eligible,1);
+  assert.equal(report.rows[0].samples,1);
+  assert.equal(report.rebound1pct.evaluated,1);
+  assert.deepEqual(report.coverage,{stocks:1,tradeDates:1,months:1});
+  assert.equal(report.byMonth.length,1);
+  assert.equal(report.byMonth[0].month,"2026-10");
+  assert.equal(report.byMonth[0].rebound1pct.evaluated,1);
+  assert.equal(report.byMonth[0].rebound1pct.meanAbsoluteErrorPct,0);
+  assert.equal(report.rebound1pct.brierScore,0);
+  assert.deepEqual(report.expandingBaseline.rebound1pct,{evaluated:0,brierScore:null,modelBrierScore:null,improvement:null});
+  assert.equal(report.byMonth[0].rebound1pct.brierScore,0);
+  assert.equal(report.readyForTrading,false);
+  assert.throws(()=>auditMorningAnalogsChronologically([target,target],[earlier,current],{minSamples:1}),/DUPLICATE_FORWARD_TARGET/);
+});
+
+test("forward audit refuses unproven and conflicting observed outcomes",()=>{
+  const date="2026-10-28";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const prior={code:"1234",tradeDate:"2026-10-27",
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27"))};
+  const current={code:"1234",tradeDate:date,
+    outcomeAvailableAt:"2026-10-28T12:00:00+09:00",featureAvailableAt:"2026-10-27T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const target={code:"1234",tradeDate:date,
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const invalid of [
+    {...current,featureAvailableAt:"2026-10-28T09:05:00+09:00"},
+    {...current,outcome:{...current.outcome,bottomWindow:"15:00"}}
+  ]){
+    const report=auditMorningAnalogsChronologically([target],[{...prior,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},invalid],{minSamples:1});
+    assert.equal(report.rows[0].observed,false);
+    assert.equal(report.rebound1pct.evaluated,0);
+  }
+  const duplicate=auditMorningAnalogsChronologically([target],[{...prior,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"},current,{...current}],{minSamples:1});
+  assert.equal(duplicate.rebound1pct.evaluated,0);
+});
+
+test("expanding baseline compares paired predictions without same-day leakage",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const dates=["2026-10-26","2026-10-27","2026-10-28"];
+  const previous=["2026-10-23","2026-10-26","2026-10-27"];
+  const history=dates.flatMap((date,i)=>["1234","5678"].map(code=>({
+    code,tradeDate:date,featureAvailableAt:previous[i]+"T18:00:00+09:00",outcomeAvailableAt:date+"T12:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))
+  })));
+  const targets=history.filter(row=>row.tradeDate!=="2026-10-26").map(
+    ({code,tradeDate,featureAvailableAt,features})=>({code,tradeDate,featureAvailableAt,features}));
+  const report=auditMorningAnalogsChronologically(targets,history.map(row=>({...row,outcomeAvailableAt:row.tradeDate+"T12:00:00+09:00"})),{minSamples:1});
+  // Both stocks on the first evaluation date must not seed each other's baseline.
+  assert.equal(report.expandingBaseline.rebound1pct.evaluated,2);
+  assert.equal(report.expandingBaseline.rebound1pct.brierScore,0);
+  assert.equal(report.expandingBaseline.rebound1pct.modelBrierScore,0);
+  assert.equal(report.expandingBaseline.rebound1pct.improvement,0);
+  assert.equal(report.rebound1pct.evaluated,4);
+});
+
+test("strict outcome availability rejects hindsight and missing provenance",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const row={code:"1234",tradeDate:date,
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning(date,100,makeBars(date))};
+  const strict={minSamples:1,requireOutcomeAvailability:true};
+  assert.equal(summarizeAnalogs(target,[row],strict).samples,0);
+  for(const stamp of ["2026-10-28T00:00:00+09:00","2026-10-27T11:00:00+09:00","not-a-date"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],strict).samples,0);
+  }
+  assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:"2026-10-27T16:00:00+09:00"}],strict).samples,1);
+});
+
+test("forward audit excludes historical outcomes published after prediction date",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const date="2026-10-27";
+  const row={code:"1234",tradeDate:date,featureAvailableAt:"2026-10-26T18:00:00+09:00",
+    features,outcome:inspectMorning(date,100,makeBars(date))};
+  const target={code:"1234",tradeDate:"2026-10-28",
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const stamp of [undefined,"2026-10-28T09:00:00+09:00","2026-10-27T10:00:00+09:00"]){
+    const report=auditMorningAnalogsChronologically([target],[{...row,outcomeAvailableAt:stamp}],{minSamples:1});
+    assert.equal(report.rows[0].samples,0);
+    assert.equal(report.outcomeAvailabilityRequired,true);
+  }
+  const good=auditMorningAnalogsChronologically([target],[{...row,outcomeAvailableAt:"2026-10-27T12:00:00+09:00"}],{minSamples:1});
+  assert.equal(good.rows[0].samples,1);
+});
+
+test("strict availability accepts ISO instants with offsets and rejects impossible timestamps",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={tradeDate:"2026-10-28",featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  const row={code:"1234",tradeDate:"2026-10-27",
+    featureAvailableAt:"2026-10-26T18:00:00+09:00",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27"))};
+  for(const stamp of ["2026-10-27T12:00:00+09:00","2026-10-27T03:00:00Z",
+    "2026-10-26T23:00:00-04:00"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],
+      {minSamples:1,requireOutcomeAvailability:true}).samples,1);
+  }
+  for(const stamp of ["2026-10-27T99:00:00+09:00","2026-10-28T09:00:00+09:00",
+    "2026-10-27T10:00:00+09:00"]){
+    assert.equal(summarizeAnalogs(target,[{...row,outcomeAvailableAt:stamp}],
+      {minSamples:1,requireOutcomeAvailability:true}).samples,0);
+  }
+});
+
+test("forward audit cannot score an outcome before morning observation is complete",()=>{
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const history=(date,stamp,available)=>({code:"1234",tradeDate:date,
+    featureAvailableAt:stamp,outcomeAvailableAt:available,features,
+    outcome:inspectMorning(date,100,makeBars(date))});
+  const earlier=history("2026-10-27","2026-10-26T18:00:00+09:00","2026-10-27T12:00:00+09:00");
+  const target={code:"1234",tradeDate:"2026-10-28",
+    featureAvailableAt:"2026-10-27T18:00:00+09:00",features};
+  for(const available of [undefined,"2026-10-28T10:00:00+09:00","invalid"]){
+    const current=history("2026-10-28",target.featureAvailableAt,available);
+    const result=auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1});
+    assert.equal(result.rows[0].observed,false);
+    assert.equal(result.rebound1pct.evaluated,0);
+  }
+  const current=history("2026-10-28",target.featureAvailableAt,"2026-10-28T12:00:00+09:00");
+  assert.equal(auditMorningAnalogsChronologically([target],[earlier,current],{minSamples:1}).rebound1pct.evaluated,1);
+});
+
+test("conflicting morning outcome duplicates are excluded independent of input order",()=>{
+  const date="2026-10-28";
+  const original={...inspectMorning(date,100,makeBars(date,8)),code:"1234"};
+  const conflict={...original,rebound1pct:false};
+  const other={...inspectMorning(date,100,makeBars(date,8)),code:"5678"};
+  for(const observations of [[original,conflict,other],[conflict,original,other]]){
+    const result=summarizeMorningDropPatterns(observations,{minSamples:1,dropThresholdPct:2});
+    assert.equal(result.samples,1);
+    assert.equal(result.excluded.conflict,1);
+    assert.equal(result.excluded.duplicate,1);
+    assert.equal(result.rebound1pct.observed,1);
+    assert.equal(result.rebound1pct.rate,100);
+    assert.equal(result.bottomTimeCounts.reduce((sum,x)=>sum+x.count,0),1);
+  }
+});
+
+test("direct analog audit rejects impossible publication timestamps",()=>{
+  const date="2026-10-28";
+  const features={priorReturnPct:-1,priorRangePct:2,priorVolumeRatio:1.2,aiPower:90};
+  const target={code:"1234",tradeDate:date,features,featureAvailableAt:"2026-10-27T18:00:00+09:00"};
+  const history={code:"5678",tradeDate:"2026-10-27",features,
+    outcome:inspectMorning("2026-10-27",100,makeBars("2026-10-27")),
+    outcomeAvailableAt:"2026-10-27T12:00:00+09:00"};
+  for(const bad of ["2026-02-30T18:00:00+09:00","0099-10-26T18:00:00+09:00"]){
+    const report=summarizeAnalogs(target,[{...history,featureAvailableAt:bad}],{minSamples:1});
+    assert.equal(report.samples,0,bad);
+  }
+});

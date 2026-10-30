@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {RESEARCH_EXPORT_SQL_V1,describeResearchExport} from "../app/lib/research/dailyExportTemplate.mjs";
+test("export template is explicitly non-executing",()=>assert.equal(describeResearchExport().executesQueries,false));
+test("read only template",()=>assert.doesNotMatch(RESEARCH_EXPORT_SQL_V1,/\b(?:insert|update|delete|drop|alter|truncate|create)\b/i));
+test("previous observations are derived by code",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/PARTITION BY d\.code ORDER BY d\.date/));
+test("independent prior evidence is not forged",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/false AS prior_evidence_verified/));
+test("outcome verification is not forged",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/false AS outcome_provenance_verified/));
+test("as-of timestamp is null until supported",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/NULL::text AS prior_available_at/));
+test("export is bounded",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/LIMIT 100000/));
+
+test("source snapshot timestamp exported without asserting verification",()=>assert.match(RESEARCH_EXPORT_SQL_V1,/source_snapshot_created_at AS source_snapshot_created_at/));

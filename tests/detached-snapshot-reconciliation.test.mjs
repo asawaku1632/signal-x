@@ -1,0 +1,23 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {createDetachedResearchSnapshot as create} from "../app/lib/research/detachedSnapshotContract.mjs";
+import {reconcileDetachedSnapshots as run} from "../app/lib/research/detachedSnapshotReconciliation.mjs";
+const data={date:"2026-10-30",code:"1234",score:88,price:100,capturedAt:"2026-10-30T09:04:00+09:00",sourceId:"source",sourceVersion:"v1"};
+const a=create(data),o={date:a.date,code:a.code,sourceDate:"2026-11-02",sourcePrice:103};
+test("matches later reference outcome",()=>{const r=run([a],[o]);assert.equal(r.stats.matchedOutcomes,1);assert.equal(r.matches[0].observationReturnPct,3);});
+test("identical duplicates count",()=>assert.equal(run([a,a]).stats.duplicates,1));
+test("conflicting same-date snapshots count",()=>assert.equal(run([a,create({...data,score:89})]).stats.conflicts,1));
+test("tampered digest excluded",()=>assert.equal(run([{...a,price:200}]).stats.invalid,1));
+test("outcome before date excluded",()=>assert.equal(run([a],[{...o,sourceDate:a.date}]).stats.invalidOutcomes,1));
+test("unmatched outcome",()=>assert.equal(run([], [o]).stats.unmatchedOutcomes,1));
+test("missing source price",()=>assert.equal(run([a],[{...o,sourcePrice:null}]).stats.invalidOutcomes,1));
+test("no external certification",()=>{const r=run([a],[o]);assert.equal(r.acceptedForTrading,false);assert.equal(r.persisted,false);assert.equal(r.matches[0].independentlyVerified,false);});
+test("no input",()=>assert.equal(run([]).stats.input,0));
+test("invalid input",()=>assert.throws(()=>run(null),/INVALID_SHADOW_RECONCILIATION/));
+test("invalid outcomes",()=>assert.throws(()=>run([],null),/INVALID_SHADOW_RECONCILIATION/));
+test("unmatched uses date and code",()=>assert.equal(run([a],[{...o,code:"5678"}]).stats.unmatchedOutcomes,1));
+
+test("duplicate later outcomes counted once",()=>{const r=run([a],[o,o]);assert.equal(r.stats.matchedOutcomes,1);assert.equal(r.stats.duplicateOutcomes,1);assert.equal(r.matches.length,1);});
+test("invalid calendar source date refused",()=>assert.equal(run([a],[{...o,sourceDate:"2026-11-31"}]).stats.invalidOutcomes,1));
+test("invalid calendar target date refused",()=>assert.equal(run([a],[{...o,date:"2026-02-30"}]).stats.invalidOutcomes,1));
+test("malformed ticker refused",()=>assert.equal(run([a],[{...o,code:"bad"}]).stats.invalidOutcomes,1));
+test("later outcomes for same target cannot double count",()=>{const r=run([a],[o,{...o,sourceDate:"2026-11-03",sourcePrice:108}]);assert.equal(r.stats.matchedOutcomes,1);assert.equal(r.stats.duplicateOutcomes,1);});

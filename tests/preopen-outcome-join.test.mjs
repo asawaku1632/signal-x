@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {auditPreopenOutcomeJoin as join} from "../app/lib/research/preopenOutcomeJoin.mjs";
+const partition={dates:[{date:"2026-10-21",status:"AGE_SCREEN_ONLY",reasons:[]},{date:"2026-10-22",status:"AGE_SCREEN_ONLY",reasons:[]},{date:"2026-10-27",status:"EXCLUDE_SOURCE_AGE",reasons:["usdJpy:STALE_REFERENCE"]}]};
+const outcome=[{date:"2026-10-21",pairs:953,high:51,low:902},{date:"2026-10-22",pairs:0,high:0,low:0},{date:"2026-10-27",pairs:953,high:29,low:924}];
+test("only screened complete dates considered descriptively",()=>{const x=join(partition,outcome);assert.deepEqual(x.counts,{dates:3,ageScreened:2,excludedBySourceAge:1,pendingOutcome:1,validOutcomeDays:1});assert.equal(x.modelTrainingAllowed,false);assert.equal(x.notificationAllowed,false);});
+test("excluded dates not rescued by outcomes",()=>assert.equal(join(partition,outcome).days[2].status,"SOURCE_AGE_EXCLUDED"));
+test("no future outcome means pending",()=>assert.equal(join(partition,[]).counts.pendingOutcome,2));
+test("duplicate outcome date fails",()=>assert.throws(()=>join(partition,[outcome[0],outcome[0]]),/DUPLICATE/));
+test("invalid cohort counts remain incomplete",()=>assert.equal(join({dates:partition.dates.slice(0,1)},[{date:"2026-10-21",pairs:953,high:50,low:50}]).counts.pendingOutcome,1));
+test("invalid input rejected",()=>assert.throws(()=>join(null,[]),/INVALID_OUTCOME_JOIN/));

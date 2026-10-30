@@ -1,0 +1,14 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {classifyPreopenResearchDates as run} from "../app/lib/research/preopenResearchPartition.mjs";
+const m={tradeDate:"2026-10-26",capturedAt:"2026-10-26T08:45:00+09:00",quotes:{dow:{sourceTimestamp:"2026-10-23T13:30:00Z"},nasdaq:{sourceTimestamp:"2026-10-23T13:30:00Z"},usdJpy:{sourceTimestamp:"2026-10-25T23:45:00Z"}}};
+test("Monday weekend index references screened",()=>{const a=run([m]);assert.equal(a.counts.validAgeOnly,1);assert.equal(a.authenticatedForPrediction,0);});
+test("stale FX separately excluded",()=>{const a=run([{...m,quotes:{...m.quotes,usdJpy:{sourceTimestamp:"2026-10-23T13:30:00Z"}}}]);assert.equal(a.counts.ageOrSourceIssue,1);});
+test("same date duplicate rejected",()=>assert.equal(run([m,m]).counts.duplicateDate,1));
+test("capture date mismatch rejected",()=>assert.equal(run([{...m,tradeDate:"2026-10-27"}]).counts.captureDateMismatch,1));
+test("invalid trade date rejected",()=>assert.equal(run([{...m,tradeDate:"2026-02-30"}]).counts.invalidDate,1));
+test("missing quote rejected",()=>assert.equal(run([{...m,quotes:{...m.quotes,dow:null}}]).counts.ageOrSourceIssue,1));
+test("future quote rejected",()=>assert.equal(run([{...m,quotes:{...m.quotes,dow:{sourceTimestamp:"2026-10-27T13:30:00Z"}}}]).counts.ageOrSourceIssue,1));
+test("missing capture rejected",()=>assert.equal(run([{...m,capturedAt:null}]).counts.captureDateMismatch,1));
+test("empty records",()=>assert.equal(run([]).counts.total,0));
+test("invalid records",()=>assert.throws(()=>run({}),/INVALID_PREOPEN_RESEARCH_ROWS/));
+test("flags always shadow only",()=>{const x=run([m]);assert.equal(x.approvedForSignals,0);assert.equal(x.sourceLicenseVerified,false);});

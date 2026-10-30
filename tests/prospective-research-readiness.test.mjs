@@ -1,0 +1,68 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {summarizeProspectiveResearch as summarize} from "../app/lib/research/prospectiveResearchReadiness.mjs";
+test("empty prospective evidence remains blocked",()=>{const r=summarize([]);assert.equal(r.stability.dates,0);assert.ok(r.blockers.includes("INSUFFICIENT_DATES"));assert.ok(r.blockers.includes("EXTERNAL_AUTHENTICATION_MISSING"));assert.equal(r.trainingEnabled,false);});
+test("reported verification cannot authorize trading",()=>{const r=summarize([],{minDays:2,minMonths:2});assert.equal(r.tradingEnabled,false);assert.equal(r.notificationsEnabled,false);});
+test("invalid month requirement rejected",()=>assert.throws(()=>summarize([],{minMonths:1}),/INVALID_MONTH_REQUIREMENT/));
+test("invalid ledger input rejected",()=>assert.throws(()=>summarize(null),/INVALID_PROSPECTIVE_LEDGER/));
+
+test("duplicate prospective stock/date inputs trigger explicit review blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row,row]);assert.ok(x.blockers.includes("DUPLICATE_STOCK_DAY_RECORDS"));assert.equal(x.trainingEnabled,false);
+});
+test("unverified as-of source gets explicit blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:false,featureAvailableAt:"2026-10-29T16:00:00+09:00"};
+ assert.ok(summarize([row]).blockers.includes("FEATURE_AS_OF_EVIDENCE_MISSING"));
+});
+
+test("descriptive evidence remains distinct from independently attested proof",()=>{
+ const x=summarize([]);
+ assert.equal(x.evidence.observedTradingDates,0);
+ assert.equal(x.evidence.descriptiveMeanGapPp,null);
+ assert.equal(x.evidence.independentSourceAttestation,false);
+ assert.equal(x.evidence.chronologicalHoldoutVerified,false);
+ assert.equal(x.trainingEnabled,false);
+});
+
+test("calendar analysis participates in readiness and never approves live features",()=>{
+ const x=summarize([]);
+ assert.ok(x.blockers.includes("INSUFFICIENT_WELL_SAMPLED_MONTHS"));
+ assert.equal(x.calendar.qualifyingMonths,0);
+ assert.equal(x.trainingEnabled,false);
+ assert.equal(x.notificationsEnabled,false);
+});
+test("sparse cohorts expose month coverage blocker",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row]);
+ assert.ok(x.blockers.includes("LOW_MONTHLY_COHORT_COVERAGE"));
+ assert.equal(x.calendar.monthlyCoverage[0].qualifyingDates,0);
+});
+
+test("favorable-looking summary never promotes unauthenticated research",()=>{
+ const x=summarize([]);
+ assert.equal(x.candidateReview.status,"DO_NOT_PROMOTE");
+ assert.equal(x.candidateReview.eligibleForModelUpdate,false);
+ assert.equal(x.candidateReview.eligibleForLiveSignal,false);
+ assert.ok(x.candidateReview.missingQualityChecks.includes("EXTERNAL_AUTHENTICATION_MISSING"));
+});
+test("sparse dates pass their coverage blockers to promotion review",()=>{
+ const row={date:"2026-10-30",code:"7203",priorScore:85,price:1000,featureSnapshotVerified:true,featureAvailableAt:"2026-10-29T16:00:00+09:00",nextPrice:1050,outcomeSourceVerified:true,outcomeTradeDate:"2026-11-02",outcomeAvailableAt:"2026-11-02T16:00:00+09:00"};
+ const x=summarize([row]);
+ assert.ok(x.candidateReview.missingQualityChecks.includes("LOW_MONTHLY_COHORT_COVERAGE"));
+ assert.equal(x.candidateReview.status,"DO_NOT_PROMOTE");
+});
+
+test("negative average and median across comparable days block score advantage",()=>{
+ const rows=[];
+ for(let day=1;day<=3;day++){
+  const d=`2026-11-${String(day+1).padStart(2,"0")}`;
+  for(let i=0;i<20;i++)rows.push({date:d,code:String(1000+i),priorScore:i<10?90:60,price:100,
+    nextPrice:i<10?99:102,featureSnapshotVerified:true,featureAvailableAt:"2026-10-30T15:00:00+09:00",
+    outcomeSourceVerified:true,outcomeTradeDate:"2026-11-09",outcomeAvailableAt:"2026-11-09T16:00:00+09:00"});
+ }
+ const x=summarize(rows,{minDays:2,minMonths:2});
+ assert.equal(x.stability.dates,3);
+ assert.ok(x.blockers.includes("NO_POSITIVE_AVERAGE_GAP"));
+ assert.ok(x.blockers.includes("NO_POSITIVE_MEDIAN_GAP"));
+ assert.ok(x.blockers.includes("NO_MAJORITY_POSITIVE_DATES"));
+ assert.equal(x.trainingEnabled,false);
+});

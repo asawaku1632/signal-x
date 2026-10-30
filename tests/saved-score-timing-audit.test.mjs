@@ -1,0 +1,14 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {auditSavedScoreTiming as run} from "../app/lib/research/savedScoreTimingAudit.mjs";
+const row={date:"2026-10-28",createdAt:"2026-10-28T15:00:00"};
+test("naive same-date timestamp remains unverified",()=>{const a=run([row]);assert.equal(a.counts.sameDate,1);assert.equal(a.counts.naiveTimestamp,1);assert.equal(a.verifiedDecisionTimeCount,0);});
+test("prior date naive cannot certify",()=>assert.equal(run([{...row,createdAt:"2026-10-27T15:00:00"}]).verifiedDecisionTimeCount,0));
+test("timestamp with zone is structurally recognized",()=>assert.equal(run([{...row,createdAt:"2026-10-27T15:00:00+09:00"}]).counts.naiveTimestamp,0));
+test("earlier asserted instant remains unauthenticated",()=>{const r=run([{...row,createdAt:"2026-10-27T15:00:00+09:00",immutableSnapshotAttested:true,providerVerified:true}]);assert.equal(r.counts.attestedEarlierInstant,1);assert.equal(r.verifiedDecisionTimeCount,0);});
+test("same-day earlier morning claimed timestamp not before previous midnight",()=>assert.equal(run([{...row,createdAt:"2026-10-28T08:00:00+09:00",immutableSnapshotAttested:true,providerVerified:true}]).counts.attestedEarlierInstant,0));
+test("missing timestamp",()=>assert.equal(run([{date:row.date}]).counts.missingOrInvalid,1));
+test("invalid date",()=>assert.equal(run([{date:"2026-02-30",createdAt:row.createdAt}]).counts.missingOrInvalid,1));
+test("later calendar",()=>assert.equal(run([{...row,createdAt:"2026-10-29T09:00:00"}]).counts.laterCalendarDate,1));
+test("no rows",()=>assert.equal(run([]).counts.rows,0));
+test("reject nonarray",()=>assert.throws(()=>run({}),/INVALID_SAVED_SCORE_TIMING_INPUT/));
+test("no live signal",()=>assert.equal(run([row]).signalEnabled,false));

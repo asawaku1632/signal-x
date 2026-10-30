@@ -1,0 +1,18 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {createDetachedResearchSnapshot as make} from "../app/lib/research/detachedSnapshotContract.mjs";
+import {planLocalSnapshotAppend as append} from "../app/lib/research/localSnapshotLedger.mjs";
+import {makeLedgerCheckpoint as anchor} from "../app/lib/research/ledgerCheckpoint.mjs";
+import {auditLocalResearchBatch as audit} from "../app/lib/research/offlineResearchBatch.mjs";
+const s=make({date:"2026-10-30",code:"1234",score:85,price:100,capturedAt:"2026-10-30T09:04:00+09:00",sourceId:"test",sourceVersion:"v1"});
+const r=append([],s),o={date:s.date,code:s.code,sourceDate:"2026-11-02",sourcePrice:105};
+test("complete batch reports results",()=>{const x=audit([r],[o]);assert.equal(x.safe,true);assert.equal(x.referenceResults.meanPct,5);assert.equal(x.referenceResults.positivePct,100);});
+test("separate checkpoint matches",()=>assert.equal(audit([r],[o],{checkpoint:anchor([r],"2026-10-30T10:00:00+09:00")}).checkpoint.valid,true));
+test("checkpoint truncation rejected",()=>assert.equal(audit([],[o],{checkpoint:anchor([r],"2026-10-30T10:00:00+09:00")}).reason,"TRUNCATED"));
+test("tampered ledger rejected",()=>assert.equal(audit([{...r,recordDigest:"x"}],[o]).safe,false));
+test("unmatched outcomes counted",()=>assert.equal(audit([r],[{...o,code:"5678"}]).reconciliation.stats.unmatchedOutcomes,1));
+test("no matches returns null stats",()=>assert.equal(audit([r],[]).referenceResults.medianPct,null));
+test("bad checkpoint refused",()=>assert.equal(audit([r],[o],{checkpoint:{}}).safe,false));
+test("no source attestation invented",()=>{const x=audit([r],[o]);assert.equal(x.providerVerified,false);assert.equal(x.signalEnabled,false);assert.equal(x.readyForTrading,false);});
+test("rejects bad inputs",()=>assert.throws(()=>audit(null,[]),/INVALID_RESEARCH_BATCH/));
+test("rejects huge inputs",()=>assert.throws(()=>audit([],Array(100001).fill(null)),/RESEARCH_BATCH_TOO_LARGE/));
+test("reference result median with two entries",()=>{const s2=make({date:"2026-10-30",code:"1235",score:90,price:100,capturedAt:"2026-10-30T09:04:00+09:00",sourceId:"test",sourceVersion:"v1"});const t=append([r],s2);const x=audit([r,t],[o,{...o,code:"1235",sourcePrice:95}]);assert.equal(x.referenceResults.meanPct,0);assert.equal(x.referenceResults.medianPct,0);});

@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {reconcileDailyEvidenceCounts as run} from "../app/lib/research/dailyEvidenceCounts.mjs";
+const sample={total:71289,paired:70283,traced:11436,tracedPaired:11436,savedBeforeDay:0};
+test("known read-only inventory reconciles",()=>{const r=run(sample);assert.equal(r.missingPaired,1006);assert.equal(r.untraced,59853);assert.equal(r.pairedButUntraced,58847);assert.equal(r.coveragePct,16.04);});
+test("never implies provenance verified",()=>{const r=run(sample);assert.equal(r.independentlyVerified,false);assert.equal(r.shadowOnly,true);});
+test("empty dataset",()=>assert.equal(run({total:0,paired:0,traced:0,tracedPaired:0,savedBeforeDay:0}).coveragePct,null));
+test("reject negative",()=>assert.throws(()=>run({...sample,paired:-1}),/INVALID_EVIDENCE_COUNTS/));
+test("reject decimals",()=>assert.throws(()=>run({...sample,traced:2.5}),/INVALID_EVIDENCE_COUNTS/));
+test("reject paired over total",()=>assert.throws(()=>run({...sample,paired:99999}),/INCONSISTENT_EVIDENCE_COUNTS/));
+test("reject trace pair above traced",()=>assert.throws(()=>run({...sample,tracedPaired:12000}),/INCONSISTENT_EVIDENCE_COUNTS/));
+test("reject invalid input",()=>assert.throws(()=>run(null),/INVALID_EVIDENCE_COUNTS/));

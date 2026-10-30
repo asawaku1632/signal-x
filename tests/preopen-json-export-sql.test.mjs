@@ -1,0 +1,10 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {PREOPEN_JSON_EXPORT_SQL_V1 as sql,describePreopenJsonExport as describe} from "../app/lib/research/preopenJsonExportSql.mjs";
+test("query is SELECT only",()=>assert.doesNotMatch(sql,/\b(insert|update|delete|drop|alter|truncate|create)\b/i));
+test("bounded export",()=>assert.match(sql,/LIMIT 100/));
+test("known time range",()=>assert.match(sql,/BETWEEN '2026-10-21' AND '2026-10-29'/));
+test("timestamps preserved",()=>assert.match(sql,/captured_at::text/));
+test("quotes preserved",()=>assert.match(sql,/captured_at::text AS captured_at, quotes/));
+test("JSON array export",()=>assert.match(sql,/jsonb_agg/));
+test("no execution claimed",()=>assert.equal(describe().executesSql,false));
+test("no trust claimed",()=>assert.equal(describe().sourceAuthenticated,false));

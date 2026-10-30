@@ -1,0 +1,11 @@
+import test from "node:test";import assert from "node:assert/strict";
+import {reconcileShadowPairs as run} from "../app/lib/research/shadowPairReconciliation.mjs";
+const s={tradeDate:"2026-11-02",code:"7203",baselineScore:76,candidateScore:84,recordedAt:"2026-11-02T08:45:00+09:00"};
+const o={tradeDate:"2026-11-02",code:"7203",outcomeDate:"2026-11-04",realizedReturn:1.5,outcomeRecordedAt:"2026-11-04T16:00:00+09:00"};
+test("matched record is a descriptive pair only",()=>{const x=run([s],[o]);assert.equal(x.pairs.length,1);assert.equal(x.independentlyAuthenticated,false);assert.equal(x.approvedForTrading,false);});
+test("late snapshot excluded",()=>assert.equal(run([{...s,recordedAt:"2026-11-02T09:06:00+09:00"}],[o]).pairs.length,0));
+test("future outcome before outcome date excluded",()=>assert.equal(run([s],[{...o,outcomeRecordedAt:"2026-11-03T16:00:00+09:00"}]).blocked.invalidOutcome,1));
+test("duplicate snapshot poisons key",()=>assert.equal(run([s,s],[o]).pairs.length,0));
+test("duplicate outcome not double counted",()=>assert.equal(run([s],[o,o]).blocked.duplicateOutcome,1));
+test("no snapshot cannot manufacture pair",()=>assert.equal(run([],[o]).blocked.missingSnapshot,1));
+test("bad input fails",()=>assert.throws(()=>run(null,[]),/INVALID_SHADOW_PAIRS/));
