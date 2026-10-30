@@ -52,3 +52,22 @@ test("a valid-looking key cannot bypass required bar provenance",()=>{
   assert.equal(r.independentlyAuthenticated,false);
   assert.equal(r.readyForTrading,false);
 });
+
+test("complete synthetic morning bars join only with prior-day features and stay shadow-only",()=>{
+  const bars=Array.from({length:30},(_,i)=>({
+    time:Date.parse("2026-10-27T09:00:00+09:00")/1000+i*300,
+    open:100,high:i>8?104:101,low:i===8?90:98,close:100
+  }));
+  const row={code:"9984",tradeDate:"2026-10-27",previousClose:100,
+    intervalMinutes:5,bars,source:"SYNTHETIC_TEST_ONLY",licenseVerified:true,
+    timestampSemantics:"BAR_START",exchangeTimezone:"Asia/Tokyo",
+    outcomeAvailableAt:"2026-10-27T12:00:00+09:00"};
+  const result=joinMorningResearchExports([feature],[row]);
+  assert.equal(result.candidates,1);
+  assert.equal(result.accepted,1);
+  assert.equal(result.results?.accepted,1);
+  assert.equal(result.independentlyAuthenticated,false);
+  assert.equal(result.bottomTimeDistribution,null);
+  assert.equal(result.signalEnabled,false);
+  assert.equal(result.readyForTrading,false);
+});
