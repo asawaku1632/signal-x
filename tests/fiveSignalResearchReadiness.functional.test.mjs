@@ -91,3 +91,7 @@ test("malformed forward coverage never enters owner preview", () => {
     assert.equal(result.eligibleForOwnerPreview, false);
   }
 });
+
+test("future observations fail closed", () => {
+  assert.ok(evaluate({ observedAt: "2099-01-01T00:00:00Z" }).reasons.includes("FUTURE_OBSERVATION_TIME"));
+});
