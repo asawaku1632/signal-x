@@ -52,7 +52,7 @@ test("100-share purchase budget boundaries", () => {
 test("missing observation timestamp and invalid samples fail closed", () => {
   assert.equal(evaluate({ observedAt: null }).eligibleForOwnerPreview, false);
   for (const completedForwardDays of [-1, 1.5, null, "20"]) {
-    assert.ok(evaluate({ completedForwardDays }).reasons.includes("INSUFFICIENT_FORWARD_COVERAGE"));
+    assert.ok(evaluate({ completedForwardDays }).reasons.includes("INVALID_FORWARD_COUNTS"));
   }
 });
 
@@ -80,5 +80,14 @@ test("timezone-free timestamp is rejected", () => {
 
 test("invalid volume ratio cannot pass the gate", () => {
   const result = evaluate({ volumeRatio20d: -2 });
-  assert.ok(result.reasons.includes("VOLUME_UNAVAILABLE"));
+  assert.ok(result.reasons.includes("INVALID_VOLUME_RATIO"));
+  assert.equal(result.eligibleForOwnerPreview, false);
+});
+
+test("malformed forward coverage never enters owner preview", () => {
+  for (const completedForwardObservations of [-1, 1.5, null]) {
+    const result = evaluate({ completedForwardObservations });
+    assert.ok(result.reasons.includes("INVALID_FORWARD_COUNTS"));
+    assert.equal(result.eligibleForOwnerPreview, false);
+  }
 });
