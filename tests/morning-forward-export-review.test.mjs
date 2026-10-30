@@ -70,3 +70,15 @@ test("thin samples remain unqualified for ten-pair comparison",()=>{
  assert.equal(r.tenPairDateImprovementPp,null);
  assert.ok(r.blockers.includes("NO_DATES_WITH_10_PAIRS"));
 });
+
+test("overflowed daily return sums cannot produce a headline performance metric",()=>{
+ const d="2026-11-04";
+ const snapshots=[snapshot(d,"7203"),snapshot(d,"6758")];
+ const outcomes=[result(d,"7203",0,1e308),result(d,"6758",0,1e308)];
+ const r=review({snapshots,outcomes});
+ assert.equal(r.nonfiniteDateAggregates,1);
+ assert.equal(r.equalDateImprovementPp,null);
+ assert.equal(r.tenPairDateImprovementPp,null);
+ assert.ok(r.blockers.includes("NONFINITE_DATE_AGGREGATE"));
+ assert.equal(r.decision,"DO_NOT_PROMOTE");
+});
