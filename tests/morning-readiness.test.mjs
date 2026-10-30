@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {assessMorningResearchReadiness} from "../app/lib/research/morningReadiness.mjs";
+import {assessMorningResearchReadiness,readinessFromMorningAudit} from "../app/lib/research/morningReadiness.mjs";
 const inventory=(overrides={})=>({
   priorFeatureRows:0,fiveMinuteBarStockDays:0,
   provenanceVerifiedStockDays:0,joinedStockDays:0,
@@ -36,4 +36,24 @@ test("inconsistent or fabricated counts fail closed",()=>{
     inventory({priorFeatureRows:1,fiveMinuteBarStockDays:1,provenanceVerifiedStockDays:1,joinedStockDays:2}),
     inventory({priorFeatureRows:1,fiveMinuteBarStockDays:1,provenanceVerifiedStockDays:1,joinedStockDays:1,forwardEvaluatedStockDays:2})
   ])assert.throws(()=>assessMorningResearchReadiness(input));
+});
+
+test("accepted offline rows cannot self-certify independent source verification",()=>{
+  const audit={version:"VERIFIED_MORNING_EXPORT_AUDIT_V1",inputCount:40,accepted:35};
+  const result=readinessFromMorningAudit(audit,{
+    priorFeatureRows:50,fiveMinuteBarStockDays:40,provenanceVerifiedStockDays:35
+  });
+  assert.equal(result.counts.joinedStockDays,0);
+  assert.equal(result.counts.forwardEvaluatedStockDays,0);
+  assert.equal(result.researchReplayPossible,false);
+  assert.equal(result.readyForTrading,false);
+  assert.equal(result.signalEnabled,false);
+  assert.ok(result.blockers.includes("NO_AS_OF_JOINED_STOCK_DAYS"));
+});
+test("malformed audit counts cannot be promoted into readiness",()=>{
+  for(const audit of [null,{},
+    {version:"VERIFIED_MORNING_EXPORT_AUDIT_V1",inputCount:1,accepted:2},
+    {version:"VERIFIED_MORNING_EXPORT_AUDIT_V1",inputCount:1,accepted:-1},
+    {version:"VERIFIED_MORNING_EXPORT_AUDIT_V1",inputCount:1.5,accepted:1}
+  ])assert.throws(()=>readinessFromMorningAudit(audit));
 });
