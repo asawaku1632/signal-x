@@ -14,10 +14,15 @@ export async function GET() {
     return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
   }
   try {
-    const [evidence, forwardRows] = await Promise.all([
-      getNotificationResearchEvidence(),
-      getFiveSignalForwardResearch(100),
-    ]);
+    const evidence = await getNotificationResearchEvidence();
+    let forwardRows: Awaited<ReturnType<typeof getFiveSignalForwardResearch>> = [];
+    let forwardResearchStatus: "HISTORICAL_ONLY" | "SOURCE_UNAVAILABLE" = "HISTORICAL_ONLY";
+    try {
+      forwardRows = await getFiveSignalForwardResearch(100);
+    } catch {
+      forwardResearchStatus = "SOURCE_UNAVAILABLE";
+      console.warn("[five-signal-preview] optional forward source unavailable");
+    }
     const surge = evidence.categories.find((category) => category.key === "surge");
     const signals = FIVE_SIGNAL_RESEARCH_ALERTS.map((signal) => {
       const matched = signal.key === "profit_precursor" ? surge : undefined;
@@ -49,7 +54,7 @@ export async function GET() {
       automaticRelease: false,
       notificationsSent: 0,
       forwardResearch: {
-        status: "HISTORICAL_ONLY",
+        status: forwardResearchStatus,
         limitedTo: 100,
         rows: forwardRows,
         warning: "既存の4研究の過去FORWARD観測。5種類の新シグナルに再分類した結果ではありません。5日後結果は検証専用で、予測特徴量に使用しません。",
