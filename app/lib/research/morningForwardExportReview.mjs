@@ -18,6 +18,7 @@ export function reviewMorningForwardExport(exportData){
  const heldOutDays=dates.filter(d=>d.pairs>=10);
  const heldOutGap=heldOutDays.length?heldOutDays.reduce((sum,d)=>sum+d.improvementPp,0)/heldOutDays.length:null;
  const positiveDays=dates.filter(d=>d.improvementPp>0).length;
+ const nonfiniteDateAggregates=dates.filter(d=>!Number.isFinite(d.baselineMean)||!Number.isFinite(d.candidateMean)||!Number.isFinite(d.improvementPp)).length;
  // Per-date observed/expected pairs keep incomplete trading dates visible.
  const expectedByDate=new Map();
  for(const x of snapshots){
@@ -54,9 +55,9 @@ export function reviewMorningForwardExport(exportData){
   reconciledPairs:audit.pairedCount,unmatchedSnapshots:snapshots.length-audit.pairedCount,
   exclusions:audit.reasons,dates,observedDates:dates.length,observedMonths:activeMonths,
   pairCoverage,orphanOutcomeKeys,blockers,dateCoverage,incompleteDates,completeDates,
-  completeDateImprovementPp,positiveDays,datesWith10Pairs:heldOutDays.length,
-  tenPairDateImprovementPp:heldOutGap,
-  equalDateImprovementPp:gap,independentlyAuthenticated:false,
+  completeDateImprovementPp,positiveDays,nonfiniteDateAggregates,datesWith10Pairs:heldOutDays.length,
+  tenPairDateImprovementPp:finiteMeans?heldOutGap:null,
+  equalDateImprovementPp:finiteMeans?gap:null,independentlyAuthenticated:false,
   decision:"DO_NOT_PROMOTE",trainingEnabled:false,notificationsEnabled:false,tradingEnabled:false,
   note:"This is an exploratory summary of caller supplied export records, not independently authenticated 09:05 predictions or trading profitability."};
 }
