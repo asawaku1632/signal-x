@@ -10,6 +10,12 @@ export type ForwardResearchRow = {
 
 export async function getFiveSignalForwardResearch(limit = 100): Promise<ForwardResearchRow[]> {
   const size = Number.isSafeInteger(limit) ? Math.max(1, Math.min(limit, 200)) : 100;
+  const required = ["momentum_memory_observations", "high_ai_pullback_observations", "ai_reversal_observations", "trend_pullback_reversal_observations"];
+  const check = await pool.query<{ name: string; exists: boolean }>(
+    "SELECT name, to_regclass('public.' || name) IS NOT NULL AS exists FROM unnest($1::text[]) AS name",
+    [required],
+  );
+  if (check.rows.some((row) => !row.exists)) return [];
   const result = await pool.query<{
     trade_date: string | Date;
     code: string;
