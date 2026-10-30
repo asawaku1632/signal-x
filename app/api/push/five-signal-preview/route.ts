@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { getNotificationResearchEvidence } from "@/app/lib/push/notificationResearchEvidence";
+import { getFiveSignalForwardResearch } from "@/app/lib/push/fiveSignalForwardResearch";
 import { FIVE_SIGNAL_RESEARCH_ALERTS } from "@/app/lib/push/fiveSignalResearchReadiness";
 
 export const runtime = "nodejs";
@@ -13,7 +14,10 @@ export async function GET() {
     return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
   }
   try {
-    const evidence = await getNotificationResearchEvidence();
+    const [evidence, forwardRows] = await Promise.all([
+      getNotificationResearchEvidence(),
+      getFiveSignalForwardResearch(100),
+    ]);
     const surge = evidence.categories.find((category) => category.key === "surge");
     const signals = FIVE_SIGNAL_RESEARCH_ALERTS.map((signal) => {
       const matched = signal.key === "profit_precursor" ? surge : undefined;
@@ -44,6 +48,12 @@ export async function GET() {
       ownerOnly: true,
       automaticRelease: false,
       notificationsSent: 0,
+      forwardResearch: {
+        status: "HISTORICAL_ONLY",
+        limitedTo: 100,
+        rows: forwardRows,
+        warning: "既存の4研究の過去FORWARD観測。5種類の新シグナルに再分類した結果ではありません。5日後結果は検証専用で、予測特徴量に使用しません。",
+      },
       note: "読み取り専用の研究状況。銘柄候補・通知・売買指示ではありません。",
       signals,
     }, { headers: { "Cache-Control": "private, no-store" } });
