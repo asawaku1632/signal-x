@@ -49,7 +49,7 @@ export function evaluateFiveSignalResearchAlert(input: ResearchAlertInput): Rese
   if (!input.evidenceVerified) reasons.push("UNVERIFIED_RESEARCH");
   if (input.completedForwardDays < 15 || input.completedForwardCodes < 30 ||
       input.completedForwardObservations < 50) reasons.push("INSUFFICIENT_FORWARD_COVERAGE");
-  if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
+  if (!["BULLISH", "BEARISH", "NONE", "UNKNOWN"].includes(input.divergence)) reasons.push("INVALID_DIVERGENCE");\n  if (input.divergence === "BEARISH") reasons.push("BEARISH_DIVERGENCE_WARNING");
   if (input.momentumPct === null || !Number.isFinite(input.momentumPct)) reasons.push("MOMENTUM_UNAVAILABLE");
   if (input.volumeRatio20d === null || !Number.isFinite(input.volumeRatio20d)) reasons.push("VOLUME_UNAVAILABLE");
   return {
