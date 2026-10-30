@@ -79,6 +79,8 @@ test("overflowed daily return sums cannot produce a headline performance metric"
  assert.equal(r.nonfiniteDateAggregates,1);
  assert.equal(r.equalDateImprovementPp,null);
  assert.equal(r.tenPairDateImprovementPp,null);
+ assert.equal(r.completeDateImprovementPp,null);
+ assert.equal(r.positiveDays,null);
  assert.ok(r.blockers.includes("NONFINITE_DATE_AGGREGATE"));
  assert.equal(r.decision,"DO_NOT_PROMOTE");
 });
