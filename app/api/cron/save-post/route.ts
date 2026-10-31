@@ -33,10 +33,11 @@ function tasksFor(phase: Phase, date: string): Task[] {
   switch (phase) {
     case "pattern":
       return [
+        // Settle existing forward outcomes before potentially expensive pattern scans.
+        { label: "trend-reversal-outcomes", run: () => updateTrendPullbackReversalOutcomes(date) },
+        { label: "trend-reversal-observations", run: () => saveTrendPullbackReversalObservations(date) },
         { label: "pattern-outcomes", run: () => updatePatternForwardOutcomes(date) },
         { label: "pattern-stats", run: () => refreshPatternForwardStats() },
-        { label: "trend-reversal-observations", run: () => saveTrendPullbackReversalObservations(date) },
-        { label: "trend-reversal-outcomes", run: () => updateTrendPullbackReversalOutcomes(date) },
       ];
     case "reversal":
       return [
