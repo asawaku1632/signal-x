@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "ma75-pre-forward-archive-readiness-audit-v1",
+  "auditDateJst": "2026-10-31",
+  "evidenceType": "READ_ONLY_AGGREGATE_DATABASE_QUERY",
+  "frozenUniverseFile": "docs/ma75-forward-cohort-freeze-20261031.json",
+  "sourceTables": [
+    "public.daily_stock_results",
+    "public.display_snapshots"
+  ],
+  "frozenUniverseCodes": 953,
+  "allSavedDailyChartSnapshots": 126,
+  "overlappingSavedDailyChartSnapshots": 125,
+  "chartSnapshotsOutsideFrozenUniverse": 1,
+  "missingDailyChartsForFrozenSymbols": 828,
+  "dailyHistoryBarsPerSavedChart": {
+    "min": 121,
+    "max": 123,
+    "atLeast76": 126
+  },
+  "dailyHistoryBarsTotal": 15357,
+  "historicalChartProvider": "yahoo_chart",
+  "earliestChartSavedAtUtc": "2026-10-05T00:27:21.007045Z",
+  "latestChartSavedAtUtc": "2026-10-30T12:59:09.601026Z",
+  "archivedDailyBarQualityReadOnlyChecks": {
+    "nonnumericRequiredOhlcvBars": 0,
+    "invalidOhlcvGeometry": 0,
+    "invalidSecondsEpoch": 0,
+    "nonChronologicalBarTimestamp": 0,
+    "closePriceChangesOver45Percent": 0,
+    "zeroVolumeBars": 0,
+    "dailyBarsCapturedAfterSnapshotSave": 0
+  },
+  "futureStockDaysCapturedUnderFrozenProtocol": 0,
+  "auditedFutureTradingOutcomes": 0,
+  "structuralHistoricalOverlapPercent": 13.116,
+  "dataLimitations": [
+    "Saved history is selected because someone opened a chart; it does not cover the full 953-code frozen denominator.",
+    "Yahoo_chart saved payload provider rights, redistribution and original capture timestamps are not independently certified.",
+    "Structural OHLCV checks do not prove exchange-approved adjusted history, adjusted volume, verified corporate actions or continuity of daily trading sessions.",
+    "The 953 previously observed symbols are not independently certified as the complete TSE-listed liquid universe.",
+    "daily_stock_results contains a price and score, but not independent verified OHLCV for every code-day.",
+    "No official calendar, live feed, independently captured future bars, production scoring, alert gating or actual fills are demonstrated."
+  ],
+  "eligibleForProduction": false,
+  "eligibleForNotifications": false,
+  "sourceVerified": false,
+  "additionalCostsIncurred": false,
+  "dbWrites": false,
+  "description": "Aggregate observational research inventory frozen in Draft PR #297; this file is not a new historical signal archive."
+}
