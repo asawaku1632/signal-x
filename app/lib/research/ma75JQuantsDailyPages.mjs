@@ -7,7 +7,7 @@
  * independently timestamped source, complete TSE listing or trade eligibility.
  */
 import { validateMa75FrozenUniverse } from './ma75FrozenUniverse.mjs';
-export const MA75_JQUANTS_PAGE_VERSION='ma75_jquants_v2_offline_daily_v2';
+export const MA75_JQUANTS_PAGE_VERSION='ma75_jquants_v2_offline_daily_v3';
 const isDay=s=>typeof s==='string'&&/^20\d\d-\d\d-\d\d$/.test(s)&&
   Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
   new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -83,21 +83,26 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     seenCode.set(id,r);
     if(!allowed.has(code)){outOfCohort.push(code);continue}
     let status='DAILY_BAR',bar=null,actionDetails=null;
-    // Explicit ex-rights or split factors must override any price-gap heuristic.
-    // Do not silently reuse v1 archives lacking this corporate-action check.
+    // Official API fields: non-event dates have AdjFactor=1 and ExRT=null.
+    // Missing or unknown event metadata is NOT evidence of no split/rights.
+    // This strict schema supersedes prior v2 checks.
     const factor=r.AdjFactor;
-    const factorProvided=factor!==undefined&&factor!==null;
-    const factorBad=factorProvided&&(!val(factor)||factor<=0);
-    const factorNonUnit=factorProvided&&!factorBad&&Math.abs(factor-1)>1e-10;
-    const rightsProvided=r.ExRT!==undefined&&r.ExRT!==null&&
-      String(r.ExRT).trim()!==''&&String(r.ExRT).trim()!=='0';
-    if(factorBad||factorNonUnit||rightsProvided){
+    const hasFactor=Object.prototype.hasOwnProperty.call(r,'AdjFactor');
+    const hasRights=Object.prototype.hasOwnProperty.call(r,'ExRT');
+    const factorOK=hasFactor&&typeof factor==='number'&&Number.isFinite(factor)&&factor>0;
+    const rightsOK=hasRights&&(r.ExRT===null||
+      (typeof r.ExRT==='string'&&['1','2','3'].includes(r.ExRT)));
+    const factorNonUnit=factorOK&&Math.abs(factor-1)>1e-10;
+    const rightsEvent=rightsOK&&r.ExRT!==null;
+    if(!factorOK||!rightsOK||factorNonUnit||rightsEvent){
       status='CORPORATE_ACTION_REVIEW';
-      actionDetails={adjustmentFactor:factorProvided?factor:null,
-        exRightsType:rightsProvided?String(r.ExRT):null,
-        reason:factorBad?'INVALID_ADJUSTMENT_FACTOR':
-          rightsProvided?'EX_RIGHTS_EVENT':'NON_UNIT_ADJUSTMENT_FACTOR',
-        independentlyVerified:false};
+      actionDetails={
+        adjustmentFactor:factorOK?factor:null,
+        exRightsType:rightsEvent?r.ExRT:null,
+        reason:!factorOK||!rightsOK?'MISSING_OR_INVALID_EVENT_METADATA':
+          rightsEvent?'EX_RIGHTS_EVENT':'NON_UNIT_ADJUSTMENT_FACTOR',
+        independentlyVerified:false
+      };
     }else if([r.O,r.H,r.L,r.C].every(x=>x===null)&&
         (r.Vo===null||r.Vo===0)){
       status='NO_TRADE';
