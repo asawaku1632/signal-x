@@ -39,3 +39,10 @@ test('duplicate cohort protection',()=>{
  const c=make();
  assert.throws(()=>auditMa75WaitPolicy(studyMa75BreakoutRetest([c]),[c,c]),TypeError);
 });
+
+test('future split anywhere in full opportunity window is quarantined',()=>{
+ const c=make(false);c.candles[89]={...c.candles[89],close:300,high:301,low:299,open:300};
+ const r=audit(c);
+ assert.equal(r.completeOpportunities,0);
+ assert.equal(r.quarantined,1);
+});
