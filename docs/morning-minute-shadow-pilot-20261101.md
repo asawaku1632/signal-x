@@ -58,3 +58,35 @@ Additional **read-only opt-in transport safety**:
 - This does not create a server route or expose the key via browser. Only a separately authorized and isolated secure execution environment may run the explicit script. The connected Vercel plugin exposes the environment variable **names** but does not by itself provide a safe arbitrary code-execution capability with that secret. No API key has been decrypted or accessed.
 
 **Verification:** \`tests/morningMinuteShadow.test.mjs\` 17 scenarios and \`tests/jquantsMinutePilot.test.mjs\` 20 scenarios = **37/37 passed** using exact current GitHub JavaScript source with mocked transport and a frozen-manifest crypto stub. **No native Node CI or actual authenticated minute API request** has been completed: the container cannot resolve the private GitHub remote, and the secure deployment runtime was not changed. No real return/edge/win-rate conclusion was drawn.
+
+
+## Historical minute ↔ unadjusted daily OHLCV reconciliation (2026-11-01)
+
+**Reason for this guard:** A fully paginated, individually plausible one-minute response can still omit an executed interval or a final auction. A 09:05 historical snapshot and a reconstructed rebound would then be based on an incomplete underlying price path. J-Quants supplies original daily O/H/L/C/Vo in a separate Standard-plan API; compare it with the minute archive **before** treating the source as structurally reconcilable.
+
+New code:
+- \`morningMinuteShadow.mjs\` now emits \`morning_minute_shadow_v2\` and a \`dailyObservation\` aggregating the **whole date** from correctly sequenced minute bars, including the first executed open, daily highest high, lowest low, last executed close, sum of volume and traded value. An empty minute archive has no invented O/H/L/C or volume.
+- \`morningMinuteDailyReconciliation.mjs\` checks that the *same frozen symbol and original trade date* have valid minute v2 and provider daily v3 audits, with matching **unadjusted OHLCV**. Missing final auction/high/low, minute trade rows with a \`NO_TRADE\` daily record, nonzero daily volume with empty minutes, unresolved split/rights action, incomplete pagination, wrong versions or code/date mismatch **block historical quality clearance**. A correctly empty minute day and genuinely \`NO_TRADE\` daily record is reported as \`matchingNoTradeSession\`, **not** a qualified breakout/buy.
+- \`jquants-minute-pilot.mjs\` remains dry-run by default. Optional \`--compare-daily\` requires the *same explicit \`--execute\` flag and secure backend approval* to call the Standard-plan \`/v2/equities/bars/daily\` **for that same one code and date**, in addition to the historical minute endpoint. Both providers have **at most 4 pages each**, so the optional combined plan has **8 HTTP requests maximum**; no loop over all frozen stocks/dates. The direct daily fetch helper independently verifies scope, publication cutoff, code/date, pagination, HTTPS endpoint, no redirects and redacted errors.
+- Without \`--compare-daily\`, output status is \`MINUTE_ONLY_UNRECONCILED\` (never 'research ready'). With comparison, \`HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH\` means only the **one past code/day** had internally matching OHLCV. It does not mean market calendar, provider source-rights, data provenance, stock actions or historical 09:05 availability have been independently authenticated. All notification/trading flags remain false.
+- Standard-day records also contain \`AdjFactor\` and \`ExRT\`; a nonunit adjustment or unresolved rights event blocks the comparison even if the OHLCV numerically matches. The provider's retroactively adjusted \`Adj*\` price fields must not replace original historical OHLCV.
+
+**Zero-request default example:**
+
+\`\`\`bash
+node scripts/research/jquants-minute-pilot.mjs --code=3762 --date=2026-10-30 --compare-daily
+\`\`\`
+
+The dry-run does not require a key, does not retrieve API responses and does not create data.
+
+**Explicit authorized read-only historical example (not executed in this PR):**
+
+\`\`\`bash
+node scripts/research/jquants-minute-pilot.mjs --execute --compare-daily --code=3762 --date=2026-10-30 --max-pages=4
+\`\`\`
+
+Run only in an already trusted runtime with \`JQUANTS_RESEARCH_PROBE_ENABLED=true\` and a secure existing \`JQUANTS_API_KEY\` environment variable. Do **not** paste or print the key. The release-time guard uses approximately 16:30 JST as a *minimum planning cutoff*, not proof the vendor actually published a given row. Each API may return fewer pages; if any pagination chain requires more than four, the output is incomplete and must not be used.
+
+**Verification:** 58/58 targeted tests passed directly from GitHub-fetched JavaScript in an isolated V8 runner: 17 minute parser, 13 minute↔daily reconciliation and 28 bounded/mocked API tests. Frozen-manifest hashing and HTTP interfaces were stubbed by the test harness. Not a complete native Node.js CI, not a real vendor call, and not a backtested performance proof. No production changes or external API requests made.
+
+Provider schemas: https://jpx-jquants.com/ja/spec/eq-bars-minute and https://jpx-jquants.com/ja/spec/eq-bars-daily .
