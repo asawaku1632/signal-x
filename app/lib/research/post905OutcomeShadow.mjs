@@ -4,13 +4,13 @@
  * A bar's Time denotes its START minute (JST).
  */
 const minute = time => {
-  if (typeof time !== 'string' || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) return null;
+  if (typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const [h,m]=time.split(':').map(Number);
   return h*60+m;
 };
 const pct=(a,b)=>Number(((b/a-1)*100).toFixed(5));
 export function measurePost905Outcomes(rows,{code,date}={}) {
-  if(!Array.isArray(rows)||!/^20\\d{2}-\\d{2}-\\d{2}$/.test(date??'')||
+  if(!Array.isArray(rows)||!/^20\d{2}-\d{2}-\d{2}$/.test(date??'')||
      !/^[0-9]{3}[0-9A-Z]$/.test(code??'')) throw new TypeError('INVALID_RESEARCH_SCOPE');
   const seen=new Set();
   const bars=[];
