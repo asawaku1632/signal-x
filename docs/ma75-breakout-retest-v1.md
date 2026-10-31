@@ -122,3 +122,25 @@ Local Node 22 regression run:
 **30 tests / 30 passed / 0 failures** across breakout/retest, chronological, wait-policy, source provenance and daily-bar as-of replay modules. Repository-wide CI and Vercel checks are tracked separately; local tests do not establish model predictive accuracy.
 
 Promotion gate remains BLOCKED: no merge, AI POWER updates, trade recommendations, notifications, production database writes, new subscriptions, or automatic tasks. This module is an offline research interface only. Actual future research must record immutable data provenance, freeze an independently chosen cohort *before* observations, measure all opportunities including no-retest/cash, and validate risk, transaction costs and independent holdout periods.
+
+## Forward outcome settlement with five exchange sessions (2026-10-31)
+
+Pure research module: \`app/lib/research/ma75ForwardOutcome.mjs\`. Tests: \`tests/ma75ForwardOutcome.test.mjs\`.
+
+Inputs are the frozen cohort manifest, an already classified *as-of* daily-candle replay, a provided ordered exchange-session calendar, and outcome batches with captured/received timestamps. **No provider API is called, no database is written, and no cron/notification is enabled.**
+
+Settlement policy:
+- Only the five **exchange sessions after a completed signal date** count; weekends and holidays must be absent from the **externally certified calendar**. These sample calendar dates are not an independent exchange-calendar certificate.
+- Hypothetical entry is the next exchange session OPEN with 0.1% price disadvantage, exit is session+5 CLOSE with 0.1% disadvantage. A separate session+3 return is shown. Include 100-share profit/loss, percent return, five-session minimum-low adverse excursion (not an executable stop-loss), and 100,000–500,000 JPY budget eligibility.
+- \`PENDING_CALENDAR_SIGNAL\`, \`PENDING_CALENDAR_HORIZON\`, \`PENDING_DATA\`, and \`PENDING_MISSING_BARS\` must **never count as a loss, a win or zero percent return**. No historical/forward outcome is considered validated merely because these examples exist.
+- \`QUARANTINED_*\` covers duplicate candidate IDs or batch IDs, out-of-cohort attempts, invalid signal timestamps, provider mismatch, unknown/duplicate sessions, invalid OHLCV, missing/late provenance, and suspicious 45% corporate-action gaps. No quarantine is silently counted in win rates.
+- A SHA-256 evidence digest on a completed hypothetical result enables reproducible comparison of source inputs but **does not authenticate the data source or certify that the bars were available at the claimed timestamp**.
+- \`validatedForwardWinRate=null\`, \`validatedForwardOutcomes=0\`, and \`eligibleForProduction=false\` remain hardcoded. Descriptive mean/win percentages are labelled hypothetical. Any real promotion requires externally audited rights, calendar, raw-source, source captures, split-adjusted data and independent forward sample.
+
+Added ten explicit new scenario-based unit tests, including synthetic Japanese holiday skipping; no source-verified post-freeze observations were supplied. The *newly committed* test suite is **not confirmed to have executed** in this turn; earlier tests and previous local successes must not be conflated with latest commit CI. Confirm by running:
+
+\`\`\`bash
+node --test tests/ma75*.test.mjs
+\`\`\`
+
+This is an offline, draft-only addition to PR #297; no production release, automatic finance recommendation, server scheduling, schema migration, new paid provider tier or changes to PR #216 / #292.
