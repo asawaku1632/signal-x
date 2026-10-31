@@ -70,7 +70,7 @@ test('identical normalized code-date on separate pages is quarantined',()=>{
  assert.equal(r.structurallyUsableRawBars,0);
 });
 test('non-traded null day is separate from an invalid partial OHLCV row',()=>{
- const r=parse(make([noTrade(),bar('186A0',{O:null,H:103,L:99,C:102,Vo:200})],[]));
+ const r=parse(make([noTrade('13010'),bar('186A0',{O:null,H:103,L:99,C:102,Vo:200})],[]));
  assert.equal(r.rows.find(x=>x.code==='1301').status,'NO_TRADE');
  assert.equal(r.rows.find(x=>x.code==='186A').status,'INVALID_OHLCV');
 });
@@ -110,4 +110,19 @@ test('freeze and exact date are checked, not patched with an inferred trade day'
  const f=freeze();f.codes=['1301','1301'];f.populationSize=2;
  assert.throws(()=>parse(make(),f),TypeError);
  assert.throws(()=>parse([]),TypeError);
+});
+
+test('invalid same-symbol other-date row never shadows a correctly dated bar',()=>{
+ const correct=bar('13010');
+ const wrongDate=bar('13010',{Date:'2026-11-05'});
+ const r=parse(make([correct,wrongDate],[]));
+ assert.equal(r.rows.find(x=>x.code==='1301').status,'DAILY_BAR');
+ assert.equal(r.unmappedRows.length,1);
+ assert.equal(r.structurallyUsableRawBars,1);
+});
+test('all-null nontrading day and zero volume are kept as a non-trade state, not a signal',()=>{
+ const r=parse(make([noTrade('13010',{Vo:0})],[]));
+ assert.equal(r.rows.find(x=>x.code==='1301').status,'NO_TRADE');
+ assert.equal(r.rows.find(x=>x.code==='1301').bar,null);
+ assert.equal(r.structurallyUsableRawBars,0);
 });
