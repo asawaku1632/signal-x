@@ -55,3 +55,35 @@ test('plan defaults to dry-run without execute and explicit enable',()=>{
  assert.equal(plan.requestUpperLimit,4);
  assert.equal(plan.safeForProduction,false);
 });
+
+test('minute repeated pagination token is rejected without extra requests',async()=>{
+ let calls=0;
+ const fetchImpl=async()=>{
+   calls++;
+   return {ok:true,json:async()=>({data:[],pagination_key:'same-token'})};
+ };
+ await assert.rejects(
+   fetchMinutePilotPages({...opts,maxPages:3,fetchImpl}),
+   /JQUANTS_REPEATED_OR_INVALID_PAGINATION_KEY/
+ );
+ assert.equal(calls,2);
+});
+test('minute network exceptions do not expose upstream secret text',async()=>{
+ await assert.rejects(
+   fetchMinutePilotPages({...opts,fetchImpl:async()=>{throw new Error('SECRET-DO-NOT-LOG')}}),
+   error=>error.message==='JQUANTS_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED'
+ );
+});
+test('minute HTTP permission and rate limit are handled separately',async()=>{
+ for(const [status,expected] of [[403,'JQUANTS_403_KEY_OR_PERMISSION_UNVERIFIED'],[429,'JQUANTS_429_RATE_LIMIT']]){
+   await assert.rejects(
+     fetchMinutePilotPages({...opts,fetchImpl:async()=>({ok:false,status})}),
+     error=>error.message===expected
+   );
+ }
+});
+test('daily endpoint requires secure API key and never fetches without one',async()=>{
+ let calls=0;
+ await assert.rejects(fetchDailyPilotPages({...opts,apiKey:'',fetchImpl:async()=>{calls++}}),/API_KEY_MISSING/);
+ assert.equal(calls,0);
+});
