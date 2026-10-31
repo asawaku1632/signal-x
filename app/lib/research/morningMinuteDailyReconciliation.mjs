@@ -57,7 +57,12 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
      reasons.push('INVALID_UNADJUSTED_DAILY_BAR');
    else if(aggregate?.barCount>0){
      for(const field of ['open','high','low','close','volume']){
-       if(!same(aggregate[field],dailyBar[field]))
+       // Share volume is an integer count: even one missing share matters.
+       // Price floats may have harmless provider serialization rounding.
+       const equal=field==='volume'?
+         Object.is(aggregate[field],dailyBar[field]):
+         same(aggregate[field],dailyBar[field]);
+       if(!equal)
          reasons.push('DAILY_MINUTE_'+field.toUpperCase()+'_MISMATCH');
      }
    }
