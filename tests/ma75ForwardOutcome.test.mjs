@@ -33,6 +33,9 @@ test('five exchange sessions skip Japan holiday and settle with friction',()=>{
  assert.equal(d.profit5Yen100,Math.round(((2050*.999)-(2000*1.001))*100));
  assert.equal(result.eligibleForProduction,false);
  assert.equal(result.sourceIndependentlyVerified,false);
+ assert.equal(result.validatedForwardWinRate,null);
+ assert.equal(result.validatedForwardOutcomes,0);
+ assert.equal(result.independentlyReproduced,false);
  assert.equal(typeof d.evidenceDigest,'string');
  assert.equal(d.evidenceDigest.length,64);
 });
