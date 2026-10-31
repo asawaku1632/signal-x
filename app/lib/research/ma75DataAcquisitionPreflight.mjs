@@ -16,6 +16,12 @@ const timestamp=x=>typeof x==='string'&&/(?:Z|[+-]\d\d:\d\d)$/.test(x)?Date.pars
 const afterTseClose=date=>Date.parse(date+'T06:30:00Z'); // 15:30 JST, NOT provider-available-at.
 const dailyPublishTarget=date=>Date.parse(date+'T07:30:00Z'); // Around 16:30 JST; estimate, not guarantee.
 const OFFLINE_PAGE_COMPLETE=new Set(['DAILY_BAR','NO_TRADE']);
+const validPositive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
+const validRawBar=(bar,code,date)=>bar?.code===code&&
+  bar.tradeDate===date&&bar.unadjusted===true&&
+  [bar.open,bar.high,bar.low,bar.close,bar.volume].every(validPositive)&&
+  bar.high>=Math.max(bar.open,bar.close,bar.low)&&
+  bar.low<=Math.min(bar.open,bar.close,bar.high);
 
 /**
  * asOf: explicit offset-aware ISO instant; sessions: 76 calendar-certified
@@ -50,21 +56,26 @@ export function planMa75JQuantsAcquisition(freeze,{
    else if(prior.length===1){
      const r=prior[0],rows=r?.rows;
      const lastReceived=timestamp(r?.lastReceivedAt);
-     if(!Number.isFinite(lastReceived)||lastReceived>clock||
-       lastReceived<afterTseClose(date)||
+     const firstReceived=timestamp(r?.firstReceivedAt);
+     if(!Number.isFinite(firstReceived)||!Number.isFinite(lastReceived)||
+       firstReceived<afterTseClose(date)||firstReceived>lastReceived||
+       lastReceived>clock||lastReceived<afterTseClose(date)||
        r.version!==MA75_JQUANTS_PAGE_VERSION||
        r.paginationComplete!==true||!Array.isArray(r.failures)||r.failures.length!==0||
+       !Number.isSafeInteger(r.readPages)||r.readPages<1||
+       !Number.isSafeInteger(r.rawProviderRows)||r.rawProviderRows<0||
        r.expectedFrozenCodes!==freeze.codes.length||
        !Array.isArray(rows)||rows.length!==freeze.codes.length||
        rows.some((x,i)=>x?.code!==freeze.codes[i]||x.tradeDate!==date||
          !OFFLINE_PAGE_COMPLETE.has(x.status)||
-         (x.status==='DAILY_BAR'&&x.bar?.unadjusted!==true)||
+         (x.status==='DAILY_BAR'&&!validRawBar(x.bar,x.code,date))||
          (x.status==='NO_TRADE'&&x.bar!==null))||
        r.eligibleForForwardSignal!==false||
        r.providerRightsVerified!==false||
        !r.counts||typeof r.counts!=='object'||
        !Number.isInteger(r.structurallyUsableRawBars)||
        r.structurallyUsableRawBars!==rows.filter(x=>x.status==='DAILY_BAR').length||
+       r.rawProviderRows<r.structurallyUsableRawBars+rows.filter(x=>x.status==='NO_TRADE').length||
        Object.keys(r.counts).some(k=>r.counts[k]!==rows.filter(x=>x.status===k).length)||
        rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
        state='PREVIOUS_AUDIT_INCOMPLETE';
