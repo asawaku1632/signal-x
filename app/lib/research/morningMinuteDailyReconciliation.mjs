@@ -10,8 +10,34 @@ import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MORNING_MINUTE_SHADOW_VERSION} from './morningMinuteShadow.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 
-export const MORNING_MINUTE_DAILY_RECONCILIATION_VERSION='morning_minute_daily_reconciliation_v1';
+export const MORNING_MINUTE_DAILY_RECONCILIATION_VERSION='morning_minute_daily_reconciliation_v2';
 const positive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
+const verifiedTimestamp=s=>typeof s==='string'&&/(?:Z|[+-]\d\d:\d\d)$/.test(s)?
+ Date.parse(s):NaN;
+const sourceCapturedAfterDate=(source,date)=>{
+ const first=verifiedTimestamp(source?.firstReceivedAt);
+ const last=verifiedTimestamp(source?.lastReceivedAt);
+ // Provider usually publishes historical bars ~16:30 JST. This is a
+ // conservative scheduling guard, NOT a signed provider publication time.
+ const earliest=Date.parse(date+'T07:30:00Z');
+ return Number.isFinite(first)&&Number.isFinite(last)&&
+   first>=earliest&&last>=first;
+};
+const reportedRowCountsMatch=daily=>{
+ if(!daily?.counts||typeof daily.counts!=='object'||
+    Array.isArray(daily.counts)||!Array.isArray(daily.rows)||
+    !Number.isSafeInteger(daily.rawProviderRows)||
+    !Number.isSafeInteger(daily.readPages)||daily.readPages<1||
+    daily.rawProviderRows<0)return false;
+ const counts={};
+ for(const row of daily.rows){
+   if(typeof row?.status!=='string')return false;
+   counts[row.status]=(counts[row.status]??0)+1;
+ }
+ return Object.keys(counts).length===Object.keys(daily.counts).length&&
+    Object.entries(counts).every(([name,n])=>daily.counts[name]===n)&&
+    daily.structurallyUsableRawBars===(counts.DAILY_BAR??0);
+};
 const same=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&
  Math.abs(a-b)<=1e-8*Math.max(1,Math.abs(a),Math.abs(b));
 
@@ -25,20 +51,35 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
     minute.code!==code||minute.date!==date||
     minute.structuralPass!==true||minute.pageChainComplete!==true||
     !Array.isArray(minute.errors)||minute.errors.length!==0||
-    minute.originalFrozenCohortSize!==freeze.codes.length)
+    minute.originalFrozenCohortSize!==freeze.codes.length||
+    !sourceCapturedAfterDate(minute,date)||
+    !Number.isSafeInteger(minute.observedRawBars)||minute.observedRawBars<0)
   reasons.push('INVALID_OR_DIFFERENT_MINUTE_AUDIT');
  if(!daily||daily.version!==MA75_JQUANTS_PAGE_VERSION||
     daily.date!==date||daily.paginationComplete!==true||
     daily.expectedFrozenCodes!==freeze.codes.length||
     !Array.isArray(daily.failures)||daily.failures.length!==0||
     !Array.isArray(daily.rows)||daily.rows.length!==freeze.codes.length||
-    daily.rows.some((r,i)=>r?.code!==freeze.codes[i]||r.tradeDate!==date))
+    daily.rows.some((r,i)=>r?.code!==freeze.codes[i]||r.tradeDate!==date)||
+    !sourceCapturedAfterDate(daily,date)||
+    !reportedRowCountsMatch(daily)||
+    !Array.isArray(daily.unmappedRows)||daily.unmappedRows.length!==0||
+    !Array.isArray(daily.duplicateCodeDates)||daily.duplicateCodeDates.length!==0||
+    !Array.isArray(daily.outsideFrozenCodes)||daily.outsideFrozenCodes.length!==0)
   reasons.push('INVALID_OR_DIFFERENT_DAILY_AUDIT');
  const row=Array.isArray(daily?.rows)?daily.rows.find(r=>r.code===code):null;
  const aggregate=minute?.dailyObservation;
  if(!aggregate||aggregate.code!==code||aggregate.date!==date||
     aggregate.unadjusted!==true||!Number.isInteger(aggregate.barCount)||
     aggregate.barCount<0||aggregate.barCount>327||
+    minute?.observedRawBars!==aggregate.barCount||
+    (aggregate.barCount===0&&(
+      aggregate.open!==null||aggregate.high!==null||aggregate.low!==null||
+      aggregate.close!==null||aggregate.volume!==0||aggregate.turnover!==0))||
+    (aggregate.barCount>0&&(
+      ![aggregate.open,aggregate.high,aggregate.low,aggregate.close].every(positive)||
+      aggregate.high<Math.max(aggregate.open,aggregate.close,aggregate.low)||
+      aggregate.low>Math.min(aggregate.open,aggregate.close,aggregate.high)))||
     !positive(aggregate.volume)&&aggregate.barCount>0||
     !positive(aggregate.turnover)&&aggregate.barCount>0)
    reasons.push('INVALID_MINUTE_DAY_AGGREGATE');
@@ -89,6 +130,6 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    actual0905AvailabilityVerified:false,
    validProspectiveBuyObservations:0,
    eligibleForNotifications:false,eligibleForProduction:false,
-   warning:'Daily and minute OHLCV matching is a necessary integrity check, not proof of official as-of capture, order execution or profitable signal.',
+   warning:'Even matching OHLCV, provider envelope, row counts and receipt times cannot prove official as-of 09:05 capture, order execution or profitability.',
  };
 }
