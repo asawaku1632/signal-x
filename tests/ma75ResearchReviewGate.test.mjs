@@ -28,10 +28,11 @@ const fixture=()=>{
     forwardSummary:{version:'ma75_forward_summary_v1',
       manifestSha256:sha,integrityPass:true,structuralCoveragePass:true,
       independentlyAuthenticatedCoverage:false,eligibleForProduction:false,
-      totals:{completed:120}},
+      totals:{total:120,completed:120,pending:0,quarantined:0},
+      groups:[{variant:'BREAKOUT_ALL',signalCount:120}]},
     waitPolicy:{version:'ma75_forward_wait_policy_v1',
       manifestSha256:sha,observations,
-      complete:120,pending:0,quarantined:0,
+      candidates:120,complete:120,pending:0,quarantined:0,
       eligibleForProduction:false,validatedForwardWinRate:null},
     revisionAudit:{version:'ma75_settlement_revision_audit_v1',
       manifestSha256:sha,validTransition:true},
@@ -60,6 +61,8 @@ test('synthetically sufficient structure can only request independent human revi
  assert.equal(r.counts.cash,60);
  assert.equal(r.counts.traded,60);
  assert.equal(r.status,'AWAITING_INDEPENDENT_EXTERNAL_AUDIT');
+ assert.equal(r.structuralSignalPopulationAligned,true);
+ assert.equal(r.allOutcomesMature,true);
  assert.equal(r.eligibleForNotifications,false);
  assert.equal(r.eligibleForProduction,false);
  assert.equal(r.externallyVerifiedProviderAndRights,false);
@@ -124,4 +127,52 @@ test('mutable synthetic source statuses cannot authorize live scoring',()=>{
 test('invalid original manifest always throws, instead of fallback to retrospective',()=>{
  const {p,evidence}=fixture();
  assert.throws(()=>auditMa75ResearchReviewGate({...p,codes:['0000']},evidence),TypeError);
+});
+
+test('mismatched breakout and waiting denominators block even if each has 100 completed trades',()=>{
+ const {p,evidence}=fixture();
+ for(const mutate of [
+   ()=>{evidence.forwardSummary.totals.total=125;},
+   ()=>{evidence.universeCoverage.observedBreakouts=125;},
+   ()=>{evidence.forwardSummary.groups[0].signalCount=125;},
+   ()=>{evidence.waitPolicy.candidates=125;},
+ ]){
+   const {p:current,evidence:currentEvidence}=fixture();
+   // Apply exactly one mismatch to its own fresh fixture.
+   if(mutate.toString().includes('forwardSummary.totals.total'))currentEvidence.forwardSummary.totals.total=125;
+   else if(mutate.toString().includes('universeCoverage'))currentEvidence.universeCoverage.observedBreakouts=125;
+   else if(mutate.toString().includes('groups'))currentEvidence.forwardSummary.groups[0].signalCount=125;
+   else currentEvidence.waitPolicy.candidates=125;
+   const r=auditMa75ResearchReviewGate(current,currentEvidence);
+   assert.equal(r.technicalPrecheckPass,false);
+   assert.equal(r.structuralSignalPopulationAligned,false);
+   assert.ok(r.blockers.includes('MISMATCHED_FROZEN_SIGNAL_POPULATION'));
+ }
+});
+test('pending or quarantined results prohibit complete independent review precheck',()=>{
+ for(const pendingOn of ['forward','wait']){
+   const {p,evidence}=fixture();
+   if(pendingOn==='forward'){evidence.forwardSummary.totals.pending=1;}
+   else {
+     evidence.waitPolicy.observations[0]={...evidence.waitPolicy.observations[0],
+       status:'PENDING_MISSING_BARS',detail:null};
+     evidence.waitPolicy.complete=119;evidence.waitPolicy.pending=1;
+   }
+   const r=auditMa75ResearchReviewGate(p,evidence);
+   assert.equal(r.allOutcomesMature,false);
+   assert.ok(r.blockers.includes('UNRESOLVED_OR_QUARANTINED_OUTCOMES'));
+   assert.equal(r.eligibleForProduction,false);
+ }
+});
+test('duplicate pending signals or out-of-cohort identifiers reject all-outcomes denominator',()=>{
+ for(const problem of ['duplicate','unknown']){
+  const {p,evidence}=fixture();
+  evidence.waitPolicy.observations[0]={
+   id:problem==='duplicate'?evidence.waitPolicy.observations[1].id:'9999:2027-01-02',
+   status:'PENDING_DATA',detail:null};
+  evidence.waitPolicy.complete=119;evidence.waitPolicy.pending=1;
+  const r=auditMa75ResearchReviewGate(p,evidence);
+  assert.equal(r.structuralSignalPopulationAligned,false);
+  assert.ok(r.blockers.includes('MISMATCHED_FROZEN_SIGNAL_POPULATION'));
+ }
 });
