@@ -28,7 +28,7 @@ const archive=date=>({
  rows:freeze().codes.map(code=>({code,tradeDate:date,
    status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,close:100}})),
 });
-const after='2026-11-02T07:10:00Z';
+const after='2026-11-02T08:10:00Z';
 const plan=(opts={})=>planMa75JQuantsAcquisition(freeze(),
  {asOf:opts.asOf??after,sessions:opts.sessions??sessions(),
  audits:opts.audits??[],minuteAddonStatus:opts.minuteAddonStatus??'PLANNED'});
@@ -96,6 +96,10 @@ test('user plans 5500 yen add-on but no entitlement or API access is inferred',(
   assert.equal(r.minuteAddonStatus,status);
   assert.equal(r.minuteAddonConfirmedByProvider,false);
   assert.equal(r.minuteResearchCanBeginWithExistingEntitlement,false);
+  assert.equal(r.minuteAddonUpdatesOnlyDaily,true);
+  assert.equal(r.minuteAddonRealtimeSupported,false);
+  assert.equal(r.minuteAddonHistoricalRetentionYears,2);
+  assert.equal(r.minuteBarsWithNoTransactionsAreOmitted,true);
   assert.equal(r.minuteResearchEndpoint,'/v2/equities/bars/minute');
   assert.equal(r.eligibleForProduction,false);
  }
@@ -110,4 +114,25 @@ test('invalid schedule/date, incomplete 76 sessions or as-of before freeze throw
 test('a mismatched or revised frozen population cannot trigger acquisition plans',()=>{
  const f=freeze();f.codes=['1301','1301','9984'];
  assert.throws(()=>planMa75JQuantsAcquisition(f,{asOf:after,sessions:sessions()}),TypeError);
+});
+
+test('daily close at 15:30 is NOT same as provider update around 16:30 JST',()=>{
+ const early=plan({asOf:'2026-11-02T07:00:00Z'});
+ assert.equal(early.states.waitingForProviderDailyUpdate,1);
+ assert.equal(early.states.pendingFetch,75);
+ assert.equal(early.initialDateRequestsPotentiallyNeeded,75);
+ assert.equal(early.dates.at(-1).state,'WAIT_FOR_DAILY_PROVIDER_UPDATE');
+ const later=plan({asOf:'2026-11-02T07:45:00Z'});
+ assert.equal(later.states.waitingForProviderDailyUpdate,0);
+ assert.equal(later.states.pendingFetch,76);
+ assert.equal(later.pointInTimeProviderAvailabilityVerified,false);
+});
+test('paying for the minute add-on still cannot enable an actual 09:05 historical API alert',()=>{
+ const r=plan({minuteAddonStatus:'USER_REPORTED_ACTIVE'});
+ assert.equal(r.minuteAddonUpdatesOnlyDaily,true);
+ assert.equal(r.minuteAddonRealtimeSupported,false);
+ assert.equal(r.minuteAddonConfirmedByProvider,false);
+ assert.equal(r.generatedFutureSignals,0);
+ assert.equal(r.allowedToRunApiCalls,false);
+ assert.equal(r.eligibleForNotifications,false);
 });
