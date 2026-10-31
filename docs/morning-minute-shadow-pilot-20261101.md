@@ -43,3 +43,18 @@ No key is shown on the command line or in log output. This would make at most fo
 For a larger multi-day/full-market study, first verify the add-on's license and the dataset agreement; consider J-Quants' bulk CSV path rather than an unbounded series of API calls. Explicit study population, capture timestamps, Japanese trading calendar, stock corporate actions and non-survivor outcomes must be retained. A speculative 09:05 alert would additionally require a separately authorized current-time feed: **this historical provider does not give it**.
 
 No live API call, new subscription charge, database write, scheduled task, production deployment, AI POWER scoring, notification, auto-trading, or changes to PR #216/#292 were performed.
+
+
+## Transport hardening and official minute schema check (2026-11-01)
+
+Official [J-Quants v2 minute contract](https://jpx-jquants.com/ja/spec/eq-bars-minute) was checked against the committed source. The endpoint and required \`data\` row fields are \`Date, Time, Code, O, H, L, C, Vo, Va\`; the start-of-minute timestamp is JST; response order is **not guaranteed**; \`pagination_key\` is an opaque continuation token; no-trade minutes are omitted; the 11:30 and 15:30 auction minute records may appear. The parser already sorts minute bars and treats post-09:05 rebound evidence only as hindsight.
+
+Additional **read-only opt-in transport safety**:
+- API request \`redirect:'error'\`: a redirected request **must not forward the \`x-api-key\` to another host**. Also set \`credentials:'omit'\`, \`referrerPolicy:'no-referrer'\`, and \`cache:'no-store'\`. This supplements but does not eliminate risks inherent to a trusted, secure runtime.
+- Catch network/redirect exceptions and JSON parse failures with **constant redacted error codes** rather than forwarding arbitrary proxy/server text that might include secrets.
+- Reject unexpected provider \`Date\` or five-character ordinary-share \`Code\` immediately, before requesting continuation pages.
+- Bound total minute rows to **327** for a single TSE stock-day (09:00–11:30, 12:30–15:24, 15:30) as well as the already enforced maximum **four pages**. The response is invalid if it exceeds that scope.
+- Check that the chosen historical day is **after the approximate 16:30 JST provider update** at both the user-facing plan and the direct HTTP helper level. 16:30 is only a scheduling guard and **not** proof that the provider has actually published a specific file.
+- This does not create a server route or expose the key via browser. Only a separately authorized and isolated secure execution environment may run the explicit script. The connected Vercel plugin exposes the environment variable **names** but does not by itself provide a safe arbitrary code-execution capability with that secret. No API key has been decrypted or accessed.
+
+**Verification:** \`tests/morningMinuteShadow.test.mjs\` 17 scenarios and \`tests/jquantsMinutePilot.test.mjs\` 20 scenarios = **37/37 passed** using exact current GitHub JavaScript source with mocked transport and a frozen-manifest crypto stub. **No native Node CI or actual authenticated minute API request** has been completed: the container cannot resolve the private GitHub remote, and the secure deployment runtime was not changed. No real return/edge/win-rate conclusion was drawn.
