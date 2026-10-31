@@ -10,7 +10,7 @@ This study measures **SMA75** (simple arithmetic average of 75 daily closes), wh
 - A retest signal is the first trading day during the subsequent 10 sessions where low <= SMA75*1.01, close >= SMA75, and close >= open. A preceding close below SMA75 after the breakout invalidates the retest setup.
 - Hypothetical buy at next trading day's open, worsened by 0.1%. Exit at the signal+3 and signal+5 daily closes, worsened by 0.1%. Entries and exits are not actual fills.
 - Track volume relative to the prior 20 sessions, SMA75 slope, minimum future 5-session low, per-100-share P&L, and budget subgroup of 100,000 to 500,000 JPY for 100 shares.
-- Incomplete outcomes stay pending, not wins/losses. Duplicated, out-of-order, invalid or less-than-76-bar cohorts are excluded. Any one-session close move exceeding 45% quarantines that cohort for a corporate-action review.
+- Incomplete outcomes stay pending, not wins/losses. Duplicated, out-of-order, invalid or less-than-76-bar cohorts are excluded. Any one-session close move exceeding 45% quarantines the affected as-of signal or outcome window for corporate-action review. A future gap does **not** delete valid prior signals. Quarantined outcomes and pending outcomes are reported separately.
 - Produce both all-signal descriptive statistics and a paired analysis of the same original breakout with its eventual first retest. **The paired condition uses future knowledge and is NOT a prospective trading rule.**
 
 ## Read-only exploratory audit of existing SIGNALX data
@@ -20,6 +20,7 @@ Source: production chart cache, public.display_snapshots, key format chart:CODE:
 - 126 selected chart snapshots, each with 121 to 123 daily candles.
 - Separate daily_stock_results data spans 78 distinct dates for 967 codes. It is not a substitute for OHLCV with sufficient prior-history warmup.
 - The chart cache is selected by *which stocks were viewed*, not a frozen representative exchange-wide universe. As-of raw source, usage license and corporate-action adjustment must be independently validated.
+- The original exploratory SQL excluded an entire cached stock on a >45% single-day move; the independent research engine applies a stricter time-local quarantine so future gaps cannot change past signal eligibility. Results should be recomputed from a frozen licensed source before any promotion.
 
 | Exploratory metric | Immediate breakout | First retest |
 | --- | ---: | ---: |
@@ -47,3 +48,20 @@ Research engine: app/lib/research/ma75BreakoutRetest.mjs
 Tests: node --test tests/ma75BreakoutRetest.test.mjs
 
 Seven local Node 22 unit tests passed. PR #216 and #292 and production remain unchanged.
+
+## Additional exploratory budget and risk sensitivity (read-only)
+
+For exactly 100 shares with entry cost **including 0.1% adverse next-open execution** in ¥100,000–¥500,000:
+
+| Candidate group | Complete N | Mean 5-session return | Positive rate |
+| --- | ---: | ---: | ---: |
+| Breakout, budget eligible | 109 | +0.347% | 55.05% |
+| Retest, budget eligible | 47 | +1.740% | 59.57% |
+| Breakout, budget eligible and SMA75 rising | 74 | +0.655% | 56.76% |
+| Retest, budget eligible and SMA75 rising | 33 | +2.195% | 63.64% |
+
+These were defined post hoc and **must not be interpreted as validated optimal filters**. The last row's worst five-session close-to-close return was -6.716%, despite its positive mean. Across *all* completed signals (not budget-restricted), worst five-session returns were **-17.270%** (breakout) and **-11.013%** (retest). Mean five-day minimum-low adverse excursion for the overall groups was about -3.785% and -2.938%, respectively. These are not maximum drawdowns or guaranteed stops.
+
+Confirmed signal events in the available sample were concentrated from **2026-08-04 to 2026-10-15**, too short and too selected to demonstrate cross-regime reproducibility. Both candidates can lose significantly. Any future screening on this subgroup must be tested on holdout / frozen forward data not used to select the subgroup.
+
+Local Node.js 22 focused regression check: **8 of 8 tests passed**, including a future-gap lookahead regression. Repo-wide GitHub Actions suite has not been confirmed.
