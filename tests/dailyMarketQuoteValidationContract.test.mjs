@@ -20,3 +20,9 @@ test("daily closing quotes cannot use a pre-close observation", () => {
 test("live market endpoint is not referenced as a historical price source", () => {
   assert.doesNotMatch(source, /fetch\(\s*["'`]\/api\/market/);
 });
+
+test("historical decision time rejects later quotes", () => {
+  assert.match(source, /FUTURE_QUOTE_AT_DECISION/);
+  assert.match(source, /observed > decisionMs/);
+  assert.match(source, /INVALID_DECISION_AT/);
+});
