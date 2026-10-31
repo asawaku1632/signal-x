@@ -8,6 +8,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {auditMorningMinuteShadow} from '../../app/lib/research/morningMinuteShadow.mjs';
+import {measurePost905Outcomes} from '../../app/lib/research/post905OutcomeShadow.mjs';
 import {parseMa75JQuantsDailyPages}
  from '../../app/lib/research/ma75JQuantsDailyPages.mjs';
 import {reconcileMorningMinuteDaily}
@@ -174,7 +175,7 @@ export async function fetchDailyPilotPages({
  * expose apparently actionable bottom/rebound percentages in CLI output.
  * Even fully matched retrospective metrics have no true 09:05 availability.
  */
-export function summarizeMinutePilotResult({minute,reconciliation=null,compareDaily=false}={}){
+export function summarizeMinutePilotResult({minute,reconciliation=null,compareDaily=false,post905=null}={}){
  const minuteValid=minute?.structuralPass===true&&minute.pageChainComplete===true&&
    Array.isArray(minute.errors)&&minute.errors.length===0;
  const reconciled=minuteValid&&compareDaily===true&&
@@ -204,6 +205,7 @@ export function summarizeMinutePilotResult({minute,reconciliation=null,compareDa
      [...reconciliation.blockers]:compareDaily?['NO_VALID_DAILY_COMPARISON']:[],
    asOf905:reconciled?minute.asOf905:null,
    retrospective:reconciled?minute.retrospective:null,
+   post905:reconciled&&post905?.code===minute.code&&post905?.date===minute.date?post905:null,
    metricsReleasedForHistoricalResearch:reconciled,
    historicalMetricsAreHindsightOnly:true,
    actual0905AvailabilityVerified:false,
@@ -250,8 +252,16 @@ export async function main(argv=process.argv.slice(2),env=process.env){
      code:args.code,date:args.date,minute:result,daily:dailyAudit
    });
  }
+ const reconciled=result.structuralPass&&
+   reconciliation?.structuralOneCodeDayMatched===true&&
+   reconciliation.blocked===false&&
+   reconciliation.code===args.code&&reconciliation.date===args.date&&
+   Array.isArray(reconciliation.blockers)&&reconciliation.blockers.length===0;
+ const post905=reconciled?measurePost905Outcomes(
+   pages.flatMap(page=>page.response.data),{code:args.code,date:args.date}
+ ):null;
  const report=summarizeMinutePilotResult({
-   minute:result,reconciliation,compareDaily:args.compareDaily
+   minute:result,reconciliation,compareDaily:args.compareDaily,post905
  });
  process.stdout.write(JSON.stringify(report,null,2)+'\n');
  return report;
