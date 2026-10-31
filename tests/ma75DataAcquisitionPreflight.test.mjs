@@ -25,6 +25,7 @@ const archive=date=>({
  date,version:'ma75_jquants_v2_offline_daily_v1',
  lastReceivedAt:'2026-11-02T07:45:00Z',
  paginationComplete:true,failures:[],expectedFrozenCodes:3,
+ structurallyUsableRawBars:3,counts:{DAILY_BAR:3},
  eligibleForForwardSignal:false,providerRightsVerified:false,
  rows:freeze().codes.map(code=>({code,tradeDate:date,
    status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,close:100}})),
@@ -148,4 +149,35 @@ test('no future-dated historical report can be reused as of the earlier audit cl
  delete missing[15].lastReceivedAt;
  const q=plan({audits:missing,asOf:'2026-11-02T08:10:00Z'});
  assert.equal(q.states.incompleteExisting,1);
+});
+
+test('archived NO_TRADE is a real day with insufficient SMA75 warm-up, not all-codes complete',()=>{
+ const a=sessions().map(archive);
+ a[17].rows[1].status='NO_TRADE';
+ a[17].rows[1].bar=null;
+ a[17].counts={DAILY_BAR:2,NO_TRADE:1};
+ a[17].structurallyUsableRawBars=2;
+ const r=plan({audits:a});
+ assert.equal(r.states.archivedNoTradeGap,1);
+ assert.equal(r.states.archivedOfflineOnly,75);
+ assert.equal(r.states.incompleteExisting,0);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
+ assert.equal(r.dates[17].state,'ARCHIVED_NO_TRADE_GAP');
+ assert.equal(r.eligibleForNotifications,false);
+});
+test('inconsistent archived provider counts never justify all-953-symbol SMA75 coverage',()=>{
+ const a=sessions().map(archive);
+ a[8].counts.DAILY_BAR=2;
+ const r=plan({audits:a});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,1);
+});
+test('tampered per-date usable bar count blocks historical reuse',()=>{
+ const a=sessions().map(archive);
+ a[5].structurallyUsableRawBars=2;
+ const r=plan({audits:a});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
 });
