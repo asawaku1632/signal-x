@@ -10,6 +10,13 @@ import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 
 export const MA75_PAGE_REVISION_VERSION='ma75_jquants_daily_revision_audit_v1';
+export function fingerprintMa75RevisionPopulation(freeze) {
+ validateMa75FrozenUniverse(freeze);
+ return createHash('sha256').update(JSON.stringify({
+  codes:freeze.codes,firstEligibleSignalDate:freeze.firstEligibleSignalDate,
+  frozenAt:freeze.frozenAt,
+ })).digest('hex');
+}
 const number=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const instant=x=>typeof x==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(x)?Date.parse(x):NaN;
 const readBar=(b,code,date)=>b?.code===code&&b.tradeDate===date&&b.unadjusted===true&&
@@ -107,7 +114,9 @@ export function auditMa75JQuantsPageRevisions(freeze,{previous,current}={}){
   issues.push({side:'BOTH',reason:'PROVIDER_ENVELOPE_REVISION'});
  return {
   version:MA75_PAGE_REVISION_VERSION,tradeDate:previous.date,
-  frozenCodes:freeze.codes.length,previousSnapshotSha256:a.digest,
+  frozenCodes:freeze.codes.length,
+  frozenPopulationSha256:fingerprintMa75RevisionPopulation(freeze),
+  previousSnapshotSha256:a.digest,
   currentSnapshotSha256:b.digest,
   changedCodes,changedCodeCount:changedCodes.length,
   receiptChanged,revisionDetected:changed,
