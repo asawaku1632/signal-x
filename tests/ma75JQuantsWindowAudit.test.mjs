@@ -27,7 +27,7 @@ const page=(d,n=0,mutate=null)=>{
  const daily=codes.map((Code,j)=>{
   const close=j===0&&n===75?105:100;
   const r={Code,Date:d,O:close,H:close+1,L:close-1,C:close,Vo:j===0&&n===75?2000:1000,
-   AdjC:close/2};
+   AdjC:close/2,AdjFactor:1,ExRT:null};
   if(mutate)mutate(r,j,n);
   return r;
  });
