@@ -286,7 +286,10 @@ test('a matching one-code day does not certify missing other frozen stocks',()=>
 test('only both completed frozen stock-days can carry full-source coverage metadata',()=>{
  const r=audit();
  assert.equal(r.structuralOneCodeDayMatched,true);
- assert.equal(r.fullFrozenUniverseCovered,true);
+ assert.equal(r.frozenTradeDateRecordsComplete,true);
+ assert.equal(r.fullFrozenUniverseCovered,false);
+ assert.equal(r.requiredSessionDatesForMa75,76);
+ assert.equal(r.frozen76SessionHistoryVerified,false);
  assert.equal(r.dailyObservedCodeDays,2);
  assert.equal(r.dailyMissingOrQuarantinedCodeDays,0);
  assert.equal(r.directProviderCaptureAuthenticated,false);
@@ -305,7 +308,10 @@ test('genuine no-trade on other stock is structurally present but not a buy reco
  rows[0]={Date:date,Code:'13010',O:null,H:null,L:null,C:null,Vo:null,
    AdjFactor:1,ExRT:null};
  const r=audit(minute(),daily(rows));
- assert.equal(r.fullFrozenUniverseCovered,true);
+ assert.equal(r.frozenTradeDateRecordsComplete,true);
+ assert.equal(r.fullFrozenUniverseCovered,false);
+ assert.equal(r.requiredSessionDatesForMa75,76);
+ assert.equal(r.frozen76SessionHistoryVerified,false);
  assert.equal(r.dailyObservedCodeDays,2);
  assert.equal(r.eligibleForNotifications,false);
 });
@@ -347,4 +353,30 @@ test('legacy or absent full-cohort audit scope cannot be silently promoted to fu
   assert.equal(r.fullFrozenUniverseCovered,false);
   assert.equal(r.eligibleForProduction,false);
  }
+});
+
+test('even all frozen symbols on exactly one date cannot prove the 76-session SMA75 history',()=>{
+ const r=audit();
+ assert.equal(r.providerQueryScope,'FROZEN_UNIVERSE');
+ assert.equal(r.frozenTradeDateRecordsComplete,true);
+ assert.equal(r.sessionDatesActuallyReconciled,1);
+ assert.equal(r.requiredSessionDatesForMa75,76);
+ assert.equal(r.frozen76SessionHistoryVerified,false);
+ assert.equal(r.fullFrozenUniverseCovered,false);
+ assert.equal(r.originalProviderEntitlementVerified,false);
+ assert.equal(r.eligibleForProduction,false);
+});
+test('a one-stock daily source may match its day but can never claim one-date full-cohort completeness',()=>{
+ const d=parseMa75JQuantsDailyPages(freeze(),{
+  date,requestedCode:code,pages:[{
+   requestPaginationKey:null,receivedAt:'2026-11-01T08:00:00Z',
+   response:{data:[dailyRows()[1]]}
+  }]
+ });
+ const r=audit(minute(),d);
+ assert.equal(r.structuralOneCodeDayMatched,true);
+ assert.equal(r.dailyObservedCodeDays,1);
+ assert.equal(r.frozenTradeDateRecordsComplete,false);
+ assert.equal(r.sessionDatesActuallyReconciled,1);
+ assert.equal(r.frozen76SessionHistoryVerified,false);
 });
