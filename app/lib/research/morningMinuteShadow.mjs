@@ -10,7 +10,7 @@
  */
 import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 
-export const MORNING_MINUTE_SHADOW_VERSION='morning_minute_shadow_v1';
+export const MORNING_MINUTE_SHADOW_VERSION='morning_minute_shadow_v2';
 const realDate=s=>typeof s==='string'&&/^20\d\d-\d\d-\d\d$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -93,6 +93,19 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
  const uniqueErrors=[...new Set(errors)];
  const valid=finished&&uniqueErrors.length===0;
  bars.sort((a,b)=>a.minute-b.minute);
+ const dailyObservation=valid?{
+   code,date,barCount:bars.length,
+   firstTradeMinute:bars[0]?.time??null,
+   lastTradeMinute:bars.at(-1)?.time??null,
+   unadjusted:true,
+   open:bars[0]?.open??null,
+   high:bars.length?Math.max(...bars.map(b=>b.high)):null,
+   low:bars.length?Math.min(...bars.map(b=>b.low)):null,
+   close:bars.at(-1)?.close??null,
+   volume:bars.reduce((total,b)=>total+b.volume,0),
+   turnover:bars.reduce((total,b)=>total+b.turnover,0),
+   independentlyVerifiedSource:false,
+ } : null;
  const observedMorning=valid?bars.filter(b=>b.minute>=540&&b.minute<600):[];
  const early=observedMorning.filter(b=>b.minute<545);
  const firstTrade=observedMorning[0]??null;
@@ -143,6 +156,7 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
    pagesProcessed:pages.length,observedRawBars:bars.length,
    firstReceivedAt:firstCapture,lastReceivedAt:lastCapture,
    pageChainComplete:finished,structuralPass:valid,errors:uniqueErrors,
+   dailyObservation,
    noTradeMinutesMustNotBeFilled:true,
    asOf905,retrospective,
    providerRightsIndependentlyVerified:false,
@@ -153,6 +167,7 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
    notes:[
      'Time is the START minute JST, not an instant quote; 09:05 minute is excluded from 09:05 hypothetical information.',
      'Minute bar omissions may represent no trades, not data corruption. A late first trade must not be invented as 09:00.',
+     'The one-day minute OHLCV aggregate must be reconciled to a separate unadjusted daily provider record; structural pagination alone is insufficient.',
      'Retrospective morning bottom and rebound look forward in that morning; never use them as a feature available at 09:05.',
      'Only verified responses captured independently at or before the decision time could support a prospective 09:05 claim.',
    ]
