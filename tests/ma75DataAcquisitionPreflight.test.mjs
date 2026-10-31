@@ -33,10 +33,24 @@ const archive=date=>({
    status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,
      open:100,high:102,low:99,close:100,volume:1000}})),
 });
+const calendar=s=>{
+ const set=new Set(s),records=[];
+ for(let t=Date.parse(s[0]+'T00:00:00Z');t<=Date.parse(s.at(-1)+'T00:00:00Z');t+=86400000){
+  const date=new Date(t).toISOString().slice(0,10);
+  records.push({Date:date,HolDiv:set.has(date)?'1':'0'});
+ }
+ return {requestFrom:s[0],requestTo:s.at(-1],
+   capturedAt:'2026-11-02T07:45:00Z',records};
+};
 const after='2026-11-02T08:10:00Z';
-const plan=(opts={})=>planMa75JQuantsAcquisition(freeze(),
- {asOf:opts.asOf??after,sessions:opts.sessions??sessions(),
- audits:opts.audits??[],minuteAddonStatus:opts.minuteAddonStatus??'PLANNED'});
+const plan=(opts={})=>{
+ const dates=opts.sessions??sessions();
+ return planMa75JQuantsAcquisition(freeze(),{
+  asOf:opts.asOf??after,sessions:dates,audits:opts.audits??[],
+  calendarSnapshot:opts.calendarSnapshot===undefined?calendar(dates):opts.calendarSnapshot,
+  minuteAddonStatus:opts.minuteAddonStatus??'PLANNED'
+ });
+};
 test('76 date-scope requests cover 3 frozen codes without 3*76 separate first calls',()=>{
  const r=plan();
  assert.equal(r.expectedDailySessions,76);
@@ -299,4 +313,29 @@ test('corporate-action review must have no tradable bar and unverified action de
   modify(a[7].rows[0]);
   assert.equal(plan({audits:a}).states.incompleteExisting,1);
  }
+});
+
+test('structural full-archive readiness requires raw TSE calendar, not a claimed 76-day list',()=>{
+ const audits=sessions().map(archive);
+ const r=plan({audits,calendarSnapshot:null});
+ assert.equal(r.calendarStructuralPass,false);
+ assert.deepEqual(r.calendarIssues,['MISSING_RAW_TSE_CALENDAR']);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.archivedUsableBarCells,228);
+ assert.equal(r.allowedToRunApiCalls,false);
+});
+test('valid 76-date bars with a TSE holiday mismatch still cannot pass preflight',()=>{
+ const raw=calendar(sessions());
+ raw.records.find(r=>r.Date===sessions()[15]).HolDiv='3';
+ const r=plan({audits:sessions().map(archive),calendarSnapshot:raw});
+ assert.equal(r.calendarStructuralPass,false);
+ assert.ok(r.calendarIssues.includes('TSE_SESSION_LIST_MISMATCH'));
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('complete price and calendar structure is not proof of original data-provider timestamp',()=>{
+ const r=plan({audits:sessions().map(archive)});
+ assert.equal(r.calendarStructuralPass,true);
+ assert.equal(r.independentlyAuthenticatedCalendar,false);
+ assert.equal(r.providerRightsVerified,false);
+ assert.equal(r.eligibleForProduction,false);
 });
