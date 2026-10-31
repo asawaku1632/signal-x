@@ -38,9 +38,8 @@ const earliestThreshold=(later,low,pct)=>{
 export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
  validateMa75FrozenUniverse(freeze);
  if(!freeze.codes.includes(code)||!realDate(date)||
-    date<freeze.firstEligibleSignalDate||
     !Array.isArray(pages)||pages.length===0)
-   throw new TypeError('Require a frozen stock code, future-eligible trade date and retained response pages');
+   throw new TypeError('Require an existing frozen-cohort stock code, real trade date and retained response pages');
  let expected=null,finished=false,firstCapture=null,lastCapture=null,priorCapture=null;
  const tokens=new Set(),bars=[],errors=[],observedMinutes=new Set();
  for(let i=0;i<pages.length;i++){
@@ -139,7 +138,8 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
  return {
    version:MORNING_MINUTE_SHADOW_VERSION,code,date,
    originalFrozenCohortSize:freeze.codes.length,
-   pilotIsFullFrozenUniverse:freeze.codes.length===1,
+   preFreezeHistoricalDate:date<freeze.firstEligibleSignalDate,
+   pilotIsFullFrozenUniverse:false,
    pagesProcessed:pages.length,observedRawBars:bars.length,
    firstReceivedAt:firstCapture,lastReceivedAt:lastCapture,
    pageChainComplete:finished,structuralPass:valid,errors:uniqueErrors,
