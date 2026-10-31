@@ -61,17 +61,26 @@ export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl
    url.searchParams.set('code',code);
    url.searchParams.set('date',date);
    if(continuation!==null)url.searchParams.set('pagination_key',continuation);
-   const res=await fetchImpl(url,{
-     method:'GET',headers:{'x-api-key':apiKey,accept:'application/json'},
-     redirect:'error',credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',
-     signal:AbortSignal.timeout(12000)
-   });
+   let res;
+   try{
+     res=await fetchImpl(url,{
+       method:'GET',headers:{'x-api-key':apiKey,accept:'application/json'},
+       redirect:'error',credentials:'omit',cache:'no-store',
+       referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)
+     });
+   }catch{
+     // Upstream fetch exceptions may contain headers, URLs, proxy diagnostics,
+     // or internal server details: never relay the original exception.
+     throw new Error('JQUANTS_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED');
+   }
    if(!res.ok){
      const status=res.status;
      throw new Error(status===403?'JQUANTS_403_KEY_OR_PERMISSION_UNVERIFIED':
        status===429?'JQUANTS_429_RATE_LIMIT':'JQUANTS_HTTP_'+status);
    }
-   const payload=await res.json();
+   let payload;
+   try{payload=await res.json();}
+   catch{throw new Error('JQUANTS_INVALID_JSON_RESPONSE');}
    if(!payload||!Array.isArray(payload.data))throw new Error('JQUANTS_BAD_MINUTE_ENVELOPE');
    rowsSeen+=payload.data.length;
    if(rowsSeen>MAX_ONE_DAY_TSE_MINUTE_BARS)
