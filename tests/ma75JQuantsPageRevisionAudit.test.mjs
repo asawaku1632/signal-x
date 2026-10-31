@@ -97,3 +97,32 @@ test('invalid calendar date and missing original receipt cannot count as structu
  const first=parse(),missing=clone(first);delete missing.firstReceivedAt;
  assert.ok(inspect(first,missing).issues.some(x=>x.reason==='INVALID_PAGE_PROVENANCE'));
 });
+
+test('a corporate-action factor revision is detected even when neither OHLCV nor status changes',()=>{
+ const before=parse([price('13010'),price('186A0')]);
+ const after=clone(before);
+ before.rows[0].status='CORPORATE_ACTION_REVIEW';
+ before.rows[0].bar=null;
+ before.rows[0].actionDetails={adjustmentFactor:0.8,exRightsType:'1',
+   reason:'EX_RIGHTS_EVENT',independentlyVerified:false};
+ before.counts={CORPORATE_ACTION_REVIEW:1,DAILY_BAR:1};
+ before.structurallyUsableRawBars=1;
+ after.rows[0].status='CORPORATE_ACTION_REVIEW';
+ after.rows[0].bar=null;
+ after.rows[0].actionDetails={adjustmentFactor:0.75,exRightsType:'1',
+   reason:'EX_RIGHTS_EVENT',independentlyVerified:false};
+ after.counts={CORPORATE_ACTION_REVIEW:1,DAILY_BAR:1};
+ after.structurallyUsableRawBars=1;
+ const result=inspect(before,after);
+ assert.deepEqual(result.changedCodes,['1301']);
+ assert.equal(result.revisionDetected,true);
+ assert.notEqual(result.previousSnapshotSha256,result.currentSnapshotSha256);
+ assert.equal(result.structurallyConsistent,false);
+});
+test('legacy v1 archive parser cannot be compared as if it had corporate-action checks',()=>{
+ const a=parse(),b=clone(a);
+ b.version='ma75_jquants_v2_offline_daily_v1';
+ const r=inspect(a,b);
+ assert.equal(r.structurallyConsistent,false);
+ assert.ok(r.issues.some(x=>x.reason==='BAD_ENVELOPE_OR_FROZEN_DENOMINATOR'));
+});
