@@ -90,3 +90,18 @@ Run only in an already trusted runtime with \`JQUANTS_RESEARCH_PROBE_ENABLED=tru
 **Verification:** 58/58 targeted tests passed directly from GitHub-fetched JavaScript in an isolated V8 runner: 17 minute parser, 13 minute↔daily reconciliation and 28 bounded/mocked API tests. Frozen-manifest hashing and HTTP interfaces were stubbed by the test harness. Not a complete native Node.js CI, not a real vendor call, and not a backtested performance proof. No production changes or external API requests made.
 
 Provider schemas: https://jpx-jquants.com/ja/spec/eq-bars-minute and https://jpx-jquants.com/ja/spec/eq-bars-daily .
+
+
+## Fail-closed result presentation and exact share-volume matching (2026-11-01)
+
+**Safety problem fixed:** The previous optional one-code/day pilot could output detailed \`asOf905\` and \`retrospective\` (bottom time and 1%/2% bounce) **even when \`--compare-daily\` was not selected or daily-vs-minute source integrity did not match**. Merely labeling the result \`MINUTE_ONLY_UNRECONCILED\` did not sufficiently prevent the user or later code from treating the visible percentages as trustworthy historical evidence.
+
+**New output boundary:** \`summarizeMinutePilotResult\` now returns only an audit status, code/date, bar count and explicit error codes when the source is unverified. \`asOf905\` and \`retrospective\` are both **null until** an intact, same-code/day, complete minute audit is matched against an independent daily-bar audit, with no reconciliation blockers. Any wrong code/date, missing daily comparison, minute pagination gap, corporate-action review or volume mismatch withholds both metrics. A genuine correctly empty trading day is labeled \`MATCHED_NO_TRADE_NO_SIGNAL\`, not a buy/rebound event.
+
+Only after a structural match are the hypothetical 09:00–09:04 observations and hindsight 09:00–09:59 outcomes printed. Such output remains **historical, retrospectively captured, not a true timestamp-verified quote from 09:05**, does not validate profitable trading or execution, and **never** changes production/scoring/notification eligibility.
+
+**Volume exactness:** Share volume in the separate daily and summed-minute records is an original unit count; it must match **exactly**. The prior floating-point comparison had a 1e-8 relative tolerance for all values, inadvertently allowing a missing **one share at 500 million shares** to pass. Only price fields retain the strict relative tolerance needed for harmless floating serialization. New high-volume regression test fails the former false match.
+
+**Verification:** The exact latest GitHub branch source was run in an isolated JavaScript/V8 test harness; 17 minute parser + 14 daily reconciliation + 36 mock-HTTP/CLI output tests = **67/67 passed**. The harness mocks the provider transport and frozen-manifest crypto. Native Node.js full-repository CI and an authenticated J-Quants API response are **not verified**. This is a correctness improvement to a **research-only Draft PR**, not a newly validated market advantage. No key reads, vendor API traffic, new charges, DB writes, cron, production merge/deploy, trade or push notification occurred.
+
+The old command remains a no-network dry-run by default. Add \`--compare-daily\` with a separately authorized \`--execute\` in a secure backend runtime only when ready for the small historical test.
