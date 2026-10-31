@@ -7,7 +7,7 @@ const now=new Date('2026-11-01T12:00:00Z');
 const plan=(opt={})=>planSingleCodeMinuteProbe(freeze,{
  code:opt.code??'3753',date:opt.date??'2026-10-30',
  execute:opt.execute??false,enabled:opt.enabled??false,
- maxPages:opt.maxPages??4,now
+ maxPages:opt.maxPages??4,now:opt.now??now
 });
 const runFetch=(mock,more={})=>fetchMinutePilotPages({
  code:'3753',date:'2026-10-30',maxPages:4,
@@ -120,4 +120,12 @@ test('direct HTTP helper cannot bypass the max-four-page and one-code-day scope'
   }),/MINUTE_PROBE_SCOPE/);
  }
  assert.equal(calls,0);
+});
+
+test('a same-day 09:05 or pre-release request cannot masquerade as archived minute data',()=>{
+ for(const when of ['2026-10-30T00:05:00Z','2026-10-30T06:31:00Z']){
+   assert.throws(()=>plan({date:'2026-10-30',now:new Date(when)}),TypeError);
+ }
+ assert.equal(plan({date:'2026-10-30',
+  now:new Date('2026-10-30T08:10:00Z')}).callAuthorizedByScript,false);
 });
