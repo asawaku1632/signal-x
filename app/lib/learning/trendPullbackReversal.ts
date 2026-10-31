@@ -66,7 +66,8 @@ export async function updateTrendPullbackReversalOutcomes(targetDate:string){
      FROM daily_stock_results d
      WHERE d.code=p.code AND d.date>p.trade_date::text
       AND d.date<=$1::date::text AND d.price>0
-      AND d.date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}
+      AND d.date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      AND EXTRACT(ISODOW FROM d.date::date) BETWEEN 1 AND 5
      ORDER BY d.date,d.created_at DESC
     ) daily_price
     ORDER BY daily_price.trade_date LIMIT 5
