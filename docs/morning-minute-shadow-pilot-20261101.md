@@ -105,3 +105,20 @@ Only after a structural match are the hypothetical 09:00–09:04 observations an
 **Verification:** The exact latest GitHub branch source was run in an isolated JavaScript/V8 test harness; 17 minute parser + 14 daily reconciliation + 36 mock-HTTP/CLI output tests = **67/67 passed**. The harness mocks the provider transport and frozen-manifest crypto. Native Node.js full-repository CI and an authenticated J-Quants API response are **not verified**. This is a correctness improvement to a **research-only Draft PR**, not a newly validated market advantage. No key reads, vendor API traffic, new charges, DB writes, cron, production merge/deploy, trade or push notification occurred.
 
 The old command remains a no-network dry-run by default. Add \`--compare-daily\` with a separately authorized \`--execute\` in a secure backend runtime only when ready for the small historical test.
+
+
+## Same-day provider-envelope and receipt-integrity gate (2026-11-01)
+
+The previous minute↔daily reconciliation required OHLCV matching but did not independently check some contradictory metadata in the stored provider **daily** audit. For example, a record could claim \`rawProviderRows:0\` while containing two available stock-day bars, or a valid target stock-day could be accompanied by an unrecognized extra stock/date. This must fail closed: otherwise the pilot could report valid hindsight 1%-2% rebound figures from an internally inconsistent provider response.
+
+Research-only \`app/lib/research/morningMinuteDailyReconciliation.mjs\` has been advanced to \`morning_minute_daily_reconciliation_v2\`. Before a \`structuralOneCodeDayMatched\` result, it additionally requires:
+
+- Both minute and daily \`firstReceivedAt\`/\`lastReceivedAt\` to be syntactically valid, ordered, and no earlier than **16:30 JST** on the requested trade date. This is only a conservative readiness bound, **not proof of the official actual vendor release time or original historical market-time availability**.
+- Daily \`counts\`, total \`rows\`, \`readPages\`, \`rawProviderRows\`, and \`structurallyUsableRawBars\` to reconcile. The number of provider rows may not be less than the directly observed bars, no-trade rows, corporate actions and invalid OHLCV rows.
+- \`unmappedRows\`, \`outsideFrozenCodes\`, and \`duplicateCodeDates\` must be present and empty for an accepted **one-code/date scoped** API response. An unexpected code/date or duplicate cannot be ignored just because the target stock's prices happen to match.
+- Minute \`observedRawBars\` must equal the dailyObservation bar count. Zero-minute summaries may not contain fabricated open/high/low/close, nonzero volume, or turnover. Nonempty reconstructed O/H/L/C must remain finite, positive and geometrically consistent.
+- Exact original share-volume matching remains mandatory, along with original daily unadjusted O/H/L/C and no unresolved corporate actions. The 953-code frozen population remains fixed; a one-stock pilot does **not** certify completeness of all 953 symbols.
+
+**New regression coverage:** Six malformed-data/receipt cases plus four actual parser-to-reconciliation cases were added. A regression first caught \`rawProviderRows:0\` falsely passing with observed stock-day rows; that hole was corrected before the final run. The current connected GitHub branch's **77/77 direct JavaScript V8 tests pass** (17 minute parser, 24 minute↔daily reconciliation including real daily parser outputs, 36 mock HTTP and result presentation). The test runner still mocks transport and frozen-manifest cryptography. A complete native Node.js GitHub Actions CI and **actual authenticated minute/day API requests have NOT been executed**.
+
+This enforces research input integrity only. It does **not** validate an achievable market entry at 09:05, realized execution, transaction fees, forward win rate or a positive expected trading return; production and push notification flags remain disabled. No secrets accessed, new billing, provider calls, DB writes, scheduled fetch, production deploy or merge.
