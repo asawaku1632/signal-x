@@ -141,3 +141,26 @@ test('swapped frozen code row cannot silently reassign an SMA75 winner',()=>{
  assert.equal(r.structuralCoverageComplete,false);
  assert.ok(r.invalidReports.some(x=>x.reason==='INCONSISTENT_OR_TAMPERED_CODE_ROWS'));
 });
+
+test('small split factor 0.8 with less than 45-percent price move blocks offline crossover',()=>{
+ const data=fixture((r,j,i)=>{
+  if(j===0&&i===40){r.AdjFactor=0.8;r.ExRT='1';}
+ });
+ const r=audit(data);
+ const code=r.rows.find(x=>x.code==='1301');
+ assert.equal(code.status,'HISTORY_INCOMPLETE');
+ assert.equal(code.reason,'EXPLICIT_SPLIT_OR_RIGHTS_REVIEW');
+ assert.equal(code.signal,null);
+ assert.equal(r.counts.NO_CROSS_OFFLINE_ONLY,1);
+ assert.equal(r.structuralCoverageComplete,false);
+});
+test('explicit rights issue blocks only the affected stock and preserves no-signal denominator',()=>{
+ const data=fixture((r,j,i)=>{
+  if(j===1&&i===60){r.ExRT='3';r.AdjFactor=1;}
+ });
+ const r=audit(data);
+ assert.equal(r.rows.find(x=>x.code==='186A').reason,'EXPLICIT_SPLIT_OR_RIGHTS_REVIEW');
+ assert.equal(r.rows.find(x=>x.code==='1301').status,'BREAKOUT_OFFLINE_ONLY');
+ assert.equal(r.generatedForwardSignals,0);
+ assert.equal(r.eligibleForNotifications,false);
+});
