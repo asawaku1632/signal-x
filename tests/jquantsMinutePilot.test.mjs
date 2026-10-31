@@ -7,7 +7,8 @@ const freeze={codes:['3753','9984']};
 const now=new Date('2026-11-01T12:00:00Z');
 const plan=(opt={})=>planSingleCodeMinuteProbe(freeze,{
  code:opt.code??'3753',date:opt.date??'2026-10-30',
- execute:opt.execute??false,enabled:opt.enabled??false,
+ execute:opt.execute??false,compareDaily:opt.compareDaily??false,
+ enabled:opt.enabled??false,
  maxPages:opt.maxPages??4,now:opt.now??now
 });
 const runFetch=(mock,more={})=>fetchMinutePilotPages({
