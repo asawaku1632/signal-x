@@ -234,3 +234,38 @@ test('corrupted minute geometry cannot be used to reconstruct a daily close with
  assert.ok(r.blockers.includes('INVALID_MINUTE_DAY_AGGREGATE'));
  assert.equal(r.structuralOneCodeDayMatched,false);
 });
+
+test('real daily-parser foreign date alongside valid code cannot silently pass daily reconciliation',()=>{
+ const foreign={...dailyRows()[0],Date:'2026-10-29'};
+ const original=dailyRows();
+ const d=daily([...original,foreign]);
+ assert.equal(d.rows.find(x=>x.code===code).status,'DAILY_BAR');
+ assert.equal(d.unmappedRows.length,1);
+ const r=audit(minute(),d);
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+});
+test('real daily-parser unexpected out-of-cohort code is not ignored when checking one-code/day provider integrity',()=>{
+ const foreign={...dailyRows()[1],Code:'99990'};
+ const d=daily([...dailyRows(),foreign]);
+ assert.deepEqual(d.outsideFrozenCodes,['9999']);
+ assert.equal(d.rows.find(x=>x.code===code).status,'DAILY_BAR');
+ const r=audit(minute(),d);
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+});
+test('real duplicated daily-provider row quarantines reconciliation, even if its price matches',()=>{
+ const d=daily([...dailyRows(),{...dailyRows()[1]}]);
+ assert.deepEqual(d.duplicateCodeDates,['3762:'+date]);
+ const r=audit(minute(),d);
+ assert.equal(r.structuralOneCodeDayMatched,false);
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+});
+test('daily provider page captured at 15:45 JST does not qualify as post-update history',()=>{
+ const d=daily();
+ const earlier={...d,firstReceivedAt:'2026-10-30T06:45:00Z',
+   lastReceivedAt:'2026-10-30T06:45:00Z'};
+ const r=audit(minute(),earlier);
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+});
