@@ -22,6 +22,10 @@ function inspect(freeze,snapshot){
     !snapshot.paginationComplete||!Array.isArray(snapshot.failures)||snapshot.failures.length||
     !Array.isArray(snapshot.rows)||snapshot.rows.length!==freeze.codes.length)
   errors.push('BAD_ENVELOPE_OR_FROZEN_DENOMINATOR');
+ if(!/^20\d\d-\d\d-\d\d$/.test(snapshot?.date??'')||
+    Number.isNaN(Date.parse(snapshot?.date+'T00:00:00Z'))||
+    new Date(Date.parse(snapshot?.date+'T00:00:00Z')).toISOString().slice(0,10)!==snapshot.date)
+    errors.push('INVALID_TRADE_DATE');
  const codeToRow=new Map();
  if(Array.isArray(snapshot?.rows)){
   snapshot.rows.forEach((r,i)=>{
@@ -34,6 +38,8 @@ function inspect(freeze,snapshot){
      (r.status==='DAILY_BAR'&&!readBar(r.bar,code,snapshot.date))||
      (r.status!=='DAILY_BAR'&&r.bar!==null))
      errors.push('INVALID_OR_INCONSISTENT_BAR');
+   if(!['DAILY_BAR','NO_TRADE'].includes(r.status))
+     errors.push('UNUSABLE_CODE_DAY');
    codeToRow.set(code,r);
   });
  }
