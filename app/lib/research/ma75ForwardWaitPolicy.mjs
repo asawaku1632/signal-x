@@ -10,6 +10,8 @@ export const MA75_FORWARD_WAIT_VERSION='ma75_forward_wait_policy_v1';
 const isNum=x=>typeof x==='number'&&Number.isFinite(x);
 const time=x=>typeof x==='string'&&/(Z|[+-]\d\d:\d\d)$/.test(x)?Date.parse(x):NaN;
 const end=d=>Date.parse(d+'T06:30:00Z');
+const validDay=d=>typeof d==='string'&&/^20\d\d-\d\d-\d\d$/.test(d)&&
+  Number.isFinite(end(d))&&new Date(end(d)).toISOString().slice(0,10)===d;
 const start=d=>Date.parse(d+'T00:00:00Z');
 const round=x=>Number(x.toFixed(4));
 const avg=xs=>xs.reduce((a,b)=>a+b,0)/xs.length;
@@ -22,8 +24,7 @@ export function auditMa75ForwardWaitPolicy(manifest,replay,{exchangeSessions,bat
      !Array.isArray(replay?.candidates)||!Array.isArray(batches))
     throw new TypeError('Require matching frozen manifest and replay');
   if(!Array.isArray(exchangeSessions)||exchangeSessions.some((d,i)=>
-      typeof d!=='string'||!/^20\d\d-\d\d-\d\d$/.test(d)||
-      !Number.isFinite(end(d))||i>0&&exchangeSessions[i-1]>=d))
+      !validDay(d)||i>0&&exchangeSessions[i-1]>=d))
     throw new TypeError('Invalid ordered exchange calendar');
   const counts=new Map();
   for(const c of replay.candidates){const id=key(c?.code,c?.tradeDate);counts.set(id,(counts.get(id)||0)+1)}
