@@ -130,20 +130,13 @@ test('invalid original manifest always throws, instead of fallback to retrospect
 });
 
 test('mismatched breakout and waiting denominators block even if each has 100 completed trades',()=>{
- const {p,evidence}=fixture();
- for(const mutate of [
-   ()=>{evidence.forwardSummary.totals.total=125;},
-   ()=>{evidence.universeCoverage.observedBreakouts=125;},
-   ()=>{evidence.forwardSummary.groups[0].signalCount=125;},
-   ()=>{evidence.waitPolicy.candidates=125;},
- ]){
-   const {p:current,evidence:currentEvidence}=fixture();
-   // Apply exactly one mismatch to its own fresh fixture.
-   if(mutate.toString().includes('forwardSummary.totals.total'))currentEvidence.forwardSummary.totals.total=125;
-   else if(mutate.toString().includes('universeCoverage'))currentEvidence.universeCoverage.observedBreakouts=125;
-   else if(mutate.toString().includes('groups'))currentEvidence.forwardSummary.groups[0].signalCount=125;
-   else currentEvidence.waitPolicy.candidates=125;
-   const r=auditMa75ResearchReviewGate(current,currentEvidence);
+ for(const scenario of ['summary','universe','groups','wait']){
+   const {p,evidence}=fixture();
+   if(scenario==='summary')evidence.forwardSummary.totals.total=125;
+   else if(scenario==='universe')evidence.universeCoverage.observedBreakouts=125;
+   else if(scenario==='groups')evidence.forwardSummary.groups[0].signalCount=125;
+   else evidence.waitPolicy.candidates=125;
+   const r=auditMa75ResearchReviewGate(p,evidence);
    assert.equal(r.technicalPrecheckPass,false);
    assert.equal(r.structuralSignalPopulationAligned,false);
    assert.ok(r.blockers.includes('MISMATCHED_FROZEN_SIGNAL_POPULATION'));
