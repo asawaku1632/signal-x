@@ -180,3 +180,18 @@ test('invalid JSON response is redacted rather than logging the server body',asy
   ok:true,json:async()=>{throw new Error('PRIVATE_RESPONSE_WITH_SECRET')}
  })),e=>e.message==='JQUANTS_INVALID_JSON_RESPONSE');
 });
+
+test('direct HTTP helper refuses same-day before published daily update, without key read or network',async()=>{
+ let requests=0;
+ const mock=async()=>{requests++;return {ok:true,json:async()=>({data:[]})}};
+ for(const now of [
+   new Date('2026-10-30T00:05:00Z'),
+   new Date('2026-10-30T07:00:00Z')
+ ]){
+   await assert.rejects(()=>fetchMinutePilotPages({
+     code:'3753',date:'2026-10-30',maxPages:1,
+     apiKey:'SECRET',fetchImpl:mock,now
+   }),/MINUTE_PROBE_SCOPE/);
+ }
+ assert.equal(requests,0);
+});
