@@ -48,8 +48,12 @@ export function planMa75JQuantsAcquisition(freeze,{
     !['PLANNED','NOT_PLANNED','USER_REPORTED_ACTIVE'].includes(minuteAddonStatus))
    throw new TypeError('Invalid capture audits or minute add-on status');
  const calendarAudit=calendarSnapshot?
-   auditMa75TseCalendar({sessions,...calendarSnapshot}):null;
- const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true;
+   auditMa75TseCalendar({...calendarSnapshot,sessions}):null;
+ const calendarCaptureAsOfValid=calendarAudit!==null&&
+   Number.isFinite(timestamp(calendarAudit.capturedAt))&&
+   timestamp(calendarAudit.capturedAt)<=clock;
+ const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true&&
+   calendarCaptureAsOfValid;
  const wanted=new Set(sessions),grouped=new Map(),unexpected=[];
  for(const audit of audits){
    if(!wanted.has(audit?.date)){unexpected.push(String(audit?.date??'?'));continue}
@@ -182,7 +186,9 @@ export function planMa75JQuantsAcquisition(freeze,{
    structuralHistoricalInputsPresent:allArchived&&unexpected.length===0&&
      unexpectedRevisionDates.length===0&&calendarStructuralPass,
    calendarStructuralPass,
-   calendarIssues:calendarAudit?.issues??['MISSING_RAW_TSE_CALENDAR'],
+   calendarIssues:calendarAudit===null?['MISSING_RAW_TSE_CALENDAR']:
+     [...calendarAudit.issues,
+      ...(!calendarCaptureAsOfValid?['CALENDAR_CAPTURE_AFTER_ASOF']:[])],
    independentlyAuthenticatedCalendar:false,
    independentCalendarVerified:false,
    pointInTimeProviderAvailabilityVerified:false,
