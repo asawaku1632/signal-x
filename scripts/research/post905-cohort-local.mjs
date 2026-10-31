@@ -30,7 +30,7 @@ export function resolveCohortInputs(args,listing=readdirSync){
   .filter(entry=>entry.isFile()&&/^[0-9]{3}[0-9A-Z]_20\d{2}-\d{2}-\d{2}\.json$/.test(entry.name))
   .map(entry=>join(args.inputDir,entry.name)).sort():[];
  const paths=[...args.input,...fromDir];
- if(paths.length<1||paths.length>100||new Set(paths.map(resolve)).size!==paths.length||
+ if(paths.length<1||paths.length>100||new Set(paths.map(p=>resolve(p))).size!==paths.length||
     paths.some(p=>resolve(p)===resolve(args.output)))
   throw new TypeError('INVALID_COHORT_FILE_COUNT_OR_PATH');
  return paths;
