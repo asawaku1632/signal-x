@@ -52,7 +52,7 @@ export async function updateTrendPullbackReversalOutcomes(targetDate:string){
   LEFT JOIN LATERAL (
    SELECT d.price::numeric AS price
    FROM daily_stock_results d
-   WHERE d.code=p.code AND d.date::date=p.trade_date AND d.price>0
+   WHERE d.code=p.code AND d.date=p.trade_date::text AND d.price>0
    ORDER BY d.created_at DESC LIMIT 1
   ) base ON TRUE
   LEFT JOIN LATERAL (
@@ -62,11 +62,11 @@ export async function updateTrendPullbackReversalOutcomes(targetDate:string){
    FROM (
     SELECT daily_price.price,ROW_NUMBER() OVER (ORDER BY daily_price.trade_date) AS rn
     FROM (
-     SELECT DISTINCT ON (d.date::date) d.date::date AS trade_date,d.price::numeric AS price
+     SELECT DISTINCT ON (d.date) d.date AS trade_date,d.price::numeric AS price
      FROM daily_stock_results d
-     WHERE d.code=p.code AND d.date::date>p.trade_date
-      AND d.date::date<=$1::date AND d.price>0
-     ORDER BY d.date::date,d.created_at DESC
+     WHERE d.code=p.code AND d.date>p.trade_date::text
+      AND d.date<=$1::date::text AND d.price>0
+     ORDER BY d.date,d.created_at DESC
     ) daily_price
     ORDER BY daily_price.trade_date LIMIT 5
    ) ranked
