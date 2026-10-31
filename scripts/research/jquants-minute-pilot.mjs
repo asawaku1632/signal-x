@@ -5,7 +5,8 @@
  * No scheduling, live 09:05 decisions, AI scoring, alerts or trading.
  */
 import {readFileSync} from 'node:fs';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
 import {auditMorningMinuteShadow} from '../../app/lib/research/morningMinuteShadow.mjs';
 
 const FREEZE_FILE=new URL('../../docs/ma75-forward-cohort-freeze-20261031.json',import.meta.url);
@@ -103,7 +104,7 @@ export async function main(argv=process.argv.slice(2),env=process.env){
  },null,2)+'\n');
  return result;
 }
-if(process.argv[1]&&fileURLToPath(import.meta.url)===fileURLToPath(new URL('file://'+process.argv[1]))){
+if(process.argv[1]&&fileURLToPath(import.meta.url)===fileURLToPath(pathToFileURL(resolve(process.argv[1])))){
  main().catch(error=>{
    process.stderr.write('PILOT_FAILED: '+String(error?.message??'UNKNOWN').slice(0,150)+'\n');
    process.exitCode=1;
