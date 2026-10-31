@@ -16,6 +16,7 @@ const fixture=(mode='CASH')=>{
  history[75]=bar('2026-11-02',105,100,99);
  const future=sessions.slice(1).map(d=>bar(d,110,110,109));
  if(mode==='RETEST')future[0]=bar(sessions[1],106,102,100);
+ if(mode==='RETEST_DAY10')future[9]=bar(sessions[10],106,102,100);
  if(mode==='INVALIDATED')future[0]=bar(sessions[1],90,100,89);
  const ma75=(74*100+105)/75;
  const candidate={id:'3762:2026-11-02',code:'3762',tradeDate:'2026-11-02',
@@ -90,4 +91,15 @@ test('unfrozen code and wrong provider are excluded',()=>{
  assert.equal(evaluate('CASH',{candidates:[x.candidate]}).observations[0].status,'QUARANTINED_SIGNAL');
  const y=fixture();y.batch.sourceProvider='Other';
  assert.equal(evaluate('CASH',{batches:[y.batch]}).observations[0].status,'QUARANTINED_SOURCE');
+});
+
+test('last eligible tenth retest has the next open and fifth future close',()=>{
+ const r=evaluate('RETEST_DAY10');
+ assert.equal(r.tradedRetests,1);
+ assert.equal(r.observations[0].detail.retestSession,'2026-11-17');
+ assert.equal(r.observations[0].detail.waitEntrySession,'2026-11-18');
+ assert.equal(r.observations[0].detail.waitExitSession,'2026-11-25');
+});
+test('impossible exchange calendar date is rejected instead of being rolled over',()=>{
+ assert.throws(()=>evaluate('CASH',{sessions:[...sessions.slice(0,15),'2026-11-31']}),TypeError);
 });
