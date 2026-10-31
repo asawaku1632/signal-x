@@ -50,6 +50,16 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
     typeof date!=='string'||!/^20\d\d-\d\d-\d\d$/.test(date))
   throw new TypeError('Need one frozen code and exact trade date');
  const reasons=[];
+ const singleCodePilot=daily?.auditScope==='SINGLE_CODE_PILOT';
+ const fullUniverse=daily?.auditScope==='FROZEN_UNIVERSE'||daily?.auditScope===undefined;
+ const expectedCodes=singleCodePilot?[code]:freeze.codes;
+ const scopeValid=(singleCodePilot&&
+   daily?.requestedCode===code&&
+   daily?.originalFrozenCohortSize===freeze.codes.length)||
+   (fullUniverse&&
+   (daily?.originalFrozenCohortSize===undefined||
+    daily.originalFrozenCohortSize===freeze.codes.length)&&
+   (daily?.requestedCode===null||daily?.requestedCode===undefined));
  if(!minute||minute.version!==MORNING_MINUTE_SHADOW_VERSION||
     minute.code!==code||minute.date!==date||
     minute.structuralPass!==true||minute.pageChainComplete!==true||
@@ -60,10 +70,10 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
   reasons.push('INVALID_OR_DIFFERENT_MINUTE_AUDIT');
  if(!daily||daily.version!==MA75_JQUANTS_PAGE_VERSION||
     daily.date!==date||daily.paginationComplete!==true||
-    daily.expectedFrozenCodes!==freeze.codes.length||
+    !scopeValid||daily.expectedFrozenCodes!==expectedCodes.length||
     !Array.isArray(daily.failures)||daily.failures.length!==0||
-    !Array.isArray(daily.rows)||daily.rows.length!==freeze.codes.length||
-    daily.rows.some((r,i)=>r?.code!==freeze.codes[i]||r.tradeDate!==date)||
+    !Array.isArray(daily.rows)||daily.rows.length!==expectedCodes.length||
+    daily.rows.some((r,i)=>r?.code!==expectedCodes[i]||r.tradeDate!==date)||
     !sourceCapturedAfterDate(daily,date)||
     !reportedRowCountsMatch(daily)||
     !Array.isArray(daily.unmappedRows)||daily.unmappedRows.length!==0||
@@ -119,6 +129,8 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
  return {
    version:MORNING_MINUTE_DAILY_RECONCILIATION_VERSION,
    code,date,frozenPopulationSize:freeze.codes.length,
+   providerQueryScope:singleCodePilot?'SINGLE_CODE_PILOT':'FROZEN_UNIVERSE',
+   fullFrozenUniverseCovered:fullUniverse&&blockers.length===0,
    minuteAuditVersion:minute?.version??null,
    dailyAuditVersion:daily?.version??null,
    minuteBarCount:aggregate?.barCount??null,
