@@ -65,7 +65,7 @@ export function saveMinutePilotReport(output,report,writer=writeFileSync){
     report.dailyReconciliationMatched!==true||report.post905==null||
     report.eligibleForProduction!==false||report.eligibleForNotifications!==false)
    throw new TypeError('OUTPUT_REQUIRES_RECONCILED_HISTORICAL_RESEARCH_REPORT');
- writer(output,JSON.stringify(report,null,2)+'\\n',{encoding:'utf8',flag:'wx',mode:0o600});
+ writer(output,JSON.stringify(report,null,2)+'\n',{encoding:'utf8',flag:'wx',mode:0o600});
  return true;
 }
 export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch,now=new Date()}){
