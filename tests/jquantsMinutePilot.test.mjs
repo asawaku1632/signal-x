@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {planSingleCodeMinuteProbe,parseMinuteProbeArgs,fetchMinutePilotPages,fetchDailyPilotPages,
+ summarizeMinutePilotResult,
  DAILY_PROBE_ENDPOINT,MINUTE_PROBE_ENDPOINT}
  from '../scripts/research/jquants-minute-pilot.mjs';
 const freeze={codes:['3753','9984']};
@@ -310,4 +311,98 @@ test('daily 403, 429, malformed JSON, and redirected secret-bearing errors are r
   code:'3753',date:'2026-10-30',maxPages:1,apiKey:'SECRET',
   fetchImpl:async()=>{throw new Error('SECRET_REDIRECT')}
  }),e=>e.message==='JQUANTS_DAILY_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED');
+});
+
+const mockMinute=()=>({
+ code:'3753',date:'2026-10-30',structuralPass:true,pageChainComplete:true,
+ observedRawBars:75,errors:[],
+ asOf905:{observedMinuteBars:4,openToClosePercent:-1.1},
+ retrospective:{bottomMinute:'09:32',subsequent2PctReachedAt:'09:41',
+  maximumReboundPercent:2.4}
+});
+const mockMatchingDaily=()=>({
+ code:'3753',date:'2026-10-30',
+ structuralOneCodeDayMatched:true,matchingNoTradeSession:false,
+ blocked:false,blockers:[]
+});
+test('minute-only results never print unreconciled 09:05 or hindsight rebound metrics',()=>{
+ const result=summarizeMinutePilotResult({minute:mockMinute(),compareDaily:false});
+ assert.equal(result.status,'MINUTE_ONLY_UNRECONCILED');
+ assert.equal(result.asOf905,null);
+ assert.equal(result.retrospective,null);
+ assert.equal(result.historicalQualityHold,true);
+ assert.equal(result.metricsReleasedForHistoricalResearch,false);
+ assert.equal(result.eligibleForNotifications,false);
+});
+test('real structural same-code/day matching releases only explicitly labeled historical metrics',()=>{
+ const result=summarizeMinutePilotResult({
+  minute:mockMinute(),reconciliation:mockMatchingDaily(),compareDaily:true
+ });
+ assert.equal(result.status,'HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH');
+ assert.equal(result.historicalQualityHold,false);
+ assert.equal(result.asOf905.openToClosePercent,-1.1);
+ assert.equal(result.retrospective.bottomMinute,'09:32');
+ assert.equal(result.historicalMetricsAreHindsightOnly,true);
+ assert.equal(result.actual0905AvailabilityVerified,false);
+ assert.equal(result.independentlyVerifiedTradingEdge,false);
+ assert.equal(result.eligibleForProduction,false);
+});
+test('even apparently matching daily audit cannot override an incomplete minute pagination',()=>{
+ const m=mockMinute();m.pageChainComplete=false;
+ const result=summarizeMinutePilotResult({
+  minute:m,reconciliation:mockMatchingDaily(),compareDaily:true
+ });
+ assert.equal(result.status,'PILOT_INCOMPLETE');
+ assert.equal(result.asOf905,null);
+ assert.equal(result.retrospective,null);
+});
+test('a daily OHLCV volume mismatch withholds the 1%-2% rebound claims',()=>{
+ const d=mockMatchingDaily();
+ d.structuralOneCodeDayMatched=false;d.blocked=true;
+ d.blockers=['DAILY_MINUTE_VOLUME_MISMATCH'];
+ const result=summarizeMinutePilotResult({
+  minute:mockMinute(),reconciliation:d,compareDaily:true
+ });
+ assert.equal(result.status,'BLOCKED_DAILY_RECONCILIATION');
+ assert.deepEqual(result.reconciliationBlockers,['DAILY_MINUTE_VOLUME_MISMATCH']);
+ assert.equal(result.asOf905,null);
+ assert.equal(result.retrospective,null);
+});
+test('a daily match from a DIFFERENT symbol or trade date cannot release the studied stock',()=>{
+ for(const bad of [{code:'9984'},{date:'2026-10-29'}]){
+  const result=summarizeMinutePilotResult({
+   minute:mockMinute(),compareDaily:true,
+   reconciliation:{...mockMatchingDaily(),...bad}
+  });
+  assert.equal(result.status,'BLOCKED_DAILY_RECONCILIATION');
+  assert.equal(result.retrospective,null);
+ }
+});
+test('claimed success with nonempty daily blockers or blocked flag is quarantined',()=>{
+ for(const bad of [{blocked:true},{blockers:['CORPORATE_ACTION_UNRESOLVED']}]){
+  const result=summarizeMinutePilotResult({
+   minute:mockMinute(),compareDaily:true,
+   reconciliation:{...mockMatchingDaily(),...bad}
+  });
+  assert.equal(result.historicalQualityHold,true);
+  assert.equal(result.metricsReleasedForHistoricalResearch,false);
+ }
+});
+test('a matched no-trade day is a no-signal observation, never a rebound outcome',()=>{
+ const m=mockMinute();m.observedRawBars=0;m.asOf905=null;m.retrospective=null;
+ const d={...mockMatchingDaily(),structuralOneCodeDayMatched:false,
+  matchingNoTradeSession:true,blocked:true};
+ const result=summarizeMinutePilotResult({minute:m,reconciliation:d,compareDaily:true});
+ assert.equal(result.status,'MATCHED_NO_TRADE_NO_SIGNAL');
+ assert.equal(result.asOf905,null);
+ assert.equal(result.metricsReleasedForHistoricalResearch,false);
+});
+test('a missing daily audit and missing minute audit are explicitly blocked',()=>{
+ const noDaily=summarizeMinutePilotResult({minute:mockMinute(),compareDaily:true});
+ assert.equal(noDaily.status,'BLOCKED_DAILY_RECONCILIATION');
+ assert.deepEqual(noDaily.reconciliationBlockers,['NO_VALID_DAILY_COMPARISON']);
+ const missing=summarizeMinutePilotResult({compareDaily:true});
+ assert.equal(missing.status,'PILOT_INCOMPLETE');
+ assert.equal(missing.asOf905,null);
+ assert.equal(missing.eligibleForProduction,false);
 });
