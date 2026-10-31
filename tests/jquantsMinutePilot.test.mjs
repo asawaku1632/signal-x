@@ -105,3 +105,19 @@ test('missing data array is an invalid envelope, not a no-trade date',async()=>{
   ok:true,json:async()=>({bars:[]})
  })),/BAD_MINUTE_ENVELOPE/);
 });
+
+test('direct HTTP helper cannot bypass the max-four-page and one-code-day scope',async()=>{
+ let calls=0;
+ const mock=async()=>{calls++;return {ok:true,json:async()=>({data:[]})}};
+ for(const args of [
+  {code:'37531',date:'2026-10-30',maxPages:1},
+  {code:'3753',date:'2026-11-31',maxPages:1},
+  {code:'3753',date:'2026-10-30',maxPages:50},
+  {code:'3753',date:'2026-10-30',maxPages:0}
+ ]){
+  await assert.rejects(()=>fetchMinutePilotPages({
+   ...args,apiKey:'SECRET',fetchImpl:mock
+  }),/MINUTE_PROBE_SCOPE/);
+ }
+ assert.equal(calls,0);
+});
