@@ -26,10 +26,11 @@ export function auditJQuantsMinuteBars(payload: unknown, expectedDate: string) {
     if (r.Date !== expectedDate || !DATE.test(String(r.Date))) problems.push(`row ${i}: date mismatch`);
     if (typeof r.Time !== "string" || !TIME.test(r.Time)) problems.push(`row ${i}: invalid time`);
     if (typeof r.Code !== "string" || !VALID_CODE.test(r.Code)) problems.push(`row ${i}: invalid code`);
-    const [o,h,l,c,vol,val] = ["O","H","L","C","Vo","Va"].map(k=>r[k]);
-    if (![o,h,l,c,vol,val].every(v=>typeof v==="number" && Number.isFinite(v))) {
+    const values = ["O","H","L","C","Vo","Va"].map(k=>r[k]);
+    if (!values.every(v=>typeof v==="number" && Number.isFinite(v))) {
       problems.push(`row ${i}: nonnumeric OHLCV`); continue;
     }
+    const [o,h,l,c,vol,val] = values as number[];
     if (o<=0 || h<=0 || l<=0 || c<=0 || l>Math.min(o,c) || h<Math.max(o,c) || h<l || vol<0 || val<0) {
       problems.push(`row ${i}: inconsistent OHLCV`);
     }
