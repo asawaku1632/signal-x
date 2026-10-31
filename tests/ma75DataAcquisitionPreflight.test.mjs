@@ -22,7 +22,7 @@ const sessions=()=>{
  return out;
 };
 const archive=date=>({
- date,version:'ma75_jquants_v2_offline_daily_v1',
+ date,version:'ma75_jquants_v2_offline_daily_v2',
  firstReceivedAt:'2026-11-02T07:40:00Z',
  lastReceivedAt:'2026-11-02T07:45:00Z',
  readPages:1,rawProviderRows:3,
@@ -254,4 +254,46 @@ test('missing first receipt, missing readPages and impossible provider count are
  const a=sessions().map(archive);
  a[8].rawProviderRows=2;
  assert.equal(plan({audits:a}).states.incompleteExisting,1);
+});
+
+test('explicit split/rights event is archived but not a completed SMA75 candle',()=>{
+ const a=sessions().map(archive);
+ a[8].rows[0]={code:'1301',tradeDate:a[8].date,status:'CORPORATE_ACTION_REVIEW',
+   bar:null,actionDetails:{adjustmentFactor:0.5,exRightsType:'1',
+    reason:'EX_RIGHTS_EVENT',independentlyVerified:false}};
+ a[8].counts={DAILY_BAR:2,CORPORATE_ACTION_REVIEW:1};
+ a[8].structurallyUsableRawBars=2;
+ const result=plan({audits:a});
+ assert.equal(result.states.archivedCorporateActionReview,1);
+ assert.equal(result.archivedUsableBarCells,227);
+ assert.equal(result.archivedCorporateActionCells,1);
+ assert.equal(result.archivedNoTradeCells,0);
+ assert.equal(result.blockedOrMissingBarCells,1);
+ assert.equal(result.unverifiedOrMissingBarCells,0);
+ assert.equal(result.initialDateRequestsPotentiallyNeeded,0);
+ assert.equal(result.structuralHistoricalInputsPresent,false);
+});
+test('legacy corporate-action-blind page parser v1 archives cannot pass v2',()=>{
+ const a=sessions().map(archive);
+ a[0].version='ma75_jquants_v2_offline_daily_v1';
+ const r=plan({audits:a});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('corporate-action review must have no tradable bar and unverified action detail',()=>{
+ for(const modify of [
+  r=>{r.bar={code:'1301'};},
+  r=>{delete r.actionDetails;},
+  r=>{r.actionDetails.independentlyVerified=true;},
+ ]){
+  const a=sessions().map(archive);
+  a[7].rows[0]={code:'1301',tradeDate:a[7].date,
+   status:'CORPORATE_ACTION_REVIEW',bar:null,
+   actionDetails:{adjustmentFactor:0.5,independentlyVerified:false}};
+  a[7].counts={DAILY_BAR:2,CORPORATE_ACTION_REVIEW:1};
+  a[7].structurallyUsableRawBars=2;
+  modify(a[7].rows[0]);
+  assert.equal(plan({audits:a}).states.incompleteExisting,1);
+ }
 });
