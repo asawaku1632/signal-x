@@ -34,9 +34,12 @@ const reportedRowCountsMatch=daily=>{
    if(typeof row?.status!=='string')return false;
    counts[row.status]=(counts[row.status]??0)+1;
  }
+ const observedProviderRows=(counts.DAILY_BAR??0)+(counts.NO_TRADE??0)+
+    (counts.CORPORATE_ACTION_REVIEW??0)+(counts.INVALID_OHLCV??0);
  return Object.keys(counts).length===Object.keys(daily.counts).length&&
     Object.entries(counts).every(([name,n])=>daily.counts[name]===n)&&
-    daily.structurallyUsableRawBars===(counts.DAILY_BAR??0);
+    daily.structurallyUsableRawBars===(counts.DAILY_BAR??0)&&
+    daily.rawProviderRows>=observedProviderRows;
 };
 const same=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&
  Math.abs(a-b)<=1e-8*Math.max(1,Math.abs(a),Math.abs(b));
