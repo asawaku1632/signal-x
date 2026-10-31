@@ -54,6 +54,8 @@ export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl
    now.getTime()<Date.parse(date+'T07:30:00Z'))
    throw new TypeError('MINUTE_PROBE_SCOPE_MUST_BE_ONE_PUBLISHED_CODE_DAY_MAX_FOUR_PAGES');
  if(typeof apiKey!=='string'||apiKey.length===0)throw new Error('API_KEY_MISSING_IN_SECURE_ENV');
+ if(!Number.isInteger(maxPages)||maxPages<1||maxPages>4)throw new TypeError('MAX_PAGES_OUT_OF_RANGE');
+ if(typeof code!=='string'||!/^[0-9A-Z]{4,5}$/.test(code)||!realDay(date))throw new TypeError('INVALID_CODE_OR_DATE');
  const pages=[];
  let rowsSeen=0;
  let continuation=null;
