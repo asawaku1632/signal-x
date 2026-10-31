@@ -15,7 +15,7 @@ const median=xs=>{
 };
 const variants=MA75_PREDECLARED_VARIANTS.filter(name=>name!=='WAIT_FOR_RETEST_OR_CASH');
 const ID=c=>c.code+':'+c.tradeDate;
-export function summarizeMa75ForwardAudit(manifest,replay,settlement,{revisionAudit=null}={}){
+export function summarizeMa75ForwardAudit(manifest,replay,settlement,{revisionAudit=null,universeCoverage=null}={}){
  if(!verifyMa75ForwardManifest(manifest)||replay?.manifestSha256!==manifest.manifestSha256||
    settlement?.manifestSha256!==manifest.manifestSha256||
    !Array.isArray(replay?.candidates)||!Array.isArray(settlement?.results))
@@ -60,6 +60,18 @@ export function summarizeMa75ForwardAudit(manifest,replay,settlement,{revisionAu
    if(revisionAudit.manifestSha256!==manifest.manifestSha256||revisionAudit.validTransition!==true)
      issues.push({id:'REVISION',reason:'REVISION_AUDIT_FAILED'});
  }
+ // No winners-only ledger may claim structurally complete forward coverage.
+ // An independently authenticated provider feed is a separate hard gate.
+ const structuralCoveragePass=universeCoverage?.version==='ma75_universe_coverage_v1' &&
+   universeCoverage.manifestSha256===manifest.manifestSha256 &&
+   universeCoverage.integrityPass===true &&
+   universeCoverage.coveragePercent===100 &&
+   Number.isInteger(universeCoverage.expectedCodeDates) &&
+   universeCoverage.expectedCodeDates>0 &&
+   universeCoverage.unavailableCodeDates===0 &&
+   universeCoverage.observedBreakouts===candidates.size;
+ if(!structuralCoveragePass)issues.push({id:'UNIVERSE',reason:
+   universeCoverage===null?'MISSING_FROZEN_UNIVERSE_COVERAGE':'FAILED_FROZEN_UNIVERSE_COVERAGE'});
  const groups=variants.map(variant=>{
    const cohort=[...candidates.values()].filter(c=>c.variantMatches?.[variant]===true);
    const pairs=cohort.map(c=>settlementById.get(ID(c))).filter(Boolean);
@@ -82,6 +94,7 @@ export function summarizeMa75ForwardAudit(manifest,replay,settlement,{revisionAu
  return {
    version:MA75_FORWARD_SUMMARY_VERSION,manifestSha256:manifest.manifestSha256,
    totals:counts,issues,integrityPass:issues.length===0,
+   structuralCoveragePass,independentlyAuthenticatedCoverage:false,
    groups,
    unsupportedVariants:[{variant:'WAIT_FOR_RETEST_OR_CASH',
      reason:'No independently archived all-opportunity retest/cash ledger; cannot infer policy performance from breakout-only outcomes.'}],
