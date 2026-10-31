@@ -33,9 +33,7 @@ export async function saveTrendPullbackReversalObservations(targetDate:string){
     AND 100.0*(current_price-price_3records_ago)/NULLIF(price_3records_ago,0)<-5,
    'FORWARD','TPR_V1',NOW()
   FROM current_rows
-  ON CONFLICT(trade_date,code) DO UPDATE SET rsi_band=EXCLUDED.rsi_band,macd_key=EXCLUDED.macd_key,vwap_key=EXCLUDED.vwap_key,
-   ema20_key=EXCLUDED.ema20_key,prior_3record_return=EXCLUDED.prior_3record_return,market_pattern=EXCLUDED.market_pattern,
-   observation_flag=EXCLUDED.observation_flag,updated_at=NOW()
+  ON CONFLICT(trade_date,code) DO NOTHING
   RETURNING observation_flag)
  SELECT COUNT(*)::int saved,COUNT(*)FILTER(WHERE observation_flag)::int flagged FROM upserted`,[targetDate]);
  return {tprSaved:Number(result.rows[0]?.saved??0),tprFlagged:Number(result.rows[0]?.flagged??0)};
