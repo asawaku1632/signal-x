@@ -39,7 +39,7 @@ const calendar=s=>{
   const date=new Date(t).toISOString().slice(0,10);
   records.push({Date:date,HolDiv:set.has(date)?'1':'0'});
  }
- return {requestFrom:s[0],requestTo:s.at(-1],
+ return {requestFrom:s[0],requestTo:s.at(-1),
    capturedAt:'2026-11-02T07:45:00Z',records};
 };
 const after='2026-11-02T08:10:00Z';
