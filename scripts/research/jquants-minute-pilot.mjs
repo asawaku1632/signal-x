@@ -11,6 +11,9 @@ import {auditMorningMinuteShadow} from '../../app/lib/research/morningMinuteShad
 
 const FREEZE_FILE=new URL('../../docs/ma75-forward-cohort-freeze-20261031.json',import.meta.url);
 export const MINUTE_PROBE_ENDPOINT='https://api.jquants.com/v2/equities/bars/minute';
+const MAX_ONE_DAY_TSE_MINUTE_BARS=327; // 09:00–11:30, 12:30–15:24, 15:30
+const ordinaryCode=c=>typeof c==='string'&&/^[0-9]{3}[0-9A-Z]$/.test(c);
+const matchOrdinaryCode=(rowCode,code)=>rowCode===code||rowCode===code+'0';
 const realDay=d=>typeof d==='string'&&/^20\d\d-\d\d-\d\d$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -45,11 +48,12 @@ export function parseMinuteProbeArgs(argv){
  return args;
 }
 export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch}){
- if(!/^[0-9]{3}[0-9A-Z]$/.test(code??'')||!realDay(date)||
+ if(!ordinaryCode(code)||!realDay(date)||
    !Number.isInteger(maxPages)||maxPages<1||maxPages>4)
    throw new TypeError('MINUTE_PROBE_SCOPE_MUST_BE_ONE_CODE_DAY_MAX_FOUR_PAGES');
  if(typeof apiKey!=='string'||apiKey.length===0)throw new Error('API_KEY_MISSING_IN_SECURE_ENV');
  const pages=[];
+ let rowsSeen=0;
  let continuation=null;
  const used=new Set();
  for(let i=0;i<maxPages;i++){
@@ -59,6 +63,7 @@ export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl
    if(continuation!==null)url.searchParams.set('pagination_key',continuation);
    const res=await fetchImpl(url,{
      method:'GET',headers:{'x-api-key':apiKey,accept:'application/json'},
+     redirect:'error',credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',
      signal:AbortSignal.timeout(12000)
    });
    if(!res.ok){
@@ -68,6 +73,11 @@ export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl
    }
    const payload=await res.json();
    if(!payload||!Array.isArray(payload.data))throw new Error('JQUANTS_BAD_MINUTE_ENVELOPE');
+   rowsSeen+=payload.data.length;
+   if(rowsSeen>MAX_ONE_DAY_TSE_MINUTE_BARS)
+     throw new Error('JQUANTS_EXCESS_ONE_CODE_DAY_MINUTE_ROWS');
+   if(payload.data.some(row=>row?.Date!==date||!matchOrdinaryCode(row?.Code,code)))
+     throw new Error('JQUANTS_WRONG_CODE_OR_DATE_IN_PROVIDER_RESPONSE');
    pages.push({requestPaginationKey:continuation,
      receivedAt:new Date().toISOString(),response:payload});
    const next=payload.pagination_key;
