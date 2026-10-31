@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {planSingleCodeMinuteProbe,parseMinuteProbeArgs,fetchMinutePilotPages,MINUTE_PROBE_ENDPOINT}
+import {planSingleCodeMinuteProbe,parseMinuteProbeArgs,fetchMinutePilotPages,fetchDailyPilotPages,
+ DAILY_PROBE_ENDPOINT,MINUTE_PROBE_ENDPOINT}
  from '../scripts/research/jquants-minute-pilot.mjs';
 const freeze={codes:['3753','9984']};
 const now=new Date('2026-11-01T12:00:00Z');
@@ -194,4 +195,118 @@ test('direct HTTP helper refuses same-day before published daily update, without
    }),/MINUTE_PROBE_SCOPE/);
  }
  assert.equal(requests,0);
+});
+
+test('daily reconciliation is explicitly opt-in and doubles maximum request budget only when selected',()=>{
+ assert.equal(plan().requestUpperLimit,4);
+ assert.equal(plan().compareDaily,false);
+ const x=plan({compareDaily:true,maxPages:2});
+ assert.equal(x.compareDaily,true);
+ assert.equal(x.requestUpperLimit,4);
+ const args=parseMinuteProbeArgs([
+  '--execute','--compare-daily','--code=3753',
+  '--date=2026-10-30','--max-pages=3'
+ ]);
+ assert.equal(args.compareDaily,true);
+ assert.equal(args.execute,true);
+ assert.equal(args.maxPages,3);
+});
+test('same-date daily OHLCV requests use a separate endpoint and secure header',async()=>{
+ let calls=0;
+ const pages=await fetchDailyPilotPages({code:'3753',date:'2026-10-30',
+  maxPages:2,apiKey:'SECRET',fetchImpl:async(url,opts)=>{
+   calls++;
+   assert.equal(url.toString().split('?')[0],DAILY_PROBE_ENDPOINT);
+   assert.equal(url.searchParams.get('code'),'3753');
+   assert.equal(url.searchParams.get('date'),'2026-10-30');
+   assert.equal(opts.headers['x-api-key'],'SECRET');
+   assert.equal(opts.redirect,'error');
+   return {ok:true,json:async()=>({
+    data:[{Code:'37530',Date:'2026-10-30',O:100,H:101,L:99,C:100,Vo:10}]
+   })};
+  }
+ });
+ assert.equal(calls,1);
+ assert.equal(pages.length,1);
+ assert.equal(JSON.stringify(pages).includes('SECRET'),false);
+});
+test('optional daily fetch cannot run a broader code/date or before publication',async()=>{
+ let calls=0;
+ const mock=async()=>{calls++;return {ok:true,json:async()=>({data:[]})}};
+ for(const args of [
+  {code:'37531',date:'2026-10-30',maxPages:2},
+  {code:'3753',date:'2026-11-31',maxPages:2},
+  {code:'3753',date:'2026-10-30',maxPages:5},
+  {code:'3753',date:'2026-10-30',maxPages:1,now:new Date('2026-10-30T07:00:00Z')}
+ ]){
+   await assert.rejects(()=>fetchDailyPilotPages({
+    ...args,apiKey:'SECRET',fetchImpl:mock
+   }),/DAILY_PROBE_SCOPE/);
+ }
+ assert.equal(calls,0);
+});
+test('daily source can report no-trade without invented OHLCV',async()=>{
+ const p=await fetchDailyPilotPages({code:'3753',date:'2026-10-30',
+  maxPages:1,apiKey:'SECRET',fetchImpl:async()=>({
+   ok:true,json:async()=>({data:[{
+    Code:'37530',Date:'2026-10-30',O:null,H:null,L:null,C:null,Vo:null,
+    AdjFactor:1,ExRT:null
+   }]})
+  })
+ });
+ assert.equal(p[0].response.data[0].C,null);
+});
+test('daily response for wrong class/code or wrong date fails without fetching continuation',async()=>{
+ for(const row of [
+  {Code:'37531',Date:'2026-10-30'},
+  {Code:'99840',Date:'2026-10-30'},
+  {Code:'37530',Date:'2026-10-29'}
+ ]){
+  let calls=0;
+  await assert.rejects(()=>fetchDailyPilotPages({code:'3753',date:'2026-10-30',
+   maxPages:3,apiKey:'SECRET',fetchImpl:async()=>{
+    calls++;
+    return {ok:true,json:async()=>({data:[row],pagination_key:'MORE'})};
+   }
+  }),/JQUANTS_DAILY_WRONG_CODE_OR_DATE/);
+  assert.equal(calls,1);
+ }
+});
+test('daily pages cannot contain more than four rows for one code and date',async()=>{
+ let calls=0;
+ const rows=Array.from({length:5},()=>({Code:'37530',Date:'2026-10-30'}));
+ await assert.rejects(()=>fetchDailyPilotPages({
+  code:'3753',date:'2026-10-30',maxPages:2,apiKey:'SECRET',
+  fetchImpl:async()=>{calls++;return {ok:true,json:async()=>({data:rows})}}
+ }),/EXCESS_ONE_CODE_DATE_ROWS/);
+ assert.equal(calls,1);
+});
+test('daily continuation token and page count remain bounded',async()=>{
+ const tokens=[];
+ const pages=await fetchDailyPilotPages({code:'3753',date:'2026-10-30',
+  maxPages:2,apiKey:'SECRET',
+  fetchImpl:async(url)=>{
+   tokens.push(url.searchParams.get('pagination_key'));
+   return {ok:true,json:async()=>({data:[],pagination_key:'NEXT'+tokens.length})};
+  }
+ });
+ assert.deepEqual(tokens,[null,'NEXT1']);
+ assert.equal(pages.length,2);
+ assert.equal(pages[1].response.pagination_key,'NEXT2');
+});
+test('daily 403, 429, malformed JSON, and redirected secret-bearing errors are redacted',async()=>{
+ for(const status of [403,429]){
+  await assert.rejects(()=>fetchDailyPilotPages({
+   code:'3753',date:'2026-10-30',maxPages:1,apiKey:'SECRET',
+   fetchImpl:async()=>({ok:false,status,text:async()=> 'SECRET_FROM_VENDOR'})
+  }),e=>e.message.includes(String(status))&&!e.message.includes('SECRET'));
+ }
+ await assert.rejects(()=>fetchDailyPilotPages({
+  code:'3753',date:'2026-10-30',maxPages:1,apiKey:'SECRET',
+  fetchImpl:async()=>({ok:true,json:async()=>{throw new Error('SECRET_JSON')}})
+ }),/JQUANTS_DAILY_INVALID_JSON_RESPONSE/);
+ await assert.rejects(()=>fetchDailyPilotPages({
+  code:'3753',date:'2026-10-30',maxPages:1,apiKey:'SECRET',
+  fetchImpl:async()=>{throw new Error('SECRET_REDIRECT')}
+ }),e=>e.message==='JQUANTS_DAILY_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED');
 });
