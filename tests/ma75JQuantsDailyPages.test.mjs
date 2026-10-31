@@ -16,7 +16,7 @@ const freeze=()=>({
 });
 const bar=(Code='13010',overrides={})=>({
  Date:date,Code,O:100,H:103,L:99,C:102,Vo:20000,
- AdjO:50,AdjC:51,AdjVo:40000,AdjFactor:0.5,...overrides,
+ AdjO:50,AdjC:51,AdjVo:40000,AdjFactor:1,...overrides,
 });
 const noTrade=(Code='186A0')=>bar(Code,{O:null,H:null,L:null,C:null,Vo:null});
 const make=(a=[bar()],b=[bar('37530')])=>[
@@ -158,4 +158,45 @@ test('nonstring continuation token is never silently treated as a completed page
  const r=parse(pages);
  assert.equal(r.paginationComplete,false);
  assert.equal(r.failures[0].reason,'INVALID_PAGINATION_KEY');
+});
+
+test('explicit two-for-one split factor is quarantined even if daily price change is small',()=>{
+ const sample=bar('13010',{AdjFactor:0.5,O:100,H:102,L:98,C:101});
+ const r=parse(make([sample],[]));
+ const row=r.rows.find(x=>x.code==='1301');
+ assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
+ assert.equal(row.bar,null);
+ assert.equal(row.actionDetails.adjustmentFactor,0.5);
+ assert.equal(row.actionDetails.reason,'NON_UNIT_ADJUSTMENT_FACTOR');
+ assert.equal(row.actionDetails.independentlyVerified,false);
+ assert.equal(r.structurallyUsableRawBars,0);
+ assert.equal(r.version,'ma75_jquants_v2_offline_daily_v2');
+});
+test('rights issue ExRT and reverse split factor cannot enter normal OHLCV',()=>{
+ for(const event of [
+  {ExRT:'1',AdjFactor:1},
+  {ExRT:'2',AdjFactor:1.5},
+  {ExRT:'3',AdjFactor:1},
+  {AdjFactor:0},
+  {AdjFactor:-1},
+  {AdjFactor:'unknown'},
+ ]){
+  const row=parse(make([bar('13010',event)],[])).rows.find(x=>x.code==='1301');
+  assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
+  assert.equal(row.bar,null);
+ }
+});
+test('ordinary unit-factor source with null or blank ExRT remains historical raw data',()=>{
+ for(const ex of [null,'',undefined,'0']){
+   const r=parse(make([bar('13010',{AdjFactor:1,ExRT:ex})],[]));
+   assert.equal(r.rows.find(x=>x.code==='1301').status,'DAILY_BAR');
+   assert.equal(r.rows.find(x=>x.code==='1301').bar.close,102);
+ }
+});
+test('split on an otherwise nontrading day also remains a corporate action hold',()=>{
+ const sample=noTrade('186A0');
+ sample.AdjFactor=0.5;
+ const row=parse(make([sample],[])).rows.find(x=>x.code==='186A');
+ assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
+ assert.equal(row.bar,null);
 });
