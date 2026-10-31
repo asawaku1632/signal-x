@@ -1,0 +1,113 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {planMa75JQuantsAcquisition} from '../app/lib/research/ma75DataAcquisitionPreflight.mjs';
+const freeze=()=>({
+ schemaVersion:'ma75-forward-universe-candidate-freeze-v1',
+ frozenAt:'2026-10-31T13:43:02.737Z',firstEligibleSignalDate:'2026-11-02',
+ populationSize:3,codes:['1301','186A','9984'],
+ selectionSQL:"SELECT DISTINCT code FROM public.daily_stock_results WHERE date = '2026-10-30'",
+ historicalSelectionBias:'Previously app-observed subset of 953 not proven all TSE symbols.',
+ sourceChecks:{providerRights:'UNVERIFIED',barCaptureTimestamps:'UNVERIFIED',
+ splitAdjustments:'UNVERIFIED',officialTradingCalendar:'UNVERIFIED',liquidityCoverage:'UNVERIFIED'},
+ automaticCollectionEnabled:false,liveTradingEligible:false,notificationEligible:false,
+ independentlyValidatedForwardReturns:0,
+});
+const sessions=()=>{
+ const out=[];
+ for(let t=Date.parse('2026-11-02T00:00:00Z');out.length<76;t-=86400000){
+  const day=new Date(t),week=day.getUTCDay();
+  if(week!==0&&week!==6&&day.toISOString().slice(0,10)!=='2026-11-03')
+   out.unshift(day.toISOString().slice(0,10));
+ }
+ return out;
+};
+const archive=date=>({
+ date,version:'ma75_jquants_v2_offline_daily_v1',
+ paginationComplete:true,failures:[],expectedFrozenCodes:3,
+ eligibleForForwardSignal:false,providerRightsVerified:false,
+ rows:freeze().codes.map(code=>({code,tradeDate:date,
+   status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,close:100}})),
+});
+const after='2026-11-02T07:10:00Z';
+const plan=(opts={})=>planMa75JQuantsAcquisition(freeze(),
+ {asOf:opts.asOf??after,sessions:opts.sessions??sessions(),
+ audits:opts.audits??[],minuteAddonStatus:opts.minuteAddonStatus??'PLANNED'});
+test('76 date-scope requests cover 3 frozen codes without 3*76 separate first calls',()=>{
+ const r=plan();
+ assert.equal(r.expectedDailySessions,76);
+ assert.equal(r.expectedCodeSessionCells,228);
+ assert.equal(r.baselineRequestsForAllMissingDates,76);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,76);
+ assert.equal(r.states.pendingFetch,76);
+ assert.equal(r.requestGranularity,'ONE_DATE_ALL_LISTED_WITH_PAGINATION');
+ assert.equal(r.extraPaginationRequests,'UNKNOWN_UNTIL_REAL_RESPONSES');
+ assert.equal(r.officialStandardPerMinuteCeiling,120);
+ assert.equal(r.planningSafetyTargetRequestsPerMinute,30);
+ assert.equal(r.allowedToRunApiCalls,false);
+ assert.equal(r.allowedToSpendMoney,false);
+});
+test('future eligible trade day cannot be acquired as a completed close on Oct 31',()=>{
+ const r=plan({asOf:'2026-10-31T15:00:00Z'});
+ assert.equal(r.states.notYetClosed,1);
+ assert.equal(r.states.pendingFetch,75);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,75);
+ assert.equal(r.dates.at(-1).state,'SESSION_NOT_YET_CLOSED');
+ assert.equal(r.eligibleForProduction,false);
+});
+test('all archived 76 complete date reports may be structural, never independently validated forward',()=>{
+ const r=plan({audits:sessions().map(archive)});
+ assert.equal(r.structuralHistoricalInputsPresent,true);
+ assert.equal(r.states.archivedOfflineOnly,76);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
+ assert.equal(r.providerRightsVerified,false);
+ assert.equal(r.pointInTimeProviderAvailabilityVerified,false);
+ assert.equal(r.generatedFutureSignals,0);
+ assert.equal(r.eligibleForNotifications,false);
+});
+test('incomplete pages and a missing provider code block archive reuse',()=>{
+ const a=sessions().map(archive);
+ a[1].paginationComplete=false;
+ a[2].rows[0].status='MISSING_PROVIDER_ROW';
+ const r=plan({audits:a});
+ assert.equal(r.states.incompleteExisting,2);
+ assert.equal(r.states.archivedOfflineOnly,74);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,2);
+});
+test('duplicate archival reports and unexpected out-of-window dates fail closed',()=>{
+ const a=sessions().map(archive);
+ a.push(a[0],archive('2026-11-05'));
+ const r=plan({audits:a});
+ assert.equal(r.states.duplicateExisting,1);
+ assert.equal(r.states.unexpectedAuditDates,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,1);
+});
+test('an archived dataset with swapped code order cannot pass structural readiness',()=>{
+ const a=sessions().map(archive);
+ [a[9].rows[0],a[9].rows[1]]=[a[9].rows[1],a[9].rows[0]];
+ const r=plan({audits:a});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('user plans 5500 yen add-on but no entitlement or API access is inferred',()=>{
+ for(const status of ['PLANNED','USER_REPORTED_ACTIVE','NOT_PLANNED']){
+  const r=plan({minuteAddonStatus:status});
+  assert.equal(r.minuteAddonStatus,status);
+  assert.equal(r.minuteAddonConfirmedByProvider,false);
+  assert.equal(r.minuteResearchCanBeginWithExistingEntitlement,false);
+  assert.equal(r.minuteResearchEndpoint,'/v2/equities/bars/minute');
+  assert.equal(r.eligibleForProduction,false);
+ }
+});
+test('invalid schedule/date, incomplete 76 sessions or as-of before freeze throws',()=>{
+ assert.throws(()=>plan({sessions:sessions().slice(0,75)}),TypeError);
+ const s=sessions();s[20]='2026-11-31';
+ assert.throws(()=>plan({sessions:s}),TypeError);
+ assert.throws(()=>plan({asOf:'2026-10-30T06:00:00Z'}),TypeError);
+ assert.throws(()=>plan({minuteAddonStatus:'ACTIVATED_BY_SYSTEM'}),TypeError);
+});
+test('a mismatched or revised frozen population cannot trigger acquisition plans',()=>{
+ const f=freeze();f.codes=['1301','1301','9984'];
+ assert.throws(()=>planMa75JQuantsAcquisition(f,{asOf:after,sessions:sessions()}),TypeError);
+});
