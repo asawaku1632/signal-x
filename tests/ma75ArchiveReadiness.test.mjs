@@ -63,3 +63,15 @@ test('auditing before frozen file or using forged codes is blocked',()=>{
  const bad=freeze();bad.codes[0]='3753';
  assert.throws(()=>auditMa75ArchiveReadiness(bad,[chart()]),TypeError);
 });
+
+test('historical archive must not include a snapshot captured after the freeze',()=>{
+ const afterFreeze={...chart(),updatedAt:'2026-11-05T12:29:55Z'};
+ const result=audit([afterFreeze]);
+ assert.equal(result.rows[1].status,'QUARANTINED_SNAPSHOT_PROVENANCE');
+ assert.equal(result.usableHistoricalOnly,0);
+});
+test('milliseconds and malformed timestamp magnitude cannot masquerade as daily seconds',()=>{
+ const bad=candles();bad[20].time=Number.MAX_SAFE_INTEGER;
+ const r=audit([chart('3753',bad)]);
+ assert.equal(r.rows[1].status,'QUARANTINED_BAR_OR_TIME');
+});
