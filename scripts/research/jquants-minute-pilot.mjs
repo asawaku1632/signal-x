@@ -215,6 +215,36 @@ export function summarizeMinutePilotResult({minute,reconciliation=null,compareDa
      'Without an intact minute-to-daily match, the pilot suppresses all hypothetical 09:05 and retrospective rebound metrics.'
  };
 }
+
+/**
+ * Pure analysis of ALREADY ACQUIRED pages for exactly one frozen code/day.
+ * No secret, network, database, browser state, notification or trade action.
+ * The original full frozen universe is preserved: one stock is just a pilot.
+ */
+export function analyzeHistoricalMinutePilotPages(freeze,{
+ code,date,minutePages,dailyPages=null,compareDaily=false
+}={}){
+ const minute=auditMorningMinuteShadow(freeze,{code,date,pages:minutePages});
+ let reconciliation=null;
+ if(compareDaily===true&&minute.structuralPass===true&&
+    Array.isArray(dailyPages)&&dailyPages.length>0){
+   const daily=parseMa75JQuantsDailyPages(freeze,{
+     code,date,pages:dailyPages,requestedCode:code
+   });
+   reconciliation=reconcileMorningMinuteDaily(freeze,{
+     code,date,minute,daily
+   });
+ }
+ const matched=compareDaily===true&&minute.structuralPass===true&&
+   reconciliation?.structuralOneCodeDayMatched===true&&
+   reconciliation.blocked===false&&
+   reconciliation.code===code&&reconciliation.date===date&&
+   Array.isArray(reconciliation.blockers)&&reconciliation.blockers.length===0;
+ const post905=matched?measurePost905Outcomes(
+   minutePages.flatMap(page=>page.response.data),{code,date}
+ ):null;
+ return summarizeMinutePilotResult({minute,reconciliation,compareDaily,post905});
+}
 export async function main(argv=process.argv.slice(2),env=process.env){
  const freeze=JSON.parse(readFileSync(FREEZE_FILE,'utf8'));
  const args=parseMinuteProbeArgs(argv);
@@ -234,32 +264,19 @@ export async function main(argv=process.argv.slice(2),env=process.env){
    code:args.code,date:args.date,maxPages:args.maxPages,
    apiKey:env.JQUANTS_API_KEY
  });
- const result=auditMorningMinuteShadow(freeze,{
+ const minutePreview=auditMorningMinuteShadow(freeze,{
    code:args.code,date:args.date,pages
  });
- let reconciliation=null;
- if(args.compareDaily&&result.structuralPass){
-   const dailyPages=await fetchDailyPilotPages({
+ let dailyPages=null;
+ if(args.compareDaily&&minutePreview.structuralPass){
+   dailyPages=await fetchDailyPilotPages({
      code:args.code,date:args.date,maxPages:args.maxPages,
      apiKey:env.JQUANTS_API_KEY
    });
-   const dailyAudit=parseMa75JQuantsDailyPages(freeze,{
-     date:args.date,pages:dailyPages,requestedCode:args.code
-   });
-   reconciliation=reconcileMorningMinuteDaily(freeze,{
-     code:args.code,date:args.date,minute:result,daily:dailyAudit
-   });
  }
- const reconciled=result.structuralPass&&
-   reconciliation?.structuralOneCodeDayMatched===true&&
-   reconciliation.blocked===false&&
-   reconciliation.code===args.code&&reconciliation.date===args.date&&
-   Array.isArray(reconciliation.blockers)&&reconciliation.blockers.length===0;
- const post905=reconciled?measurePost905Outcomes(
-   pages.flatMap(page=>page.response.data),{code:args.code,date:args.date}
- ):null;
- const report=summarizeMinutePilotResult({
-   minute:result,reconciliation,compareDaily:args.compareDaily,post905
+ const report=analyzeHistoricalMinutePilotPages(freeze,{
+   code:args.code,date:args.date,minutePages:pages,dailyPages,
+   compareDaily:args.compareDaily
  });
  process.stdout.write(JSON.stringify(report,null,2)+'\n');
  return report;
