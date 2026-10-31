@@ -32,13 +32,21 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     throw new TypeError('Need a valid date and at least one previously captured page');
   const failures=[],seenKeys=new Set(),seenCode=new Map(),rawRows=[];
   let expected=null,terminated=false,firstCapture=null,lastCapture=null;
+  let previousReceiptMs=null;
   for(let i=0;i<pages.length;i++){
     const page=pages[i],request=page?.requestPaginationKey??null;
     const payload=page?.response,captured=time(page?.receivedAt);
     if(terminated){failures.push({page:i,reason:'PAGE_AFTER_TERMINAL'});break}
+    if(!page||!Object.prototype.hasOwnProperty.call(page,'requestPaginationKey')){
+      failures.push({page:i,reason:'MISSING_REQUEST_PAGINATION_KEY'});break;
+    }
     if(!Number.isFinite(captured)||captured<Date.parse(date+'T06:30:00Z')){
       failures.push({page:i,reason:'INVALID_OR_EARLY_RECEIPT'});break;
     }
+    if(previousReceiptMs!==null&&captured<previousReceiptMs){
+      failures.push({page:i,reason:'PAGE_RECEIPT_TIME_REVERSED'});break;
+    }
+    previousReceiptMs=captured;
     if(firstCapture===null)firstCapture=page.receivedAt;
     lastCapture=page.receivedAt;
     if(request!==expected){
@@ -47,8 +55,10 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     if(!payload||!Array.isArray(payload.data)){
       failures.push({page:i,reason:'INVALID_RESPONSE_ENVELOPE'});break;
     }
-    const continuation=payload.pagination_key??null;
-    if(continuation!==null&&(typeof continuation!=='string'||continuation.length===0)){
+    // Provider FAQ: absent or empty pagination_key both mean terminal page.
+    const token=payload.pagination_key;
+    const continuation=token===undefined||token===null||token===''?null:token;
+    if(continuation!==null&&typeof continuation!=='string'){
       failures.push({page:i,reason:'INVALID_PAGINATION_KEY'});break;
     }
     if(continuation!==null&&(seenKeys.has(continuation)||continuation===request)){
