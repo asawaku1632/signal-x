@@ -13,6 +13,7 @@ export type DatedMarketQuote = {
 export function validateDatedMarketQuote(
   quote: DatedMarketQuote,
   expectedTradeDate: string,
+  decisionAt?: string,
 ): { ok: true; quote: DatedMarketQuote } | { ok: false; reason: string } {
   if (!quote || typeof quote.tradeDate !== "string") return { ok: false, reason: "INVALID_TRADE_DATE" };
   if (typeof expectedTradeDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(expectedTradeDate) ||
@@ -39,5 +40,10 @@ export function validateDatedMarketQuote(
   // A daily closing quote cannot be observed before the Tokyo market close (15:30 JST).
   const jstTime = new Date(observed + 9 * 60 * 60 * 1000).toISOString().slice(11, 16);
   if (jstTime < "15:30") return { ok: false, reason: "BEFORE_MARKET_CLOSE" };
+  if (decisionAt !== undefined) {
+    const decisionMs = Date.parse(decisionAt);
+    if (!Number.isFinite(decisionMs)) return { ok: false, reason: "INVALID_DECISION_AT" };
+    if (observed > decisionMs) return { ok: false, reason: "FUTURE_QUOTE_AT_DECISION" };
+  }
   return { ok: true, quote };
 }
