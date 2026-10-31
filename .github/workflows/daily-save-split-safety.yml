@@ -11,6 +11,9 @@ on:
       - "tests/tprObservationImmutable.test.mjs"
       - "tests/tprOutcomePriority.test.mjs"
       - "tests/tprOutcomeSqlContract.test.mjs"
+      - "tests/marketQuoteNullPreservation.test.mjs"
+      - "app/lib/marketLearning.ts"
+      - "app/lib/relatedLearning.ts"
       - "app/lib/learning/trendPullbackReversal.ts"
       - "tests/learningSaveMonitor.test.mjs"
       - "vercel.json"
@@ -31,7 +34,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Check post-save split contracts
-        run: node --test tests/saveDailySplit.test.mjs tests/tprObservationSqlContract.test.mjs tests/tprObservationImmutable.test.mjs tests/tprOutcomePriority.test.mjs tests/tprOutcomeSqlContract.test.mjs
+        run: node --test tests/saveDailySplit.test.mjs tests/tprObservationSqlContract.test.mjs tests/tprObservationImmutable.test.mjs tests/tprOutcomePriority.test.mjs tests/tprOutcomeSqlContract.test.mjs tests/marketQuoteNullPreservation.test.mjs
       - name: Type-check app
         run: |
           npx next typegen
