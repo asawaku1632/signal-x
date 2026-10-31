@@ -244,7 +244,7 @@ export async function main(argv=process.argv.slice(2),env=process.env){
      apiKey:env.JQUANTS_API_KEY
    });
    const dailyAudit=parseMa75JQuantsDailyPages(freeze,{
-     date:args.date,pages:dailyPages
+     date:args.date,pages:dailyPages,requestedCode:args.code
    });
    reconciliation=reconcileMorningMinuteDaily(freeze,{
      code:args.code,date:args.date,minute:result,daily:dailyAudit
