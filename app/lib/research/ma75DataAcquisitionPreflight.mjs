@@ -7,6 +7,7 @@ import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 import {MA75_PAGE_REVISION_VERSION, fingerprintMa75RevisionPopulation}
   from './ma75JQuantsPageRevisionAudit.mjs';
+import {auditMa75TseCalendar} from './ma75TseCalendarAudit.mjs';
 
 export const MA75_ACQUISITION_PREFLIGHT_VERSION='ma75_acquisition_preflight_v1';
 export const MA75_STANDARD_ACCOUNT_RATE_LIMIT=120; // J-Quants docs, nominal requests/min, shared across keys.
@@ -32,7 +33,8 @@ const validRawBar=(bar,code,date)=>bar?.code===code&&
  * minuteAddonStatus is a declared plan, not proof of account entitlement.
  */
 export function planMa75JQuantsAcquisition(freeze,{
-  asOf,sessions,audits=[],pageRevisionAudits=[],minuteAddonStatus='PLANNED',
+  asOf,sessions,audits=[],pageRevisionAudits=[],calendarSnapshot,
+  minuteAddonStatus='PLANNED',
 }={}){
  validateMa75FrozenUniverse(freeze);
  const clock=timestamp(asOf);
@@ -45,6 +47,9 @@ export function planMa75JQuantsAcquisition(freeze,{
  if(!Array.isArray(audits)||!Array.isArray(pageRevisionAudits)||
     !['PLANNED','NOT_PLANNED','USER_REPORTED_ACTIVE'].includes(minuteAddonStatus))
    throw new TypeError('Invalid capture audits or minute add-on status');
+ const calendarAudit=calendarSnapshot?
+   auditMa75TseCalendar({sessions,...calendarSnapshot}):null;
+ const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true;
  const wanted=new Set(sessions),grouped=new Map(),unexpected=[];
  for(const audit of audits){
    if(!wanted.has(audit?.date)){unexpected.push(String(audit?.date??'?'));continue}
@@ -175,7 +180,10 @@ export function planMa75JQuantsAcquisition(freeze,{
    unexpectedRevisionDates,
    dates:days,
    structuralHistoricalInputsPresent:allArchived&&unexpected.length===0&&
-     unexpectedRevisionDates.length===0,
+     unexpectedRevisionDates.length===0&&calendarStructuralPass,
+   calendarStructuralPass,
+   calendarIssues:calendarAudit?.issues??['MISSING_RAW_TSE_CALENDAR'],
+   independentlyAuthenticatedCalendar:false,
    independentCalendarVerified:false,
    pointInTimeProviderAvailabilityVerified:false,
    providerRightsVerified:false,
@@ -187,6 +195,7 @@ export function planMa75JQuantsAcquisition(freeze,{
    warnings:[
      'Standard daily bars do not require the separate minute/tick add-on.',
      'The minute/tick add-on is user-planned; its actual activation and cost have not been verified by this tool.',
+     'A complete 76-session stock history still requires all calendar dates and HolDiv classifications to reconcile to the declared TSE sessions.',
      'J-Quants one-minute and tick historical feeds update daily, NOT real time; never use for a same-day 09:05 alert.',
      'A minute without trades may have no bar, and the first trade bar need not occur at 09:00.',
      'The nominal account-level 120 requests/min is shared across services and does not determine pagination or availability.',
