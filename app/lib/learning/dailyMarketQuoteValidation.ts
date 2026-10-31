@@ -16,6 +16,7 @@ export function validateDatedMarketQuote(
 ): { ok: true; quote: DatedMarketQuote } | { ok: false; reason: string } {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(expectedTradeDate) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(quote.tradeDate) ||
+      !Number.isFinite(Date.parse(`${quote.tradeDate}T00:00:00Z`)) ||
       new Date(`${quote.tradeDate}T00:00:00Z`).toISOString().slice(0, 10) !== quote.tradeDate) {
     return { ok: false, reason: "INVALID_TRADE_DATE" };
   }
