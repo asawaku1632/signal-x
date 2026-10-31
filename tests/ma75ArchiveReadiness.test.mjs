@@ -75,3 +75,45 @@ test('milliseconds and malformed timestamp magnitude cannot masquerade as daily 
  const r=audit([chart('3753',bad)]);
  assert.equal(r.rows[1].status,'QUARANTINED_BAR_OR_TIME');
 });
+
+test('76 old saved bars cannot masquerade as a reference-day signal',()=>{
+ const r=audit([chart()],{referenceTradeDate:'2026-10-30'});
+ assert.equal(r.universeSize,3);
+ assert.equal(r.usableHistoricalOnly,1);
+ assert.equal(r.lastBarOnReferenceDate,0);
+ assert.equal(r.staleHistoricalCharts,1);
+ assert.equal(r.referenceDateBarCoveragePercent,0);
+ assert.equal(r.rows[1].status,'HISTORICAL_ONLY_STALE_REFERENCE');
+ assert.equal(r.rows[1].detail.eligibleForReferenceSignal,false);
+ assert.equal(r.rows[1].detail.referenceTradeDate,'2026-10-30');
+});
+test('one matching reference date is distinct from stale snapshots and unavailable cohort codes',()=>{
+ const matching=candles();
+ const shift=Math.trunc(Date.parse('2026-10-30T00:00:00Z')/1000)-matching.at(-1).time;
+ const target=matching.map(b=>({...b,time:b.time+shift}));
+ const r=audit([chart('1301',target),chart('3753')],
+   {referenceTradeDate:'2026-10-30'});
+ assert.equal(r.usableHistoricalOnly,2);
+ assert.equal(r.lastBarOnReferenceDate,1);
+ assert.equal(r.staleHistoricalCharts,1);
+ assert.equal(r.counts.NO_SAVED_DAILY_CHART,1);
+ assert.equal(r.referenceDateBarCoveragePercent,33.33333);
+ assert.equal(r.historicalCoveragePercent,66.66667);
+ assert.equal(r.rows[0].detail.lastBarDate,'2026-10-30');
+ assert.equal(r.rows[0].detail.eligibleForReferenceSignal,false);
+});
+test('future bar relative to a requested historical date is excluded from retrospective denominator',()=>{
+ const r=audit([chart()],{referenceTradeDate:'2026-08-01'});
+ assert.equal(r.rows[1].status,'QUARANTINED_BAR_AFTER_REFERENCE');
+ assert.equal(r.lastBarOnReferenceDate,0);
+ assert.equal(r.usableHistoricalOnly,0);
+});
+test('invalid reference day cannot turn a stale chart into a matching as-of observation',()=>{
+ for(const referenceTradeDate of ['2026-11-31','2026-00-01','2026-10-30T00:00Z',null]){
+   assert.throws(()=>audit([chart()],{referenceTradeDate}),TypeError);
+ }
+ const r=audit();
+ assert.equal(r.referenceTradeDate,null);
+ assert.equal(r.referenceDateBarCoveragePercent,null);
+ assert.equal(r.version,'ma75_archive_readiness_v2');
+});
