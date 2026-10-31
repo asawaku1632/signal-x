@@ -53,6 +53,10 @@ test('real 953-symbol frozen universe and one-stock daily query now reconcile en
  assert.equal(r.dailyObservedCodeDays,1);
  assert.equal(r.dailyMissingOrQuarantinedCodeDays,0);
  assert.equal(r.fullFrozenUniverseCovered,false);
+ assert.equal(r.frozenTradeDateRecordsComplete,false);
+ assert.equal(r.sessionDatesActuallyReconciled,1);
+ assert.equal(r.requiredSessionDatesForMa75,76);
+ assert.equal(r.frozen76SessionHistoryVerified,false);
  assert.equal(r.code,code);
  assert.equal(r.parsedMinuteBars,4);
  assert.equal(r.asOf905.observedMinuteBars,2);
