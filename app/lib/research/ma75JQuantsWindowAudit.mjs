@@ -24,7 +24,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
   // Independently recompute the calendar structure from RAW saved provider rows:
   // caller-provided summaries cannot self-certify a fabricated trading calendar.
   const calendarAudit=calendarSnapshot?
-    auditMa75TseCalendar({sessions,...calendarSnapshot}):null;
+    auditMa75TseCalendar({...calendarSnapshot,sessions}):null;
   const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true;
   const signalDate=sessions.at(-1), dateSet=new Set(sessions);
   const reportByDate=new Map(),duplicateDates=new Set(),unexpectedDates=[];
