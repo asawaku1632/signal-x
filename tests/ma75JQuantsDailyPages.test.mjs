@@ -126,3 +126,36 @@ test('all-null nontrading day and zero volume are kept as a non-trade state, not
  assert.equal(r.rows.find(x=>x.code==='1301').bar,null);
  assert.equal(r.structurallyUsableRawBars,0);
 });
+
+test('empty pagination_key is a valid terminal response, per the provider FAQ',()=>{
+ const pages=make();
+ pages[1].response.pagination_key='';
+ const r=parse(pages);
+ assert.equal(r.paginationComplete,true);
+ assert.equal(r.failures.length,0);
+ assert.equal(r.rows.find(x=>x.code==='1301').status,'DAILY_BAR');
+});
+test('reverse chronological receipt dates are rejected for paginated responses',()=>{
+ const pages=make();
+ pages[1].receivedAt='2026-11-18T07:59:00Z';
+ const r=parse(pages);
+ assert.equal(r.paginationComplete,false);
+ assert.equal(r.failures[0].reason,'PAGE_RECEIPT_TIME_REVERSED');
+ assert.equal(r.structurallyUsableRawBars,0);
+ assert.ok(r.rows.every(x=>x.bar===null));
+});
+test('each archived response must explicitly record its request pagination key',()=>{
+ const pages=make();
+ delete pages[1].requestPaginationKey;
+ const r=parse(pages);
+ assert.equal(r.paginationComplete,false);
+ assert.equal(r.failures[0].reason,'MISSING_REQUEST_PAGINATION_KEY');
+ assert.equal(r.counts.BLOCKED_PAGINATION,4);
+});
+test('nonstring continuation token is never silently treated as a completed page',()=>{
+ const pages=make();
+ pages[1].response.pagination_key=17;
+ const r=parse(pages);
+ assert.equal(r.paginationComplete,false);
+ assert.equal(r.failures[0].reason,'INVALID_PAGINATION_KEY');
+});
