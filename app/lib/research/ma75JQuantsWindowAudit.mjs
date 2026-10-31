@@ -6,7 +6,8 @@
  */
 import { validateMa75FrozenUniverse } from './ma75FrozenUniverse.mjs';
 import { MA75_JQUANTS_PAGE_VERSION } from './ma75JQuantsDailyPages.mjs';
-export const MA75_JQUANTS_WINDOW_VERSION='ma75_jquants_offline_76_sessions_v1';
+import { auditMa75TseCalendar } from './ma75TseCalendarAudit.mjs';
+export const MA75_JQUANTS_WINDOW_VERSION='ma75_jquants_offline_76_sessions_v2';
 const day=s=>typeof s==='string'&&/^20\d\d-\d\d-\d\d$/.test(s)&&
   Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
   new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -14,12 +15,17 @@ const number=x=>typeof x==='number'&&Number.isFinite(x);
 const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
 const round=x=>Number(x.toFixed(5));
 const ID=(code,date)=>code+':'+date;
-export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
+export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSnapshot}={}){
   validateMa75FrozenUniverse(freeze);
   if(!Array.isArray(sessions)||sessions.length!==76||
      sessions.some((d,i)=>!day(d)||(i>0&&d<=sessions[i-1]))||
      sessions.at(-1)<freeze.firstEligibleSignalDate||
      !Array.isArray(reports))throw new TypeError('76 ascending declared sessions ending on a future-eligible date required');
+  // Independently recompute the calendar structure from RAW saved provider rows:
+  // caller-provided summaries cannot self-certify a fabricated trading calendar.
+  const calendarAudit=calendarSnapshot?
+    auditMa75TseCalendar({sessions,...calendarSnapshot}):null;
+  const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true;
   const signalDate=sessions.at(-1), dateSet=new Set(sessions);
   const reportByDate=new Map(),duplicateDates=new Set(),unexpectedDates=[];
   for(const r of reports){
@@ -65,7 +71,9 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
   for(let i=0;i<freeze.codes.length;i++){
     const code=freeze.codes[i],values=[];
     let status='HISTORY_INCOMPLETE',signal=null,reason=null;
-    if(missingSessions.length||duplicateDates.size||invalidReports.length||unexpectedDates.length){
+    if(!calendarStructuralPass){
+      reason='TSE_CALENDAR_NOT_STRUCTURALLY_VERIFIED';
+    }else if(missingSessions.length||duplicateDates.size||invalidReports.length||unexpectedDates.length){
       reason='GLOBAL_PAGE_WINDOW_INCOMPLETE';
     }else{
       const statuses=[];
@@ -108,6 +116,9 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
     suppliedReports:reports.length,uniqueValidReports:validated.size,
     missingSessions,invalidReports,duplicateDates:[...duplicateDates].sort(),
     unexpectedDates,rows,counts,
+    calendarStructuralPass,
+    calendarIssues:calendarAudit?.issues??['MISSING_RAW_TSE_CALENDAR'],
+    independentlyAuthenticatedCalendar:false,
     structuralCoverageComplete:rows.every(r=>
       r.status==='BREAKOUT_OFFLINE_ONLY'||r.status==='NO_CROSS_OFFLINE_ONLY'),
     generatedForwardSignals:0,independentlyVerifiedAsOfAvailability:false,
@@ -117,6 +128,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
     warnings:[
       'Offline bar pages are not live as-of timestamp evidence, even if a receivedAt field exists.',
       'Every frozen code must have all 76 complete sessions; missing or no-trade history stays in the denominator.',
+      'All dates, including stock-market holidays, must be reconciled to raw stored TSE HolDiv calendar records before offline crossover classification.',
       'Any explicit split, reverse split or rights issue in the 76-session window blocks that code until an independently reviewed as-of adjusted history is available.',
       'This retrospective 75-day calculation cannot be promoted without a verified point-in-time adjustment and corporate-action audit.',
     ],
