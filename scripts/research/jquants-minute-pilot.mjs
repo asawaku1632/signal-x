@@ -209,7 +209,13 @@ export function summarizeMinutePilotResult({minute,reconciliation=null,compareDa
    dailyProviderQueryScope:reconciliation?.providerQueryScope??null,
    dailyObservedCodeDays:reconciliation?.dailyObservedCodeDays??null,
    dailyMissingOrQuarantinedCodeDays:reconciliation?.dailyMissingOrQuarantinedCodeDays??null,
-   fullFrozenUniverseCovered:reconciled&&reconciliation?.fullFrozenUniverseCovered===true,
+   frozenTradeDateRecordsComplete:reconciled&&
+     reconciliation?.frozenTradeDateRecordsComplete===true,
+   sessionDatesActuallyReconciled:reconciled?
+     reconciliation?.sessionDatesActuallyReconciled??0:0,
+   requiredSessionDatesForMa75:76,
+   frozen76SessionHistoryVerified:false,
+   fullFrozenUniverseCovered:false,
    pageChainComplete:minute?.pageChainComplete===true,
    parsedMinuteBars:minute?.observedRawBars??null,
    dailyComparisonRequested:compareDaily===true,
