@@ -330,3 +330,21 @@ test('unsupported daily audit scope cannot be used to claim full coverage',()=>{
  assert.equal(r.providerQueryScope,'INVALID_SCOPE');
  assert.equal(r.fullFrozenUniverseCovered,false);
 });
+
+
+test('legacy or absent full-cohort audit scope cannot be silently promoted to full coverage',()=>{
+ const valid=daily();
+ for(const changed of [
+  {auditScope:undefined},
+  {originalFrozenCohortSize:undefined},
+  {requestedCode:undefined},
+  {originalFrozenCohortSize:1},
+  {requestedCode:code}
+ ]){
+  const r=audit(minute(),{...valid,...changed});
+  assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+  assert.equal(r.structuralOneCodeDayMatched,false);
+  assert.equal(r.fullFrozenUniverseCovered,false);
+  assert.equal(r.eligibleForProduction,false);
+ }
+});
