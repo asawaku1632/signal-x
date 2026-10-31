@@ -16,4 +16,9 @@ jobs:
           node-version: '22'
       - name: Verify historical minute pilot and reconciliation without API secrets
         run: |
-          node --test tests/jquantsMinutePilotHttp.test.mjs tests/morningMinuteShadow.test.mjs
+          node --test \
+            tests/jquantsMinutePilotHttp.test.mjs \
+            tests/jquantsMinutePilot.test.mjs \
+            tests/morningMinuteShadow.test.mjs \
+            tests/morningMinuteDailyReconciliation.test.mjs \
+            tests/ma75JQuantsDailyPages.test.mjs
