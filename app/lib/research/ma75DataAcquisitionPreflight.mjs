@@ -45,6 +45,7 @@ export function planMa75JQuantsAcquisition(freeze,{
  for(const date of sessions){
    const prior=grouped.get(date)??[];
    let state='REQUIRES_EXISTING_DATA_OR_FETCH';
+   let usableDailyBars=0,noTradeCodes=0;
    if(prior.length>1)state='DUPLICATE_CAPTURE_REVIEW';
    else if(prior.length===1){
      const r=prior[0],rows=r?.rows;
@@ -67,14 +68,20 @@ export function planMa75JQuantsAcquisition(freeze,{
        Object.keys(r.counts).some(k=>r.counts[k]!==rows.filter(x=>x.status===k).length)||
        rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
        state='PREVIOUS_AUDIT_INCOMPLETE';
-     else if(rows.some(x=>x.status==='NO_TRADE'))
-       state='ARCHIVED_NO_TRADE_GAP';
-     else state='ARCHIVED_OFFLINE_ONLY';
+     else {
+       usableDailyBars=rows.filter(x=>x.status==='DAILY_BAR').length;
+       noTradeCodes=rows.filter(x=>x.status==='NO_TRADE').length;
+       state=noTradeCodes>0?'ARCHIVED_NO_TRADE_GAP':'ARCHIVED_OFFLINE_ONLY';
+     }
    }
    // Close time does not imply provider release or live-source availability.
    if(clock<afterTseClose(date))state='SESSION_NOT_YET_CLOSED';
    else if(clock<dailyPublishTarget(date))state='WAIT_FOR_DAILY_PROVIDER_UPDATE';
-   days.push({date,state,previousAuditCount:prior.length});
+   // As-of safeguards override all archived input even if its metadata claims success.
+   if(state!=='ARCHIVED_NO_TRADE_GAP'&&state!=='ARCHIVED_OFFLINE_ONLY'){
+     usableDailyBars=0;noTradeCodes=0;
+   }
+   days.push({date,state,previousAuditCount:prior.length,usableDailyBars,noTradeCodes});
  }
  const count=state=>days.filter(x=>x.state===state).length;
  const possibleRequests=days.filter(x=>[
@@ -82,10 +89,16 @@ export function planMa75JQuantsAcquisition(freeze,{
    'DUPLICATE_CAPTURE_REVIEW'
  ].includes(x.state)).length;
  const allArchived=days.every(x=>x.state==='ARCHIVED_OFFLINE_ONLY');
+ const archivedUsableBars=days.reduce((n,d)=>n+d.usableDailyBars,0);
+ const archivedNoTradeCells=days.reduce((n,d)=>n+d.noTradeCodes,0);
+ const expectedCells=freeze.codes.length*sessions.length;
  return {
    version:MA75_ACQUISITION_PREFLIGHT_VERSION,
    frozenPopulation:freeze.codes.length,
-   expectedCodeSessionCells:freeze.codes.length*sessions.length,
+   expectedCodeSessionCells:expectedCells,
+   archivedUsableBarCells:archivedUsableBars,
+   archivedNoTradeCells,
+   unverifiedOrMissingBarCells:expectedCells-archivedUsableBars-archivedNoTradeCells,
    expectedDailySessions:76,
    requestedEndpoint:'/v2/equities/bars/daily',
    requestGranularity:'ONE_DATE_ALL_LISTED_WITH_PAGINATION',
