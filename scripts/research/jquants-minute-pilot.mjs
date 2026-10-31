@@ -20,8 +20,8 @@ export function planSingleCodeMinuteProbe(freeze,{code,date,execute=false,maxPag
  }).format(now);
  if(typeof code!=='string'||!freeze?.codes?.includes(code)||
    !realDay(date)||!Number.isInteger(maxPages)||maxPages<1||maxPages>4||
-   date>today)
-   throw new TypeError('Require frozen code, actual past/present JST date, and 1-4 pages');
+   date>today||now.getTime()<Date.parse(date+'T07:30:00Z'))
+   throw new TypeError('Require frozen code, completed historical provider update window and 1-4 pages');
  return {
    plan:'SINGLE_FROZEN_CODE_HISTORICAL_MINUTE_V1',code,date,maxPages,
    endpoint:MINUTE_PROBE_ENDPOINT,noBackgroundPolling:true,
