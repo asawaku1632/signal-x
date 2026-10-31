@@ -16,7 +16,7 @@ const freeze=()=>({
 });
 const bar=(Code='13010',overrides={})=>({
  Date:date,Code,O:100,H:103,L:99,C:102,Vo:20000,
- AdjO:50,AdjC:51,AdjVo:40000,AdjFactor:1,...overrides,
+ AdjO:50,AdjC:51,AdjVo:40000,AdjFactor:1,ExRT:null,...overrides,
 });
 const noTrade=(Code='186A0')=>bar(Code,{O:null,H:null,L:null,C:null,Vo:null});
 const make=(a=[bar()],b=[bar('37530')])=>[
@@ -170,7 +170,7 @@ test('explicit two-for-one split factor is quarantined even if daily price chang
  assert.equal(row.actionDetails.reason,'NON_UNIT_ADJUSTMENT_FACTOR');
  assert.equal(row.actionDetails.independentlyVerified,false);
  assert.equal(r.structurallyUsableRawBars,0);
- assert.equal(r.version,'ma75_jquants_v2_offline_daily_v2');
+ assert.equal(r.version,'ma75_jquants_v2_offline_daily_v3');
 });
 test('rights issue ExRT and reverse split factor cannot enter normal OHLCV',()=>{
  for(const event of [
@@ -186,12 +186,10 @@ test('rights issue ExRT and reverse split factor cannot enter normal OHLCV',()=>
   assert.equal(row.bar,null);
  }
 });
-test('ordinary unit-factor source with null or blank ExRT remains historical raw data',()=>{
- for(const ex of [null,'',undefined,'0']){
-   const r=parse(make([bar('13010',{AdjFactor:1,ExRT:ex})],[]));
-   assert.equal(r.rows.find(x=>x.code==='1301').status,'DAILY_BAR');
-   assert.equal(r.rows.find(x=>x.code==='1301').bar.close,102);
- }
+test('ordinary unit-factor source with explicit null ExRT remains raw history',()=>{
+ const r=parse(make([bar('13010',{AdjFactor:1,ExRT:null})],[]));
+ assert.equal(r.rows.find(x=>x.code==='1301').status,'DAILY_BAR');
+ assert.equal(r.rows.find(x=>x.code==='1301').bar.close,102);
 });
 test('split on an otherwise nontrading day also remains a corporate action hold',()=>{
  const sample=noTrade('186A0');
@@ -199,4 +197,19 @@ test('split on an otherwise nontrading day also remains a corporate action hold'
  const row=parse(make([sample],[])).rows.find(x=>x.code==='186A');
  assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
  assert.equal(row.bar,null);
+});
+
+test('missing and undocumented corporate-action metadata cannot assert ordinary no-event trading',()=>{
+ for(const change of [
+  r=>{delete r.AdjFactor;},r=>{r.AdjFactor=null;},
+  r=>{delete r.ExRT;},r=>{r.ExRT=undefined;},
+  r=>{r.ExRT='';},r=>{r.ExRT='0';},
+  r=>{r.ExRT='UNKNOWN';},r=>{r.ExRT=1;},
+ ]){
+  const sample=bar();change(sample);
+  const row=parse(make([sample],[])).rows.find(r=>r.code==='1301');
+  assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
+  assert.equal(row.bar,null);
+  assert.equal(row.actionDetails.reason,'MISSING_OR_INVALID_EVENT_METADATA');
+ }
 });
