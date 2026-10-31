@@ -79,3 +79,12 @@ test('newly observed candidates remain visible, not silently absorbed into old r
  assert.equal(r.stillPending,1);
  assert.equal(r.validTransition,true);
 });
+
+test('newly backfilled completed outcome is not treated as genuinely prospective',()=>{
+ const old=snap([]);
+ const injected=snap([row('COMPLETED')]);
+ const r=auditMa75SettlementRevisions(old,injected);
+ assert.equal(r.validTransition,false);
+ assert.equal(r.newlyObservedSignals,1);
+ assert.ok(r.issues.some(x=>x.reason==='NEW_COMPLETED_SIGNAL_WITHOUT_PRIOR_OBSERVATION'));
+});
