@@ -50,9 +50,10 @@ export function auditMa75UniverseCoverage(manifest,{exchangeSessions,observation
      const closed=timestamp(row.barClosedAt),captured=timestamp(row.capturedAt);
      const classified=timestamp(row.classifiedAt);
      const deadline=timestamp(row.nextOpenAt);
+     const nextSession=exchangeSessions[exchangeSessions.indexOf(row.tradeDate)+1]??null;
      if(![closed,captured,classified,deadline].every(Number.isFinite)||
        closed!==close||captured<close||classified<captured||classified>=deadline||
-       deadline<=close)
+       deadline<=close||(nextSession!==null&&deadline!==Date.parse(nextSession+'T00:00:00Z')))
        reason='INVALID_ASOF_TRACE';
      else if(row.sourceProvider!==manifest.source.provider)
        reason='SOURCE_MISMATCH';
@@ -64,16 +65,25 @@ export function auditMa75UniverseCoverage(manifest,{exchangeSessions,observation
    if(reason)excluded.push({id,reason});
    else accepted.set(id,row);
  }
- const replayCount=new Map();
+ const replayCount=new Map(),replayById=new Map();
  for(const r of replay.candidates){
    const id=key(r?.code,r?.tradeDate);
    replayCount.set(id,(replayCount.get(id)||0)+1);
+   if(!replayById.has(id)) replayById.set(id,r);
  }
  for(const [id,n] of replayCount){
    if(n!==1)excluded.push({id,reason:'DUPLICATE_REPLAY_SIGNAL'});
    const item=accepted.get(id);
    if(!item||item.classification!=='BREAKOUT')
      excluded.push({id,reason:'REPLAY_SIGNAL_NOT_IN_FROZEN_LEDGER'});
+   else {
+     const replayed=replayById.get(id);
+     if(!number(replayed?.closingPrice)||!number(replayed?.sma75)||
+        Math.abs(replayed.closingPrice-item.close)>0.001||
+        Math.abs(replayed.sma75-item.sma75)>0.001||
+        timestamp(replayed?.signalRecordedAt)!==timestamp(item.classifiedAt))
+       excluded.push({id,reason:'REPLAY_PRICE_OR_TIME_MISMATCH'});
+   }
  }
  for(const [id,row] of accepted){
    if(row.classification==='BREAKOUT'&&!replayCount.has(id))
