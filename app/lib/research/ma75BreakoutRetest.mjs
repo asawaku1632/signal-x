@@ -102,12 +102,12 @@ function observation(kind, code, bars, i, breakoutIndex) {
     maxAdverse5Percent:lows.length ? round((Math.min(...lows)/entry-1)*100) : null,
   };
 }
-function pairedSummary(observations) {
+export function pairedSummary(observations) {
   const lookup=new Map(observations.filter(x=>x.kind==='BREAKOUT')
     .map(x=>[x.code+':'+x.signalIndex,x]));
   const pairs=observations.filter(x=>x.kind==='RETEST').flatMap(r=>{
     const b=lookup.get(r.code+':'+r.breakoutIndex);
-    return b?.return5Percent!==null && r.return5Percent!==null
+    return b && Number.isFinite(b.return5Percent) && Number.isFinite(r.return5Percent)
       ? [{code:r.code,breakout:b,retest:r}] : [];
   });
   const wins=(key)=>round(100*pairs.filter(p=>p[key].return5Percent>0).length/pairs.length,2);
