@@ -56,9 +56,21 @@ const getArchive=(config={})=>{
  if(config.removeIndex!==undefined)reports.splice(config.removeIndex,1);
  return {freeze,sessions,reports};
 };
-const preflight=(x,revisions=[])=>planMa75JQuantsAcquisition(x.freeze,{
+const calendar=sessions=>{
+ const selected=new Set(sessions),records=[];
+ for(let t=Date.parse(sessions[0]+'T00:00:00Z');
+  t<=Date.parse(sessions.at(-1)+'T00:00:00Z');t+=86400000){
+   const date=new Date(t).toISOString().slice(0,10);
+   records.push({Date:date,HolDiv:selected.has(date)?'1':'0'});
+ }
+ return {requestFrom:sessions[0],requestTo:sessions.at(-1),
+   capturedAt:'2026-11-02T08:00:00Z',records};
+};
+const preflight=(x,revisions=[],calendarSnapshot=calendar(x.sessions))=>
+ planMa75JQuantsAcquisition(x.freeze,{
  sessions:x.sessions,audits:x.reports,pageRevisionAudits:revisions,
- asOf:'2026-11-02T08:10:00Z',minuteAddonStatus:'PLANNED',
+ calendarSnapshot,asOf:'2026-11-02T08:10:00Z',
+ minuteAddonStatus:'PLANNED',
 });
 test('all 76 real-parser audit outputs reconcile to 228 frozen stock-day cells',()=>{
  const r=preflight(getArchive());
@@ -162,4 +174,21 @@ test('a real-parser split/rights record is archived as blocked, not as a complet
  assert.equal(r.structuralHistoricalInputsPresent,false);
  assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
  assert.equal(r.eligibleForNotifications,false);
+});
+
+test('integrated actual parser outputs cannot be reused without TSE calendar evidence',()=>{
+ const input=getArchive();
+ const result=preflight(input,[],null);
+ assert.equal(result.archivedUsableBarCells,228);
+ assert.equal(result.calendarStructuralPass,false);
+ assert.equal(result.structuralHistoricalInputsPresent,false);
+ assert.equal(result.eligibleForProduction,false);
+});
+test('integrated data with an OSE-only holiday in claimed TSE session blocks completeness',()=>{
+ const input=getArchive(),raw=calendar(input.sessions);
+ raw.records.find(x=>x.Date===input.sessions[9]).HolDiv='3';
+ const result=preflight(input,[],raw);
+ assert.equal(result.calendarStructuralPass,false);
+ assert.equal(result.structuralHistoricalInputsPresent,false);
+ assert.ok(result.calendarIssues.includes('TSE_SESSION_LIST_MISMATCH'));
 });
