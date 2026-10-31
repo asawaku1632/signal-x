@@ -168,6 +168,53 @@ export async function fetchDailyPilotPages({
  }
  return pages; // daily parser quarantines incomplete continuation
 }
+
+/**
+ * Read-only summary gate. Unreconciled or bad-provider history must NOT
+ * expose apparently actionable bottom/rebound percentages in CLI output.
+ * Even fully matched retrospective metrics have no true 09:05 availability.
+ */
+export function summarizeMinutePilotResult({minute,reconciliation=null,compareDaily=false}={}){
+ const minuteValid=minute?.structuralPass===true&&minute.pageChainComplete===true&&
+   Array.isArray(minute.errors)&&minute.errors.length===0;
+ const reconciled=minuteValid&&compareDaily===true&&
+   reconciliation?.structuralOneCodeDayMatched===true&&
+   reconciliation.blocked===false&&
+   reconciliation.code===minute.code&&reconciliation.date===minute.date&&
+   Array.isArray(reconciliation.blockers)&&reconciliation.blockers.length===0;
+ const noTradeMatched=minuteValid&&compareDaily===true&&
+   reconciliation?.matchingNoTradeSession===true&&
+   reconciliation.blocked===true&&
+   reconciliation.code===minute.code&&reconciliation.date===minute.date&&
+   Array.isArray(reconciliation.blockers)&&reconciliation.blockers.length===0;
+ const status=!minuteValid?'PILOT_INCOMPLETE':
+   !compareDaily?'MINUTE_ONLY_UNRECONCILED':
+   reconciled?'HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH':
+   noTradeMatched?'MATCHED_NO_TRADE_NO_SIGNAL':'BLOCKED_DAILY_RECONCILIATION';
+ return {
+   status,
+   code:minute?.code??null,date:minute?.date??null,
+   pageChainComplete:minute?.pageChainComplete===true,
+   parsedMinuteBars:minute?.observedRawBars??null,
+   dailyComparisonRequested:compareDaily===true,
+   dailyReconciliationMatched:reconciled,
+   historicalQualityHold:!reconciled,
+   minuteErrors:Array.isArray(minute?.errors)?[...minute.errors]:['MISSING_MINUTE_AUDIT'],
+   reconciliationBlockers:Array.isArray(reconciliation?.blockers)?
+     [...reconciliation.blockers]:compareDaily?['NO_VALID_DAILY_COMPARISON']:[],
+   asOf905:reconciled?minute.asOf905:null,
+   retrospective:reconciled?minute.retrospective:null,
+   metricsReleasedForHistoricalResearch:reconciled,
+   historicalMetricsAreHindsightOnly:true,
+   actual0905AvailabilityVerified:false,
+   verifiedExchangeSource:false,
+   independentlyVerifiedTradingEdge:false,
+   eligibleForNotifications:false,eligibleForProduction:false,
+   note:reconciled?
+     'One historical code/day has structurally matching original OHLCV; not a verified as-of 09:05 signal or realized profit.':
+     'Without an intact minute-to-daily match, the pilot suppresses all hypothetical 09:05 and retrospective rebound metrics.'
+ };
+}
 export async function main(argv=process.argv.slice(2),env=process.env){
  const freeze=JSON.parse(readFileSync(FREEZE_FILE,'utf8'));
  const args=parseMinuteProbeArgs(argv);
@@ -203,16 +250,11 @@ export async function main(argv=process.argv.slice(2),env=process.env){
      code:args.code,date:args.date,minute:result,daily:dailyAudit
    });
  }
- const status=!result.structuralPass?'PILOT_INCOMPLETE':
-   !args.compareDaily?'MINUTE_ONLY_UNRECONCILED':
-   reconciliation?.structuralOneCodeDayMatched?
-     'HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH':'BLOCKED_DAILY_RECONCILIATION';
- process.stdout.write(JSON.stringify({
-   status,minute:result,reconciliation,
-   eligibleForProduction:false,eligibleForNotifications:false,
-   independentlyVerifiedTradeEdge:false
- },null,2)+'\n');
- return {status,minute:result,reconciliation};
+ const report=summarizeMinutePilotResult({
+   minute:result,reconciliation,compareDaily:args.compareDaily
+ });
+ process.stdout.write(JSON.stringify(report,null,2)+'\n');
+ return report;
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===fileURLToPath(pathToFileURL(resolve(process.argv[1])))){
  main().catch(error=>{
