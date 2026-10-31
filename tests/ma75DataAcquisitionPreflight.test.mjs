@@ -273,13 +273,16 @@ test('explicit split/rights event is archived but not a completed SMA75 candle',
  assert.equal(result.initialDateRequestsPotentiallyNeeded,0);
  assert.equal(result.structuralHistoricalInputsPresent,false);
 });
-test('legacy corporate-action-blind page parser v1 archives cannot pass v2',()=>{
+test('legacy corporate-action-blind page parser v1 and v2 archives cannot pass v3',()=>{
+ for(const legacyVersion of ['ma75_jquants_v2_offline_daily_v1',
+   'ma75_jquants_v2_offline_daily_v2']){
  const a=sessions().map(archive);
- a[0].version='ma75_jquants_v2_offline_daily_v1';
+ a[0].version=legacyVersion;
  const r=plan({audits:a});
  assert.equal(r.states.incompleteExisting,1);
  assert.equal(r.archivedUsableBarCells,225);
  assert.equal(r.structuralHistoricalInputsPresent,false);
+ }
 });
 test('corporate-action review must have no tradable bar and unverified action detail',()=>{
  for(const modify of [
