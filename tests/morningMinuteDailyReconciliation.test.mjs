@@ -150,3 +150,13 @@ test('same-day matching does not enable 09:05 availability, notifications, forwa
  assert.equal(r.eligibleForNotifications,false);
  assert.equal(r.validProspectiveBuyObservations,0);
 });
+
+test('one missing share in a 500-million-share high-volume day is still a data integrity mismatch',()=>{
+ const rows=minuteRows().map(r=>({...r,Vo:r.Vo*1000000,Va:r.Va*1000000}));
+ const d=dailyRows();
+ d[1].Vo=500000001;
+ const result=audit(minute(rows),daily(d));
+ assert.equal(result.structuralOneCodeDayMatched,false);
+ assert.ok(result.blockers.includes('DAILY_MINUTE_VOLUME_MISMATCH'));
+ assert.equal(result.eligibleForNotifications,false);
+});
