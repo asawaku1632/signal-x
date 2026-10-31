@@ -87,7 +87,7 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     entries.push({code,status,bar});
   }
   const results=[];
-  const entriesByCode=new Map(entries.filter(e=>e.code&&allowed.has(e.code))
+  const entriesByCode=new Map(entries.filter(e=>e.code&&allowed.has(e.code)&&typeof e.status==='string')
     .map(e=>[e.code,e]));
   for(const code of freeze.codes){
     const e=entriesByCode.get(code);
