@@ -26,10 +26,16 @@ const key=s=>String(s??'?');
  * The *first* request must have no pagination key, each continuation must
  * match the prior response token, and the final response must have none.
  */
-export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
+export function parseMa75JQuantsDailyPages(freeze,{date,pages=[],requestedCode=null}={}){
   validateMa75FrozenUniverse(freeze);
   if(!isDay(date)||!Array.isArray(pages)||pages.length===0)
     throw new TypeError('Need a valid date and at least one previously captured page');
+  // The caller must select the symbol from the ORIGINAL frozen population.
+  // A one-stock provider query must not claim complete 953-stock coverage.
+  if(requestedCode!==null&&
+      (typeof requestedCode!=='string'||!freeze.codes.includes(requestedCode)))
+    throw new TypeError('One-stock pilot code must exist in the original frozen population');
+  const auditedCodes=requestedCode===null?freeze.codes:[requestedCode];
   const failures=[],seenKeys=new Set(),seenCode=new Map(),rawRows=[];
   let expected=null,terminated=false,firstCapture=null,lastCapture=null;
   let previousReceiptMs=null;
@@ -71,7 +77,7 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
   }
   if(!terminated&&!failures.length)failures.push({page:pages.length,reason:'TRUNCATED_PAGINATION'});
   const complete=terminated&&failures.length===0;
-  const allowed=new Set(freeze.codes),outOfCohort=[];
+  const allowed=new Set(auditedCodes),outOfCohort=[];
   const entries=[],duplicateIds=new Set();
   for(const r of rawRows){
     const code=ordinaryCode(r?.Code),rowDate=r?.Date;
@@ -119,7 +125,7 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
   const results=[];
   const entriesByCode=new Map(entries.filter(e=>e.code&&allowed.has(e.code)&&typeof e.status==='string')
     .map(e=>[e.code,e]));
-  for(const code of freeze.codes){
+  for(const code of auditedCodes){
     const e=entriesByCode.get(code);
     let status=e?.status??'MISSING_PROVIDER_ROW';
     if(duplicateIds.has(code+':'+date))status='DUPLICATE_CODE_DATE';
@@ -133,7 +139,11 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
   for(const r of results)counts[r.status]=(counts[r.status]??0)+1;
   const invalidExtra=entries.filter(x=>x.reason);
   return {
-    version:MA75_JQUANTS_PAGE_VERSION,date,expectedFrozenCodes:freeze.codes.length,
+    version:MA75_JQUANTS_PAGE_VERSION,date,
+    auditScope:requestedCode===null?'FROZEN_UNIVERSE':'SINGLE_CODE_PILOT',
+    originalFrozenCohortSize:freeze.codes.length,
+    requestedCode,
+    expectedFrozenCodes:auditedCodes.length,
     readPages:pages.length,rawProviderRows:rawRows.length,
     lastReceivedAt:lastCapture,firstReceivedAt:firstCapture,
     paginationComplete:complete,failures,unmappedRows:invalidExtra,
@@ -143,6 +153,6 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     verifiedOriginalProviderCapture:false,providerRightsVerified:false,
     adjustedHistoricalAsOfValidated:false,eligibleForForwardSignal:false,
     eligibleForProduction:false,eligibleForNotifications:false,
-    note:'Offline envelope only. Explicit AdjFactor/ExRT events require independent corporate-action review; v1 audits must be reparsed from preserved raw pages. No source rights or true as-of capture are authenticated.',
+    note:'Single-code scoped responses NEVER certify the full frozen population. Strict AdjFactor/ExRT review, no point-in-time capture authentication, no production use.',
   };
 }
