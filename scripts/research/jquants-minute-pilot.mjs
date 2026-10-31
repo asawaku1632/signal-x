@@ -8,16 +8,21 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {auditMorningMinuteShadow} from '../../app/lib/research/morningMinuteShadow.mjs';
+import {parseMa75JQuantsDailyPages}
+ from '../../app/lib/research/ma75JQuantsDailyPages.mjs';
+import {reconcileMorningMinuteDaily}
+ from '../../app/lib/research/morningMinuteDailyReconciliation.mjs';
 
 const FREEZE_FILE=new URL('../../docs/ma75-forward-cohort-freeze-20261031.json',import.meta.url);
 export const MINUTE_PROBE_ENDPOINT='https://api.jquants.com/v2/equities/bars/minute';
+export const DAILY_PROBE_ENDPOINT='https://api.jquants.com/v2/equities/bars/daily';
 const MAX_ONE_DAY_TSE_MINUTE_BARS=327; // 09:00–11:30, 12:30–15:24, 15:30
 const ordinaryCode=c=>typeof c==='string'&&/^[0-9]{3}[0-9A-Z]$/.test(c);
 const matchOrdinaryCode=(rowCode,code)=>rowCode===code||rowCode===code+'0';
 const realDay=d=>typeof d==='string'&&/^20\d\d-\d\d-\d\d$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
-export function planSingleCodeMinuteProbe(freeze,{code,date,execute=false,maxPages=4,enabled=false,now=new Date()}={}){
+export function planSingleCodeMinuteProbe(freeze,{code,date,execute=false,compareDaily=false,maxPages=4,enabled=false,now=new Date()}={}){
  const today=new Intl.DateTimeFormat('sv-SE',{
   timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'
  }).format(now);
@@ -31,17 +36,20 @@ export function planSingleCodeMinuteProbe(freeze,{code,date,execute=false,maxPag
    needsExecuteFlag:execute!==true,
    needsSecureEnvironmentApproval:execute===true&&enabled!==true,
    callAuthorizedByScript:execute===true&&enabled===true,
-   requestUpperLimit:maxPages,
+   requestUpperLimit:maxPages*(compareDaily===true?2:1),
+   compareDaily:compareDaily===true,
+   requiresDailyReconciliationForAnalysis:true,
    providerEntitlementIndependentlyVerified:false,
    safeForProduction:false
  };
 }
 export function parseMinuteProbeArgs(argv){
- const args={execute:false,maxPages:4};
+ const args={execute:false,compareDaily:false,maxPages:4};
  for(const token of argv){
    if(token==='--execute'){args.execute=true;continue}
+   if(token==='--compare-daily'){args.compareDaily=true;continue}
    const m=/^--(code|date|max-pages)=(.+)$/.exec(token);
-   if(!m)throw new TypeError('Use --execute --code=XXXX --date=YYYY-MM-DD --max-pages=1..4');
+   if(!m)throw new TypeError('Use --execute --compare-daily --code=XXXX --date=YYYY-MM-DD --max-pages=1..4');
    if(m[1]==='max-pages')args.maxPages=Number(m[2]);
    else args[m[1]]=m[2];
  }
@@ -108,6 +116,7 @@ export async function main(argv=process.argv.slice(2),env=process.env){
  const args=parseMinuteProbeArgs(argv);
  const plan=planSingleCodeMinuteProbe(freeze,{
    code:args.code,date:args.date,execute:args.execute,
+   compareDaily:args.compareDaily,
    maxPages:args.maxPages,enabled:env.JQUANTS_RESEARCH_PROBE_ENABLED==='true'
  });
  if(!plan.callAuthorizedByScript){
@@ -124,11 +133,29 @@ export async function main(argv=process.argv.slice(2),env=process.env){
  const result=auditMorningMinuteShadow(freeze,{
    code:args.code,date:args.date,pages
  });
+ let reconciliation=null;
+ if(args.compareDaily&&result.structuralPass){
+   const dailyPages=await fetchDailyPilotPages({
+     code:args.code,date:args.date,maxPages:args.maxPages,
+     apiKey:env.JQUANTS_API_KEY
+   });
+   const dailyAudit=parseMa75JQuantsDailyPages(freeze,{
+     date:args.date,pages:dailyPages
+   });
+   reconciliation=reconcileMorningMinuteDaily(freeze,{
+     code:args.code,date:args.date,minute:result,daily:dailyAudit
+   });
+ }
+ const status=!result.structuralPass?'PILOT_INCOMPLETE':
+   !args.compareDaily?'MINUTE_ONLY_UNRECONCILED':
+   reconciliation?.structuralOneCodeDayMatched?
+     'HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH':'BLOCKED_DAILY_RECONCILIATION';
  process.stdout.write(JSON.stringify({
-   status:result.structuralPass?'HISTORICAL_MINUTE_PILOT_PARSED':'PILOT_INCOMPLETE',
-   ...result
+   status,minute:result,reconciliation,
+   eligibleForProduction:false,eligibleForNotifications:false,
+   independentlyVerifiedTradeEdge:false
  },null,2)+'\n');
- return result;
+ return {status,minute:result,reconciliation};
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===fileURLToPath(pathToFileURL(resolve(process.argv[1])))){
  main().catch(error=>{
