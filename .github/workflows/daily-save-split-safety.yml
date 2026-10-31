@@ -10,6 +10,7 @@ on:
       - "tests/tprObservationSqlContract.test.mjs"
       - "tests/tprObservationImmutable.test.mjs"
       - "tests/tprOutcomePriority.test.mjs"
+      - "tests/tprOutcomeSqlContract.test.mjs"
       - "app/lib/learning/trendPullbackReversal.ts"
       - "tests/learningSaveMonitor.test.mjs"
       - "vercel.json"
@@ -30,7 +31,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Check post-save split contracts
-        run: node --test tests/saveDailySplit.test.mjs tests/tprObservationSqlContract.test.mjs tests/tprObservationImmutable.test.mjs tests/tprOutcomePriority.test.mjs
+        run: node --test tests/saveDailySplit.test.mjs tests/tprObservationSqlContract.test.mjs tests/tprObservationImmutable.test.mjs tests/tprOutcomePriority.test.mjs tests/tprOutcomeSqlContract.test.mjs
       - name: Type-check app
         run: |
           npx next typegen
