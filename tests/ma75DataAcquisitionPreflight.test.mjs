@@ -237,7 +237,7 @@ test('invalid price geometry, nonfinite OHLCV, zero volume and wrong code/date q
  }
 });
 test('first received page after last page or before close rejects reused date',()=>{
- for(const firstReceivedAt of ['2026-11-02T08:00:00Z','2026-11-02T05:00:00Z','invalid']){
+ for(const firstReceivedAt of ['2026-11-02T08:00:00Z',sessions()[7]+'T06:00:00Z','invalid']){
   const a=sessions().map(archive);
   a[7].firstReceivedAt=firstReceivedAt;
   const r=plan({audits:a});
