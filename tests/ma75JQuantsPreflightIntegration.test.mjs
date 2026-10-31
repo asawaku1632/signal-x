@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {parseMa75JQuantsDailyPages} from '../app/lib/research/ma75JQuantsDailyPages.mjs';
 import {planMa75JQuantsAcquisition} from '../app/lib/research/ma75DataAcquisitionPreflight.mjs';
 import {auditMa75JQuantsPageRevisions} from '../app/lib/research/ma75JQuantsPageRevisionAudit.mjs';
+import {auditMa75TseCalendarRevisions}
+ from '../app/lib/research/ma75TseCalendarRevisions.mjs';
 
 /**
  * Integration fixtures use the REAL page parser output, not hand-written
@@ -66,10 +68,10 @@ const calendar=sessions=>{
  return {requestFrom:sessions[0],requestTo:sessions.at(-1),
    capturedAt:'2026-11-02T08:00:00Z',records};
 };
-const preflight=(x,revisions=[],calendarSnapshot=calendar(x.sessions))=>
+const preflight=(x,revisions=[],calendarSnapshot=calendar(x.sessions),calendarRevisionAudit)=>
  planMa75JQuantsAcquisition(x.freeze,{
  sessions:x.sessions,audits:x.reports,pageRevisionAudits:revisions,
- calendarSnapshot,asOf:'2026-11-02T08:10:00Z',
+ calendarSnapshot,calendarRevisionAudit,asOf:'2026-11-02T08:10:00Z',
  minuteAddonStatus:'PLANNED',
 });
 test('all 76 real-parser audit outputs reconcile to 228 frozen stock-day cells',()=>{
@@ -191,4 +193,49 @@ test('integrated data with an OSE-only holiday in claimed TSE session blocks com
  assert.equal(result.calendarStructuralPass,false);
  assert.equal(result.structuralHistoricalInputsPresent,false);
  assert.ok(result.calendarIssues.includes('TSE_SESSION_LIST_MISMATCH'));
+});
+
+test('revised TSE calendar classification cannot silently rewrite previously complete bars',()=>{
+ const x=getArchive(),original=calendar(x.sessions);
+ const changed=JSON.parse(JSON.stringify(original));
+ changed.records.find(r=>r.Date===x.sessions[10]).HolDiv='3';
+ const revision=auditMa75TseCalendarRevisions({
+   sessions:x.sessions,previous:original,current:changed
+ });
+ assert.equal(revision.revisionDetected,true);
+ const result=preflight(x,[],original,revision);
+ assert.equal(result.calendarRevisionAccepted,false);
+ assert.equal(result.calendarStructuralPass,false);
+ assert.equal(result.archivedUsableBarCells,228);
+ assert.equal(result.structuralHistoricalInputsPresent,false);
+ assert.ok(result.calendarIssues.includes('CALENDAR_REVISION_REQUIRES_REVIEW'));
+});
+test('identical calendar re-capture does not imply vendor authentication or production approval',()=>{
+ const x=getArchive(),original=calendar(x.sessions);
+ const rev=auditMa75TseCalendarRevisions({
+   sessions:x.sessions,previous:original,current:JSON.parse(JSON.stringify(original))
+ });
+ const result=preflight(x,[],original,rev);
+ assert.equal(rev.structurallyConsistent,true);
+ assert.equal(result.calendarRevisionAccepted,true);
+ assert.equal(result.calendarStructuralPass,true);
+ assert.equal(result.providerRightsVerified,false);
+ assert.equal(result.eligibleForProduction,false);
+});
+test('calendar revision from a different set of 76 sessions cannot be reused',()=>{
+ const x=getArchive(),original=calendar(x.sessions);
+ const rev=auditMa75TseCalendarRevisions({
+   sessions:x.sessions,previous:original,current:original
+ });
+ const forged={...rev,sessionsSha256:'wrong'};
+ const result=preflight(x,[],original,forged);
+ assert.equal(result.calendarRevisionAccepted,false);
+ assert.equal(result.structuralHistoricalInputsPresent,false);
+});
+test('calendar snapshot captured after audit clock cannot pass structural readiness',()=>{
+ const x=getArchive(),raw=calendar(x.sessions);
+ raw.capturedAt='2026-11-07T08:00:00Z';
+ const result=preflight(x,[],raw);
+ assert.equal(result.calendarStructuralPass,false);
+ assert.ok(result.calendarIssues.includes('CALENDAR_CAPTURE_AFTER_ASOF'));
 });
