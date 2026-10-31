@@ -14,6 +14,7 @@ const isDay=x=>typeof x==='string'&&DAY.test(x)&&
  new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
 const timestamp=x=>typeof x==='string'&&/(?:Z|[+-]\d\d:\d\d)$/.test(x)?Date.parse(x):NaN;
 const afterTseClose=date=>Date.parse(date+'T06:30:00Z'); // 15:30 JST, NOT provider-available-at.
+const dailyPublishTarget=date=>Date.parse(date+'T07:30:00Z'); // Around 16:30 JST; estimate, not guarantee.
 const OFFLINE_PAGE_COMPLETE=new Set(['DAILY_BAR','NO_TRADE']);
 
 /**
@@ -62,6 +63,7 @@ export function planMa75JQuantsAcquisition(freeze,{
    }
    // Close time does not imply provider release or live-source availability.
    if(clock<afterTseClose(date))state='SESSION_NOT_YET_CLOSED';
+   else if(clock<dailyPublishTarget(date))state='WAIT_FOR_DAILY_PROVIDER_UPDATE';
    days.push({date,state,previousAuditCount:prior.length});
  }
  const count=state=>days.filter(x=>x.state===state).length;
@@ -85,6 +87,11 @@ export function planMa75JQuantsAcquisition(freeze,{
    accountRateLimitSharedWithOtherConsumers:true,
    minuteAddonStatus,
    minuteAddonConfirmedByProvider:false,
+   minuteAddonPriceYenPerMonthBeforeOtherCharges:5500,
+   minuteAddonHistoricalRetentionYears:2,
+   minuteAddonUpdatesOnlyDaily:true,
+   minuteAddonRealtimeSupported:false,
+   minuteBarsWithNoTransactionsAreOmitted:true,
    minuteResearchEndpoint:'/v2/equities/bars/minute',
    minuteResearchCanBeginWithExistingEntitlement:false,
    minuteAddonPurpose:'SEPARATE_MORNING_DIP_REBOUND_STUDY_NOT_SMA75_DAILY',
@@ -94,6 +101,7 @@ export function planMa75JQuantsAcquisition(freeze,{
      incompleteExisting:count('PREVIOUS_AUDIT_INCOMPLETE'),
      duplicateExisting:count('DUPLICATE_CAPTURE_REVIEW'),
      notYetClosed:count('SESSION_NOT_YET_CLOSED'),
+     waitingForProviderDailyUpdate:count('WAIT_FOR_DAILY_PROVIDER_UPDATE'),
      unexpectedAuditDates:unexpected.length,
    },
    unexpectedAuditDates:unexpected,
@@ -110,7 +118,10 @@ export function planMa75JQuantsAcquisition(freeze,{
    warnings:[
      'Standard daily bars do not require the separate minute/tick add-on.',
      'The minute/tick add-on is user-planned; its actual activation and cost have not been verified by this tool.',
+     'J-Quants one-minute and tick historical feeds update daily, NOT real time; never use for a same-day 09:05 alert.',
+     'A minute without trades may have no bar, and the first trade bar need not occur at 09:00.',
      'The nominal account-level 120 requests/min is shared across services and does not determine pagination or availability.',
+     'J-Quants daily OHLCV is typically updated around 16:30 JST, not at 15:30. This is an estimate, not a guaranteed release time.',
      'J-Quants may publish data after exchange close; historical API download cannot prove an as-of next-open decision.',
      'Even 76 archived page audits cannot prove original provider capture, data license, trading calendar or corporate-action treatment.',
    ],
