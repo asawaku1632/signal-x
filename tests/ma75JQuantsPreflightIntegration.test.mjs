@@ -31,7 +31,7 @@ const getSessions=()=>{
 };
 const providerBar=(Code,Date)=>({
  Date,Code,O:100,H:105,L:95,C:101,Vo:1200,
- AdjO:25,AdjH:25,AdjL:25,AdjC:25,AdjVo:999999
+ AdjO:25,AdjH:25,AdjL:25,AdjC:25,AdjVo:999999,AdjFactor:1,ExRT:null
 });
 const getArchive=(config={})=>{
  const sessions=getSessions(),freeze=f();
