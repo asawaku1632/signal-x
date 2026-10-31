@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 
-export const MA75_PAGE_REVISION_VERSION='ma75_jquants_daily_revision_audit_v1';
+export const MA75_PAGE_REVISION_VERSION='ma75_jquants_daily_revision_audit_v2';
 export function fingerprintMa75RevisionPopulation(freeze) {
  validateMa75FrozenUniverse(freeze);
  return createHash('sha256').update(JSON.stringify({
@@ -19,6 +19,12 @@ export function fingerprintMa75RevisionPopulation(freeze) {
 }
 const number=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const instant=x=>typeof x==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(x)?Date.parse(x):NaN;
+const actionFingerprint=r=>[
+ r?.actionDetails?.adjustmentFactor??null,
+ r?.actionDetails?.exRightsType??null,
+ r?.actionDetails?.reason??null,
+ r?.actionDetails?.independentlyVerified??null
+];
 const readBar=(b,code,date)=>b?.code===code&&b.tradeDate===date&&b.unadjusted===true&&
  [b.open,b.high,b.low,b.close,b.volume].every(number)&&
  b.high>=Math.max(b.open,b.close,b.low)&&b.low<=Math.min(b.open,b.close,b.high);
@@ -41,8 +47,10 @@ function inspect(freeze,snapshot){
      errors.push('MISMATCHED_CODE_OR_TRADE_DATE');return;
    }
    if(!['DAILY_BAR','NO_TRADE','MISSING_PROVIDER_ROW','INVALID_OHLCV',
-         'DUPLICATE_CODE_DATE','BLOCKED_PAGINATION'].includes(r.status)||
+         'DUPLICATE_CODE_DATE','BLOCKED_PAGINATION','CORPORATE_ACTION_REVIEW'].includes(r.status)||
      (r.status==='DAILY_BAR'&&!readBar(r.bar,code,snapshot.date))||
+     (r.status==='CORPORATE_ACTION_REVIEW'&&(
+       !r.actionDetails||r.actionDetails.independentlyVerified!==false))||
      (r.status!=='DAILY_BAR'&&r.bar!==null))
      errors.push('INVALID_OR_INCONSISTENT_BAR');
    if(!['DAILY_BAR','NO_TRADE'].includes(r.status))
@@ -81,7 +89,9 @@ function inspect(freeze,snapshot){
    const b=row?.bar;
    return {code,status:row?.status??null,
     bar:row?.status==='DAILY_BAR'?
-     {open:b?.open,high:b?.high,low:b?.low,close:b?.close,volume:b?.volume}:null};
+     {open:b?.open,high:b?.high,low:b?.low,close:b?.close,volume:b?.volume}:null,
+    action:r?.status==='CORPORATE_ACTION_REVIEW'?
+      actionFingerprint(row):null};
   }),
  };
  const digest=createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
@@ -97,6 +107,8 @@ export function auditMa75JQuantsPageRevisions(freeze,{previous,current}={}){
   const before=a.codeToRow.get(code),after=b.codeToRow.get(code);
   const p=before?.bar,q=after?.bar;
   if(before?.status!==after?.status||
+     (before?.status==='CORPORATE_ACTION_REVIEW'&&
+       JSON.stringify(actionFingerprint(before))!==JSON.stringify(actionFingerprint(after)))||
      (before?.status==='DAILY_BAR'&&
       [p?.open,p?.high,p?.low,p?.close,p?.volume].some((v,i)=>
        !Object.is(v,[q?.open,q?.high,q?.low,q?.close,q?.volume][i]))))
