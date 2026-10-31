@@ -38,6 +38,9 @@ test('76 date-scope requests cover 3 frozen codes without 3*76 separate first ca
  const r=plan();
  assert.equal(r.expectedDailySessions,76);
  assert.equal(r.expectedCodeSessionCells,228);
+ assert.equal(r.archivedUsableBarCells,0);
+ assert.equal(r.archivedNoTradeCells,0);
+ assert.equal(r.unverifiedOrMissingBarCells,228);
  assert.equal(r.baselineRequestsForAllMissingDates,76);
  assert.equal(r.initialDateRequestsPotentiallyNeeded,76);
  assert.equal(r.states.pendingFetch,76);
@@ -60,6 +63,9 @@ test('all archived 76 complete date reports may be structural, never independent
  const r=plan({audits:sessions().map(archive)});
  assert.equal(r.structuralHistoricalInputsPresent,true);
  assert.equal(r.states.archivedOfflineOnly,76);
+ assert.equal(r.archivedUsableBarCells,228);
+ assert.equal(r.archivedNoTradeCells,0);
+ assert.equal(r.unverifiedOrMissingBarCells,0);
  assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
  assert.equal(r.providerRightsVerified,false);
  assert.equal(r.pointInTimeProviderAvailabilityVerified,false);
@@ -160,6 +166,9 @@ test('archived NO_TRADE is a real day with insufficient SMA75 warm-up, not all-c
  const r=plan({audits:a});
  assert.equal(r.states.archivedNoTradeGap,1);
  assert.equal(r.states.archivedOfflineOnly,75);
+ assert.equal(r.archivedUsableBarCells,227);
+ assert.equal(r.archivedNoTradeCells,1);
+ assert.equal(r.unverifiedOrMissingBarCells,0);
  assert.equal(r.states.incompleteExisting,0);
  assert.equal(r.structuralHistoricalInputsPresent,false);
  assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
@@ -179,5 +188,24 @@ test('tampered per-date usable bar count blocks historical reuse',()=>{
  a[5].structurallyUsableRawBars=2;
  const r=plan({audits:a});
  assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+
+test('stock-day gap accounting never makes a missing date look like observed bars',()=>{
+ const a=sessions().map(archive);
+ a.splice(8,1);
+ const r=plan({audits:a});
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.archivedNoTradeCells,0);
+ assert.equal(r.unverifiedOrMissingBarCells,3);
+ assert.equal(r.expectedCodeSessionCells,
+   r.archivedUsableBarCells+r.archivedNoTradeCells+r.unverifiedOrMissingBarCells);
+});
+test('future receipt source data cannot raise as-of archived bar coverage',()=>{
+ const a=sessions().map(archive);
+ a[10].lastReceivedAt='2026-11-12T07:45:00Z';
+ const r=plan({audits:a});
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.unverifiedOrMissingBarCells,3);
  assert.equal(r.structuralHistoricalInputsPresent,false);
 });
