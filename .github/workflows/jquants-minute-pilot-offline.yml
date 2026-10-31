@@ -21,4 +21,5 @@ jobs:
             tests/jquantsMinutePilot.test.mjs \
             tests/morningMinuteShadow.test.mjs \
             tests/morningMinuteDailyReconciliation.test.mjs \
+            tests/morningMinuteSingleCodePilot.test.mjs \
             tests/ma75JQuantsDailyPages.test.mjs
