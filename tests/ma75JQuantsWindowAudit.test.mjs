@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseMa75JQuantsDailyPages} from '../app/lib/research/ma75JQuantsDailyPages.mjs';
 import {auditMa75JQuantsDailyWindow} from '../app/lib/research/ma75JQuantsWindowAudit.mjs';
+import {auditMa75TseCalendarRevisions}
+ from '../app/lib/research/ma75TseCalendarRevisions.mjs';
 const freeze=()=>({
  schemaVersion:'ma75-forward-universe-candidate-freeze-v1',
  frozenAt:'2026-10-31T13:43:02.737Z',firstEligibleSignalDate:'2026-11-02',
@@ -51,8 +53,10 @@ const officialCalendar=(dates)=>{
  return {requestFrom:dates[0],requestTo:dates.at(-1),
    capturedAt:'2026-12-01T10:00:00Z',records};
 };
-const audit=({dates,reports,calendarSnapshot=officialCalendar(dates)})=>
- auditMa75JQuantsDailyWindow(freeze(),{sessions:dates,reports,calendarSnapshot});
+const audit=({dates,reports,calendarSnapshot=officialCalendar(dates),calendarRevisionAudit})=>
+ auditMa75JQuantsDailyWindow(freeze(),{
+   sessions:dates,reports,calendarSnapshot,calendarRevisionAudit
+ });
 test('76 declared sessions give offline cross, slope and previous-20 volume without future outcomes',()=>{
  const data=fixture(),r=audit(data);
  assert.equal(data.dates.length,76);
@@ -211,4 +215,38 @@ test('full calendar structural match still does not independently prove licensed
  assert.equal(result.officialCalendarVerified,false);
  assert.equal(result.version,'ma75_jquants_offline_76_sessions_v2');
  assert.equal(result.eligibleForProduction,false);
+});
+
+test('a revised trading-calendar label invalidates replay even if previous calendar was complete',()=>{
+ const data=fixture(),before=officialCalendar(data.dates);
+ const after=JSON.parse(JSON.stringify(before));
+ after.records.find(x=>x.Date===data.dates[8]).HolDiv='3';
+ const revision=auditMa75TseCalendarRevisions({
+   sessions:data.dates,previous:before,current:after
+ });
+ const r=audit({...data,calendarSnapshot:before,calendarRevisionAudit:revision});
+ assert.equal(r.calendarStructuralPass,false);
+ assert.equal(r.calendarRevisionAccepted,false);
+ assert.ok(r.calendarIssues.includes('CALENDAR_REVISION_REQUIRES_REVIEW'));
+ assert.equal(r.counts.HISTORY_INCOMPLETE,2);
+ assert.equal(r.structuralCoverageComplete,false);
+});
+test('same-calendar revision check cannot authorize real-time alerts despite complete replay',()=>{
+ const data=fixture(),before=officialCalendar(data.dates);
+ const revision=auditMa75TseCalendarRevisions({
+   sessions:data.dates,previous:before,
+   current:JSON.parse(JSON.stringify(before))
+ });
+ const r=audit({...data,calendarSnapshot:before,calendarRevisionAudit:revision});
+ assert.equal(r.calendarRevisionAccepted,true);
+ assert.equal(r.structuralCoverageComplete,true);
+ assert.equal(r.independentlyAuthenticatedCalendar,false);
+ assert.equal(r.eligibleForNotifications,false);
+});
+test('caller cannot override declared sessions from inside raw calendar payload',()=>{
+ const data=fixture(),raw=officialCalendar(data.dates);
+ raw.sessions=['2026-01-01'];
+ const r=audit({...data,calendarSnapshot:raw});
+ assert.equal(r.calendarStructuralPass,true);
+ assert.equal(r.rows.length,2);
 });
