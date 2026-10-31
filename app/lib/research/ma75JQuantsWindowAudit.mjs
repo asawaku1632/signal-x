@@ -50,7 +50,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
         row.bar.open<=0||row.bar.close<=0||row.bar.low<=0||row.bar.high<=0||row.bar.volume<=0||
         row.bar.low>Math.min(row.bar.open,row.bar.close,row.bar.high)||
         row.bar.high<Math.max(row.bar.open,row.bar.close,row.bar.low)))||
-      (row.status!=='DAILY_BAR'&&row.bar!==null))))
+      (row.status!=='DAILY_BAR'&&row.bar!==null)))
       reason='INCONSISTENT_OR_TAMPERED_CODE_ROWS';
     if(reason)invalidReports.push({date,reason});
     else validated.set(date,r.rows);
