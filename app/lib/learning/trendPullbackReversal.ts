@@ -84,20 +84,3 @@ export async function updateTrendPullbackReversalOutcomes(targetDate:string){
  return {tprOutcomesUpdated:result.rowCount??0};
 }
 
-      AND EXTRACT(ISODOW FROM d.date::date) BETWEEN 1 AND 5
-     ORDER BY d.date,d.created_at DESC
-    ) daily_price
-    ORDER BY daily_price.trade_date LIMIT 5
-   ) ranked
-  ) future ON TRUE
- )
- UPDATE trend_pullback_reversal_observations h SET
-  result_1d=COALESCE(h.result_1d,CASE WHEN c.base_price>0 AND c.p1>0 THEN ROUND((100.0*(c.p1-c.base_price)/c.base_price)::numeric,4) END),
-  result_3d=COALESCE(h.result_3d,CASE WHEN c.base_price>0 AND c.p3>0 THEN ROUND((100.0*(c.p3-c.base_price)/c.base_price)::numeric,4) END),
-  result_5d=COALESCE(h.result_5d,CASE WHEN c.base_price>0 AND c.p5>0 THEN ROUND((100.0*(c.p5-c.base_price)/c.base_price)::numeric,4) END),
-  updated_at=NOW()
- FROM prices c WHERE h.id=c.id AND c.base_price>0
-  AND (c.p1 IS NOT NULL OR c.p3 IS NOT NULL OR c.p5 IS NOT NULL)
- RETURNING h.id`,[targetDate]);
- return {tprOutcomesUpdated:result.rowCount??0};
-}
