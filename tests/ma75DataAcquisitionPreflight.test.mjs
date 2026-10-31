@@ -23,6 +23,7 @@ const sessions=()=>{
 };
 const archive=date=>({
  date,version:'ma75_jquants_v2_offline_daily_v1',
+ lastReceivedAt:'2026-11-02T07:45:00Z',
  paginationComplete:true,failures:[],expectedFrozenCodes:3,
  eligibleForForwardSignal:false,providerRightsVerified:false,
  rows:freeze().codes.map(code=>({code,tradeDate:date,
@@ -135,4 +136,16 @@ test('paying for the minute add-on still cannot enable an actual 09:05 historica
  assert.equal(r.generatedFutureSignals,0);
  assert.equal(r.allowedToRunApiCalls,false);
  assert.equal(r.eligibleForNotifications,false);
+});
+
+test('no future-dated historical report can be reused as of the earlier audit clock',()=>{
+ const prior=sessions().map(archive);
+ prior[15].lastReceivedAt='2026-11-06T07:45:00Z';
+ const r=plan({audits:prior,asOf:'2026-11-02T08:10:00Z'});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ const missing=sessions().map(archive);
+ delete missing[15].lastReceivedAt;
+ const q=plan({audits:missing,asOf:'2026-11-02T08:10:00Z'});
+ assert.equal(q.states.incompleteExisting,1);
 });
