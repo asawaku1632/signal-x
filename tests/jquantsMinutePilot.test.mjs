@@ -129,3 +129,54 @@ test('a same-day 09:05 or pre-release request cannot masquerade as archived minu
  assert.equal(plan({date:'2026-10-30',
   now:new Date('2026-10-30T08:10:00Z')}).callAuthorizedByScript,false);
 });
+
+test('HTTP redirects and upstream thrown messages cannot leak API secrets',async()=>{
+ let inspected=false;
+ const mock=async(url,options)=>{
+   inspected=true;
+   assert.equal(options.redirect,'error');
+   assert.equal(options.credentials,'omit');
+   assert.equal(options.cache,'no-store');
+   assert.equal(options.referrerPolicy,'no-referrer');
+   throw new Error('SECRET from proxy and authorization header');
+ };
+ await assert.rejects(()=>runFetch(mock),e=>
+   e.message==='JQUANTS_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED'&&
+   !e.message.includes('SECRET'));
+ assert.equal(inspected,true);
+});
+test('wrong provider code/date stops before a next page or a valid retrospective result',async()=>{
+ for(const row of [
+  {Code:'37531',Date:'2026-10-30'},
+  {Code:'99840',Date:'2026-10-30'},
+  {Code:'37530',Date:'2026-10-31'}
+ ]){
+   let requests=0;
+   await assert.rejects(()=>runFetch(async()=>{
+     requests++;
+     return {ok:true,json:async()=>({data:[row],pagination_key:'MORE'})};
+   }),/WRONG_CODE_OR_DATE/);
+   assert.equal(requests,1);
+ }
+});
+test('valid one-symbol provider code in five-character common-share form is accepted',async()=>{
+ const p=await runFetch(async()=>({
+  ok:true,json:async()=>({data:[{Code:'37530',Date:'2026-10-30'}]})
+ }));
+ assert.equal(p.length,1);
+ assert.equal(p[0].response.data.length,1);
+});
+test('provider cannot return impossible >327 daily minute rows in any combination of pages',async()=>{
+ let fetched=0;
+ const rows=Array.from({length:328},()=>({Code:'37530',Date:'2026-10-30'}));
+ await assert.rejects(()=>runFetch(async()=>{
+   fetched++;
+   return {ok:true,json:async()=>({data:rows,pagination_key:'NEXT'})};
+ }),/EXCESS_ONE_CODE_DAY_MINUTE_ROWS/);
+ assert.equal(fetched,1);
+});
+test('invalid JSON response is redacted rather than logging the server body',async()=>{
+ await assert.rejects(()=>runFetch(async()=>({
+  ok:true,json:async()=>{throw new Error('PRIVATE_RESPONSE_WITH_SECRET')}
+ })),e=>e.message==='JQUANTS_INVALID_JSON_RESPONSE');
+});
