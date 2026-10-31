@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {studyMa75BreakoutRetest,MA75_RULES,MA75_STUDY_VERSION} from '../app/lib/research/ma75BreakoutRetest.mjs';
+import {studyMa75BreakoutRetest,MA75_RULES,MA75_STUDY_VERSION,pairedSummary} from '../app/lib/research/ma75BreakoutRetest.mjs';
 const bar=(i,close=100,opts={})=>({
   time:1780000000+i*86400,open:opts.open??close,
   close,high:opts.high??Math.max(opts.open??close,close)+1,
@@ -95,4 +95,16 @@ test('paired comparison uses only same originating breakout with both outcomes c
   assert.equal(r.paired.bothBudgetEligible,0);
   assert.equal(run(base(78)).paired.pairedEvents,0);
   assert.equal(run(base(78)).paired.retestOutperformedPercent,null);
+});
+
+test('paired SMA75 study excludes orphan retests and missing or nonfinite outcomes',()=>{
+  const valid={kind:'RETEST',code:'3762',signalIndex:81,breakoutIndex:75,return5Percent:2};
+  assert.equal(pairedSummary([valid]).pairedEvents,0);
+  for (const missing of [undefined,null,NaN,Infinity]) {
+    const b={kind:'BREAKOUT',code:'3762',signalIndex:75,return5Percent:missing};
+    assert.equal(pairedSummary([b,valid]).pairedEvents,0);
+  }
+  const complete={kind:'BREAKOUT',code:'3762',signalIndex:75,return5Percent:1,budgetEligible:true};
+  assert.equal(pairedSummary([complete,{...valid,return5Percent:null}]).pairedEvents,0);
+  assert.equal(pairedSummary([complete,valid]).pairedEvents,1);
 });
