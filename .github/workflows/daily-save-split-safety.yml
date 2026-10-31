@@ -13,6 +13,7 @@ on:
       - "tests/tprOutcomeSqlContract.test.mjs"
       - "tests/marketQuoteNullPreservation.test.mjs"
       - "app/lib/marketLearning.ts"
+      - "app/lib/learning/dailyMarketQuoteValidation.ts"
       - "app/lib/relatedLearning.ts"
       - "app/lib/learning/trendPullbackReversal.ts"
       - "tests/learningSaveMonitor.test.mjs"
