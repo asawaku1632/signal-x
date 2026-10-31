@@ -25,7 +25,9 @@ test('summarizes same-cohort signals with separate complete pending and quaranti
    outcome('3762:2026-11-02','COMPLETED',4),
    outcome('9984:2026-11-02','PENDING_DATA')]);
  const r=summarizeMa75ForwardAudit(p,replay,settlement);
- assert.equal(r.integrityPass,true);
+ assert.equal(r.integrityPass,false);
+ assert.equal(r.structuralCoveragePass,false);
+ assert.ok(r.issues.some(x=>x.reason==='MISSING_FROZEN_UNIVERSE_COVERAGE'));
  assert.equal(r.totals.completed,1);
  assert.equal(r.totals.pending,1);
  assert.equal(r.groups.find(x=>x.variant==='BREAKOUT_BOTH').signalCount,1);
@@ -70,4 +72,34 @@ test('failed revision audit blocks integrity and cross-manifest rows throw',()=>
  assert.equal(r.integrityPass,false);
  assert.ok(r.issues.some(x=>x.reason==='REVISION_AUDIT_FAILED'));
  assert.throws(()=>summarizeMa75ForwardAudit(p,{...replay,manifestSha256:'bad'},settlement),TypeError);
+});
+
+test('structural integrity requires a complete frozen-universe coverage audit',()=>{
+ const p=manifest();
+ const {replay,settlement}=snap(p,[sig('3762',true,true)],[
+   outcome('3762:2026-11-02','PENDING_DATA')]);
+ const coverage={version:'ma75_universe_coverage_v1',manifestSha256:p.manifestSha256,
+  integrityPass:true,coveragePercent:100,expectedCodeDates:2,unavailableCodeDates:0,
+  observedBreakouts:1};
+ const validated=summarizeMa75ForwardAudit(p,replay,settlement,{universeCoverage:coverage});
+ assert.equal(validated.integrityPass,true);
+ assert.equal(validated.structuralCoveragePass,true);
+ assert.equal(validated.independentlyAuthenticatedCoverage,false);
+ assert.equal(validated.validatedWinRate,null);
+ const rejected=summarizeMa75ForwardAudit(p,replay,settlement,{universeCoverage:
+  {...coverage,unavailableCodeDates:1,coveragePercent:50}});
+ assert.equal(rejected.integrityPass,false);
+ assert.ok(rejected.issues.some(x=>x.reason==='FAILED_FROZEN_UNIVERSE_COVERAGE'));
+});
+test('unmatched breakout count or mismatched manifest cannot claim complete coverage',()=>{
+ const p=manifest(),obj=snap(p,[sig('3762',true,false)],[
+  outcome('3762:2026-11-02')]);
+ const base={version:'ma75_universe_coverage_v1',manifestSha256:p.manifestSha256,
+  integrityPass:true,coveragePercent:100,expectedCodeDates:2,unavailableCodeDates:0,
+  observedBreakouts:2};
+ for(const coverage of [base,{...base,observedBreakouts:1,manifestSha256:'bad'}]) {
+   const result=summarizeMa75ForwardAudit(p,obj.replay,obj.settlement,{universeCoverage:coverage});
+   assert.equal(result.integrityPass,false);
+   assert.equal(result.structuralCoveragePass,false);
+ }
 });
