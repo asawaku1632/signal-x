@@ -8,7 +8,7 @@ const opts={code:'3762',date,maxPages:1,apiKey:'test-key-not-real',now};
 test('minute HTTP helper rejects unsafe scope before invoking fetch',async()=>{
  let calls=0;
  const fetchImpl=async()=>{calls++;throw Error('must not run')};
- for(const change of [{code:'../etc/passwd'},{date:'2026-10-31'},{maxPages:5},{apiKey:''}]){
+ for(const change of [{code:'../etc/passwd'},{date:'2026-11-03'},{maxPages:5},{apiKey:''}]){
    await assert.rejects(fetchMinutePilotPages({...opts,...change,fetchImpl}));
  }
  assert.equal(calls,0);
