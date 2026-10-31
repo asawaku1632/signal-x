@@ -1,6 +1,3 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-
 const VALID_CODE = /^[0-9A-Z]{4,5}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^(?:0[9]|1[0-5]):[0-5]\d$/;
