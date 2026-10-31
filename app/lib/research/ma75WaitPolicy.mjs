@@ -11,18 +11,23 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 export function auditMa75WaitPolicy(study,cohorts){
  if(!Array.isArray(study?.observations)||!Array.isArray(cohorts))
   throw new TypeError('Expected study observations and frozen cohorts');
- const lengths=new Map();
+ const histories=new Map();
  for(const c of cohorts){
-   if(lengths.has(c.code))throw new TypeError('Duplicate code in cohort');
-   lengths.set(c.code,Array.isArray(c.candles)?c.candles.length:0);
+   if(histories.has(c.code))throw new TypeError('Duplicate code in cohort');
+   histories.set(c.code,Array.isArray(c.candles)?c.candles:null);
  }
  const retest=new Map(study.observations.filter(x=>x.kind==='RETEST')
    .map(x=>[x.code+':'+x.breakoutIndex,x]));
  const opportunities=[];
  let immature=0,quarantined=0;
  for(const b of study.observations.filter(x=>x.kind==='BREAKOUT')){
-   const bars=lengths.get(b.code);
-   if(!Number.isInteger(bars)||b.signalIndex+15>=bars){immature++;continue;}
+   const bars=histories.get(b.code);
+   if(!Array.isArray(bars)||b.signalIndex+15>=bars.length){immature++;continue;}
+   let gap=false;
+   for(let k=b.signalIndex+1;k<=b.signalIndex+15;k++){
+     if(bars[k-1].close<=0||Math.abs(bars[k].close/bars[k-1].close-1)>0.45){gap=true;break;}
+   }
+   if(gap){quarantined++;continue;}
    const later=retest.get(b.code+':'+b.signalIndex)??null;
    if(!finite(b.return5Percent) || (later&&!finite(later.return5Percent))){quarantined++;continue;}
    opportunities.push({code:b.code,breakoutIndex:b.signalIndex,
