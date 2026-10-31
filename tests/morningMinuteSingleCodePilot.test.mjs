@@ -48,6 +48,11 @@ test('real 953-symbol frozen universe and one-stock daily query now reconcile en
  assert.equal(r.status,'HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH');
  assert.equal(r.dailyReconciliationMatched,true);
  assert.equal(r.historicalQualityHold,false);
+ assert.equal(r.originalFrozenCohortSize,953);
+ assert.equal(r.dailyProviderQueryScope,'SINGLE_CODE_PILOT');
+ assert.equal(r.dailyObservedCodeDays,1);
+ assert.equal(r.dailyMissingOrQuarantinedCodeDays,0);
+ assert.equal(r.fullFrozenUniverseCovered,false);
  assert.equal(r.code,code);
  assert.equal(r.parsedMinuteBars,4);
  assert.equal(r.asOf905.observedMinuteBars,2);
