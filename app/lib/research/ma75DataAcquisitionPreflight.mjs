@@ -48,7 +48,10 @@ export function planMa75JQuantsAcquisition(freeze,{
    if(prior.length>1)state='DUPLICATE_CAPTURE_REVIEW';
    else if(prior.length===1){
      const r=prior[0],rows=r?.rows;
-     if(r.version!==MA75_JQUANTS_PAGE_VERSION||
+     const lastReceived=timestamp(r?.lastReceivedAt);
+     if(!Number.isFinite(lastReceived)||lastReceived>clock||
+       lastReceived<afterTseClose(date)||
+       r.version!==MA75_JQUANTS_PAGE_VERSION||
        r.paginationComplete!==true||!Array.isArray(r.failures)||r.failures.length!==0||
        r.expectedFrozenCodes!==freeze.codes.length||
        !Array.isArray(rows)||rows.length!==freeze.codes.length||
