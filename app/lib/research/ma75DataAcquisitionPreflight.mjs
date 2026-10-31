@@ -8,6 +8,8 @@ import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 import {MA75_PAGE_REVISION_VERSION, fingerprintMa75RevisionPopulation}
   from './ma75JQuantsPageRevisionAudit.mjs';
 import {auditMa75TseCalendar} from './ma75TseCalendarAudit.mjs';
+import {MA75_TSE_CALENDAR_REVISION_VERSION,fingerprintMa75CalendarSessions}
+ from './ma75TseCalendarRevisions.mjs';
 
 export const MA75_ACQUISITION_PREFLIGHT_VERSION='ma75_acquisition_preflight_v1';
 export const MA75_STANDARD_ACCOUNT_RATE_LIMIT=120; // J-Quants docs, nominal requests/min, shared across keys.
@@ -34,7 +36,7 @@ const validRawBar=(bar,code,date)=>bar?.code===code&&
  */
 export function planMa75JQuantsAcquisition(freeze,{
   asOf,sessions,audits=[],pageRevisionAudits=[],calendarSnapshot,
-  minuteAddonStatus='PLANNED',
+  calendarRevisionAudit,minuteAddonStatus='PLANNED',
 }={}){
  validateMa75FrozenUniverse(freeze);
  const clock=timestamp(asOf);
@@ -52,8 +54,18 @@ export function planMa75JQuantsAcquisition(freeze,{
  const calendarCaptureAsOfValid=calendarAudit!==null&&
    Number.isFinite(timestamp(calendarAudit.capturedAt))&&
    timestamp(calendarAudit.capturedAt)<=clock;
+ const calendarRevisionAccepted=calendarRevisionAudit===undefined||
+   (calendarRevisionAudit?.version===MA75_TSE_CALENDAR_REVISION_VERSION&&
+   calendarRevisionAudit.sessionsSha256===fingerprintMa75CalendarSessions(sessions)&&
+   calendarRevisionAudit.requestFrom===sessions[0]&&
+   calendarRevisionAudit.requestTo===sessions.at(-1)&&
+   calendarRevisionAudit.structurallyConsistent===true&&
+   calendarRevisionAudit.revisionDetected===false&&
+   calendarRevisionAudit.previousSha256===calendarRevisionAudit.currentSha256&&
+   Array.isArray(calendarRevisionAudit.issues)&&
+   calendarRevisionAudit.issues.length===0);
  const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true&&
-   calendarCaptureAsOfValid;
+   calendarCaptureAsOfValid&&calendarRevisionAccepted;
  const wanted=new Set(sessions),grouped=new Map(),unexpected=[];
  for(const audit of audits){
    if(!wanted.has(audit?.date)){unexpected.push(String(audit?.date??'?'));continue}
@@ -186,9 +198,12 @@ export function planMa75JQuantsAcquisition(freeze,{
    structuralHistoricalInputsPresent:allArchived&&unexpected.length===0&&
      unexpectedRevisionDates.length===0&&calendarStructuralPass,
    calendarStructuralPass,
-   calendarIssues:calendarAudit===null?['MISSING_RAW_TSE_CALENDAR']:
+   calendarIssues:calendarAudit===null?['MISSING_RAW_TSE_CALENDAR',
+       ...(!calendarRevisionAccepted?['CALENDAR_REVISION_REQUIRES_REVIEW']:[])]:
      [...calendarAudit.issues,
-      ...(!calendarCaptureAsOfValid?['CALENDAR_CAPTURE_AFTER_ASOF']:[])],
+      ...(!calendarCaptureAsOfValid?['CALENDAR_CAPTURE_AFTER_ASOF']:[]),
+      ...(!calendarRevisionAccepted?['CALENDAR_REVISION_REQUIRES_REVIEW']:[])],
+   calendarRevisionAccepted,
    independentlyAuthenticatedCalendar:false,
    independentCalendarVerified:false,
    pointInTimeProviderAvailabilityVerified:false,
