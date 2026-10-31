@@ -29,17 +29,44 @@ export async function saveTrendPullbackReversalObservations(targetDate:string){
 
 export async function updateTrendPullbackReversalOutcomes(targetDate:string){
  const result=await pool.query(`
- WITH c AS(
-  SELECT h.id,b.price::numeric base_price,
-   (SELECT d.price::numeric FROM daily_stock_results d WHERE d.code=h.code AND d.date::date>h.trade_date AND d.date::date<=$1::date ORDER BY d.date::date OFFSET 0 LIMIT 1)p1,
-   (SELECT d.price::numeric FROM daily_stock_results d WHERE d.code=h.code AND d.date::date>h.trade_date AND d.date::date<=$1::date ORDER BY d.date::date OFFSET 2 LIMIT 1)p3,
-   (SELECT d.price::numeric FROM daily_stock_results d WHERE d.code=h.code AND d.date::date>h.trade_date AND d.date::date<=$1::date ORDER BY d.date::date OFFSET 4 LIMIT 1)p5
-  FROM trend_pullback_reversal_observations h JOIN daily_stock_results b ON b.code=h.code AND b.date::date=h.trade_date
-  WHERE h.observation_flag=true AND h.trade_date<$1::date AND(h.result_1d IS NULL OR h.result_3d IS NULL OR h.result_5d IS NULL))
+ WITH pending AS (
+  SELECT h.id,h.code,h.trade_date
+  FROM trend_pullback_reversal_observations h
+  WHERE h.observation_flag=true AND h.trade_date<$1::date
+   AND (h.result_1d IS NULL OR h.result_3d IS NULL OR h.result_5d IS NULL)
+ ), prices AS (
+  SELECT p.id,base.price AS base_price,future.p1,future.p3,future.p5
+  FROM pending p
+  LEFT JOIN LATERAL (
+   SELECT d.price::numeric AS price
+   FROM daily_stock_results d
+   WHERE d.code=p.code AND d.date::date=p.trade_date AND d.price>0
+   ORDER BY d.created_at DESC LIMIT 1
+  ) base ON TRUE
+  LEFT JOIN LATERAL (
+   SELECT MAX(price) FILTER (WHERE rn=1) AS p1,
+          MAX(price) FILTER (WHERE rn=3) AS p3,
+          MAX(price) FILTER (WHERE rn=5) AS p5
+   FROM (
+    SELECT daily_price.price,ROW_NUMBER() OVER (ORDER BY daily_price.trade_date) AS rn
+    FROM (
+     SELECT DISTINCT ON (d.date::date) d.date::date AS trade_date,d.price::numeric AS price
+     FROM daily_stock_results d
+     WHERE d.code=p.code AND d.date::date>p.trade_date
+      AND d.date::date<=$1::date AND d.price>0
+     ORDER BY d.date::date,d.created_at DESC
+    ) daily_price
+    ORDER BY daily_price.trade_date LIMIT 5
+   ) ranked
+  ) future ON TRUE
+ )
  UPDATE trend_pullback_reversal_observations h SET
-  result_1d=COALESCE(h.result_1d,CASE WHEN c.p1 IS NOT NULL THEN ROUND((100.0*(c.p1-c.base_price)/NULLIF(c.base_price,0))::numeric,4)END),
-  result_3d=COALESCE(h.result_3d,CASE WHEN c.p3 IS NOT NULL THEN ROUND((100.0*(c.p3-c.base_price)/NULLIF(c.base_price,0))::numeric,4)END),
-  result_5d=COALESCE(h.result_5d,CASE WHEN c.p5 IS NOT NULL THEN ROUND((100.0*(c.p5-c.base_price)/NULLIF(c.base_price,0))::numeric,4)END),updated_at=NOW()
- FROM c WHERE h.id=c.id RETURNING h.id`,[targetDate]);
+  result_1d=COALESCE(h.result_1d,CASE WHEN c.base_price>0 AND c.p1>0 THEN ROUND((100.0*(c.p1-c.base_price)/c.base_price)::numeric,4) END),
+  result_3d=COALESCE(h.result_3d,CASE WHEN c.base_price>0 AND c.p3>0 THEN ROUND((100.0*(c.p3-c.base_price)/c.base_price)::numeric,4) END),
+  result_5d=COALESCE(h.result_5d,CASE WHEN c.base_price>0 AND c.p5>0 THEN ROUND((100.0*(c.p5-c.base_price)/c.base_price)::numeric,4) END),
+  updated_at=NOW()
+ FROM prices c WHERE h.id=c.id AND c.base_price>0
+  AND (c.p1 IS NOT NULL OR c.p3 IS NOT NULL OR c.p5 IS NOT NULL)
+ RETURNING h.id`,[targetDate]);
  return {tprOutcomesUpdated:result.rowCount??0};
 }
