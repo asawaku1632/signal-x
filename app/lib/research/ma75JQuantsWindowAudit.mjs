@@ -7,6 +7,8 @@
 import { validateMa75FrozenUniverse } from './ma75FrozenUniverse.mjs';
 import { MA75_JQUANTS_PAGE_VERSION } from './ma75JQuantsDailyPages.mjs';
 import { auditMa75TseCalendar } from './ma75TseCalendarAudit.mjs';
+import {MA75_TSE_CALENDAR_REVISION_VERSION,fingerprintMa75CalendarSessions}
+ from './ma75TseCalendarRevisions.mjs';
 export const MA75_JQUANTS_WINDOW_VERSION='ma75_jquants_offline_76_sessions_v2';
 const day=s=>typeof s==='string'&&/^20\d\d-\d\d-\d\d$/.test(s)&&
   Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
@@ -15,7 +17,7 @@ const number=x=>typeof x==='number'&&Number.isFinite(x);
 const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
 const round=x=>Number(x.toFixed(5));
 const ID=(code,date)=>code+':'+date;
-export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSnapshot}={}){
+export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSnapshot,calendarRevisionAudit}={}){
   validateMa75FrozenUniverse(freeze);
   if(!Array.isArray(sessions)||sessions.length!==76||
      sessions.some((d,i)=>!day(d)||(i>0&&d<=sessions[i-1]))||
@@ -25,7 +27,18 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
   // caller-provided summaries cannot self-certify a fabricated trading calendar.
   const calendarAudit=calendarSnapshot?
     auditMa75TseCalendar({...calendarSnapshot,sessions}):null;
-  const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true;
+  const calendarRevisionAccepted=calendarRevisionAudit===undefined||
+    (calendarRevisionAudit?.version===MA75_TSE_CALENDAR_REVISION_VERSION&&
+    calendarRevisionAudit.sessionsSha256===fingerprintMa75CalendarSessions(sessions)&&
+    calendarRevisionAudit.requestFrom===sessions[0]&&
+    calendarRevisionAudit.requestTo===sessions.at(-1)&&
+    calendarRevisionAudit.structurallyConsistent===true&&
+    calendarRevisionAudit.revisionDetected===false&&
+    calendarRevisionAudit.previousSha256===calendarRevisionAudit.currentSha256&&
+    Array.isArray(calendarRevisionAudit.issues)&&
+    calendarRevisionAudit.issues.length===0);
+  const calendarStructuralPass=calendarAudit?.structuralCalendarPass===true&&
+    calendarRevisionAccepted;
   const signalDate=sessions.at(-1), dateSet=new Set(sessions);
   const reportByDate=new Map(),duplicateDates=new Set(),unexpectedDates=[];
   for(const r of reports){
@@ -117,7 +130,10 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
     missingSessions,invalidReports,duplicateDates:[...duplicateDates].sort(),
     unexpectedDates,rows,counts,
     calendarStructuralPass,
-    calendarIssues:calendarAudit?.issues??['MISSING_RAW_TSE_CALENDAR'],
+    calendarIssues:calendarAudit===null?
+      ['MISSING_RAW_TSE_CALENDAR',...(!calendarRevisionAccepted?['CALENDAR_REVISION_REQUIRES_REVIEW']:[])]:
+      [...calendarAudit.issues,...(!calendarRevisionAccepted?['CALENDAR_REVISION_REQUIRES_REVIEW']:[])],
+    calendarRevisionAccepted,
     independentlyAuthenticatedCalendar:false,
     structuralCoverageComplete:rows.every(r=>
       r.status==='BREAKOUT_OFFLINE_ONLY'||r.status==='NO_CROSS_OFFLINE_ONLY'),
