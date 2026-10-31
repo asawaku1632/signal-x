@@ -205,6 +205,11 @@ export function summarizeMinutePilotResult({minute,reconciliation=null,compareDa
  return {
    status,
    code:minute?.code??null,date:minute?.date??null,
+   originalFrozenCohortSize:minute?.originalFrozenCohortSize??null,
+   dailyProviderQueryScope:reconciliation?.providerQueryScope??null,
+   dailyObservedCodeDays:reconciliation?.dailyObservedCodeDays??null,
+   dailyMissingOrQuarantinedCodeDays:reconciliation?.dailyMissingOrQuarantinedCodeDays??null,
+   fullFrozenUniverseCovered:reconciled&&reconciliation?.fullFrozenUniverseCovered===true,
    pageChainComplete:minute?.pageChainComplete===true,
    parsedMinuteBars:minute?.observedRawBars??null,
    dailyComparisonRequested:compareDaily===true,
