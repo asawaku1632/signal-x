@@ -5,6 +5,8 @@
  */
 import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
+import {MA75_PAGE_REVISION_VERSION, fingerprintMa75RevisionPopulation}
+  from './ma75JQuantsPageRevisionAudit.mjs';
 
 export const MA75_ACQUISITION_PREFLIGHT_VERSION='ma75_acquisition_preflight_v1';
 export const MA75_STANDARD_ACCOUNT_RATE_LIMIT=120; // J-Quants docs, nominal requests/min, shared across keys.
@@ -30,7 +32,7 @@ const validRawBar=(bar,code,date)=>bar?.code===code&&
  * minuteAddonStatus is a declared plan, not proof of account entitlement.
  */
 export function planMa75JQuantsAcquisition(freeze,{
-  asOf,sessions,audits=[],minuteAddonStatus='PLANNED',
+  asOf,sessions,audits=[],pageRevisionAudits=[],minuteAddonStatus='PLANNED',
 }={}){
  validateMa75FrozenUniverse(freeze);
  const clock=timestamp(asOf);
@@ -40,12 +42,20 @@ export function planMa75JQuantsAcquisition(freeze,{
    sessions.some((d,i)=>!isDay(d)||(i>0&&d<=sessions[i-1]))||
    sessions[75]<freeze.firstEligibleSignalDate)
    throw new TypeError('Require 76 unique ascending session claims including eligible target date');
- if(!Array.isArray(audits)||!['PLANNED','NOT_PLANNED','USER_REPORTED_ACTIVE'].includes(minuteAddonStatus))
+ if(!Array.isArray(audits)||!Array.isArray(pageRevisionAudits)||
+    !['PLANNED','NOT_PLANNED','USER_REPORTED_ACTIVE'].includes(minuteAddonStatus))
    throw new TypeError('Invalid capture audits or minute add-on status');
  const wanted=new Set(sessions),grouped=new Map(),unexpected=[];
  for(const audit of audits){
    if(!wanted.has(audit?.date)){unexpected.push(String(audit?.date??'?'));continue}
    grouped.set(audit.date,[...(grouped.get(audit.date)??[]),audit]);
+ }
+ const revisionPopulationHash=fingerprintMa75RevisionPopulation(freeze);
+ const revisionByDate=new Map(),unexpectedRevisionDates=[];
+ for(const audit of pageRevisionAudits){
+   const date=audit?.tradeDate;
+   if(!wanted.has(date)){unexpectedRevisionDates.push(String(date??'?'));continue}
+   revisionByDate.set(date,[...(revisionByDate.get(date)??[]),audit]);
  }
  const days=[];
  for(const date of sessions){
@@ -85,6 +95,14 @@ export function planMa75JQuantsAcquisition(freeze,{
        state=noTradeCodes>0?'ARCHIVED_NO_TRADE_GAP':'ARCHIVED_OFFLINE_ONLY';
      }
    }
+   const revisions=revisionByDate.get(date)??[];
+   if(revisions.length>1||revisions.some(r=>
+     r?.version!==MA75_PAGE_REVISION_VERSION||
+     r.frozenPopulationSha256!==revisionPopulationHash||
+     r.frozenCodes!==freeze.codes.length||
+     r.structurallyConsistent!==true||r.revisionDetected!==false||
+     !Array.isArray(r.issues)||r.issues.length>0))
+     state='ARCHIVED_SOURCE_REVISION_REVIEW';
    // Close time does not imply provider release or live-source availability.
    if(clock<afterTseClose(date))state='SESSION_NOT_YET_CLOSED';
    else if(clock<dailyPublishTarget(date))state='WAIT_FOR_DAILY_PROVIDER_UPDATE';
@@ -92,7 +110,8 @@ export function planMa75JQuantsAcquisition(freeze,{
    if(state!=='ARCHIVED_NO_TRADE_GAP'&&state!=='ARCHIVED_OFFLINE_ONLY'){
      usableDailyBars=0;noTradeCodes=0;
    }
-   days.push({date,state,previousAuditCount:prior.length,usableDailyBars,noTradeCodes});
+   days.push({date,state,previousAuditCount:prior.length,
+     revisionReportCount:revisions.length,usableDailyBars,noTradeCodes});
  }
  const count=state=>days.filter(x=>x.state===state).length;
  const possibleRequests=days.filter(x=>[
@@ -132,16 +151,20 @@ export function planMa75JQuantsAcquisition(freeze,{
    states:{
      archivedOfflineOnly:count('ARCHIVED_OFFLINE_ONLY'),
      archivedNoTradeGap:count('ARCHIVED_NO_TRADE_GAP'),
+     sourceRevisionReview:count('ARCHIVED_SOURCE_REVISION_REVIEW'),
      pendingFetch:count('REQUIRES_EXISTING_DATA_OR_FETCH'),
      incompleteExisting:count('PREVIOUS_AUDIT_INCOMPLETE'),
      duplicateExisting:count('DUPLICATE_CAPTURE_REVIEW'),
      notYetClosed:count('SESSION_NOT_YET_CLOSED'),
      waitingForProviderDailyUpdate:count('WAIT_FOR_DAILY_PROVIDER_UPDATE'),
      unexpectedAuditDates:unexpected.length,
+     unexpectedRevisionDates:unexpectedRevisionDates.length,
    },
    unexpectedAuditDates:unexpected,
+   unexpectedRevisionDates,
    dates:days,
-   structuralHistoricalInputsPresent:allArchived&&unexpected.length===0,
+   structuralHistoricalInputsPresent:allArchived&&unexpected.length===0&&
+     unexpectedRevisionDates.length===0,
    independentCalendarVerified:false,
    pointInTimeProviderAvailabilityVerified:false,
    providerRightsVerified:false,
@@ -159,6 +182,7 @@ export function planMa75JQuantsAcquisition(freeze,{
      'J-Quants daily OHLCV is typically updated around 16:30 JST, not at 15:30. This is an estimate, not a guaranteed release time.',
      'J-Quants may publish data after exchange close; historical API download cannot prove an as-of next-open decision.',
      'A complete page containing NO_TRADE is archived but insufficient for that symbol to compute the full SMA75; do not retry it blindly or count it as complete.',
+     'Archived page revisions for a frozen code-day require independent manual review and cannot silently overwrite earlier study inputs.',
      'Even 76 archived page audits cannot prove original provider capture, data license, trading calendar or corporate-action treatment.',
    ],
  };
