@@ -36,5 +36,8 @@ export function validateDatedMarketQuote(
   // The quote must have been observed on its labeled JST trading day.
   const jstDate = new Date(observed + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   if (jstDate !== quote.tradeDate) return { ok: false, reason: "OBSERVED_ON_DIFFERENT_JST_DAY" };
+  // A daily closing quote cannot be observed before the Tokyo market close (15:30 JST).
+  const jstTime = new Date(observed + 9 * 60 * 60 * 1000).toISOString().slice(11, 16);
+  if (jstTime < "15:30") return { ok: false, reason: "BEFORE_MARKET_CLOSE" };
   return { ok: true, quote };
 }
