@@ -144,3 +144,18 @@ node --test tests/ma75*.test.mjs
 \`\`\`
 
 This is an offline, draft-only addition to PR #297; no production release, automatic finance recommendation, server scheduling, schema migration, new paid provider tier or changes to PR #216 / #292.
+
+## Outcome immutability and descriptive forward dashboard (2026-10-31)
+
+Additional **offline, shadow-only** modules:
+
+- \`app/lib/research/ma75SettlementRevisions.mjs\`: compare two successive hypothetical settlement snapshots under the **same frozen manifest hash**. Allow previously pending candidates to mature; flag disappeared candidates, duplicate IDs, invalid totals, a changed already-completed return/evidence digest, silent quarantine removal, pending-to-quarantine requiring manual review, and newly introduced historical COMPLETED results lacking a prior captured record. It does **not** certify the source of a timestamp or actual market activity. No overwrite or persistence exists in this module.
+- \`app/lib/research/ma75ForwardAuditSummary.mjs\`: show completed, pending and quarantined counts for each frozen breakout variant (all, rising SMA75, >=1.5x volume, both), with **hypothetical only** mean, median, positive-rate and worst five-session returns. Zero completed results have null returns/rates; quarantined or pending cases are never silently relabelled winners/losers. Reconcile every candidate ID with every outcome ID and reject count discrepancies. When a revision audit is supplied, a failed transition blocks the integrity assessment.
+- The fifth preregistered variant \`WAIT_FOR_RETEST_OR_CASH\` is returned as **unsupported** because breakout-only settlement cannot calculate the true opportunity-level policy outcome; all first-breakout opportunities (including never-retested and cash held) need a separate prospectively captured 15-session ledger.
+
+Verification:
+- New revision module: **10/10 local Node.js tests passed** on its current research logic, including completed-history injection rejection. Earlier 30 base tests and a separate local outcome fixture suite (13 cases) also passed. These local checkouts are not a full assertion that every file exactly matches the current GitHub head.
+- New summary module: **5/5 functional tests passed** using code fetched directly from GitHub, in a V8 harness with a deterministic hash stub. This is **not** equivalent to an independent Node.js CI workflow or complete repository build.
+- GitHub-wide CI and Vercel final statuses must be checked separately. Do not count these examples as new real market observations.
+
+**All live gates remain BLOCKED**: no verified prospective trades, no source/official-calendar certification, no new premium contract, no database writes, no deployment to production, no AI POWER scoring changes, no notifications and no change to unrelated PR #216 or #292.
