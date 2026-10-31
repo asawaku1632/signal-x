@@ -17,7 +17,7 @@ const isDay=x=>typeof x==='string'&&DAY.test(x)&&
 const timestamp=x=>typeof x==='string'&&/(?:Z|[+-]\d\d:\d\d)$/.test(x)?Date.parse(x):NaN;
 const afterTseClose=date=>Date.parse(date+'T06:30:00Z'); // 15:30 JST, NOT provider-available-at.
 const dailyPublishTarget=date=>Date.parse(date+'T07:30:00Z'); // Around 16:30 JST; estimate, not guarantee.
-const OFFLINE_PAGE_COMPLETE=new Set(['DAILY_BAR','NO_TRADE']);
+const OFFLINE_PAGE_COMPLETE=new Set(['DAILY_BAR','NO_TRADE','CORPORATE_ACTION_REVIEW']);
 const validPositive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
 const validRawBar=(bar,code,date)=>bar?.code===code&&
   bar.tradeDate===date&&bar.unadjusted===true&&
@@ -61,7 +61,7 @@ export function planMa75JQuantsAcquisition(freeze,{
  for(const date of sessions){
    const prior=grouped.get(date)??[];
    let state='REQUIRES_EXISTING_DATA_OR_FETCH';
-   let usableDailyBars=0,noTradeCodes=0;
+   let usableDailyBars=0,noTradeCodes=0,corporateActionCodes=0;
    if(prior.length>1)state='DUPLICATE_CAPTURE_REVIEW';
    else if(prior.length===1){
      const r=prior[0],rows=r?.rows;
@@ -79,7 +79,9 @@ export function planMa75JQuantsAcquisition(freeze,{
        rows.some((x,i)=>x?.code!==freeze.codes[i]||x.tradeDate!==date||
          !OFFLINE_PAGE_COMPLETE.has(x.status)||
          (x.status==='DAILY_BAR'&&!validRawBar(x.bar,x.code,date))||
-         (x.status==='NO_TRADE'&&x.bar!==null))||
+         (x.status==='NO_TRADE'&&x.bar!==null)||
+         (x.status==='CORPORATE_ACTION_REVIEW'&&(
+           x.bar!==null||x.actionDetails?.independentlyVerified!==false)))||
        r.eligibleForForwardSignal!==false||
        r.providerRightsVerified!==false||
        !r.counts||typeof r.counts!=='object'||
@@ -92,7 +94,9 @@ export function planMa75JQuantsAcquisition(freeze,{
      else {
        usableDailyBars=rows.filter(x=>x.status==='DAILY_BAR').length;
        noTradeCodes=rows.filter(x=>x.status==='NO_TRADE').length;
-       state=noTradeCodes>0?'ARCHIVED_NO_TRADE_GAP':'ARCHIVED_OFFLINE_ONLY';
+       corporateActionCodes=rows.filter(x=>x.status==='CORPORATE_ACTION_REVIEW').length;
+       state=corporateActionCodes>0?'ARCHIVED_CORPORATE_ACTION_REVIEW':
+         noTradeCodes>0?'ARCHIVED_NO_TRADE_GAP':'ARCHIVED_OFFLINE_ONLY';
      }
    }
    const revisions=revisionByDate.get(date)??[];
@@ -107,11 +111,13 @@ export function planMa75JQuantsAcquisition(freeze,{
    if(clock<afterTseClose(date))state='SESSION_NOT_YET_CLOSED';
    else if(clock<dailyPublishTarget(date))state='WAIT_FOR_DAILY_PROVIDER_UPDATE';
    // As-of safeguards override all archived input even if its metadata claims success.
-   if(state!=='ARCHIVED_NO_TRADE_GAP'&&state!=='ARCHIVED_OFFLINE_ONLY'){
-     usableDailyBars=0;noTradeCodes=0;
+   if(!['ARCHIVED_NO_TRADE_GAP','ARCHIVED_OFFLINE_ONLY',
+     'ARCHIVED_CORPORATE_ACTION_REVIEW'].includes(state)){
+     usableDailyBars=0;noTradeCodes=0;corporateActionCodes=0;
    }
    days.push({date,state,previousAuditCount:prior.length,
-     revisionReportCount:revisions.length,usableDailyBars,noTradeCodes});
+     revisionReportCount:revisions.length,usableDailyBars,noTradeCodes,
+     corporateActionCodes});
  }
  const count=state=>days.filter(x=>x.state===state).length;
  const possibleRequests=days.filter(x=>[
@@ -121,6 +127,7 @@ export function planMa75JQuantsAcquisition(freeze,{
  const allArchived=days.every(x=>x.state==='ARCHIVED_OFFLINE_ONLY');
  const archivedUsableBars=days.reduce((n,d)=>n+d.usableDailyBars,0);
  const archivedNoTradeCells=days.reduce((n,d)=>n+d.noTradeCodes,0);
+ const archivedCorporateActionCells=days.reduce((n,d)=>n+d.corporateActionCodes,0);
  const expectedCells=freeze.codes.length*sessions.length;
  return {
    version:MA75_ACQUISITION_PREFLIGHT_VERSION,
@@ -128,7 +135,10 @@ export function planMa75JQuantsAcquisition(freeze,{
    expectedCodeSessionCells:expectedCells,
    archivedUsableBarCells:archivedUsableBars,
    archivedNoTradeCells,
-   unverifiedOrMissingBarCells:expectedCells-archivedUsableBars-archivedNoTradeCells,
+   archivedCorporateActionCells,
+   blockedOrMissingBarCells:expectedCells-archivedUsableBars,
+   unverifiedOrMissingBarCells:expectedCells-archivedUsableBars-
+     archivedNoTradeCells-archivedCorporateActionCells,
    expectedDailySessions:76,
    requestedEndpoint:'/v2/equities/bars/daily',
    requestGranularity:'ONE_DATE_ALL_LISTED_WITH_PAGINATION',
@@ -151,6 +161,7 @@ export function planMa75JQuantsAcquisition(freeze,{
    states:{
      archivedOfflineOnly:count('ARCHIVED_OFFLINE_ONLY'),
      archivedNoTradeGap:count('ARCHIVED_NO_TRADE_GAP'),
+     archivedCorporateActionReview:count('ARCHIVED_CORPORATE_ACTION_REVIEW'),
      sourceRevisionReview:count('ARCHIVED_SOURCE_REVISION_REVIEW'),
      pendingFetch:count('REQUIRES_EXISTING_DATA_OR_FETCH'),
      incompleteExisting:count('PREVIOUS_AUDIT_INCOMPLETE'),
@@ -182,6 +193,7 @@ export function planMa75JQuantsAcquisition(freeze,{
      'J-Quants daily OHLCV is typically updated around 16:30 JST, not at 15:30. This is an estimate, not a guaranteed release time.',
      'J-Quants may publish data after exchange close; historical API download cannot prove an as-of next-open decision.',
      'A complete page containing NO_TRADE is archived but insufficient for that symbol to compute the full SMA75; do not retry it blindly or count it as complete.',
+     'Explicit AdjFactor/ExRT events are historical corporate-action review holds; do not treat old page-parser v1 audits as passing the new v2 verification.',
      'Archived page revisions for a frozen code-day require independent manual review and cannot silently overwrite earlier study inputs.',
      'Even 76 archived page audits cannot prove original provider capture, data license, trading calendar or corporate-action treatment.',
    ],
