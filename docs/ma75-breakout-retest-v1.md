@@ -174,3 +174,26 @@ Full evaluation needs **15 completed sessions after the frozen original breakout
 Focused test: \`node --test tests/ma75ForwardWaitPolicy.test.mjs\`: **10 tests passed on Node.js v22**, including a tenth-day retest, a cash/no-retest opportunity, invalidated trend, missing 15-day maturity, duplicate records, malformed/future data and impossible exchange dates. GitHub code and test file byte lengths were checked after commit (7300 and 6141 bytes), but this focused run is **not** a complete checkout/build or GitHub Actions CI pass.
 
 **Next promotion criteria:** freeze a broad liquidity-filtered population *before observing forward results*, capture day-close features with independent source timestamps, observe all 15-session futures, include all cash/no-retest opportunities, use a distinct chronological holdout and meaningful downside risk analysis, review source rights and splits, and only then discuss whether a feature should advance into scoring. No live activation or permission to merge follows from the test pass.
+
+## Independent-review-only promotion gate (2026-10-31)
+
+Research-only module: \`app/lib/research/ma75ResearchReviewGate.mjs\`. Dedicated test file: \`tests/ma75ResearchReviewGate.test.mjs\` (nine tests verified via the fetched GitHub source in a V8 function runner; this uses a deterministic crypto shim, **not** Node.js CI).
+
+This consolidates existing read-only evidence at the same manifest hash:
+
+- Full universe \`ma75UniverseCoverage\` must be structurally complete with **100% observed stock-days**, including **NO_CROSS** records. Missing or quarantined stock-days block complete historical coverage. No retrospective chart-view sample can substitute for independent forward selection.
+- Forward summary must have full integrity with the *same* frozen manifest and complete structural universe; at least **100** completed hypothetical breakout +5 session results.
+- Forward wait-or-cash policy must have at least **100** completed 15-session opportunities (including no-trade cash results), at least **40** different stock codes, **30** distinct signal dates across **3** calendar months, and at least **10 each** cash opportunities and actually traded retests. No duplicated completed stock/date keys, missing outcome, invented winning cash return, or internally inconsistent totals. These review thresholds are **provisional sample-diversity minima, NOT a significance test or proof of profitability**.
+- Settlement revision audit must confirm that completed results have not changed and prior cohort members have not silently vanished or appeared as new completed retrospective winners.
+
+The gate produces a blocker list, sample counts, and an optional \`eligibleForHumanIndependentReview\` value. That label is **only a technical precheck**, not authorization. Even if the caller provides synthetic evidence passing every structural test, the following are ALWAYS **false**: independently verified source/provider rights, official calendar, provable original capture, independently validated splits, independently reviewed risk/costs, production eligibility, notification eligibility and AI POWER scoring eligibility. Independently validated forward win rate stays \`null\`.
+
+No connector subscriptions, live jobs, DB migrations, trades, Vercel production deploys, merges or notifications follow from this gate. An independent reviewer must inspect original provider data/rights, timestamp chain, corporate actions, official holidays, real forward collection, costs, loss tails and overlap before a new explicit permission and implementation could ever be considered.
+
+To reproduce locally on Node.js 22 after checking out PR #297:
+
+\`\`\`bash
+node --test tests/ma75*.test.mjs
+\`\`\`
+
+This is a forward-research governance safeguard, not an efficacy finding. Previous 77 GitHub-source test functions were executed via a V8 harness with a digest shim; nine newly added gate cases likewise passed in the same type of harness. A complete Node/GitHub Actions CI result for the latest PR head has **not** been established by those local functional checks.
