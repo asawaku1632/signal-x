@@ -5,7 +5,7 @@
  */
 export const MA75_ARCHIVE_READINESS_VERSION = 'ma75_archive_readiness_v1';
 const finite = v => typeof v === 'number' && Number.isFinite(v);
-const integer = v => Number.isSafeInteger(v) && v > 0;
+const integer = v => Number.isSafeInteger(v) && v >= 946684800 && v < 4102444800;
 const isoMs = v => typeof v === 'string' && /(?:Z|[+-]\d\d:\d\d)$/.test(v) ? Date.parse(v) : NaN;
 const avg = xs => xs.reduce((a,b) => a+b,0)/xs.length;
 const round = v => Number(v.toFixed(5));
@@ -49,7 +49,7 @@ export function auditMa75ArchiveReadiness(freeze, snapshots, {auditCutoff}={}) {
       const saved=isoMs(snapshot.updatedAt);
       if (snapshot.timeframe!=='1D' || typeof snapshot.provider!=='string' ||
           snapshot.provider.trim().length<3 || !Number.isFinite(saved) || saved>cutoff ||
-          saved<frozenAt-365*86400000 || !Array.isArray(bars)) {
+          saved>frozenAt || saved<frozenAt-365*86400000 || !Array.isArray(bars)) {
         status='QUARANTINED_SNAPSHOT_PROVENANCE';
       } else if (bars.length<76) {
         status='INSUFFICIENT_75DAY_WARMUP';
