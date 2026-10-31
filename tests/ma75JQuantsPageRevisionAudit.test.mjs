@@ -17,7 +17,7 @@ const frozen=()=>({
 });
 const price=(Code='13010',C=102)=>({
  Date:date,Code,O:100,H:106,L:98,C,Vo:20000,
- AdjO:1,AdjH:1,AdjL:1,AdjC:1,AdjVo:999,
+ AdjO:1,AdjH:1,AdjL:1,AdjC:1,AdjVo:999,AdjFactor:1,ExRT:null,
 });
 const parse=(rows=[price('13010'),price('186A0')],receivedAt='2026-11-05T07:40:00Z')=>
  parseMa75JQuantsDailyPages(frozen(),{date,pages:[{
