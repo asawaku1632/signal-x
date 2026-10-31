@@ -22,7 +22,7 @@ const sessions=()=>{
  return out;
 };
 const archive=date=>({
- date,version:'ma75_jquants_v2_offline_daily_v2',
+ date,version:'ma75_jquants_v2_offline_daily_v3',
  firstReceivedAt:'2026-11-02T07:40:00Z',
  lastReceivedAt:'2026-11-02T07:45:00Z',
  readPages:1,rawProviderRows:3,
