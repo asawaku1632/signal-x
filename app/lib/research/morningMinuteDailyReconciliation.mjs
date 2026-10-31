@@ -124,13 +124,29 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    reasons.push('DAILY_STOCK_DAY_NOT_USABLE');
  }
  const blockers=[...new Set(reasons)];
+ // A successful ONE-SYMBOL OHLCV reconciliation does not imply that every
+ // frozen symbol was present in the date-page archive. MISSING_PROVIDER_ROW
+ // and CORPORATE_ACTION_REVIEW must remain in the full-cohort denominator.
+ const eligibleDailyStatuses=new Set(['DAILY_BAR','NO_TRADE']);
+ const dailyObservedCodeDays=Array.isArray(daily?.rows)?
+   daily.rows.filter(r=>eligibleDailyStatuses.has(r?.status)).length:0;
+ const dailyMissingOrQuarantinedCodeDays=Array.isArray(daily?.rows)?
+   daily.rows.length-dailyObservedCodeDays:null;
+ const fullFrozenUniverseCovered=daily?.auditScope==='FROZEN_UNIVERSE'&&
+   blockers.length===0&&
+   daily?.rows?.length===freeze.codes.length&&
+   dailyObservedCodeDays===freeze.codes.length&&
+   daily.rawProviderRows>=freeze.codes.length;
  const matchingNoTrade=blockers.length===0&&row?.status==='NO_TRADE';
  const matchedTradingDay=blockers.length===0&&row?.status==='DAILY_BAR'&&!noTrades;
  return {
    version:MORNING_MINUTE_DAILY_RECONCILIATION_VERSION,
    code,date,frozenPopulationSize:freeze.codes.length,
-   providerQueryScope:singleCodePilot?'SINGLE_CODE_PILOT':'FROZEN_UNIVERSE',
-   fullFrozenUniverseCovered:fullUniverse&&blockers.length===0,
+   providerQueryScope:singleCodePilot?'SINGLE_CODE_PILOT':
+     fullUniverse?'FROZEN_UNIVERSE':'INVALID_SCOPE',
+   dailyObservedCodeDays,
+   dailyMissingOrQuarantinedCodeDays,
+   fullFrozenUniverseCovered,
    minuteAuditVersion:minute?.version??null,
    dailyAuditVersion:daily?.version??null,
    minuteBarCount:aggregate?.barCount??null,
@@ -145,6 +161,6 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    actual0905AvailabilityVerified:false,
    validProspectiveBuyObservations:0,
    eligibleForNotifications:false,eligibleForProduction:false,
-   warning:'Even matching OHLCV, provider envelope, row counts and receipt times cannot prove official as-of 09:05 capture, order execution or profitability.',
+   warning:'A one-code/day match is NOT proof of all frozen codes; even complete OHLCV and dated receipts cannot establish true 09:05 capture or profitable execution.',
  };
 }
