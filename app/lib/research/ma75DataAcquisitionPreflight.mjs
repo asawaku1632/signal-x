@@ -60,8 +60,15 @@ export function planMa75JQuantsAcquisition(freeze,{
          (x.status==='DAILY_BAR'&&x.bar?.unadjusted!==true)||
          (x.status==='NO_TRADE'&&x.bar!==null))||
        r.eligibleForForwardSignal!==false||
-       r.providerRightsVerified!==false)
+       r.providerRightsVerified!==false||
+       !r.counts||typeof r.counts!=='object'||
+       !Number.isInteger(r.structurallyUsableRawBars)||
+       r.structurallyUsableRawBars!==rows.filter(x=>x.status==='DAILY_BAR').length||
+       Object.keys(r.counts).some(k=>r.counts[k]!==rows.filter(x=>x.status===k).length)||
+       rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
        state='PREVIOUS_AUDIT_INCOMPLETE';
+     else if(rows.some(x=>x.status==='NO_TRADE'))
+       state='ARCHIVED_NO_TRADE_GAP';
      else state='ARCHIVED_OFFLINE_ONLY';
    }
    // Close time does not imply provider release or live-source availability.
@@ -100,6 +107,7 @@ export function planMa75JQuantsAcquisition(freeze,{
    minuteAddonPurpose:'SEPARATE_MORNING_DIP_REBOUND_STUDY_NOT_SMA75_DAILY',
    states:{
      archivedOfflineOnly:count('ARCHIVED_OFFLINE_ONLY'),
+     archivedNoTradeGap:count('ARCHIVED_NO_TRADE_GAP'),
      pendingFetch:count('REQUIRES_EXISTING_DATA_OR_FETCH'),
      incompleteExisting:count('PREVIOUS_AUDIT_INCOMPLETE'),
      duplicateExisting:count('DUPLICATE_CAPTURE_REVIEW'),
@@ -126,6 +134,7 @@ export function planMa75JQuantsAcquisition(freeze,{
      'The nominal account-level 120 requests/min is shared across services and does not determine pagination or availability.',
      'J-Quants daily OHLCV is typically updated around 16:30 JST, not at 15:30. This is an estimate, not a guaranteed release time.',
      'J-Quants may publish data after exchange close; historical API download cannot prove an as-of next-open decision.',
+     'A complete page containing NO_TRADE is archived but insufficient for that symbol to compute the full SMA75; do not retry it blindly or count it as complete.',
      'Even 76 archived page audits cannot prove original provider capture, data license, trading calendar or corporate-action treatment.',
    ],
  };
