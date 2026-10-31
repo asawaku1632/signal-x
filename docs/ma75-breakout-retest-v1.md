@@ -260,3 +260,19 @@ The user intends to subscribe to J-Quants' **株価 分足・ティック** add-
 - Do not use delayed (e.g. 12-day-old) provider data as an authentic snapshot at the original 09:05 decision time. Later historical studies may audit which signals would have existed, but such outputs are not independently captured trading opportunities.
 
 **Verification:** 12/12 dedicated tests passed when run as JavaScript directly from the exact GitHub branch content in a V8 harness (only the pre-existing frozen-manifest crypto digest was shimmed). This is **not an entire GitHub Actions CI, production build, or end-to-end J-Quants API execution**. No missing OHLCV was fetched and no monthly subscription was activated as part of this PR.
+
+
+## 2026-10-31 Daily archive fail-closed audit refinements
+
+**Why**: A provider-complete page can contain honest \`NO_TRADE\` code-days. The previous daily acquisition preflight considered a date entirely complete when every code had either a \`DAILY_BAR\` or a \`NO_TRADE\` record; that is not sufficient for **all 953 codes to compute a continuous 75-day SMA**. A complete *response envelope* is not the same as *complete OHLCV history*.
+
+**Research-only corrections** (nothing activated):
+
+1. \`ma75DataAcquisitionPreflight.mjs\` now reports \`ARCHIVED_NO_TRADE_GAP\` for correctly archived date pages that include any \`NO_TRADE\` code. This is distinct from \`PREVIOUS_AUDIT_INCOMPLETE\`: a legitimate no-trade record should neither be fabricated as a valid candle nor repeatedly fetched to hide an unavailable signal. \`structuralHistoricalInputsPresent\` stays false until **every frozen code has an actual valid daily OHLCV bar for all 76 sessions**.
+2. For the entire frozen \`codes × 76\` denominator, the preflight reports \`archivedUsableBarCells\`, \`archivedNoTradeCells\`, and \`unverifiedOrMissingBarCells\`. Validated snapshot counts must reconcile with per-code statuses. A future-dated receipt, missing or mismatched count, duplicate source report, or missing provider row never inflates the completed-bar count. The test fixture of 3 symbols × 76 sessions therefore has 228 expected cells; one legitimate no-trade record produces 227 usable, 1 no-trade, 0 unverified, **but cannot pass full SMA75 readiness**.
+3. \`ma75JQuantsDailyPages.mjs\` now treats \`pagination_key: ""\` as a **terminal response**, consistent with the J-Quants FAQ that both absent and empty keys mean no more pages. Each archived page must explicitly record the key used in its request, and received-at instants must never move backwards across pages. Missing requests, reversed receipt times, invalid continuation types and truncated page sequences quarantine the date scope. See the [official API FAQ](https://jpx-jquants.com/ja/help/data) and [daily bars specification](https://jpx-jquants.com/ja/spec/eq-bars-daily).
+4. No newly observed market bars, independently authenticated point-in-time timestamps, certified corporate-action history, or verified exchange calendar were created. A daily response captured much later is still **retrospective research**, not evidence of an actionable signal at the original morning decision time.
+
+**Focused verification**: the current GitHub branch's three connected modules (\`ma75JQuantsDailyPages\`, \`ma75JQuantsWindowAudit\`, \`ma75DataAcquisitionPreflight\`) and associated tests were fetched and executed in a direct V8 JavaScript harness, with only the frozen protocol's SHA-256 digest replaced for the isolated test runner. **45/45 passed (17 date pages + 11 76-session windows + 17 preflight)**. The private repository was not directly reachable from the container's Git client, so these are **not full Node.js checkout, GitHub Actions, or integrated API test results**.
+
+No billing change, API keys/read, provider requests, database writes, cron, Vercel production deployment, AI POWER scoring or notifications were performed. PR #297 remains a separate Draft; unrelated PRs remain untouched.
