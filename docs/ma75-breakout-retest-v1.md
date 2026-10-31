@@ -88,3 +88,19 @@ Within the already selected stock universe, breakout SMA75 slope is associated w
 Implementation of strict score provenance is descriptive and **does not certify** the provider, raw daily-bar archival availability, split adjustment or historical real-world data-capture timing. Frozen preselected, source-verified future observations, sufficient cross-regime spans, trading-calendar/corporate-action audits, non-overlapping policy comparisons and independent risk evaluation remain mandatory before promotion.
 
 Added five more secondary-module test cases to the eight existing primary regression tests, for 13 focused tests total; local Node 22 execution passed. No live cron, PUSH, AI POWER, DB write, merge or production changes. PR #216 and PR #292 remain untouched.
+
+## All-breakout waiting policy sensitivity (exploratory, 2026-10-31)
+
+New pure in-memory module: `app/lib/research/ma75WaitPolicy.mjs`.
+It starts at **every eligible breakout**, waits for the first valid retest within ten later trading sessions, and assigns **0% cash return if none occurs**. For comparison, it requires a fully observed **15-trading-session window** for every breakout and quarantines any >45% close discontinuity anywhere within that window. It excludes immature and quarantined opportunities rather than treating them as failed trades. Slippage remains 0.1% adverse on each executed side, not on cash.
+
+In the same selected 126 stored chart-cache names (SQL read only), **126 fully matured opportunities across 65 stock codes** were available after filtering. Among them, **56 had a retest trade and 70 remained in cash**.
+
+| Policy across all 126 matured breakout opportunities | Average realized 5-session trade return per opportunity | Positive outcome per opportunity |
+| --- | ---: | ---: |
+| Buy breakout next open | **+0.118%** | 52.38% |
+| Wait for first retest; otherwise hold cash at 0% | **+0.773%** | 25.40% |
+
+These are **policy-opportunity outcomes, not comparable conditional trade win rates**: zero-return cash opportunities count as neither positive nor negative, and waiting has substantially less exposure and a later potential exit date. The averages assume equal weights per initial breakout, no idle-cash interest/opportunity cost, no redeployment or capital constraints, and overlapping observations from the same code. Even though waiting has a larger in-sample average here, this does not establish a risk-adjusted or real-world edge. The earlier matched retrospective comparison selected only successful future retest cases and therefore estimates a different quantity.
+
+The 75-day rising-slope, volume>=1.5x, and AI POWER combinations have **not** independently passed promotion. We continue to block any live buy scoring, production alerts and notification activation. Tests for main, chronological and wait-policy modules: 18 focused Node 22 local tests passed; GitHub-wide CI is separately tracked.
