@@ -159,3 +159,18 @@ Verification:
 - GitHub-wide CI and Vercel final statuses must be checked separately. Do not count these examples as new real market observations.
 
 **All live gates remain BLOCKED**: no verified prospective trades, no source/official-calendar certification, no new premium contract, no database writes, no deployment to production, no AI POWER scoring changes, no notifications and no change to unrelated PR #216 or #292.
+
+## Fifteen-session prospective wait-or-cash audit (2026-10-31)
+
+The **shadow-only** module \`app/lib/research/ma75ForwardWaitPolicy.mjs\` fills a research coverage gap that a breakout-only result cannot resolve: evaluate **every** previously captured and frozen SMA75 breakout under two policies, using the *same original breakout cohort*:
+
+1. **Immediate:** buy next exchange-session open and hypothetically sell at the fifth session's close, with 0.1% adverse price adjustment per executed side.
+2. **Wait:** within the next ten exchange sessions, buy only after the first daily SMA75-support retest satisfying low <= 101% of contemporaneous SMA75, close >= SMA75 and close >= open, without an earlier daily close below SMA75. Buy the next session's open and exit after five sessions from the retest close; if no qualifying retest occurs, **cash with 0% return for that opportunity**. Waiting or invalidation must not disappear from the denominator.
+
+Full evaluation needs **15 completed sessions after the frozen original breakout** (ten-day wait window plus five-day outcome); shorter windows and missing bars are marked **PENDING**, not losers or cash. Recompute each daily SMA75 from an unmodified history with at least 76 prior completed daily candles and the subsequently collected 15 daily candles. The original same-day close/SMA75 must agree with the historical as-of replay. Strict source, claimed capture times, ordered independently supplied exchange calendar, exact session dates, OHLCV, duplicates and suspicious >45% discontinuity checks quarantine bad samples.
+
+**Critical limitation:** The module does not fetch/store data, independently certify the claimed capture times, prove J-Quants usage rights, check stock splits against a corporate-actions registry, authenticate an exchange calendar, run a cron job, or use actual brokerage fills. It returns **hypothetical** outcomes and always sets \`validatedForwardWinRate=null\`, \`eligibleForProduction=false\`, \`sourceVerifiedIndependently=false\`. Stored chart-view samples and synthetic test fixtures cannot be presented as genuine new forward predictions.
+
+Focused test: \`node --test tests/ma75ForwardWaitPolicy.test.mjs\`: **10 tests passed on Node.js v22**, including a tenth-day retest, a cash/no-retest opportunity, invalidated trend, missing 15-day maturity, duplicate records, malformed/future data and impossible exchange dates. GitHub code and test file byte lengths were checked after commit (7300 and 6141 bytes), but this focused run is **not** a complete checkout/build or GitHub Actions CI pass.
+
+**Next promotion criteria:** freeze a broad liquidity-filtered population *before observing forward results*, capture day-close features with independent source timestamps, observe all 15-session futures, include all cash/no-retest opportunities, use a distinct chronological holdout and meaningful downside risk analysis, review source rights and splits, and only then discuss whether a feature should advance into scoring. No live activation or permission to merge follows from the test pass.
