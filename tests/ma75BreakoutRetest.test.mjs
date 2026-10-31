@@ -59,7 +59,8 @@ test('reject unsorted bars, invalid OHLC, missing history and suspicious split',
   const invalid=base();invalid[80]={...invalid[80],low:200};
   assert.equal(run(invalid).excluded[0].reason,'INVALID_OHLCV');
   const split=base();split[60]=bar(60,200);
-  assert.equal(run(split).excluded[0].reason,'SPLIT_OR_EXTREME_GAP_REVIEW');
+  assert.equal(run(split).acceptedCohorts,1);
+  assert.equal(run(split).observations.filter(x=>x.kind==='BREAKOUT').length,0);
   assert.equal(studyMa75BreakoutRetest([{code:'3762',timeframe:'5m',candles:base()}]).excluded[0].reason,'NOT_DAILY');
 });
 test('duplicate cohort does not inflate counts, budget eligibility is a subgroup',()=>{
@@ -69,6 +70,19 @@ test('duplicate cohort does not inflate counts, budget eligibility is a subgroup
   assert.equal(r.excluded[0].reason,'DUPLICATE_COHORT');
   assert.equal(r.stats.find(x=>x.kind==='BREAKOUT').budgetCompleted,0);
   assert.equal(MA75_RULES.shareLot,100);
+});
+test('future gap cannot erase older signals; outcome-window gap is quarantined',()=>{
+  const future=base();future[84]=bar(84,200,{open:200,high:201,low:199});
+  const report=run(future);
+  assert.equal(report.observations.filter(x=>x.kind==='BREAKOUT').length,1);
+  assert.equal(report.stats.find(x=>x.kind==='BREAKOUT').completed,1);
+  const within=base();within[80]=bar(80,200,{open:200,high:201,low:199});
+  const out=run(within);
+  const b=out.observations.find(x=>x.kind==='BREAKOUT');
+  assert.equal(b.outcome5Status,'QUARANTINED_GAP');
+  assert.equal(b.return5Percent,null);
+  assert.equal(out.stats.find(x=>x.kind==='BREAKOUT').pending,0);
+  assert.equal(out.stats.find(x=>x.kind==='BREAKOUT').quarantined,1);
 });
 test('paired comparison uses only same originating breakout with both outcomes complete',()=>{
   const r=run(base());
