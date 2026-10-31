@@ -23,11 +23,11 @@ export function validateDatedMarketQuote(
   if (quote.tradeDate !== expectedTradeDate) {
     return { ok: false, reason: "TRADE_DATE_MISMATCH" };
   }
-  if (!quote.source.trim()) return { ok: false, reason: "MISSING_SOURCE" };
+  if (typeof quote.source !== "string" || !quote.source.trim()) return { ok: false, reason: "MISSING_SOURCE" };
   if (!Number.isFinite(quote.close) || quote.close <= 0) {
     return { ok: false, reason: "INVALID_CLOSE" };
   }
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(quote.observedAt)) {
+  if (typeof quote.observedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(quote.observedAt)) {
     return { ok: false, reason: "INVALID_OBSERVED_AT" };
   }
   const observed = Date.parse(quote.observedAt);
