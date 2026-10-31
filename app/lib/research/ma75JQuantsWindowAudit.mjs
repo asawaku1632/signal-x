@@ -49,7 +49,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
       reason='TAMPERED_PROVIDER_ROW_COUNTS';
     else if(r.rows.some((row,i)=>row?.code!==freeze.codes[i]||
       row.tradeDate!==date||
-      !['DAILY_BAR','NO_TRADE','MISSING_PROVIDER_ROW','INVALID_OHLCV','DUPLICATE_CODE_DATE','BLOCKED_PAGINATION'].includes(row.status)||
+      !['DAILY_BAR','NO_TRADE','MISSING_PROVIDER_ROW','INVALID_OHLCV','DUPLICATE_CODE_DATE','BLOCKED_PAGINATION','CORPORATE_ACTION_REVIEW'].includes(row.status)||
       (row.status==='DAILY_BAR'&&(
         row.bar?.code!==row.code||row.bar?.tradeDate!==date||row.bar?.unadjusted!==true||
         ![row.bar.open,row.bar.high,row.bar.low,row.bar.close,row.bar.volume].every(number)||
@@ -74,7 +74,9 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
         statuses.push(row.status);
         if(row.status==='DAILY_BAR')values.push(row.bar);
       }
-      if(statuses.some(s=>s==='NO_TRADE'))reason='NO_TRADE_SESSION';
+      if(statuses.some(s=>s==='CORPORATE_ACTION_REVIEW'))
+        reason='EXPLICIT_SPLIT_OR_RIGHTS_REVIEW';
+      else if(statuses.some(s=>s==='NO_TRADE'))reason='NO_TRADE_SESSION';
       else if(statuses.some(s=>s!=='DAILY_BAR'))reason='MISSING_OR_INVALID_PROVIDER_ROW';
       else if(values.some((bar,j)=>j>0&&Math.abs(bar.close/values[j-1].close-1)>0.45))
         reason='SPLIT_OR_CORPORATE_ACTION_UNVERIFIED';
@@ -115,6 +117,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
     warnings:[
       'Offline bar pages are not live as-of timestamp evidence, even if a receivedAt field exists.',
       'Every frozen code must have all 76 complete sessions; missing or no-trade history stays in the denominator.',
+      'Any explicit split, reverse split or rights issue in the 76-session window blocks that code until an independently reviewed as-of adjusted history is available.',
       'This retrospective 75-day calculation cannot be promoted without a verified point-in-time adjustment and corporate-action audit.',
     ],
   };
