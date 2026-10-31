@@ -33,10 +33,11 @@ function tasksFor(phase: Phase, date: string): Task[] {
   switch (phase) {
     case "pattern":
       return [
+        // Settle existing forward outcomes before potentially expensive pattern scans.
+        { label: "trend-reversal-outcomes", run: () => updateTrendPullbackReversalOutcomes(date) },
+        { label: "trend-reversal-observations", run: () => saveTrendPullbackReversalObservations(date) },
         { label: "pattern-outcomes", run: () => updatePatternForwardOutcomes(date) },
         { label: "pattern-stats", run: () => refreshPatternForwardStats() },
-        { label: "trend-reversal-observations", run: () => saveTrendPullbackReversalObservations(date) },
-        { label: "trend-reversal-outcomes", run: () => updateTrendPullbackReversalOutcomes(date) },
       ];
     case "reversal":
       return [
@@ -128,7 +129,21 @@ export async function GET(req: Request) {
     });
     for (const task of tasksFor(phase, date)) {
       const stepStartedAt = Date.now();
-      await task.run();
+      await saveCronRunLog({
+        route: ROUTE, status: "PROGRESS", message: "Post-save research task started",
+        details: { ...details, step: task.label, stepState: "STARTED" },
+      });
+      try {
+        await task.run();
+      } catch (taskError) {
+        const taskMessage = taskError instanceof Error ? taskError.message : String(taskError);
+        await saveCronRunLog({
+          route: ROUTE, status: "ERROR", message: "Post-save research task failed",
+          details: { ...details, step: task.label, stepState: "FAILED",
+            stepDurationMs: Date.now() - stepStartedAt, failureReason: taskMessage.slice(0, 500) },
+        });
+        throw taskError;
+      }
       await saveCronRunLog({
         route: ROUTE, status: "PROGRESS", message: "Post-save research task completed",
         details: { ...details, step: task.label, stepDurationMs: Date.now() - stepStartedAt },
