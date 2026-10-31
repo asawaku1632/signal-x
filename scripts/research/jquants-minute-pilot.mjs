@@ -45,6 +45,9 @@ export function parseMinuteProbeArgs(argv){
  return args;
 }
 export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch}){
+ if(!/^[0-9]{3}[0-9A-Z]$/.test(code??'')||!realDay(date)||
+   !Number.isInteger(maxPages)||maxPages<1||maxPages>4)
+   throw new TypeError('MINUTE_PROBE_SCOPE_MUST_BE_ONE_CODE_DAY_MAX_FOUR_PAGES');
  if(typeof apiKey!=='string'||apiKey.length===0)throw new Error('API_KEY_MISSING_IN_SECURE_ENV');
  const pages=[];
  let continuation=null;
