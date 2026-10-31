@@ -10,7 +10,7 @@ import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MORNING_MINUTE_SHADOW_VERSION} from './morningMinuteShadow.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 
-export const MORNING_MINUTE_DAILY_RECONCILIATION_VERSION='morning_minute_daily_reconciliation_v2';
+export const MORNING_MINUTE_DAILY_RECONCILIATION_VERSION='morning_minute_daily_reconciliation_v3';
 const positive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const verifiedTimestamp=s=>typeof s==='string'&&/(?:Z|[+-]\d\d:\d\d)$/.test(s)?
  Date.parse(s):NaN;
@@ -133,7 +133,9 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    daily.rows.filter(r=>eligibleDailyStatuses.has(r?.status)).length:0;
  const dailyMissingOrQuarantinedCodeDays=Array.isArray(daily?.rows)?
    daily.rows.length-dailyObservedCodeDays:null;
- const fullFrozenUniverseCovered=daily?.auditScope==='FROZEN_UNIVERSE'&&
+ // Even every frozen code with an original daily bar on ONE trade date
+ // does NOT constitute the 76 distinct stock sessions needed for SMA75.
+ const frozenTradeDateRecordsComplete=daily?.auditScope==='FROZEN_UNIVERSE'&&
    blockers.length===0&&
    daily?.rows?.length===freeze.codes.length&&
    dailyObservedCodeDays===freeze.codes.length&&
@@ -147,7 +149,14 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
      fullUniverse?'FROZEN_UNIVERSE':'INVALID_SCOPE',
    dailyObservedCodeDays,
    dailyMissingOrQuarantinedCodeDays,
-   fullFrozenUniverseCovered,
+   frozenTradeDateRecordsComplete,
+   // Retained for compatibility, but fail-closed: 1 day can NEVER prove
+   // the frozen universe has 76 complete, calendar-verified sessions.
+   fullFrozenUniverseCovered:false,
+   sessionDatesActuallyReconciled:matchedTradingDay?1:0,
+   requiredSessionDatesForMa75:76,
+   frozen76SessionHistoryVerified:false,
+   originalProviderEntitlementVerified:false,
    minuteAuditVersion:minute?.version??null,
    dailyAuditVersion:daily?.version??null,
    minuteBarCount:aggregate?.barCount??null,
@@ -162,6 +171,6 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    actual0905AvailabilityVerified:false,
    validProspectiveBuyObservations:0,
    eligibleForNotifications:false,eligibleForProduction:false,
-   warning:'A one-code/day match is NOT proof of all frozen codes; even complete OHLCV and dated receipts cannot establish true 09:05 capture or profitable execution.',
+   warning:'This checks ONE trade date only. Even all frozen code-day records cannot establish 76-session SMA75 coverage, provider entitlement, contemporaneous 09:05 capture or profitable execution.',
  };
 }
