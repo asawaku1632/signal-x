@@ -17,7 +17,19 @@ export function summarizePost905Cohort(reports){
    p?.pre905BarCount===5&&p?.post905MorningBarCount>0&&
    Number.isFinite(p?.upsideFromReferencePercent)&&
    Number.isFinite(p?.downsideFromReferencePercent);
-  if(!valid){excluded.push({code,date,reason:'UNVERIFIED_OR_INCOMPLETE'});continue}
+  if(!valid){
+   const reconciled=r.status==='HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH'&&
+    r.dailyReconciliationMatched===true&&r.metricsReleasedForHistoricalResearch===true&&
+    r.pageChainComplete===true&&r.historicalQualityHold===false&&
+    p?.code===code&&p?.date===date&&p?.hindsightOnly===true&&
+    p?.eligibleForNotifications===false&&p?.eligibleForProduction===false;
+   const missingEarlyBars=reconciled&&Number.isInteger(p?.pre905BarCount)&&
+    p.pre905BarCount>=1&&p.pre905BarCount<5;
+   excluded.push({code,date,reason:missingEarlyBars?'INCOMPLETE_PRE905_MINUTE_COVERAGE':'UNVERIFIED_OR_INCOMPLETE',
+    ...(missingEarlyBars?{observedPre905Bars:p.pre905BarCount,expectedClockMinutes:5,
+      missingMinuteCause:'UNKNOWN_NO_TRADE_OR_DATA_GAP'}:{})});
+   continue;
+  }
   accepted.push({code,date,upside:p.upsideFromReferencePercent,
    downside:p.downsideFromReferencePercent});
  }
