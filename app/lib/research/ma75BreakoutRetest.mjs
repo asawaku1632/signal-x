@@ -28,10 +28,16 @@ function checkBars(bars) {
         b.high < Math.max(b.open,b.close,b.low) ||
         b.low > Math.min(b.open,b.close,b.high)) return 'INVALID_OHLCV';
     if (i>0 && b.time<=bars[i-1].time) return 'DUPLICATE_OR_UNSORTED';
-    if (i>0 && Math.abs(b.close/bars[i-1].close-1)>0.45)
-      return 'SPLIT_OR_EXTREME_GAP_REVIEW';
   }
   return null;
+}
+// Check discontinuities only in each signal's known window or own outcome horizon.
+// A far-future split cannot erase an earlier valid signal.
+function hasGap(bars, first, last) {
+  for (let k=Math.max(1,first); k<=Math.min(last,bars.length-1); k++) {
+    if (Math.abs(bars[k].close/bars[k-1].close-1)>0.45) return true;
+  }
+  return false;
 }
 const sma = (bars, i, n) => i<n-1 ? null : mean(bars.slice(i-n+1,i+1).map(x=>x.close));
 const volumeRatio = (bars, i) => {
@@ -48,7 +54,9 @@ function summarize(kind, entries) {
   const win=values.filter(v=>v>0).length;
   return {
     kind, signals:entries.length, completed:complete.length,
-    pending:entries.length-complete.length, distinctCodes:new Set(entries.map(e=>e.code)).size,
+    pending:entries.filter(e=>e.outcome5Status==='PENDING').length,
+    quarantined:entries.filter(e=>e.outcome5Status==='QUARANTINED_GAP').length,
+    distinctCodes:new Set(entries.map(e=>e.code)).size,
     winRatePercent:values.length ? round(win/values.length*100,2) : null,
     averageReturn5Percent:values.length ? round(mean(values)) : null,
     medianReturn5Percent:median(values),
@@ -71,9 +79,12 @@ function observation(kind, code, bars, i, breakoutIndex) {
   const entryBar=bars[i+1];
   const entry=entryBar ? entryBar.open*(1+MA75_RULES.frictionPerSide) : null;
   const e3=bars[i+3],e5=bars[i+5];
-  const ret3=entry && e3 ? (e3.close*(1-MA75_RULES.frictionPerSide)/entry-1)*100 : null;
-  const ret5=entry && e5 ? (e5.close*(1-MA75_RULES.frictionPerSide)/entry-1)*100 : null;
-  const lows=entry && e5 ? bars.slice(i+1,i+6).map(x=>x.low) : [];
+  const valid3=Boolean(entry && e3 && !hasGap(bars,i+1,i+3));
+  const valid5=Boolean(entry && e5 && !hasGap(bars,i+1,i+5));
+  const outcome5Status=!e5 ? 'PENDING' : valid5 ? 'COMPLETED' : 'QUARANTINED_GAP';
+  const ret3=valid3 ? (e3.close*(1-MA75_RULES.frictionPerSide)/entry-1)*100 : null;
+  const ret5=valid5 ? (e5.close*(1-MA75_RULES.frictionPerSide)/entry-1)*100 : null;
+  const lows=valid5 ? bars.slice(i+1,i+6).map(x=>x.low) : [];
   const volRatio=volumeRatio(bars,i);
   return {
     kind,code,signalIndex:i,signalTime:bars[i].time,breakoutIndex,
@@ -84,7 +95,7 @@ function observation(kind, code, bars, i, breakoutIndex) {
     entryPrice:entry===null ? null : round(entry),
     budgetEligible:entry!==null && entry*MA75_RULES.shareLot >= MA75_RULES.budgetMin &&
       entry*MA75_RULES.shareLot <= MA75_RULES.budgetMax,
-    exit5Time:e5?.time??null,
+    exit5Time:e5?.time??null,outcome5Status,
     return3Percent:ret3===null?null:round(ret3),
     return5Percent:ret5===null?null:round(ret5),
     profit5Yen100:ret5===null?null:Math.round((e5.close*(1-MA75_RULES.frictionPerSide)-entry)*MA75_RULES.shareLot),
@@ -131,11 +142,13 @@ export function studyMa75BreakoutRetest(cohorts) {
     accepted++;totalBars+=bars.length;
     for(let i=75;i<bars.length;i++) {
       const today=sma(bars,i,75),yesterday=sma(bars,i-1,75);
+      if (hasGap(bars,i-74,i)) continue;
       if (!(bars[i].close>today && bars[i-1].close<=yesterday)) continue;
       observations.push(observation('BREAKOUT',code,bars,i,i));
       for(let j=i+1;j<Math.min(bars.length,i+11);j++) {
         const support=sma(bars,j,75);
         const bar=bars[j];
+        if (hasGap(bars,j-74,j)) break;
         // A daily CLOSE below SMA75 before the retest invalidates that setup.
         if (bar.low<=support*(1+MA75_RULES.retestTouchBuffer) &&
             bar.close>=support && bar.close>=bar.open) {
