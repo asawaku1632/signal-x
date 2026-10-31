@@ -14,7 +14,7 @@ const observation=(code,tradeDate,classification='NO_CROSS')=>({
  barClosedAt:tradeDate+'T06:30:00Z',
  capturedAt:tradeDate+'T06:45:00Z',
  classifiedAt:tradeDate+'T06:50:00Z',
- nextOpenAt:'2026-11-05T00:00:00Z',
+ nextOpenAt:tradeDate==='2026-11-02'?'2026-11-04T00:00:00Z':'2026-11-05T00:00:00Z',
  close:100,priorClose:100,sma75:100,priorSma75:100,
 });
 const breakout=()=>({...observation('3762','2026-11-02','BREAKOUT'),close:105});
@@ -22,7 +22,8 @@ const rows=()=>[breakout(),
  observation('9984','2026-11-02'),observation('3762','2026-11-04'),
  observation('9984','2026-11-04')];
 const replay=p=>({manifestSha256:p.manifestSha256,
- candidates:[{id:'3762:2026-11-02',code:'3762',tradeDate:'2026-11-02'}]});
+ candidates:[{id:'3762:2026-11-02',code:'3762',tradeDate:'2026-11-02',
+   closingPrice:105,sma75:100,signalRecordedAt:'2026-11-02T06:50:00Z'}]});
 const run=(obs,alternateReplay=null,dates=sessions)=>{
  const p=manifest();
  return auditMa75UniverseCoverage(p,{exchangeSessions:dates,
@@ -99,4 +100,24 @@ test('data missing without reason is rejected, not converted into a no-cross',()
  const r=run(a);
  assert.ok(r.excluded.some(x=>x.reason==='MISSING_EXCLUSION_REASON'));
  assert.equal(r.integrityPass,false);
+});
+
+test('same code-day counts but inconsistent replay price, SMA75 or decision timestamp fail',()=>{
+ const p=manifest();
+ for(const altered of [
+   {closingPrice:106},
+   {sma75:101},
+   {signalRecordedAt:'2026-11-02T07:00:00Z'},
+ ]){
+   const bad={...replay(p),candidates:[{...replay(p).candidates[0],...altered}]};
+   const r=run(rows(),bad);
+   assert.equal(r.integrityPass,false);
+   assert.ok(r.excluded.some(x=>x.reason==='REPLAY_PRICE_OR_TIME_MISMATCH'));
+ }
+});
+test('next-open timestamp must agree with the next declared session',()=>{
+ const a=rows();a[0].nextOpenAt='2026-11-05T00:00:00Z';
+ const r=run(a);
+ assert.equal(r.integrityPass,false);
+ assert.ok(r.excluded.some(x=>x.reason==='INVALID_ASOF_TRACE'));
 });
