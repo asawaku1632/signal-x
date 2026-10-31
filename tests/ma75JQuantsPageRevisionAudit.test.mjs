@@ -121,7 +121,7 @@ test('a corporate-action factor revision is detected even when neither OHLCV nor
 });
 test('legacy v1 archive parser cannot be compared as if it had corporate-action checks',()=>{
  const a=parse(),b=clone(a);
- b.version='ma75_jquants_v2_offline_daily_v1';
+ b.version='ma75_jquants_v2_offline_daily_v2';
  const r=inspect(a,b);
  assert.equal(r.structurallyConsistent,false);
  assert.ok(r.issues.some(x=>x.reason==='BAD_ENVELOPE_OR_FROZEN_DENOMINATOR'));
