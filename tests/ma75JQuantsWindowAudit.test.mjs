@@ -41,7 +41,18 @@ const fixture=(change=null)=>{
  const reports=dates.map((d,i)=>page(d,i,change));
  return {dates,reports};
 };
-const audit=({dates,reports})=>auditMa75JQuantsDailyWindow(freeze(),{sessions:dates,reports});
+const officialCalendar=(dates)=>{
+ const selected=new Set(dates),records=[];
+ for(let t=Date.parse(dates[0]+'T00:00:00Z');
+   t<=Date.parse(dates.at(-1)+'T00:00:00Z');t+=86400000){
+   const day=new Date(t).toISOString().slice(0,10);
+   records.push({Date:day,HolDiv:selected.has(day)?'1':'0'});
+ }
+ return {requestFrom:dates[0],requestTo:dates.at(-1),
+   capturedAt:'2026-12-01T10:00:00Z',records};
+};
+const audit=({dates,reports,calendarSnapshot=officialCalendar(dates)})=>
+ auditMa75JQuantsDailyWindow(freeze(),{sessions:dates,reports,calendarSnapshot});
 test('76 declared sessions give offline cross, slope and previous-20 volume without future outcomes',()=>{
  const data=fixture(),r=audit(data);
  assert.equal(data.dates.length,76);
@@ -163,4 +174,41 @@ test('explicit rights issue blocks only the affected stock and preserves no-sign
  assert.equal(r.rows.find(x=>x.code==='1301').status,'BREAKOUT_OFFLINE_ONLY');
  assert.equal(r.generatedForwardSignals,0);
  assert.equal(r.eligibleForNotifications,false);
+});
+
+test('missing raw TSE calendar blocks every hypothetical crossover, even if all prices exist',()=>{
+ const f=fixture();
+ const result=auditMa75JQuantsDailyWindow(freeze(),{
+  sessions:f.dates,reports:f.reports
+ });
+ assert.equal(result.calendarStructuralPass,false);
+ assert.equal(result.structuralCoverageComplete,false);
+ assert.equal(result.counts.HISTORY_INCOMPLETE,2);
+ assert.equal(result.rows[0].reason,'TSE_CALENDAR_NOT_STRUCTURALLY_VERIFIED');
+ assert.deepEqual(result.calendarIssues,['MISSING_RAW_TSE_CALENDAR']);
+});
+test('stock date misclassified as OSE-only holiday cannot produce SMA75 replay signal',()=>{
+ const f=fixture(),snapshot=officialCalendar(f.dates);
+ snapshot.records.find(x=>x.Date===f.dates[12]).HolDiv='3';
+ const result=audit({...f,calendarSnapshot:snapshot});
+ assert.equal(result.calendarStructuralPass,false);
+ assert.equal(result.structuralCoverageComplete,false);
+ assert.ok(result.calendarIssues.includes('TSE_SESSION_LIST_MISMATCH'));
+ assert.equal(result.counts.BREAKOUT_OFFLINE_ONLY,undefined);
+});
+test('missing holiday calendar record blocks research even with all 76 price dates',()=>{
+ const f=fixture(),snapshot=officialCalendar(f.dates);
+ snapshot.records.splice(snapshot.records.findIndex(r=>r.HolDiv==='0'),1);
+ const result=audit({...f,calendarSnapshot:snapshot});
+ assert.equal(result.calendarStructuralPass,false);
+ assert.ok(result.calendarIssues.includes('MISSING_CALENDAR_DATE'));
+ assert.equal(result.counts.HISTORY_INCOMPLETE,2);
+});
+test('full calendar structural match still does not independently prove licensed as-of source',()=>{
+ const result=audit(fixture());
+ assert.equal(result.calendarStructuralPass,true);
+ assert.equal(result.independentlyAuthenticatedCalendar,false);
+ assert.equal(result.officialCalendarVerified,false);
+ assert.equal(result.version,'ma75_jquants_offline_76_sessions_v2');
+ assert.equal(result.eligibleForProduction,false);
 });
