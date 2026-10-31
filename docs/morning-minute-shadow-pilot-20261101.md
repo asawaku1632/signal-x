@@ -157,3 +157,17 @@ No source data collection, API key access, new billing, stock transaction, resea
 **Native verification:** the existing research-only GitHub Actions \`jquants-minute-pilot-offline.yml\` now runs **six** offline test files with Node.js 22. Actual job logs report **121 tests, 121 passed, 0 failed** at commit \`aef70e284e8553cd76624eafddae5823451d2ee3\`: https://github.com/asawaku1632/signal-x/actions/runs/41220251241/job/124593120351 . The CI uses only synthetic source data and mock providers; it does **not** test live J-Quants API entitlement, authentic source licensing, real historical minute-bar counts or forward P&L.
 
 **Non-goals & safeguards:** No network call to J-Quants, private token access, new subscription/billing change, DB migration/write, production merge/deployment, live 09:05 stock signal, push notification or automatic trade was performed. The daily SMA75 analysis retains the full frozen 953-code denominator; the one-stock connectivity pilot is a distinct read-only experiment.
+
+
+## One-day source coverage is not 76-session historical coverage (2026-11-01)
+
+One additional ambiguity was found in the quality report: it previously set \`fullFrozenUniverseCovered=true\` when a **single date** had source records for every frozen symbol. That is not sufficient for the separate MA75 strategy, which requires **76 distinct, correctly dated and trading-calendar-verified historical sessions** before evaluating the prior/current 75-day moving-average crossover.
+
+**Corrected semantics** in \`morningMinuteDailyReconciliation.mjs\` (\`morning_minute_daily_reconciliation_v3\`):
+- \`frozenTradeDateRecordsComplete\` means every frozen symbol has an accepted original **DAILY_BAR or NO_TRADE row for this one date**, with the original frozen population, page envelope and metadata intact. A missing stock row, action review or malformed audit blocks that one-date completeness.
+- \`fullFrozenUniverseCovered\` is retained as a fail-closed **false** compatibility value for any single-date pilot. It no longer implies that 76-day MA75 history was acquired.
+- \`sessionDatesActuallyReconciled\` is **1 for a matched original OHLCV stock-day**, otherwise 0. \`requiredSessionDatesForMa75=76\`, \`frozen76SessionHistoryVerified=false\` and \`originalProviderEntitlementVerified=false\` are explicit and cannot become true merely because an API response has one valid stock/day.
+- The optional CLI summary exposes these distinctions without printing hindsight rebound metrics when daily reconciliation was blocked. \`SINGLE_CODE_PILOT\` continues to preserve the original frozen 953-code identity without promoting itself into \`FROZEN_UNIVERSE\` coverage.
+- Prior outputs using \`fullFrozenUniverseCovered=true\` for a single date must **not** be considered proof of complete 76-session data or of an independently repeatable market advantage.
+
+**Verification:** \`jquants-minute-pilot-offline.yml\` on Node.js 22, six offline test modules and synthetic provider responses: **130/130 passed, zero failed**, from the latest GitHub Actions job at commit \`44481681e2da604be4193d6f35b3b2862914a98e\`. All code remains research-only; no provider HTTP call, API secret, new charge, production merge/deploy, DB modification, automated trading or push notification was involved. See https://github.com/asawaku1632/signal-x/actions/runs/41221339553/job/124596350369 .
