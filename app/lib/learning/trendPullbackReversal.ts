@@ -5,12 +5,13 @@ export async function saveTrendPullbackReversalObservations(targetDate:string){
  WITH latest AS(
   SELECT DISTINCT ON(code,trade_date) code,trade_date,rsi_band,macd_key,vwap_key,ema20_key
   FROM pattern_learning_logs WHERE trade_date=$1::date
+    AND created_at <= ($1::date + INTERVAL '1 day')
   ORDER BY code,trade_date,created_at DESC
  ), current_rows AS(
   SELECT p.*,d.price::numeric current_price,
-   (SELECT d3.price::numeric FROM daily_stock_results d3 WHERE d3.code=p.code AND d3.date::date<p.trade_date AND d3.price>0 ORDER BY d3.date::date DESC OFFSET 2 LIMIT 1) price_3records_ago,
-   (SELECT ml.market_pattern FROM market_learning_logs ml WHERE ml.trade_date=p.trade_date ORDER BY ml.created_at DESC LIMIT 1) market_pattern
-  FROM latest p JOIN daily_stock_results d ON d.code=p.code AND d.date::date=p.trade_date WHERE d.price>0
+   (SELECT older.price FROM (SELECT DISTINCT ON (d3.date::date) d3.date::date AS price_date,d3.price::numeric AS price FROM daily_stock_results d3 WHERE d3.code=p.code AND d3.date::date<p.trade_date AND d3.price>0 AND d3.created_at < (p.trade_date + INTERVAL '1 day') ORDER BY d3.date::date DESC,d3.created_at DESC) older ORDER BY older.price_date DESC OFFSET 2 LIMIT 1) price_3records_ago,
+   (SELECT ml.market_pattern FROM market_learning_logs ml WHERE ml.trade_date=p.trade_date AND ml.created_at < (p.trade_date + INTERVAL '1 day') ORDER BY ml.created_at DESC LIMIT 1) market_pattern
+  FROM latest p JOIN LATERAL (SELECT d.price FROM daily_stock_results d WHERE d.code=p.code AND d.date::date=p.trade_date AND d.price>0 AND d.created_at < (p.trade_date + INTERVAL '1 day') ORDER BY d.created_at DESC LIMIT 1) d ON TRUE
  ), upserted AS(
   INSERT INTO trend_pullback_reversal_observations(trade_date,code,rsi_band,macd_key,vwap_key,ema20_key,prior_3record_return,market_pattern,observation_flag,validation_mode,signal_version,updated_at)
   SELECT trade_date,code,rsi_band,macd_key,vwap_key,ema20_key,
