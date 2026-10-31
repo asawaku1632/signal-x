@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseMa75JQuantsDailyPages} from '../app/lib/research/ma75JQuantsDailyPages.mjs';
 import {planMa75JQuantsAcquisition} from '../app/lib/research/ma75DataAcquisitionPreflight.mjs';
+import {auditMa75JQuantsPageRevisions} from '../app/lib/research/ma75JQuantsPageRevisionAudit.mjs';
 
 /**
  * Integration fixtures use the REAL page parser output, not hand-written
@@ -52,9 +53,9 @@ const getArchive=(config={})=>{
  if(config.removeIndex!==undefined)reports.splice(config.removeIndex,1);
  return {freeze,sessions,reports};
 };
-const preflight=x=>planMa75JQuantsAcquisition(x.freeze,{
- sessions:x.sessions,audits:x.reports,asOf:'2026-11-02T08:10:00Z',
- minuteAddonStatus:'PLANNED',
+const preflight=(x,revisions=[])=>planMa75JQuantsAcquisition(x.freeze,{
+ sessions:x.sessions,audits:x.reports,pageRevisionAudits:revisions,
+ asOf:'2026-11-02T08:10:00Z',minuteAddonStatus:'PLANNED',
 });
 test('all 76 real-parser audit outputs reconcile to 228 frozen stock-day cells',()=>{
  const r=preflight(getArchive());
@@ -95,5 +96,52 @@ test('a valid page parser output received after the preflight clock is retrospec
  assert.equal(r.archivedUsableBarCells,225);
  assert.equal(r.unverifiedOrMissingBarCells,3);
  assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+
+test('genuine changed close from the page parser quarantines that historical date',()=>{
+ const archive=getArchive();
+ const original=archive.reports[12];
+ const updated=JSON.parse(JSON.stringify(original));
+ updated.rows[0].bar.close=104;
+ const revised=auditMa75JQuantsPageRevisions(archive.freeze,{
+   previous:original,current:updated});
+ assert.equal(revised.revisionDetected,true);
+ const r=preflight(archive,[revised]);
+ assert.equal(r.states.sourceRevisionReview,1);
+ assert.equal(r.states.archivedOfflineOnly,75);
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.unverifiedOrMissingBarCells,3);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.allowedToRunApiCalls,false);
+});
+test('identical archived date revisions cannot authorize execution, but do not discard valid bars',()=>{
+ const archive=getArchive();
+ const same=archive.reports[12];
+ const stable=auditMa75JQuantsPageRevisions(archive.freeze,{
+   previous:same,current:JSON.parse(JSON.stringify(same))});
+ assert.equal(stable.structurallyConsistent,true);
+ const result=preflight(archive,[stable]);
+ assert.equal(result.states.sourceRevisionReview,0);
+ assert.equal(result.structuralHistoricalInputsPresent,true);
+ assert.equal(result.eligibleForProduction,false);
+});
+test('different frozen-population fingerprint or duplicate audit reports quarantine source date',()=>{
+ const archive=getArchive();
+ const same=archive.reports[12];
+ const stable=auditMa75JQuantsPageRevisions(archive.freeze,{previous:same,current:same});
+ const forged={...stable,frozenPopulationSha256:'fake'};
+ const q=preflight(archive,[forged]);
+ assert.equal(q.states.sourceRevisionReview,1);
+ assert.equal(q.structuralHistoricalInputsPresent,false);
+ const duplicated=preflight(archive,[stable,stable]);
+ assert.equal(duplicated.states.sourceRevisionReview,1);
+});
+test('outside-of-76-session source revisions cannot slip into complete full-universe study',()=>{
+ const archive=getArchive();
+ const same=archive.reports[12];
+ const stable=auditMa75JQuantsPageRevisions(archive.freeze,{previous:same,current:same});
+ const r=preflight(archive,[{...stable,tradeDate:'2027-01-05'}]);
+ assert.equal(r.states.unexpectedRevisionDates,1);
  assert.equal(r.structuralHistoricalInputsPresent,false);
 });
