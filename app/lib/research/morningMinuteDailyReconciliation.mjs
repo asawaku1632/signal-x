@@ -51,15 +51,16 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
   throw new TypeError('Need one frozen code and exact trade date');
  const reasons=[];
  const singleCodePilot=daily?.auditScope==='SINGLE_CODE_PILOT';
- const fullUniverse=daily?.auditScope==='FROZEN_UNIVERSE'||daily?.auditScope===undefined;
+ const fullUniverse=daily?.auditScope==='FROZEN_UNIVERSE';
  const expectedCodes=singleCodePilot?[code]:freeze.codes;
+ // Parser v3 always emits explicit audit scope and full frozen-cohort size.
+ // Legacy/missing scope metadata is not full 953-code evidence.
  const scopeValid=(singleCodePilot&&
    daily?.requestedCode===code&&
    daily?.originalFrozenCohortSize===freeze.codes.length)||
    (fullUniverse&&
-   (daily?.originalFrozenCohortSize===undefined||
-    daily.originalFrozenCohortSize===freeze.codes.length)&&
-   (daily?.requestedCode===null||daily?.requestedCode===undefined));
+   daily?.originalFrozenCohortSize===freeze.codes.length&&
+   daily?.requestedCode===null);
  if(!minute||minute.version!==MORNING_MINUTE_SHADOW_VERSION||
     minute.code!==code||minute.date!==date||
     minute.structuralPass!==true||minute.pageChainComplete!==true||
