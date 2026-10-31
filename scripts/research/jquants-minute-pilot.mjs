@@ -111,6 +111,63 @@ export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl
  // The parser must quarantine an unfinished continuation chain.
  return pages;
 }
+
+/**
+ * Explicit --compare-daily only: same code/day on Standard daily endpoint.
+ * Max four pages and four provider rows in a ONE code/day experiment.
+ */
+export async function fetchDailyPilotPages({
+ code,date,maxPages,apiKey,fetchImpl=fetch,now=new Date()
+}={}){
+ if(!ordinaryCode(code)||!realDay(date)||
+    !Number.isInteger(maxPages)||maxPages<1||maxPages>4||
+    !Number.isFinite(now?.getTime?.())||
+    now.getTime()<Date.parse(date+'T07:30:00Z'))
+   throw new TypeError('DAILY_PROBE_SCOPE_ONE_PUBLISHED_CODE_DAY_MAX_FOUR_PAGES');
+ if(typeof apiKey!=='string'||apiKey.length===0)
+   throw new Error('API_KEY_MISSING_IN_SECURE_ENV');
+ const pages=[],used=new Set();
+ let continuation=null,rowsSeen=0;
+ for(let i=0;i<maxPages;i++){
+   const url=new URL(DAILY_PROBE_ENDPOINT);
+   url.searchParams.set('code',code);
+   url.searchParams.set('date',date);
+   if(continuation!==null)url.searchParams.set('pagination_key',continuation);
+   let response;
+   try{
+     response=await fetchImpl(url,{
+       method:'GET',headers:{'x-api-key':apiKey,accept:'application/json'},
+       redirect:'error',credentials:'omit',cache:'no-store',
+       referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)
+     });
+   }catch{
+     throw new Error('JQUANTS_DAILY_NETWORK_TIMEOUT_OR_REDIRECT_BLOCKED');
+   }
+   if(!response.ok){
+     const status=response.status;
+     throw new Error(status===403?'JQUANTS_DAILY_403_KEY_OR_PERMISSION_UNVERIFIED':
+       status===429?'JQUANTS_DAILY_429_RATE_LIMIT':'JQUANTS_DAILY_HTTP_'+status);
+   }
+   let payload;
+   try{payload=await response.json();}
+   catch{throw new Error('JQUANTS_DAILY_INVALID_JSON_RESPONSE');}
+   if(!payload||!Array.isArray(payload.data))
+     throw new Error('JQUANTS_DAILY_BAD_RESPONSE_ENVELOPE');
+   rowsSeen+=payload.data.length;
+   if(rowsSeen>4)throw new Error('JQUANTS_DAILY_EXCESS_ONE_CODE_DATE_ROWS');
+   if(payload.data.some(row=>row?.Date!==date||
+       !matchOrdinaryCode(row?.Code,code)))
+     throw new Error('JQUANTS_DAILY_WRONG_CODE_OR_DATE');
+   pages.push({requestPaginationKey:continuation,
+     receivedAt:new Date().toISOString(),response:payload});
+   const next=payload.pagination_key;
+   if(next===undefined||next===null||next==='')return pages;
+   if(typeof next!=='string'||used.has(next))
+     throw new Error('JQUANTS_DAILY_REPEATED_OR_INVALID_PAGINATION');
+   used.add(next);continuation=next;
+ }
+ return pages; // daily parser quarantines incomplete continuation
+}
 export async function main(argv=process.argv.slice(2),env=process.env){
  const freeze=JSON.parse(readFileSync(FREEZE_FILE,'utf8'));
  const args=parseMinuteProbeArgs(argv);
