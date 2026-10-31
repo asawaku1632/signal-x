@@ -122,3 +122,23 @@ Research-only \`app/lib/research/morningMinuteDailyReconciliation.mjs\` has been
 **New regression coverage:** Six malformed-data/receipt cases plus four actual parser-to-reconciliation cases were added. A regression first caught \`rawProviderRows:0\` falsely passing with observed stock-day rows; that hole was corrected before the final run. The current connected GitHub branch's **77/77 direct JavaScript V8 tests pass** (17 minute parser, 24 minute↔daily reconciliation including real daily parser outputs, 36 mock HTTP and result presentation). The test runner still mocks transport and frozen-manifest cryptography. A complete native Node.js GitHub Actions CI and **actual authenticated minute/day API requests have NOT been executed**.
 
 This enforces research input integrity only. It does **not** validate an achievable market entry at 09:05, realized execution, transaction fees, forward win rate or a positive expected trading return; production and push notification flags remain disabled. No secrets accessed, new billing, provider calls, DB writes, scheduled fetch, production deploy or merge.
+
+
+## Frozen 1-day source integrity and native Node research CI (2026-11-01)
+
+An additional **fail-closed source-envelope check** is now in \`morningMinuteDailyReconciliation_v2\`. A valid-looking code/day OHLCV must be rejected if the underlying provider response claims an impossible \`rawProviderRows\` count, corrupt status counts, missing or duplicate source rows, wrong/out-of-frozen-class records, original receipt timestamps before **16:30 JST** or reversed receipts, or minute aggregates inconsistent with their own bar count or valid high/low geometry. The underlying historical daily provider may update around 16:30 JST, but this clock lower bound does **not** authenticate when the row truly became available.
+
+A new regression found and fixed a real hole: \`rawProviderRows:0\` with existing source bars previously could pass through some reconciliation checks. Extra real-provider parser integration fixtures now verify foreign code/date, duplicated stock-day and purportedly too-early receipt are quarantined before any retrospective rebound metrics are released.
+
+**Focused isolated V8 verification:** 77/77 passed after patching the real issue (17 minute source, 24 actual minute↔daily parser integration, 36 bounded/mock HTTP and fail-closed CLI presentation). This JavaScript-only harness uses a mock HTTP transport and a stub hash interface.
+
+**Native Node.js execution route:** an existing \`.github/workflows/jquants-minute-pilot-offline.yml\` workflow (research branch only; \`ubuntu-latest\`, Node.js 22, **no environment secrets or HTTP API requests**) was expanded from two test modules to five:
+- \`tests/jquantsMinutePilotHttp.test.mjs\`
+- \`tests/jquantsMinutePilot.test.mjs\`
+- \`tests/morningMinuteShadow.test.mjs\`
+- \`tests/morningMinuteDailyReconciliation.test.mjs\`
+- \`tests/ma75JQuantsDailyPages.test.mjs\`
+
+A workflow conclusion is independently available under the PR's GitHub Actions checks. Test assertions use only synthetic source records and mocked provider transport; **even a successful native Node CI is not a live authenticated J-Quants API test, 09:05 availability proof, or real forward performance result**.
+
+No source data collection, API key access, new billing, stock transaction, research DB write, production deployment, buy-signal promotion or push notification was performed by these changes.
