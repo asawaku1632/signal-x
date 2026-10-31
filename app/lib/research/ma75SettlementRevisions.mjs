@@ -64,7 +64,13 @@ export function auditMa75SettlementRevisions(previous, current) {
       issues.push({id,reason:'PENDING_TO_QUARANTINE_REQUIRES_REVIEW'});
     }
   }
-  for (const id of next.byId.keys()) if(!prev.byId.has(id))newSignals++;
+  for (const [id, item] of next.byId) if(!prev.byId.has(id)) {
+    newSignals++;
+    // A freshly injected completed historical winner must never bypass a
+    // previously observed pending signal and its original capture audit.
+    if(item.status==='COMPLETED')
+      issues.push({id,reason:'NEW_COMPLETED_SIGNAL_WITHOUT_PRIOR_OBSERVATION'});
+  }
   return {
     version:MA75_SETTLEMENT_REVISION_VERSION,manifestSha256:previous.manifestSha256,
     previousCandidates:prev.byId.size,currentCandidates:next.byId.size,
