@@ -160,3 +160,77 @@ test('one missing share in a 500-million-share high-volume day is still a data i
  assert.ok(result.blockers.includes('DAILY_MINUTE_VOLUME_MISMATCH'));
  assert.equal(result.eligibleForNotifications,false);
 });
+
+test('source counts and unrecognized extra rows prevent a falsely complete code/day',()=>{
+ const m=minute(),original=daily();
+ const damaged=[
+  {...original,counts:{...original.counts,DAILY_BAR:999}},
+  {...original,rawProviderRows:0},
+  {...original,readPages:0},
+  {...original,unmappedRows:[{reason:'WRONG_DATE_OR_SECURITY_CLASS'}]},
+  {...original,outsideFrozenCodes:['9999']},
+  {...original,duplicateCodeDates:['3762:'+date]},
+  {...original,structurallyUsableRawBars:1}
+ ];
+ for(const d of damaged){
+   const r=audit(m,d);
+   assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+   assert.equal(r.structuralOneCodeDayMatched,false);
+ }
+});
+test('unverifiable original vendor receipt time cannot count as proof of complete daily history',()=>{
+ const m=minute(),d=daily();
+ for(const change of [
+  {firstReceivedAt:null},
+  {firstReceivedAt:'2026-10-30T07:00:00Z'},
+  {lastReceivedAt:'2026-10-30T06:00:00Z'},
+  {lastReceivedAt:'not-a-timestamp'}
+ ]){
+  const r=audit(m,{...d,...change});
+  assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+  assert.equal(r.structuralOneCodeDayMatched,false);
+ }
+});
+test('minute receipts prior to usual provider daily release must not be treated as 09:05 market proof',()=>{
+ const d=daily(),m=minute();
+ for(const change of [
+  {firstReceivedAt:'2026-10-30T06:31:00Z'},
+  {lastReceivedAt:'2026-10-30T06:40:00Z'},
+  {lastReceivedAt:null}
+ ]){
+  const r=audit({...m,...change},d);
+  assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_MINUTE_AUDIT'));
+  assert.equal(r.actual0905AvailabilityVerified,false);
+ }
+});
+test('inconsistent minute aggregate bar count and observed number of bars fail even with matching OHLCV',()=>{
+ const d=daily(),m=minute();
+ for(const discrepancy of [
+  {barCount:m.dailyObservation.barCount+1},
+  {barCount:0},
+  {barCount:328}
+ ]){
+  const r=audit({...m,dailyObservation:{...m.dailyObservation,...discrepancy}},d);
+  assert.ok(r.blockers.includes('INVALID_MINUTE_DAY_AGGREGATE'));
+  assert.equal(r.structuralOneCodeDayMatched,false);
+ }
+});
+test('tampered empty-day aggregates with a fake price or volume never become no-trade evidence',()=>{
+ const source=dailyRows();
+ source[1]={Date:date,Code:'37620',O:null,H:null,L:null,C:null,Vo:null,
+  AdjFactor:1,ExRT:null};
+ const correct=daily(source),none=minute([]);
+ for(const change of [{open:100},{volume:1},{turnover:1},{close:90}]){
+  const m={...none,dailyObservation:{...none.dailyObservation,...change}};
+  const r=audit(m,correct);
+  assert.ok(r.blockers.includes('INVALID_MINUTE_DAY_AGGREGATE'));
+  assert.equal(r.matchingNoTradeSession,false);
+ }
+});
+test('corrupted minute geometry cannot be used to reconstruct a daily close with guessed extrema',()=>{
+ const d=daily(),m=minute();
+ const distorted={...m.dailyObservation,high:50,low:120};
+ const r=audit({...m,dailyObservation:distorted},d);
+ assert.ok(r.blockers.includes('INVALID_MINUTE_DAY_AGGREGATE'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+});
