@@ -57,6 +57,27 @@ export function auditMa75ResearchReviewGate(manifest,{
    Number.isInteger(waitPolicy.quarantined)&&
    waitPolicy.complete+waitPolicy.pending+waitPolicy.quarantined===rows?.length;
  block(waitOK,'INVALID_WAIT_POLICY_AUDIT');
+ const baselineSignalCount=universeCoverage?.observedBreakouts;
+ const allBreakouts=forwardSummary?.groups?.find(x=>x?.variant==='BREAKOUT_ALL');
+ const rowIds=Array.isArray(rows)?rows.map(x=>x?.id):[];
+ const frozenIdValid=id=>{
+   if(typeof id!=='string')return false;
+   const parts=id.split(':');
+   return parts.length===2&&manifest.codes.includes(parts[0])&&
+     isDate(parts[1])&&parts[1]>=manifest.firstSignalDate;
+ };
+ const denominatorAligned=Number.isInteger(baselineSignalCount)&&baselineSignalCount>0&&
+   Number.isInteger(forwardSummary?.totals?.total)&&
+   forwardSummary.totals.total===baselineSignalCount&&
+   allBreakouts?.signalCount===baselineSignalCount&&
+   Number.isInteger(waitPolicy?.candidates)&&waitPolicy.candidates===baselineSignalCount&&
+   Array.isArray(rows)&&rows.length===baselineSignalCount&&
+   rowIds.every(frozenIdValid)&&new Set(rowIds).size===rowIds.length;
+ block(denominatorAligned,'MISMATCHED_FROZEN_SIGNAL_POPULATION');
+ const outcomesMature=forwardSummary?.totals?.pending===0&&
+   forwardSummary?.totals?.quarantined===0&&
+   waitPolicy?.pending===0&&waitPolicy?.quarantined===0;
+ block(outcomesMature,'UNRESOLVED_OR_QUARANTINED_OUTCOMES');
  const completed=Array.isArray(rows)?rows.filter(r=>r?.status==='COMPLETED_HYPOTHETICAL'):[];
  const keys=new Set(completed.map(x=>x.id));
  const exact=completed.every(x=>x.detail&&x.detail.id===x.id&&
@@ -99,6 +120,8 @@ export function auditMa75ResearchReviewGate(manifest,{
    technicalPrecheckPass,
    eligibleForHumanIndependentReview:technicalPrecheckPass,
    blockers,
+   structuralSignalPopulationAligned:denominatorAligned,
+   allOutcomesMature:outcomesMature,
    counts:{completedBreakouts,completedWaitOpportunities:completed.length,
      distinctStockCodes:codes.size,distinctSignalDates:days.size,
      distinctCalendarMonths:months.size,cash,traded},
