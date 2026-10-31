@@ -4,7 +4,7 @@
  * By default: dry-run, no key read, network request, DB write or billing.
  * No scheduling, live 09:05 decisions, AI scoring, alerts or trading.
  */
-import {readFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {auditMorningMinuteShadow} from '../../app/lib/research/morningMinuteShadow.mjs';
@@ -49,12 +49,24 @@ export function parseMinuteProbeArgs(argv){
  for(const token of argv){
    if(token==='--execute'){args.execute=true;continue}
    if(token==='--compare-daily'){args.compareDaily=true;continue}
-   const m=/^--(code|date|max-pages)=(.+)$/.exec(token);
+   const m=/^--(code|date|max-pages|output)=(.+)$/.exec(token);
    if(!m)throw new TypeError('Use --execute --compare-daily --code=XXXX --date=YYYY-MM-DD --max-pages=1..4');
+   if(m[1]==='output'&&args.output)throw new TypeError('DUPLICATE_OUTPUT');
    if(m[1]==='max-pages')args.maxPages=Number(m[2]);
    else args[m[1]]=m[2];
  }
+ if(args.output&&(!/^[0-9A-Za-z_.\\/-]+\.json$/.test(args.output)||args.output.includes('..')||args.output.length>200))
+   throw new TypeError('INVALID_OUTPUT_JSON_PATH');
  return args;
+}
+export function saveMinutePilotReport(output,report,writer=writeFileSync){
+ if(!output)return false;
+ if(report?.status!=='HISTORICAL_MINUTE_DAILY_STRUCTURAL_MATCH'||
+    report.dailyReconciliationMatched!==true||report.post905==null||
+    report.eligibleForProduction!==false||report.eligibleForNotifications!==false)
+   throw new TypeError('OUTPUT_REQUIRES_RECONCILED_HISTORICAL_RESEARCH_REPORT');
+ writer(output,JSON.stringify(report,null,2)+'\\n',{encoding:'utf8',flag:'wx',mode:0o600});
+ return true;
 }
 export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch,now=new Date()}){
  if(!ordinaryCode(code)||!realDay(date)||
@@ -278,6 +290,7 @@ export async function main(argv=process.argv.slice(2),env=process.env){
    code:args.code,date:args.date,minutePages:pages,dailyPages,
    compareDaily:args.compareDaily
  });
+ if(args.output)saveMinutePilotReport(args.output,report);
  process.stdout.write(JSON.stringify(report,null,2)+'\n');
  return report;
 }
