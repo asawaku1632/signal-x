@@ -124,15 +124,21 @@ export function settleMa75ForwardOutcomes(manifest,replay,{exchangeSessions,outc
     pending:results.filter(x=>x.status.startsWith('PENDING_')).length,
     quarantined:results.filter(x=>x.status.startsWith('QUARANTINED_')).length,
     completedCodes:new Set(complete.map(x=>x.details.code)).size,
+    // These are hypothetical descriptive numbers, NOT verified forward results.
+    hypotheticalAverage5Percent:mean('return5Percent'),
+    validatedForwardWinRate:null,validatedForwardOutcomes:0,
+    independentlyReproduced:false,
     average5Percent:mean('return5Percent'),
     positive5Percent:complete.length?round(100*complete.filter(x=>x.details.return5Percent>0).length/complete.length):null,
     budgetCompleted:complete.filter(x=>x.details.budgetEligible).length,
     results,eligibleForProduction:false,
     sourceIndependentlyVerified:false,exchangeCalendarIndependentlyVerified:false,
+    proofOfLiveCapture:false,
     warnings:[
       'Data timestamps, source rights, actions and exchange-session dates require independent audit.',
       'Overlapping same-stock observations are not independent trials; sample may be selected.',
       'Returns model next-open entry and signal+5 close, 0.1% adverse each way, 100 shares, no taxes or actual fills.',
       'No-trade retest/cash policy needs separate opportunity-level accounting.',
+      'Historical or synthetic observations are hypothetical even when structurally COMPLETED; independently validated forward rates remain null.',
     ]};
 }
