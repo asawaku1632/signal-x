@@ -90,7 +90,7 @@ function inspect(freeze,snapshot){
    return {code,status:row?.status??null,
     bar:row?.status==='DAILY_BAR'?
      {open:b?.open,high:b?.high,low:b?.low,close:b?.close,volume:b?.volume}:null,
-    action:r?.status==='CORPORATE_ACTION_REVIEW'?
+    action:row?.status==='CORPORATE_ACTION_REVIEW'?
       actionFingerprint(row):null};
   }),
  };
