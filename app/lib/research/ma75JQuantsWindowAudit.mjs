@@ -59,7 +59,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
   for(let i=0;i<freeze.codes.length;i++){
     const code=freeze.codes[i],values=[];
     let status='HISTORY_INCOMPLETE',signal=null,reason=null;
-    if(missingSessions.length||duplicateDates.size||invalidReports.length){
+    if(missingSessions.length||duplicateDates.size||invalidReports.length||unexpectedDates.length){
       reason='GLOBAL_PAGE_WINDOW_INCOMPLETE';
     }else{
       const statuses=[];
