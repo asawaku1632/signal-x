@@ -269,3 +269,64 @@ test('daily provider page captured at 15:45 JST does not qualify as post-update 
  assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
  assert.equal(r.structuralOneCodeDayMatched,false);
 });
+
+
+test('a matching one-code day does not certify missing other frozen stocks',()=>{
+ const fullDatePage=daily([dailyRows()[1]]);
+ assert.equal(fullDatePage.auditScope,'FROZEN_UNIVERSE');
+ assert.equal(fullDatePage.rows.find(x=>x.code==='1301').status,'MISSING_PROVIDER_ROW');
+ const result=audit(minute(),fullDatePage);
+ assert.equal(result.structuralOneCodeDayMatched,true);
+ assert.equal(result.providerQueryScope,'FROZEN_UNIVERSE');
+ assert.equal(result.fullFrozenUniverseCovered,false);
+ assert.equal(result.dailyObservedCodeDays,1);
+ assert.equal(result.dailyMissingOrQuarantinedCodeDays,1);
+ assert.equal(result.eligibleForProduction,false);
+});
+test('only both completed frozen stock-days can carry full-source coverage metadata',()=>{
+ const r=audit();
+ assert.equal(r.structuralOneCodeDayMatched,true);
+ assert.equal(r.fullFrozenUniverseCovered,true);
+ assert.equal(r.dailyObservedCodeDays,2);
+ assert.equal(r.dailyMissingOrQuarantinedCodeDays,0);
+ assert.equal(r.directProviderCaptureAuthenticated,false);
+});
+test('corporate action review on OTHER stock blocks 2-stock coverage but not target code/day audit',()=>{
+ const rows=dailyRows();
+ rows[0]={...rows[0],AdjFactor:0.5};
+ const r=audit(minute(),daily(rows));
+ assert.equal(r.structuralOneCodeDayMatched,true);
+ assert.equal(r.fullFrozenUniverseCovered,false);
+ assert.equal(r.dailyObservedCodeDays,1);
+ assert.equal(r.dailyMissingOrQuarantinedCodeDays,1);
+});
+test('genuine no-trade on other stock is structurally present but not a buy recommendation',()=>{
+ const rows=dailyRows();
+ rows[0]={Date:date,Code:'13010',O:null,H:null,L:null,C:null,Vo:null,
+   AdjFactor:1,ExRT:null};
+ const r=audit(minute(),daily(rows));
+ assert.equal(r.fullFrozenUniverseCovered,true);
+ assert.equal(r.dailyObservedCodeDays,2);
+ assert.equal(r.eligibleForNotifications,false);
+});
+test('one-stock pilot preserves its tiny denominator and never says full frozen universe',()=>{
+ const m=minute();
+ const d=parseMa75JQuantsDailyPages(freeze(),{
+  date,requestedCode:code,
+  pages:[{requestPaginationKey:null,receivedAt:'2026-11-01T08:00:00Z',
+    response:{data:[dailyRows()[1]]}}]
+ });
+ const r=audit(m,d);
+ assert.equal(r.structuralOneCodeDayMatched,true);
+ assert.equal(r.providerQueryScope,'SINGLE_CODE_PILOT');
+ assert.equal(r.frozenPopulationSize,2);
+ assert.equal(r.dailyObservedCodeDays,1);
+ assert.equal(r.fullFrozenUniverseCovered,false);
+});
+test('unsupported daily audit scope cannot be used to claim full coverage',()=>{
+ const d=daily();
+ const r=audit(minute(),{...d,auditScope:'MADE_UP_SCOPE'});
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+ assert.equal(r.providerQueryScope,'INVALID_SCOPE');
+ assert.equal(r.fullFrozenUniverseCovered,false);
+});
