@@ -23,12 +23,15 @@ const sessions=()=>{
 };
 const archive=date=>({
  date,version:'ma75_jquants_v2_offline_daily_v1',
+ firstReceivedAt:'2026-11-02T07:40:00Z',
  lastReceivedAt:'2026-11-02T07:45:00Z',
+ readPages:1,rawProviderRows:3,
  paginationComplete:true,failures:[],expectedFrozenCodes:3,
  structurallyUsableRawBars:3,counts:{DAILY_BAR:3},
  eligibleForForwardSignal:false,providerRightsVerified:false,
  rows:freeze().codes.map(code=>({code,tradeDate:date,
-   status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,close:100}})),
+   status:'DAILY_BAR',bar:{code,tradeDate:date,unadjusted:true,
+     open:100,high:102,low:99,close:100,volume:1000}})),
 });
 const after='2026-11-02T08:10:00Z';
 const plan=(opts={})=>planMa75JQuantsAcquisition(freeze(),
@@ -208,4 +211,47 @@ test('future receipt source data cannot raise as-of archived bar coverage',()=>{
  assert.equal(r.archivedUsableBarCells,225);
  assert.equal(r.unverifiedOrMissingBarCells,3);
  assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+
+test('a fake daily bar with only close and unadjusted flag is not sufficient to reuse',()=>{
+ const audits=sessions().map(archive);
+ audits[4].rows[0].bar={code:'1301',tradeDate:audits[4].date,
+   unadjusted:true,close:100};
+ const r=plan({audits});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.unverifiedOrMissingBarCells,3);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('invalid price geometry, nonfinite OHLCV, zero volume and wrong code/date quarantine',()=>{
+ for(const mutate of [
+  bar=>{bar.high=10;},bar=>{bar.low=120;},bar=>{bar.close=NaN;},
+  bar=>{bar.volume=0;},bar=>{bar.volume=-5;},
+  bar=>{bar.code='9984';},bar=>{bar.tradeDate='2026-12-31';}
+ ]){
+   const a=sessions().map(archive);
+   mutate(a[10].rows[0].bar);
+   const r=plan({audits:a});
+   assert.equal(r.states.incompleteExisting,1);
+   assert.equal(r.structuralHistoricalInputsPresent,false);
+ }
+});
+test('first received page after last page or before close rejects reused date',()=>{
+ for(const firstReceivedAt of ['2026-11-02T08:00:00Z','2026-11-02T05:00:00Z','invalid']){
+  const a=sessions().map(archive);
+  a[7].firstReceivedAt=firstReceivedAt;
+  const r=plan({audits:a});
+  assert.equal(r.states.incompleteExisting,1);
+ }
+});
+test('missing first receipt, missing readPages and impossible provider count are not archived',()=>{
+ for(const field of ['firstReceivedAt','readPages','rawProviderRows']){
+  const a=sessions().map(archive);
+  delete a[8][field];
+  const r=plan({audits:a});
+  assert.equal(r.states.incompleteExisting,1);
+ }
+ const a=sessions().map(archive);
+ a[8].rawProviderRows=2;
+ assert.equal(plan({audits:a}).states.incompleteExisting,1);
 });
