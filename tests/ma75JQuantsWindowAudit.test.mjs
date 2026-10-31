@@ -122,3 +122,22 @@ test('late official API retrieval can calculate hypothetical history but never c
  assert.equal(r.officialCalendarVerified,false);
  assert.equal(r.eligibleForAIPowerScoring,false);
 });
+
+test('tampered provider bar counts cannot pass a complete 76-session audit',()=>{
+ const data=fixture();
+ data.reports[5].counts.DAILY_BAR=999;
+ let r=audit(data);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.ok(r.invalidReports.some(x=>x.reason==='TAMPERED_PROVIDER_ROW_COUNTS'));
+ const second=fixture();
+ second.reports[5].structurallyUsableRawBars=0;
+ r=audit(second);
+ assert.ok(r.invalidReports.some(x=>x.reason==='TAMPERED_PROVIDER_ROW_COUNTS'));
+});
+test('swapped frozen code row cannot silently reassign an SMA75 winner',()=>{
+ const data=fixture();
+ data.reports[17].rows[0].code='186A';
+ const r=audit(data);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.ok(r.invalidReports.some(x=>x.reason==='INCONSISTENT_OR_TAMPERED_CODE_ROWS'));
+});
