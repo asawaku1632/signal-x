@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
 import {MA75_JQUANTS_PAGE_VERSION} from './ma75JQuantsDailyPages.mjs';
 
-export const MA75_PAGE_REVISION_VERSION='ma75_jquants_daily_revision_audit_v2';
+export const MA75_PAGE_REVISION_VERSION='ma75_jquants_daily_revision_audit_v3';
 export function fingerprintMa75RevisionPopulation(freeze) {
  validateMa75FrozenUniverse(freeze);
  return createHash('sha256').update(JSON.stringify({
