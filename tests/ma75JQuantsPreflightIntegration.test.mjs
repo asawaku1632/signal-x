@@ -40,6 +40,9 @@ const getArchive=(config={})=>{
   if(config.noTradeIndex===index){
     Object.assign(records[1],{O:null,H:null,L:null,C:null,Vo:null});
   }
+  if(config.corporateActionIndex===index){
+    Object.assign(records[0],{AdjFactor:0.8,ExRT:'1'});
+  }
   const pages=[{
     requestPaginationKey:null,
     receivedAt:config.futureReceivedIndex===index?'2026-11-10T08:00:00Z':'2026-11-02T07:45:00Z',
@@ -144,4 +147,19 @@ test('outside-of-76-session source revisions cannot slip into complete full-univ
  const r=preflight(archive,[{...stable,tradeDate:'2027-01-05'}]);
  assert.equal(r.states.unexpectedRevisionDates,1);
  assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+
+test('a real-parser split/rights record is archived as blocked, not as a completed daily bar',()=>{
+ const archive=getArchive({corporateActionIndex:19});
+ const row=archive.reports[19].rows[0];
+ assert.equal(row.status,'CORPORATE_ACTION_REVIEW');
+ assert.equal(row.actionDetails.adjustmentFactor,0.8);
+ const r=preflight(archive);
+ assert.equal(r.states.archivedCorporateActionReview,1);
+ assert.equal(r.archivedUsableBarCells,227);
+ assert.equal(r.archivedCorporateActionCells,1);
+ assert.equal(r.blockedOrMissingBarCells,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+ assert.equal(r.initialDateRequestsPotentiallyNeeded,0);
+ assert.equal(r.eligibleForNotifications,false);
 });
