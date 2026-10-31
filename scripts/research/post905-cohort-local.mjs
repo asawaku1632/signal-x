@@ -27,7 +27,7 @@ export function parseArgs(argv){
 }
 export function resolveCohortInputs(args,listing=readdirSync){
  const fromDir=args.inputDir?listing(args.inputDir,{withFileTypes:true})
-  .filter(entry=>entry.isFile()&&/^[0-9]{3}[0-9A-Z]_20\\d{2}-\\d{2}-\\d{2}\\.json$/.test(entry.name))
+  .filter(entry=>entry.isFile()&&/^[0-9]{3}[0-9A-Z]_20\d{2}-\d{2}-\d{2}\.json$/.test(entry.name))
   .map(entry=>join(args.inputDir,entry.name)).sort():[];
  const paths=[...args.input,...fromDir];
  if(paths.length<1||paths.length>100||new Set(paths.map(resolve)).size!==paths.length||
