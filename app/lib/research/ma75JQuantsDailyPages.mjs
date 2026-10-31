@@ -7,7 +7,7 @@
  * independently timestamped source, complete TSE listing or trade eligibility.
  */
 import { validateMa75FrozenUniverse } from './ma75FrozenUniverse.mjs';
-export const MA75_JQUANTS_PAGE_VERSION='ma75_jquants_v2_offline_daily_v1';
+export const MA75_JQUANTS_PAGE_VERSION='ma75_jquants_v2_offline_daily_v2';
 const isDay=s=>typeof s==='string'&&/^20\d\d-\d\d-\d\d$/.test(s)&&
   Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
   new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -82,8 +82,23 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     if(seenCode.has(id)){duplicateIds.add(id);continue}
     seenCode.set(id,r);
     if(!allowed.has(code)){outOfCohort.push(code);continue}
-    let status='DAILY_BAR',bar=null;
-    if([r.O,r.H,r.L,r.C].every(x=>x===null)&&
+    let status='DAILY_BAR',bar=null,actionDetails=null;
+    // Explicit ex-rights or split factors must override any price-gap heuristic.
+    // Do not silently reuse v1 archives lacking this corporate-action check.
+    const factor=r.AdjFactor;
+    const factorProvided=factor!==undefined&&factor!==null;
+    const factorBad=factorProvided&&(!val(factor)||factor<=0);
+    const factorNonUnit=factorProvided&&!factorBad&&Math.abs(factor-1)>1e-10;
+    const rightsProvided=r.ExRT!==undefined&&r.ExRT!==null&&
+      String(r.ExRT).trim()!==''&&String(r.ExRT).trim()!=='0';
+    if(factorBad||factorNonUnit||rightsProvided){
+      status='CORPORATE_ACTION_REVIEW';
+      actionDetails={adjustmentFactor:factorProvided?factor:null,
+        exRightsType:rightsProvided?String(r.ExRT):null,
+        reason:factorBad?'INVALID_ADJUSTMENT_FACTOR':
+          rightsProvided?'EX_RIGHTS_EVENT':'NON_UNIT_ADJUSTMENT_FACTOR',
+        independentlyVerified:false};
+    }else if([r.O,r.H,r.L,r.C].every(x=>x===null)&&
         (r.Vo===null||r.Vo===0)){
       status='NO_TRADE';
     }else if(![r.O,r.H,r.L,r.C,r.Vo].every(val)||
@@ -94,7 +109,7 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
       bar={tradeDate:date,code,open:r.O,high:r.H,low:r.L,
         close:r.C,volume:r.Vo,unadjusted:true};
     }
-    entries.push({code,status,bar});
+    entries.push({code,status,bar,actionDetails});
   }
   const results=[];
   const entriesByCode=new Map(entries.filter(e=>e.code&&allowed.has(e.code)&&typeof e.status==='string')
@@ -105,7 +120,9 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     if(duplicateIds.has(code+':'+date))status='DUPLICATE_CODE_DATE';
     if(!complete)status='BLOCKED_PAGINATION';
     results.push({code,tradeDate:date,status,
-      bar:complete&&status==='DAILY_BAR'?e.bar:null});
+      bar:complete&&status==='DAILY_BAR'?e.bar:null,
+      ...(complete&&status==='CORPORATE_ACTION_REVIEW'?
+        {actionDetails:e.actionDetails}:{})});
   }
   const counts={};
   for(const r of results)counts[r.status]=(counts[r.status]??0)+1;
@@ -121,6 +138,6 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[]}={}){
     verifiedOriginalProviderCapture:false,providerRightsVerified:false,
     adjustedHistoricalAsOfValidated:false,eligibleForForwardSignal:false,
     eligibleForProduction:false,eligibleForNotifications:false,
-    note:'An offline response-envelope consistency check, not proof that data was accessible as-of the historical trade or that an external provider was licensed.',
+    note:'Offline envelope only. Explicit AdjFactor/ExRT events require independent corporate-action review; v1 audits must be reparsed from preserved raw pages. No source rights or true as-of capture are authenticated.',
   };
 }
