@@ -47,10 +47,12 @@ export function parseMinuteProbeArgs(argv){
  }
  return args;
 }
-export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch}){
+export async function fetchMinutePilotPages({code,date,maxPages,apiKey,fetchImpl=fetch,now=new Date()}){
  if(!ordinaryCode(code)||!realDay(date)||
-   !Number.isInteger(maxPages)||maxPages<1||maxPages>4)
-   throw new TypeError('MINUTE_PROBE_SCOPE_MUST_BE_ONE_CODE_DAY_MAX_FOUR_PAGES');
+   !Number.isInteger(maxPages)||maxPages<1||maxPages>4||
+   !Number.isFinite(now?.getTime?.())||
+   now.getTime()<Date.parse(date+'T07:30:00Z'))
+   throw new TypeError('MINUTE_PROBE_SCOPE_MUST_BE_ONE_PUBLISHED_CODE_DAY_MAX_FOUR_PAGES');
  if(typeof apiKey!=='string'||apiKey.length===0)throw new Error('API_KEY_MISSING_IN_SECURE_ENV');
  const pages=[];
  let rowsSeen=0;
