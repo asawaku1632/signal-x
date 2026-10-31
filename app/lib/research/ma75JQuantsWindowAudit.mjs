@@ -41,6 +41,12 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports}={}){
       r.rows.length!==freeze.codes.length||r.providerRightsVerified!==false||
       r.eligibleForForwardSignal!==false)
       reason='INVALID_OR_INCOMPLETE_PAGE_AUDIT';
+    else if(!r.counts||typeof r.counts!=='object'||
+      !Number.isInteger(r.structurallyUsableRawBars)||
+      Object.keys(r.counts).some(k=>r.counts[k]!==r.rows.filter(x=>x.status===k).length)||
+      r.structurallyUsableRawBars!==r.rows.filter(x=>x.status==='DAILY_BAR').length||
+      r.rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
+      reason='TAMPERED_PROVIDER_ROW_COUNTS';
     else if(r.rows.some((row,i)=>row?.code!==freeze.codes[i]||
       row.tradeDate!==date||
       !['DAILY_BAR','NO_TRADE','MISSING_PROVIDER_ROW','INVALID_OHLCV','DUPLICATE_CODE_DATE','BLOCKED_PAGINATION'].includes(row.status)||
