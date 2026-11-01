@@ -195,6 +195,8 @@ test('later daily publication cannot be certified by observing market close',()=
 });
 test('provider pages claiming receipts after as-of are not treated as prior information',()=>{
  const f=fixture();
+ // Keep the calendar historically captured so this case tests only bar-page receipt.
+ f.calendarSnapshot.capturedAt='2026-11-04T08:00:00Z';
  assert.throws(()=>audit(f,'2026-11-30T10:00:00Z'),/ORIGINAL_PAGE_RECEIPT_AFTER_AUDIT_ASOF/);
  const actual=audit(f,'2026-12-01T10:00:00Z');
  assert.equal(actual.auditAsOf,'2026-12-01T10:00:00.000Z');
