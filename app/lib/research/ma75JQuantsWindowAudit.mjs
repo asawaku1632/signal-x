@@ -18,7 +18,7 @@ const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
 const round=x=>Number(x.toFixed(5));
 const ID=(code,date)=>code+':'+date;
 const validReceivedAt=(timestamp,date)=>{
-  if(typeof timestamp!=='string'||!/(?:Z|[+-]\\d\\d:\\d\\d)$/.test(timestamp))
+  if(typeof timestamp!=='string'||!/(?:Z|[+-][0-9][0-9]:[0-9][0-9])$/.test(timestamp))
     return false;
   const parsed=Date.parse(timestamp);
   // Conservative post-close receipt sanity floor (15:30 JST).
