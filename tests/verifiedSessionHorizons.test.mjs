@@ -23,7 +23,7 @@ test("aligns stock and TOPIX to identical fifth actual exchange session", () => 
   assert.equal(result.horizons[1].date, "2026-09-24");
   assert.equal(result.horizons[3].date, "2026-09-28");
   assert.equal(result.horizons[5].date, "2026-09-30");
-  assert.equal(result.horizons[5].stockReturn, 10);
+  assert.ok(Math.abs(result.horizons[5].stockReturn - 10) < 1e-9);
   assert.ok(Math.abs(result.horizons[5].benchmarkReturn - 2.5) < 1e-9);
   assert.ok(Math.abs(result.horizons[5].excessReturn - 7.5) < 1e-9);
 });
@@ -32,7 +32,7 @@ test("holiday stock snapshots do not shift horizons", () => {
   const stock = new Map([...prices, ["2026-09-21", 999], ["2026-09-22", 999]]);
   const result = align({ ...fixture(), stockCloses: stock });
   assert.equal(result.horizons[1].date, "2026-09-24");
-  assert.equal(result.horizons[5].stockReturn, 10);
+  assert.ok(Math.abs(result.horizons[5].stockReturn - 10) < 1e-9);
 });
 
 test("missing exact fifth-session TOPIX does not substitute a later close", () => {
