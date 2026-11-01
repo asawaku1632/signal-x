@@ -17,7 +17,7 @@ if(files.length===0||files.length>100) {
       r.dailyReconciliationMatched!==true||
       r.metricsReleasedForHistoricalResearch!==true||
       r.eligibleForProduction!==false||r.eligibleForNotifications!==false||
-      !/^20\\d{2}-\\d{2}-\\d{2}$/.test(r.date)||
+      !/^20\d{2}-\d{2}-\d{2}$/.test(r.date)||
       !/^[0-9]{3}[0-9A-Z]$/.test(r.code)||
       !Number.isFinite(r.post905?.upsideFromReferencePercent)||
       !Number.isFinite(r.post905?.downsideFromReferencePercent)||
