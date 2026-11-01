@@ -17,3 +17,13 @@ test("benchmark remains explicitly blocked until calendar and matching outcome h
   assert.match(implementation, /verified TSE calendar/i);
   assert.match(implementation, /matching stock-outcome horizons/i);
 });
+
+const outcomeStart = source.indexOf("export async function updateMomentumMemoryOutcomes(");
+const outcomeEnd = source.indexOf("export async function updateMomentumMemoryBenchmarks(", outcomeStart);
+const outcomeImplementation = source.slice(outcomeStart, outcomeEnd);
+
+test("MM forward outcomes stay fail-closed without verified exchange sessions", () => {
+  assert.ok(outcomeStart >= 0 && outcomeEnd > outcomeStart);
+  assert.match(outcomeImplementation, /momentumMemoryOutcomesUpdated:\s*0/);
+  assert.doesNotMatch(outcomeImplementation, /pool\.query|UPDATE\s+momentum_memory_observations|OFFSET\s+[024]/i);
+});
