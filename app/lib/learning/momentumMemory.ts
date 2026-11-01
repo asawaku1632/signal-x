@@ -243,6 +243,7 @@ export async function updateMomentumMemoryBenchmarks(targetDate: string): Promis
           FROM market_learning_logs
           WHERE trade_date > m.trade_date
             AND trade_date <= $1::date
+            AND EXTRACT(ISODOW FROM trade_date) BETWEEN 1 AND 5
         ) session
         ORDER BY session.trade_date ASC
         OFFSET 4 LIMIT 1
