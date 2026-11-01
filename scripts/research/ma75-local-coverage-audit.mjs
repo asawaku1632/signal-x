@@ -11,6 +11,7 @@ import {resolve,relative,isAbsolute,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {validateMa75FrozenUniverse} from '../../app/lib/research/ma75FrozenUniverse.mjs';
 import {studyMa75BreakoutRetest} from '../../app/lib/research/ma75BreakoutRetest.mjs';
+import {analyzeMa75HistoricalPrecloseConditions} from './ma75-historical-preclose-conditions.mjs';
 import {
  readMa75PrivateSavedDate,validateMa75SavedDailyForReplay
 } from './ma75-jquants-bulk-retrospective.mjs';
@@ -131,6 +132,8 @@ export function analyzeMa75SavedCompletion({freeze,baselineSummary,dateRecords})
     all[e.reason]=(all[e.reason]??0)+1;return all;
    },{}),
    stats:study.stats,paired:study.paired,
+   pairSelectionUsesFutureRetest:true,
+   precloseConditions:analyzeMa75HistoricalPrecloseConditions(study.observations),
    signalsNotIndependent:true,
    survivorshipAndAvailabilitySelectionBias:true,
    forwardIndependentValidation:false
