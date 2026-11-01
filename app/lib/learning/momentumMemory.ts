@@ -142,124 +142,27 @@ export async function saveMomentumMemoryObservations(
   };
 }
 
+/**
+ * Research safety gate: saved daily_stock_results includes exchange holidays,
+ * so OFFSET 0/2/4 over saved rows is NOT a verified 1/3/5 TSE-session horizon.
+ * Preserve existing observations; do not write new potentially mislabeled
+ * outcomes until exchange calendar and price provenance are validated.
+ */
 export async function updateMomentumMemoryOutcomes(
-  targetDate: string,
+  _targetDate: string,
 ): Promise<MomentumMemoryOutcomeResult> {
-  const result = await pool.query(
-    `
-    WITH candidates AS (
-      SELECT
-        m.id,
-        base.price AS base_price,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 0 LIMIT 1
-        ) AS price_1d,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 2 LIMIT 1
-        ) AS price_3d,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 4 LIMIT 1
-        ) AS price_5d
-      FROM momentum_memory_observations m
-      JOIN daily_stock_results base
-        ON base.code = m.code
-       AND base.date::date = m.trade_date
-      WHERE m.observation_flag = TRUE
-        AND m.trade_date < $1::date
-        AND (m.result_1d IS NULL OR m.result_3d IS NULL OR m.result_5d IS NULL)
-    ),
-    updated AS (
-      UPDATE momentum_memory_observations m
-      SET
-        result_1d = COALESCE(
-          m.result_1d,
-          CASE WHEN c.base_price > 0 AND c.price_1d IS NOT NULL
-            THEN ROUND((((c.price_1d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        result_3d = COALESCE(
-          m.result_3d,
-          CASE WHEN c.base_price > 0 AND c.price_3d IS NOT NULL
-            THEN ROUND((((c.price_3d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        result_5d = COALESCE(
-          m.result_5d,
-          CASE WHEN c.base_price > 0 AND c.price_5d IS NOT NULL
-            THEN ROUND((((c.price_5d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        updated_at = NOW()
-      FROM candidates c
-      WHERE m.id = c.id
-        AND (c.price_1d IS NOT NULL OR c.price_3d IS NOT NULL OR c.price_5d IS NOT NULL)
-      RETURNING m.id
-    )
-    SELECT COUNT(*)::int AS updated_count FROM updated
-    `,
-    [targetDate],
-  );
-
-  return {
-    momentumMemoryOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0),
-  };
+  return { momentumMemoryOutcomesUpdated: 0 };
 }
 
-
-export async function updateMomentumMemoryBenchmarks(targetDate: string): Promise<{ momentumMemoryBenchmarksUpdated: number }> {
-  const result = await pool.query(`
-    WITH candidates AS (
-      SELECT m.id, m.trade_date, m.result_5d,
-        base.topix AS base_topix,
-        future.topix AS future_topix
-      FROM momentum_memory_observations m
-      LEFT JOIN LATERAL (
-        SELECT topix FROM market_learning_logs
-        WHERE trade_date = m.trade_date AND topix IS NOT NULL
-        ORDER BY created_at DESC LIMIT 1
-      ) base ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT topix FROM market_learning_logs
-        WHERE trade_date > m.trade_date
-          AND trade_date <= $1::date
-          AND topix IS NOT NULL
-        ORDER BY trade_date ASC, created_at DESC
-        OFFSET 4 LIMIT 1
-      ) future ON TRUE
-      WHERE m.observation_flag = TRUE
-        AND m.result_5d IS NOT NULL
-        AND (m.benchmark_5d IS NULL OR m.excess_return_5d IS NULL)
-    )
-    UPDATE momentum_memory_observations m
-    SET benchmark_key = 'TOPIX',
-        benchmark_5d = ROUND((100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0))::numeric, 4),
-        excess_return_5d = ROUND((m.result_5d - (100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0)))::numeric, 4),
-        updated_at = NOW()
-    FROM candidates c
-    WHERE m.id = c.id
-      AND c.base_topix IS NOT NULL
-      AND c.future_topix IS NOT NULL
-    RETURNING m.id
-  `, [targetDate]);
-  return { momentumMemoryBenchmarksUpdated: result.rowCount ?? 0 };
+/**
+ * Safety gate: market_learning_logs includes saved holiday and weekend snapshots
+ * and can omit real exchange sessions. Its dates are not a verified TSE calendar.
+ * Do not infer fifth trading session or persist a misleading TOPIX excess return.
+ * Re-enable only after an independently validated exchange-session calendar,
+ * complete dated index closes and matching stock-outcome horizons are available.
+ */
+export async function updateMomentumMemoryBenchmarks(_targetDate: string): Promise<{ momentumMemoryBenchmarksUpdated: number }> {
+  return { momentumMemoryBenchmarksUpdated: 0 };
 }
 
 export async function refreshMomentumMemoryForwardStats(): Promise<void> {
