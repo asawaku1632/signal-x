@@ -72,13 +72,16 @@ test('missing one of 76 original daily responses never reports a winner count',(
  assert.equal(r.missingDateCaptures.length,1);
  assert.equal(r.hypotheticalOfflineCrossoverCount,null);
 });
-test('out-of-cohort security in a page never silently improves hit rate',()=>{
+test('date-only provider extra listings are counted, excluded and never become frozen candidates',()=>{
  const f=fixture();
  f.dayPages[25].pages[0].response.data.push(record(f.sessions[25],'99990'));
  const r=audit(f);
- assert.equal(r.structural76DayCoverage,false);
- assert.equal(r.rejectedDateAudits[0].reason,'INVALID_OR_INCOMPLETE_PAGE_AUDIT');
- assert.equal(r.hypotheticalOfflineCrossoverCount,null);
+ assert.equal(r.structural76DayCoverage,true);
+ assert.equal(r.originalProviderRowsRecorded,153);
+ assert.equal(r.projectedFrozenRowsRecorded,152);
+ assert.equal(r.excludedUnselectedListingRows,1);
+ assert.equal(r.hypotheticalOfflineCrossoverCount,1);
+ assert.equal(r.eligibleForProduction,false);
 });
 test('wrong source trade date prevents 76-date coverage',()=>{
  const f=fixture();f.dayPages[20].pages[0].response.data[0].Date=f.sessions[21];
@@ -141,4 +144,35 @@ test('CLI requires distinct JSON input/output and refuses extra flags',()=>{
  ]){
   assert.throws(()=>parseMa75BundleArgs(flags),TypeError);
  }
+});
+
+test('valid non-ordinary share classes outside frozen cohort are not substituted for ordinary shares',()=>{
+ const f=fixture();
+ f.dayPages[10].pages[0].response.data.push(record(f.sessions[10],'13011'));
+ const r=audit(f);
+ assert.equal(r.structural76DayCoverage,true);
+ assert.equal(r.excludedUnselectedListingRows,1);
+ assert.equal(r.eligibleForTrading,false);
+});
+test('wrong dated unselected listing is still rejected, not silently discarded',()=>{
+ const f=fixture();
+ f.dayPages[10].pages[0].response.data.push(record(f.sessions[9],'99990'));
+ assert.throws(()=>audit(f),TypeError);
+});
+test('duplicate unselected provider listing is rejected before projection',()=>{
+ const f=fixture(),d=f.sessions[10];
+ f.dayPages[10].pages[0].response.data.push(record(d,'99990'),record(d,'99990'));
+ assert.throws(()=>audit(f),TypeError);
+});
+test('same ordinary stock returned under four- and five-character forms is rejected',()=>{
+ const f=fixture();
+ f.dayPages[10].pages[0].response.data.push(record(f.sessions[10],'1301'));
+ assert.throws(()=>audit(f),TypeError);
+});
+test('missing frozen symbol cannot be made complete by a different valid TSE security',()=>{
+ const f=fixture(),day=f.dayPages[10];
+ day.pages[0].response.data[0]=record(f.sessions[10],'99990');
+ const r=audit(f);
+ assert.equal(r.structural76DayCoverage,false);
+ assert.equal(r.hypotheticalOfflineCrossoverCount,null);
 });

@@ -4,7 +4,7 @@
  * Original page envelopes must retain request pagination keys and receivedAt.
  */
 import {validateMa75FrozenUniverse} from './ma75FrozenUniverse.mjs';
-import {parseMa75JQuantsDailyPages} from './ma75JQuantsDailyPages.mjs';
+import {projectMa75FullDateSource} from './ma75FullDateProjection.mjs';
 import {auditMa75JQuantsDailyWindow} from './ma75JQuantsWindowAudit.mjs';
 
 export const MA75_ORIGINAL_DAILY_BUNDLE_VERSION='ma75_original_daily_bundle_v1';
@@ -22,7 +22,7 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
     bundle.sessions.at(-1)<freeze.firstEligibleSignalDate||
     !Array.isArray(bundle.dayPages)||bundle.dayPages.length>76)
   throw new TypeError('Require original-page bundle with exactly 76 ordered sessions and at most 76 dated captures');
- const allowedDates=new Set(bundle.sessions),seen=new Set(),reports=[];
+ const allowedDates=new Set(bundle.sessions),seen=new Set(),reports=[],sourceProjections=[];
  for(const entry of bundle.dayPages){
   const date=entry?.date,pages=entry?.pages;
   if(!validDate(date)||!allowedDates.has(date)||seen.has(date)||
@@ -31,7 +31,9 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
    throw new TypeError('Duplicate, foreign or oversized original date-page capture');
   seen.add(date);
   // Never accept a user-authored summary in place of original provider envelopes.
-  reports.push(parseMa75JQuantsDailyPages(freeze,{date,pages,requestedCode:null}));
+  const projection=projectMa75FullDateSource(freeze,{date,pages});
+  sourceProjections.push(projection);
+  reports.push(projection.audit);
  }
  const audit=auditMa75JQuantsDailyWindow(freeze,{
   sessions:bundle.sessions,reports,
@@ -44,7 +46,10 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
   freezeSize:freeze.codes.length,firstEligibleDate:freeze.firstEligibleSignalDate,
   studySignalDate:bundle.sessions.at(-1),requiredSessions:76,
   submittedDateCaptures:reports.length,missingDateCaptures:audit.missingSessions,
-  originalProviderRowsRecorded:reports.reduce((sum,r)=>sum+r.rawProviderRows,0),
+  originalProviderRowsRecorded:sourceProjections.reduce((sum,r)=>sum+r.originalAllListedRows,0),
+  projectedFrozenRowsRecorded:sourceProjections.reduce((sum,r)=>sum+r.projectedFrozenRows,0),
+  excludedUnselectedListingRows:sourceProjections.reduce((sum,r)=>sum+r.excludedUnselectedListingRows,0),
+  frozenProjectionNotOriginalSource:true,
   originalPagesRecorded:reports.reduce((sum,r)=>sum+r.readPages,0),
   expectedCodeSessionCells:freeze.codes.length*76,
   rejectedDateAudits:audit.invalidReports,

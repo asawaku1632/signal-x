@@ -10,7 +10,7 @@ Each `dayPages` object is `{date, pages}`. Every page must preserve `requestPagi
 
 Provide `calendarSnapshot` with `requestFrom`, `requestTo`, `capturedAt`, and `records` using the original `Date` / `HolDiv` values including every calendar date, not only exchange trading dates. A corrected/revised calendar requires separate manual review.
 
-Expected normalized four-character freeze: `docs/ma75-forward-cohort-freeze-20261031.json` (953 app-observed codes). The parser refuses unknown rights/adjustment metadata, bad daily OHLCV, pagination gaps, wrong codes and duplicate code-days. All 76 source days and 953 code-days must reconcile before the hypothetical crossover count is shown.
+Expected normalized four-character freeze: `docs/ma75-forward-cohort-freeze-20261031.json` (953 app-observed codes). The all-listed date-query projectors account for original source rows and exclude valid unrelated stock/class listings before independently parsing the original frozen 953-code population. Wrong-date codes, duplicate provider listings, duplicate frozen ordinary classes, unknown rights/adjustment metadata, bad daily OHLCV and pagination gaps are blocked. The projection is derived from original page envelopes; it is not a vendor-authenticated replacement for the original archive. All 76 source days and 953 code-days must reconcile before the hypothetical crossover count is shown.
 
 ## Local command
 
@@ -21,7 +21,7 @@ Store the captured input privately and use appropriate J-Quants license terms; d
 ## Interpretation
 
 - The summary returns `structural76DayCoverage`, `missingDateCaptures`, `rejectedDateAudits`, `calendarIssues`, and code-status counts.
-- `hypotheticalOfflineCrossoverCount` is **null when coverage is incomplete**, avoiding a winners-only statistic.
+- `originalProviderRowsRecorded` includes all listings, while `projectedFrozenRowsRecorded` and `excludedUnselectedListingRows` disclose exact projection accounting. `hypotheticalOfflineCrossoverCount` is **null when coverage is incomplete**, avoiding a winners-only statistic.
 - Even complete structural math has `validatedForwardWinRate: null`, zero validated forward outcomes and all production/notification/trading eligibility **false**.
 - Independently licensed 76-session source, point-in-time capture, calendar, corporate actions, and held-out future P&L are still unverified.
 
