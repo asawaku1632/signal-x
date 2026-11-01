@@ -237,12 +237,23 @@ export async function updateMomentumMemoryBenchmarks(targetDate: string): Promis
         ORDER BY created_at DESC LIMIT 1
       ) base ON TRUE
       LEFT JOIN LATERAL (
-        SELECT topix FROM market_learning_logs
-        WHERE trade_date > m.trade_date
-          AND trade_date <= $1::date
-          AND topix IS NOT NULL
-        ORDER BY trade_date ASC, created_at DESC
+        SELECT session.trade_date
+        FROM (
+          SELECT DISTINCT trade_date
+          FROM market_learning_logs
+          WHERE trade_date > m.trade_date
+            AND trade_date <= $1::date
+        ) session
+        ORDER BY session.trade_date ASC
         OFFSET 4 LIMIT 1
+      ) fifth_session ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT topix
+        FROM market_learning_logs
+        WHERE trade_date = fifth_session.trade_date
+          AND topix IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 1
       ) future ON TRUE
       WHERE m.observation_flag = TRUE
         AND m.result_5d IS NOT NULL
