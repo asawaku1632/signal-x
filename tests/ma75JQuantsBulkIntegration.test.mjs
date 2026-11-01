@@ -140,7 +140,7 @@ test('a missing frozen security is counted and full-953-like headline returns ar
   frozenAt:'2026-10-31T13:43:02.737Z',
   firstEligibleSignalDate:'2026-11-02',populationSize:2,codes:['1301','186A'],
   selectionSQL:"SELECT DISTINCT code FROM public.daily_stock_results WHERE date = '2026-10-30'",
-  historicalSelectionBias:'Earlier selected cohort',sourceChecks:{
+  historicalSelectionBias:'Earlier selected app-observed cohort; not unbiased historical all-TSE listings',sourceChecks:{
    providerRights:'UNVERIFIED',barCaptureTimestamps:'UNVERIFIED',splitAdjustments:'UNVERIFIED',
    officialTradingCalendar:'UNVERIFIED',liquidityCoverage:'UNVERIFIED'},
   automaticCollectionEnabled:false,liveTradingEligible:false,
