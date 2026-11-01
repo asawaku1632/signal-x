@@ -27,12 +27,14 @@ test('approved mock calendar + 130 full-market dates generate retrospective outc
   notificationEligible:false,independentlyValidatedForwardReturns:0
  });
  let calReq=0,stockReq=0,pauseCalls=0;
+ const events=[];
  const x=await runMa75BulkResearch([
   '--from='+from,'--to='+to,'--execute'
  ],{
   env:{SIGNALX_RESEARCH_ALLOW_JQUANTS_READONLY:'YES',JQUANTS_API_KEY:'mock-private-key'},
   persist:false,readFreeze:frozen,clock:()=>new Date('2026-11-01T10:00:00Z'),
   pause:async()=>{pauseCalls++},
+  onProgress:event=>events.push(event),
   fetchImpl:async(url,options)=>{
    assert.equal(options.headers['x-api-key'],'mock-private-key');
    if(url.pathname==='/v2/markets/calendar'){
@@ -57,6 +59,17 @@ test('approved mock calendar + 130 full-market dates generate retrospective outc
  assert.equal(calReq,1);
  assert.equal(stockReq,130);
  assert.equal(pauseCalls,129);
+ assert.equal(events[0].phase,'CALENDAR_START');
+ assert.equal(events[1].phase,'CALENDAR_READY');
+ assert.equal(events[1].total,130);
+ assert.equal(events.filter(e=>e.phase==='DAY_START').length,130);
+ assert.equal(events.filter(e=>e.phase==='DAY_COMPLETE').length,130);
+ assert.equal(events.filter(e=>e.phase==='ANALYSIS_START').length,1);
+ assert.equal(events.at(-1).phase,'ANALYSIS_COMPLETE');
+ assert.equal(events.filter(e=>e.phase==='DAY_COMPLETE').at(-1).done,130);
+ assert.equal(events.filter(e=>e.phase==='DAY_COMPLETE').at(-1).total,130);
+ assert.equal(events.some(e=>e.source==='SAVED_LOCAL'),false);
+ assert.equal(JSON.stringify(events).includes('mock-private-key'),false);
  assert.equal(x.sessions,130);
  assert.equal(x.freezeSize,2);
  assert.equal(x.fullHistoryCodes,2);
