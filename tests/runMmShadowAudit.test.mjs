@@ -44,3 +44,9 @@ test('reject observations outside requested calendar',()=>{
  const f=fixture();f.observations[0].tradeDate='2026-10-01';
  assert.equal(audit(f).reason,'OBSERVATION_OUTSIDE_CALENDAR');
 });
+
+test('invalid as-of dates are rejected before research comparison',()=>{
+ for(const asOfDate of ['2026-99-99','2026-02-30','nonsense','2026-10-01x']) {
+  assert.equal(audit({...fixture(),asOfDate}).reason,'AS_OF_OUTSIDE_CALENDAR');
+ }
+});
