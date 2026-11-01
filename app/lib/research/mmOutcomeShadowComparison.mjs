@@ -2,8 +2,8 @@ import { alignVerifiedSessionHorizons } from "./verifiedSessionHorizons.mjs";
 
 /**
  * Read-only comparison: never updates persisted outcomes.
- * Missing TOPIX does not invalidate stock-only comparison; both results are
- * reported independently. Calendar provenance must be verified upstream.
+ * Both stock and TOPIX closes are required for a READY comparison.
+ * Calendar provenance must be verified upstream.
  */
 export function compareMmOutcomeShadow({
   observations, exchangeSessions, calendarVerified, calendarComplete,
