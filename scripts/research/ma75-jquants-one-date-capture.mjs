@@ -5,7 +5,7 @@
  * No cron, DB, subscription, scores, notifications, or trading.
  */
 import {readFileSync,writeFileSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {resolve,relative,isAbsolute,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {projectMa75FullDateSource} from '../../app/lib/research/ma75FullDateProjection.mjs';
 
@@ -17,6 +17,10 @@ const validDate=d=>typeof d==='string'&&/^20\d{2}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
 const validCode=c=>typeof c==='string'&&/^[0-9]{3}[0-9A-Z](?:[0-9])?$/.test(c);
+const privateOutput=p=>{
+ const path=relative(resolve('research-private'),resolve(p));
+ return path!==''&&path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path);
+};
 export function planMa75OneDateCapture({date,maxPages=MAX_DATE_CAPTURE_PAGES,now=new Date()}={}){
  const nowMs=now instanceof Date?now.getTime():NaN;
  if(!validDate(date)||!Number.isInteger(maxPages)||maxPages<1||
@@ -45,7 +49,8 @@ export function parseMa75OneDateCaptureArgs(argv){
  if(!args.date||!args.output||typeof args.output!=='string'||
     !args.output.endsWith('.json')||args.output.length>240||
     args.output.includes('\0')||!Number.isInteger(args.maxPages)||
-    args.maxPages<1||args.maxPages>MAX_DATE_CAPTURE_PAGES)
+    args.maxPages<1||args.maxPages>MAX_DATE_CAPTURE_PAGES||
+    !privateOutput(args.output))
   throw new TypeError('REQUIRE_SAFE_OUTPUT_JSON_AND_DATE');
  return args;
 }

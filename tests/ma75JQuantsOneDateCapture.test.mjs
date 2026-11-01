@@ -21,7 +21,7 @@ const bar=(Code,Date=date)=>({Code,Date,O:100,H:101,L:99,C:100,Vo:100,
  AdjFactor:1,ExRT:null});
 const response=(rows,next)=>({ok:true,status:200,
  json:async()=>({data:rows,...(next===undefined?{}:{pagination_key:next})})});
-const args=['--date='+date,'--output=./private/2026-10-30.json'];
+const args=['--date='+date,'--output=research-private/2026-10-30.json'];
 test('default dry-run has zero network calls and no file or API-key reads',async()=>{
  let fetchCalls=0,writes=0;
  const r=await runMa75OneDateCapture(args,{
@@ -174,4 +174,13 @@ test('genuine no-trade and rights-review rows remain archived but not trade elig
  assert.equal(r.completeProviderPagination,true);
  assert.equal(r.eligibleForProduction,false);
  assert.equal(r.eligibleForNotifications,false);
+});
+
+test('provider original one-day file cannot be saved under tracked code or outside private directory',()=>{
+ for(const path of ['docs/provider.json','public/provider.json',
+  '../untracked.json','research-private/../src/provider.json']){
+  assert.throws(()=>parseMa75OneDateCaptureArgs([
+   '--date=2026-10-30','--output='+path
+  ]),/SAFE_OUTPUT/);
+ }
 });
