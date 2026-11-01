@@ -33,10 +33,18 @@ test("withhold result if exact TOPIX close missing",()=>{
   const i=new Map(index);
   i.delete("2026-09-30");
   const result=compare({...fixture(),indexCloses:i});
-  assert.equal(result.rows[0].horizons[5].status,"MISSING_CLOSE");
-  assert.equal(result.rows[0].horizons[5].delta,null);
+  assert.equal(result.rows[0].horizons[5].status,"STOCK_ONLY");
+  assert.ok(Math.abs(result.rows[0].horizons[5].delta-4)<1e-9);
+  assert.equal(result.rows[0].horizons[5].excessReturn,null);
 });
 test("future fifth session remains pending",()=>{
   const result=compare({...fixture(),asOfDate:"2026-09-29"});
   assert.equal(result.rows[0].horizons[5].status,"PENDING");
+});
+
+test("missing all TOPIX still allows verified stock-only comparison",()=>{
+  const result=compare({...fixture(),indexCloses:new Map()});
+  assert.equal(result.rows[0].horizons[5].status,"STOCK_ONLY");
+  assert.ok(Math.abs(result.rows[0].horizons[5].shadowReturn-10)<1e-9);
+  assert.equal(result.rows[0].horizons[5].benchmarkReturn,null);
 });
