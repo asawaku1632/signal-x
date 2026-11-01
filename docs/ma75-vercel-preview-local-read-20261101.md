@@ -23,3 +23,11 @@ Official J-Quants daily source: https://jpx-jquants.com/ja/spec/eq-bars-daily
 Official J-Quants calendar source: https://jpx-jquants.com/ja/spec/mkt-cal
 
 Windows CLI 59.7 original failure: `Error: unknown or unexpected option: --from` before any provider request. Fixed by the no-flag child runner above, not by upgrading the Vercel CLI or changing the J-Quants subscription. If the child reports a missing private key, **do not paste the key**; Preview sensitive secrets may not be readable in local CLI execution depending on Vercel configuration. Stop at the reported failure rather than improvising a workaround involving credentials.
+
+## Windows PowerShell 5.1 / Vercel CLI 59.7 command separator (2026-11-01)
+
+On the user's linked Windows workstation the first wrapper run failed with `unknown or unexpected option: --from`. After switching to a no-flag child it failed with `No command provided. Use -- to separate vercel flags from your command.`
+
+Windows npm commonly installs both `vercel.ps1` and `vercel.cmd`. PowerShell command resolution prefers the PowerShell shim; the separator handling of that shim is a likely cause. The wrapper now explicitly resolves the native `vercel.cmd` executable and passes the **literal quoted** `'--'` separator before `node scripts/research/ma75-jquants-vercel-preview-entry.mjs`. It refuses to fall back silently to the PowerShell shim if `vercel.cmd` is missing. Do not upgrade Vercel or change any Preview keys just to work around this issue.
+
+This is a source-level fix with regression tests; it still requires user-local verification with Vercel CLI 59.7. The CLI may later reject locally unavailable sensitive Preview keys; if so the runner fails closed and original J-Quants daily acquisition remains pending. Never send `.env.local`, `.vercel/project.json`, an actual API key, or provider raw responses to a chat.
