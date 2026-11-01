@@ -27,3 +27,14 @@ test('wrong symbol and duplicate minute fail closed',()=>{
  assert.throws(()=>measurePost905Outcomes([row('09:04',100,100,100,100),row('09:04',100,100,100,100)],scope));
  assert.throws(()=>measurePost905Outcomes([{...row('09:04',100,100,100,100),Code:'13010'}],scope));
 });
+
+test('missing pre905 slots are explicitly unknown and never production eligible',()=>{
+ const x=measurePost905Outcomes([
+  row('09:00',100,100,100,100),row('09:02',100,100,100,100),
+  row('09:04',100,100,100,100),row('09:05',100,101,100,100)
+ ],{code:'1332',date:'2026-10-30'});
+ assert.deepEqual(x.observedPre905Minutes,['09:00','09:02','09:04']);
+ assert.deepEqual(x.missingPre905Minutes,['09:01','09:03']);
+ assert.equal(x.missingPre905MinuteCause,'UNKNOWN_NO_TRADE_OR_DATA_GAP');
+ assert.equal(x.eligibleForProduction,false);
+});
