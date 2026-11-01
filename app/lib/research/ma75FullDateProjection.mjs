@@ -28,7 +28,8 @@ export function projectMa75FullDateSource(freeze,{date,pages}={}){
  const selectedPages=[],unselectedCodes=new Set();
  let originalRows=0,selectedRows=0,unselectedRows=0;
  for(const p of pages){
-  if(!p||!Array.isArray(p.response?.data)||p.response.data.length>10000)
+  if(!p||!Object.prototype.hasOwnProperty.call(p,'requestPaginationKey')||
+     !Array.isArray(p.response?.data)||p.response.data.length>10000)
    throw new TypeError('INVALID_DATE_QUERY_PAGE');
   const selected=[];
   for(const row of p.response.data){

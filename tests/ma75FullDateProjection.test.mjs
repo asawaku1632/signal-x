@@ -64,3 +64,11 @@ test('future stock-rights other class cannot satisfy a missing frozen ordinary c
  assert.equal(r.projectedFrozenRows,1);
  assert.equal(r.audit.counts.MISSING_PROVIDER_ROW,1);
 });
+
+test('missing original request pagination key cannot become a valid derived page',()=>{
+ const src=page([row('13010'),row('186A0')]);
+ delete src.requestPaginationKey;
+ assert.throws(()=>projectMa75FullDateSource(freeze(),{
+  date,pages:[src]
+ }),TypeError);
+});
