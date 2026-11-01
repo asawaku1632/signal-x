@@ -64,6 +64,16 @@ test('audit reconciles complete cases, missing months and corporate action witho
  assert.equal(report.frozenCodes,2);
  assert.equal(report.completeHistoryCodes,1);
  assert.equal(report.incompleteHistoryCodes,1);
+ const warmup=report.preFreeze75SessionWarmup;
+ assert.equal(warmup.status,'ARCHIVED_BAR_COMPLETENESS_ONLY');
+ assert.equal(warmup.requiredHistoricalSessions,75);
+ assert.equal(warmup.frozenCodes,2);
+ assert.equal(warmup.codesWithAll75ArchivedBars,1);
+ assert.equal(warmup.codesWithMissingOrQuarantinedBars,1);
+ assert.deepEqual(warmup.missingCodeDayReasons,{CORPORATE_ACTION_REVIEW:1});
+ assert.equal(warmup.noPostFreezeBarRead,true);
+ assert.equal(warmup.noProspectiveSignalRecorded,true);
+ assert.equal(warmup.noTradingOrNotificationEligible,true);
  assert.deepEqual(report.unavailableCodeSessions,{
   CORPORATE_ACTION_REVIEW:1,MISSING_PROVIDER_ROW:2
  });
