@@ -30,7 +30,7 @@ export function alignVerifiedSessionHorizons({
   const index = indexCloses instanceof Map ? indexCloses : new Map();
   const baseStock = stock.get(signalDate);
   const baseIndex = index.get(signalDate);
-  if (!positive(baseStock) || !positive(baseIndex)) return blocked("MISSING_BASE_CLOSE");
+  if (!positive(baseStock)) return blocked("MISSING_BASE_STOCK_CLOSE");
   const result = {};
   for (const h of horizons) {
     const date = exchangeSessions[pos + h];
@@ -39,12 +39,19 @@ export function alignVerifiedSessionHorizons({
       continue;
     }
     const futureStock = stock.get(date);
-    const futureIndex = index.get(date);
-    if (!positive(futureStock) || !positive(futureIndex)) {
-      result[h] = { status: "MISSING_CLOSE", date };
+    if (!positive(futureStock)) {
+      result[h] = { status: "MISSING_STOCK_CLOSE", date };
       continue;
     }
     const stockReturn = (futureStock / baseStock - 1) * 100;
+    const futureIndex = index.get(date);
+    if (!positive(baseIndex) || !positive(futureIndex)) {
+      result[h] = {
+        status: "STOCK_ONLY", date, stockReturn,
+        benchmarkReturn: null, excessReturn: null,
+      };
+      continue;
+    }
     const benchmarkReturn = (futureIndex / baseIndex - 1) * 100;
     result[h] = {
       status: "READY", date, stockReturn, benchmarkReturn,
