@@ -224,54 +224,15 @@ export async function updateMomentumMemoryOutcomes(
 }
 
 
-export async function updateMomentumMemoryBenchmarks(targetDate: string): Promise<{ momentumMemoryBenchmarksUpdated: number }> {
-  const result = await pool.query(`
-    WITH candidates AS (
-      SELECT m.id, m.trade_date, m.result_5d,
-        base.topix AS base_topix,
-        future.topix AS future_topix
-      FROM momentum_memory_observations m
-      LEFT JOIN LATERAL (
-        SELECT topix FROM market_learning_logs
-        WHERE trade_date = m.trade_date AND topix IS NOT NULL
-        ORDER BY created_at DESC LIMIT 1
-      ) base ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT session.trade_date
-        FROM (
-          SELECT DISTINCT trade_date
-          FROM market_learning_logs
-          WHERE trade_date > m.trade_date
-            AND trade_date <= $1::date
-            AND EXTRACT(ISODOW FROM trade_date) BETWEEN 1 AND 5
-        ) session
-        ORDER BY session.trade_date ASC
-        OFFSET 4 LIMIT 1
-      ) fifth_session ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT topix
-        FROM market_learning_logs
-        WHERE trade_date = fifth_session.trade_date
-          AND topix IS NOT NULL
-        ORDER BY created_at DESC
-        LIMIT 1
-      ) future ON TRUE
-      WHERE m.observation_flag = TRUE
-        AND m.result_5d IS NOT NULL
-        AND (m.benchmark_5d IS NULL OR m.excess_return_5d IS NULL)
-    )
-    UPDATE momentum_memory_observations m
-    SET benchmark_key = 'TOPIX',
-        benchmark_5d = ROUND((100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0))::numeric, 4),
-        excess_return_5d = ROUND((m.result_5d - (100.0 * (c.future_topix - c.base_topix) / NULLIF(c.base_topix, 0)))::numeric, 4),
-        updated_at = NOW()
-    FROM candidates c
-    WHERE m.id = c.id
-      AND c.base_topix IS NOT NULL
-      AND c.future_topix IS NOT NULL
-    RETURNING m.id
-  `, [targetDate]);
-  return { momentumMemoryBenchmarksUpdated: result.rowCount ?? 0 };
+/**
+ * Safety gate: market_learning_logs includes saved holiday and weekend snapshots
+ * and can omit real exchange sessions. Its dates are not a verified TSE calendar.
+ * Do not infer fifth trading session or persist a misleading TOPIX excess return.
+ * Re-enable only after an independently validated exchange-session calendar,
+ * complete dated index closes and matching stock-outcome horizons are available.
+ */
+export async function updateMomentumMemoryBenchmarks(_targetDate: string): Promise<{ momentumMemoryBenchmarksUpdated: number }> {
+  return { momentumMemoryBenchmarksUpdated: 0 };
 }
 
 export async function refreshMomentumMemoryForwardStats(): Promise<void> {
