@@ -77,6 +77,13 @@ test('audit reconciles complete cases, missing months and corporate action witho
  assert.equal(report.historicalCompleteCaseDiagnostic.acceptedByStudy,1);
  assert.ok(report.historicalCompleteCaseDiagnostic.stats.find(x=>x.kind==='BREAKOUT').completed>=1);
  assert.equal(report.historicalCompleteCaseDiagnostic.forwardIndependentValidation,false);
+ assert.equal(report.historicalCompleteCaseDiagnostic.pairSelectionUsesFutureRetest,true);
+ const x=report.historicalCompleteCaseDiagnostic.precloseConditions;
+ assert.equal(x.trueIndependentChronologicalHoldout,false);
+ assert.equal(x.featureCutoff,'BREAKOUT_SIGNAL_DAY_COMPLETED_CLOSE');
+ assert.equal(x.full953HeadlineResults,null);
+ assert.ok(x.conditions.find(g=>g.condition==='ALL_BREAKOUTS').completed>=1);
+ assert.equal(x.eligibleForProduction,false);
  assert.equal(report.full953HeadlineResults,null);
  assert.equal(report.full953HeadlinePaired,null);
  assert.equal(report.independentlyValidatedWinRate,null);
