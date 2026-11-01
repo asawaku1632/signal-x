@@ -13,7 +13,7 @@ const fixture = () => ({
 });
 
 test("fail closed on unverified or incomplete calendar", () => {
-  assert.equal(align(fixture() && { ...fixture(), calendarVerified: false }).status, "BLOCKED");
+  assert.equal(align({ ...fixture(), calendarVerified: false }).status, "BLOCKED");
   assert.equal(align({ ...fixture(), calendarComplete: false }).status, "BLOCKED");
 });
 
