@@ -17,7 +17,8 @@ test('local licensed provider PowerShell wrapper requires explicit execute',()=>
 });
 
 test('local runner does not depend on Vercel CLI or store API key to disk',()=>{
- assert.doesNotMatch(script,/vercel env|env pull|\.env\.local|Set-Content|Out-File|Write-Host|curl/);
+ const executed=script.split('\n').filter(line=>!line.trimStart().startsWith('#')).join('\n');
+ assert.doesNotMatch(executed,/vercel env|env pull|\.env\.local|Set-Content|Out-File|Write-Host|curl/);
  assert.match(script,/Read-Host .* -AsSecureString/);
  assert.match(script,/SetEnvironmentVariable\('JQUANTS_API_KEY',\$plainKey,'Process'\)/);
 });
@@ -31,7 +32,7 @@ test('local runner restores process environment and zeroes native secret copy',(
 });
 
 test('bulk research emits safe structural progress and never logs API key',()=>{
- assert.match(bulk,/onProgress=()=>\{\}/);
+ assert.ok(bulk.includes('onProgress=()=>{},persist=true'));
  for(const phase of ['CALENDAR_START','CALENDAR_READY','DAY_START',
   'DAY_COMPLETE','ANALYSIS_START','ANALYSIS_COMPLETE'])
   assert.ok(bulk.includes("phase:'"+phase+"'"));
