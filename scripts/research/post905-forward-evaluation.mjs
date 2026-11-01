@@ -27,7 +27,7 @@ export function evaluateForward(rows,{cutoffDate,feeBps=0,slippageBps=0,minTrain
   else if(r.independentCapture!==true||r.sourceVerified!==true||r.lookaheadFreeVerified!==true)reason='UNVERIFIED_ASOF_EVIDENCE';
   else if([bar,received,decision,entry,exit].some(x=>x===null)||!(bar<=received&&received<=decision&&decision<=nine&&nine<=entry&&entry<exit))reason='INVALID_TIMELINE';
   else if(!finitePositive(r.entryPrice)||!finitePositive(r.exitPrice)||r.fillVerified!==true)reason='UNVERIFIED_FILL';
-  else if(!Number.isInteger(r.holdingTradingDays)||r.holdingTradingDays<1||r.holdingTradingDays>5)reason='INVALID_HOLDING_PERIOD';
+  else if(!Number.isInteger(r.holdingTradingDays)||r.holdingTradingDays<1||r.holdingTradingDays>5||new Date(exit).toISOString().slice(0,10)<=r.date)reason='INVALID_HOLDING_PERIOD';
   else if(r.outcomeComplete!==true||r.outcomeKnownAtDecision===true)reason='OUTCOME_UNVERIFIED';
   if(reason){rejected[reason]=(rejected[reason]??0)+1;continue;}
   const gross=(r.exitPrice/r.entryPrice-1)*100;
