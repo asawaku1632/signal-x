@@ -17,6 +17,14 @@ const number=x=>typeof x==='number'&&Number.isFinite(x);
 const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
 const round=x=>Number(x.toFixed(5));
 const ID=(code,date)=>code+':'+date;
+const validReceivedAt=(timestamp,date)=>{
+  if(typeof timestamp!=='string'||!/(?:Z|[+-]\\d\\d:\\d\\d)$/.test(timestamp))
+    return false;
+  const parsed=Date.parse(timestamp);
+  // Conservative post-close receipt sanity floor (15:30 JST).
+  // Publication time and original vendor origin remain UNVERIFIED.
+  return Number.isFinite(parsed)&&parsed>=Date.parse(date+'T06:30:00Z');
+};
 export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSnapshot,calendarRevisionAudit}={}){
   validateMa75FrozenUniverse(freeze);
   if(!Array.isArray(sessions)||sessions.length!==76||
@@ -56,14 +64,31 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
     if(duplicateDates.has(date))reason='DUPLICATE_DATE_PAGE_AUDIT';
     else if(r.version!==MA75_JQUANTS_PAGE_VERSION||
       r.paginationComplete!==true||r.failures?.length!==0||
+      // A scoped one-stock pilot may never masquerade as a full-date cohort page.
+      r.auditScope!=='FROZEN_UNIVERSE'||r.requestedCode!==null||
+      r.originalFrozenCohortSize!==freeze.codes.length||
       r.expectedFrozenCodes!==freeze.codes.length||!Array.isArray(r.rows)||
       r.rows.length!==freeze.codes.length||r.providerRightsVerified!==false||
-      r.eligibleForForwardSignal!==false)
+      r.eligibleForForwardSignal!==false||
+      // Receipt and count metadata must describe actual captured provider pages.
+      // This does NOT authenticate their source or prove historical live access.
+      !Number.isSafeInteger(r.readPages)||r.readPages<1||
+      !Number.isSafeInteger(r.rawProviderRows)||r.rawProviderRows<0||
+      !Array.isArray(r.unmappedRows)||r.unmappedRows.length!==0||
+      !Array.isArray(r.duplicateCodeDates)||r.duplicateCodeDates.length!==0||
+      !Array.isArray(r.outsideFrozenCodes)||
+      r.verifiedOriginalProviderCapture!==false||
+      r.adjustedHistoricalAsOfValidated!==false||
+      !validReceivedAt(r.firstReceivedAt,date)||
+      !validReceivedAt(r.lastReceivedAt,date)||
+      Date.parse(r.lastReceivedAt)<Date.parse(r.firstReceivedAt))
       reason='INVALID_OR_INCOMPLETE_PAGE_AUDIT';
     else if(!r.counts||typeof r.counts!=='object'||
       !Number.isInteger(r.structurallyUsableRawBars)||
       Object.keys(r.counts).some(k=>r.counts[k]!==r.rows.filter(x=>x.status===k).length)||
       r.structurallyUsableRawBars!==r.rows.filter(x=>x.status==='DAILY_BAR').length||
+      r.rawProviderRows<r.rows.filter(x=>['DAILY_BAR','NO_TRADE',
+        'INVALID_OHLCV','CORPORATE_ACTION_REVIEW'].includes(x.status)).length||
       r.rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
       reason='TAMPERED_PROVIDER_ROW_COUNTS';
     else if(r.rows.some((row,i)=>row?.code!==freeze.codes[i]||
