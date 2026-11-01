@@ -4,7 +4,11 @@ import { pathToFileURL } from 'node:url';
 import { classifyHistoricalEvidence } from '../../app/lib/research/post905EvidenceClassification.mjs';
 
 const datePattern = /^20\d\d-\d\d-\d\d$/;
-const codePattern = /^\d{4}|\d{3}[A-Z]$/;
+function validTradeDate(value) {
+  if (typeof value !== 'string' || !datePattern.test(value)) return false;
+  const time = Date.parse(value + 'T00:00:00Z');
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
 const allowed = new Set(['--input', '--output']);
 
 export function auditCaptures(rows) {
@@ -17,7 +21,7 @@ export function auditCaptures(rows) {
   for (const row of rows) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('INVALID_ROW');
     const code = row.code, date = row.trade_date;
-    if (typeof code !== 'string' || !/^(?:\d{4}|\d{3}[A-Z])$/.test(code) || typeof date !== 'string' || !datePattern.test(date)) throw new Error('INVALID_SCOPE');
+    if (typeof code !== 'string' || !/^(?:\d{4}|\d{3}[A-Z])$/.test(code) || !validTradeDate(date)) throw new Error('INVALID_SCOPE');
     const key = date + '/' + code;
     if (seen.has(key)) throw new Error('DUPLICATE_SCOPE');
     seen.add(key); dates.add(date); codes.add(code); scoped++;
