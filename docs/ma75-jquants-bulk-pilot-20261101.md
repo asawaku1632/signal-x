@@ -87,3 +87,49 @@ node .\scripts\research\ma75-local-coverage-audit.mjs
 For compact sharing, the user may locally run `node .\scripts\research\ma75-local-coverage-audit.mjs | ConvertFrom-Json | Select-Object -ExpandProperty historicalCompleteCaseDiagnostic | Select-Object -ExpandProperty precloseConditions | ConvertTo-Json -Depth 12`; this prints **derived aggregate data**, no API key or original private daily source files. Do not upload raw licensed J-Quants pages.
 
 **Decision: keep signal promotion locked.** `eligibleForProduction`, `eligibleForNotifications` and `eligibleForTrading` remain false until post-freeze forward observations, reliable adjustment/event handling, robust independent dates and market regimes and realistic costs are verified.
+
+
+## Local preclose subgroup evidence and no-leakage stress checks (2026-11-01)
+
+Owner-local J-Quants historical output for the 912 complete-history subset, with assumed 0.1% friction per side and 5-session exits:
+
+| Observable at signal-close condition | Signals | Completed 5-session outcomes | Win rate | Mean net 5-session return |
+| --- | ---: | ---: | ---: | ---: |
+| All MA75 breakouts | 1,162 | 1,029 | 43.63% | -0.4586% |
+| Rising 75-session SMA | 808 | 717 | 47.84% | -0.0062% |
+| Signal-date volume >=1.5x previous 20 dates | 179 | 146 | 40.41% | -1.3127% |
+| Rising SMA75 AND volume >=1.5x | 116 | 94 | 44.68% | -0.6896% |
+
+This **does not demonstrate a positive edge**. Rising SMA75 improved the retrospective *complete-case subset* average to near zero, not positive; 90 rising-SMA signals lack a complete five-session outcome and one was quarantined. The high-volume criteria were *negative* in the observed period. Since only 122 daily bars were captured and 75 were needed as warmup, the usable breakout window is short. Retrospective feature comparisons and any choice to prefer rising-SMA were made after seeing this sample, not confirmed on genuinely unseen dates.
+
+### Independent diagnostic, not a new winning condition
+
+A pure offline helper `scripts/research/ma75-historical-robustness.mjs` now reports for each existing condition:
+1. The number of distinct signal dates and dates with completed outcomes.
+2. **Equal-weighted average of each completed signal date's mean return**, alongside trade/event-weighted mean (to expose event-heavy days).
+3. Greedy earliest-in-time, **per-security five-session non-overlap selection** fixed without looking at later return or later retest. Both completed and pending counts are preserved.
+4. Worst and best completed signal-date means as exploratory concentration diagnostics.
+
+These observations are not independent across stocks or calendar dates, and equal-date weighting is **not** a traded portfolio or a cure for selection bias. The non-overlap rule does not use future wins; later events are dropped strictly by a five-session interval after the first signal on a code. No p-values, validated win rates, or trade eligibility are claimed.
+
+The offline command is the same (no API key, no network, no output file writes):
+
+```powershell
+git switch research/ma75-breakout-retest-shadow-20261031
+git pull --ff-only
+$report = node .\scripts\research\ma75-local-coverage-audit.mjs | ConvertFrom-Json
+$report.historicalCompleteCaseDiagnostic.precloseConditions.conditions |
+    ForEach-Object {
+      [PSCustomObject]@{
+        condition = $_.condition
+        completed = $_.completed
+        mean5 = $_.averageReturn5Percent
+        signalDates = $_.dependenceStressCheck.allSignals.distinctSignalDates
+        equalDateMean5 = $_.dependenceStressCheck.allSignals.completedSignalDateEqualWeightedAverage5Percent
+        nonOverlapCompleted = $_.dependenceStressCheck.earliestNonOverlappingPerCode.completed
+        nonOverlapMean5 = $_.dependenceStressCheck.earliestNonOverlappingPerCode.completedTradeWeightedAverage5Percent
+      }
+    } | Format-Table -AutoSize
+```
+
+Only derived summary metrics are printed; the original licensed files remain private. Even if a subgroup looks positive in this check, it remains in shadow research. Independent post-freeze dates, realistic fills, market regime and multiple-hypothesis robustness must be established before any promotion into the app.
