@@ -136,8 +136,8 @@ git switch research/ma75-breakout-retest-shadow-20261031
 if ($LASTEXITCODE -ne 0) { throw "research branch missing" }
 git pull --ff-only
 if ($LASTEXITCODE -ne 0) { throw "git update failed" }
-.\\scripts\\research\\ma75-run-forward-day-local.ps1 -Date 2026-11-02
-$r = node .\\scripts\\research\\ma75-local-coverage-audit.mjs | ConvertFrom-Json
+.\scripts\research\ma75-run-forward-day-local.ps1 -Date 2026-11-02
+$r = node .\scripts\research\ma75-local-coverage-audit.mjs | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw "warmup audit failed" }
 $r.preFreeze75SessionWarmup | Format-List
 ```
@@ -147,7 +147,7 @@ daily source is really available and the owner explicitly wants one manual
 provider read**, run from the research worktree:
 
 ```powershell
-.\\scripts\\research\\ma75-run-forward-day-local.ps1 -Date 2026-11-02 -Execute
+.\scripts\research\ma75-run-forward-day-local.ps1 -Date 2026-11-02 -Execute
 ```
 
 The wrapper checks the time threshold *before asking for a key*; this
