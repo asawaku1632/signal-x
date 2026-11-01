@@ -40,7 +40,7 @@ try{
   const command=[
    'scripts/research/jquants-minute-pilot.mjs','--code='+code,
    '--date='+job.date,'--max-pages='+maxPages,'--compare-daily',
-   '--execute','--output='+job.file.replaceAll('\\','/')
+   '--execute','--output='+dir+'/research-'+code+'-'+job.date+'.json'
   ];
   const result=spawnSync(process.execPath,command,{
    cwd:resolve('.'),env:process.env,encoding:'utf8',timeout:90000,
