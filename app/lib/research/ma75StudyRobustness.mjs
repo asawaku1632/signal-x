@@ -3,7 +3,9 @@ import { summarizeMa75Robustness } from './ma75ReturnRobustness.mjs';
 
 const dateFromSignal = seconds => {
   if (!Number.isSafeInteger(seconds)) throw new TypeError('Invalid signal timestamp');
-  return new Date(seconds * 1000).toISOString().slice(0, 10);
+  const date = new Date(seconds * 1000);
+  if (!Number.isFinite(date.getTime())) throw new TypeError('Invalid signal timestamp');
+  return date.toISOString().slice(0, 10);
 };
 
 /**
@@ -13,6 +15,7 @@ const dateFromSignal = seconds => {
 export function auditMa75StudyRobustness(study, {
   kind = 'BREAKOUT',
   regimeByDate = {},
+  requireAsOfRegimeEvidence = true,
 } = {}) {
   if (!Array.isArray(study?.observations) || !['BREAKOUT','RETEST'].includes(kind) ||
       !regimeByDate || typeof regimeByDate !== 'object' || Array.isArray(regimeByDate))
@@ -28,8 +31,18 @@ export function auditMa75StudyRobustness(study, {
     if (row.outcome5Status !== 'COMPLETED' ||
         !Number.isFinite(row.return5Percent)) { pending.invalid++; continue; }
     const date = dateFromSignal(row.signalTime);
+    const evidence = regimeByDate[date];
+    let regime = 'UNKNOWN';
+    if (evidence !== undefined) {
+      if (typeof evidence === 'object' && evidence !== null &&
+          ['UP','DOWN'].includes(evidence.regime) &&
+          Number.isSafeInteger(evidence.availableAt) &&
+          evidence.availableAt <= row.signalTime) regime = evidence.regime;
+      else if (!requireAsOfRegimeEvidence && ['UP','DOWN'].includes(evidence))
+        regime = evidence;
+    }
     rows.push({ code: String(row.code), date,
-      return5Percent: row.return5Percent, regime: regimeByDate[date] ?? 'UNKNOWN' });
+      return5Percent: row.return5Percent, regime });
   }
   return { ...summarizeMa75Robustness(rows), kind, excluded: pending,
     regimeProvenanceExternallyVerified: false,
