@@ -21,3 +21,9 @@ Research-only audit. No production changes.
 5. Compare forward MM returns with the matched TOPIX five-session return in shadow mode; do not release notifications before independent validation.
 
 Status: BLOCKED. No trading edge claimed.
+
+## Additional production calendar audit
+- Logged non-session dates include 2026-07-19 (Sunday), 2026-07-20 (Marine Day), 2026-08-11 (Mountain Day), 2026-09-21 (Respect for the Aged Day), and 2026-09-22 (citizens' holiday).
+- Weekend-only filtering does NOT exclude the four weekday holidays above.
+- July 7 to July 20 has a substantial logging gap; the fifth *logged* weekday is not necessarily the fifth exchange session.
+- Consequently the provisional fifth-logged-weekday query MUST NOT be treated as a verified five-exchange-session benchmark. Keep benchmark/notification release blocked until independent session calendar coverage is proven.
