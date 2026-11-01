@@ -106,7 +106,7 @@ export async function runMa75BulkResearch(argv,{
  readFreeze=()=>JSON.parse(readFileSync(FREEZE,'utf8')),
  readCached=readMa75PrivateSavedDate,
  writePrivate=safeWrite,ensurePrivate=realPrivate,
- persist=true
+ onProgress=()=>{},persist=true
 }={}){
  const opts=parseMa75BulkArgs(argv);
  const now=clock();
@@ -120,6 +120,7 @@ export async function runMa75BulkResearch(argv,{
   throw new TypeError('EXPLICIT_CONSENT_AND_PRIVATE_API_KEY_REQUIRED');
  const key=env.JQUANTS_API_KEY,freeze=readFreeze();
  validateMa75FrozenUniverse(freeze);
+ onProgress({phase:'CALENDAR_START',from:opts.from,to:opts.to});
  const calUrl=new URL(CALENDAR);
  calUrl.searchParams.set('from',opts.from);calUrl.searchParams.set('to',opts.to);
  let reply;
@@ -134,6 +135,7 @@ export async function runMa75BulkResearch(argv,{
  if(!body||!Array.isArray(body.data)||body.pagination_key)
   throw new TypeError('CALENDAR_PAGINATION_OR_RESPONSE_UNVERIFIED');
  const sessions=validateMa75OriginalTseCalendar(body.data,opts.from,opts.to);
+ onProgress({phase:'CALENDAR_READY',total:sessions.length});
  if(persist)ensurePrivate();
  const captures=[],perCode=new Map(freeze.codes.map(c=>[c,[]]));
  let alreadySavedDates=0,newlyDownloadedDates=0;
@@ -142,6 +144,8 @@ export async function runMa75BulkResearch(argv,{
   const date=sessions[i],privateFile='research-private/'+date+'-jquants-daily.json';
   // A retry may reuse only exact, fully audited originals; never overwrite.
   const cached=persist?readCached(privateFile):null;
+  onProgress({phase:'DAY_START',done:i,total:sessions.length,date,
+   source:cached?'SAVED_LOCAL':'JQUANTS_API'});
   const data=cached??await acquireMa75OneDatePages(freeze,{
    date,apiKey:key,clock,fetchImpl,maxPages:12
   });
@@ -161,6 +165,10 @@ export async function runMa75BulkResearch(argv,{
   }
   captures.push({date,rows:data.originalProviderRows,selected:data.frozenRows,
    missingFrozen:project.audit.counts.MISSING_PROVIDER_ROW??0});
+  onProgress({phase:'DAY_COMPLETE',done:i+1,total:sessions.length,date,
+   source:cached?'SAVED_LOCAL':'JQUANTS_API',
+   originalRows:data.originalProviderRows,
+   missingFrozen:project.audit.counts.MISSING_PROVIDER_ROW??0});
   if(!cached&&i+1<sessions.length)await pause(8000); // conservative per-date pacing
  }
  const cohorts=[];
@@ -169,6 +177,8 @@ export async function runMa75BulkResearch(argv,{
   if(bars.length!==sessions.length||bars.some(x=>x===null)){incompleteCodes++;continue}
   cohorts.push({code,timeframe:'1D',candles:bars});
  }
+ onProgress({phase:'ANALYSIS_START',total:sessions.length,
+  completeCodes:cohorts.length,incompleteCodes});
  const summary=studyMa75BreakoutRetest(cohorts);
  // Never present winners-only returns when an incomplete frozen population was
  // quietly dropped from the denominator. Historical source data remains usable
@@ -198,10 +208,14 @@ export async function runMa75BulkResearch(argv,{
   eligibleForAIPowerScoring:false,eligibleForTrading:false
  };
  if(persist)writePrivate('research-private/ma75-jquants-bulk-summary-'+opts.to+'.json',aggregate);
+ onProgress({phase:'ANALYSIS_COMPLETE',total:sessions.length,
+  completeCodes:cohorts.length,incompleteCodes});
  return aggregate;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
- runMa75BulkResearch(process.argv.slice(2))
+ runMa75BulkResearch(process.argv.slice(2),{
+  onProgress:event=>process.stderr.write('MA75_PROGRESS '+JSON.stringify(event)+'\n')
+ })
   .then(r=>process.stdout.write(JSON.stringify(r)+'\n'))
   .catch(()=>{process.stderr.write('MA75_BULK_HISTORICAL_READ_FAILED_OR_BLOCKED\n');
    process.exitCode=1});
