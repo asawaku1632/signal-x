@@ -44,7 +44,8 @@ export function parseMa75OneDateCaptureArgs(argv){
  }
  if(!args.date||!args.output||typeof args.output!=='string'||
     !args.output.endsWith('.json')||args.output.length>240||
-    args.output.includes('\0')||!Number.isInteger(args.maxPages))
+    args.output.includes('\0')||!Number.isInteger(args.maxPages)||
+    args.maxPages<1||args.maxPages>MAX_DATE_CAPTURE_PAGES)
   throw new TypeError('REQUIRE_SAFE_OUTPUT_JSON_AND_DATE');
  return args;
 }
