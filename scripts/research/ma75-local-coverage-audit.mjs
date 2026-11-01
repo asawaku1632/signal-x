@@ -113,6 +113,22 @@ export function analyzeMa75SavedCompletion({freeze,baselineSummary,dateRecords})
     complete.length+issues.length!==freeze.codes.length)
    invalid('FROZEN_DENOMINATOR_MISMATCH');
  const study=studyMa75BreakoutRetest(complete);
+ // Historical warmup is a different denominator from 122-session complete
+ // cases. Having 75 archived days never authenticates a prospective signal.
+ const last75Dates=dateRecords.slice(-75).map(r=>r.date);
+ const warmupMissingReasons={},warmupMissingCodes=[];
+ let warmupComplete=0;
+ for(const [code,items] of prior){
+  const recent=items.slice(-75);
+  if(recent.length!==75)invalid('HISTORICAL_WARMUP_TOO_SHORT');
+  const bad=recent.filter(item=>item.status!=='DAILY_BAR');
+  if(!bad.length)warmupComplete++;
+  else {
+   warmupMissingCodes.push(code);
+   for(const item of bad)
+    warmupMissingReasons[item.status]=(warmupMissingReasons[item.status]??0)+1;
+  }
+ }
  return {
   version:'ma75_local_completion_audit_v1',
   status:'OFFLINE_HISTORICAL_DIAGNOSTIC_ONLY',
@@ -122,6 +138,21 @@ export function analyzeMa75SavedCompletion({freeze,baselineSummary,dateRecords})
   incompleteHistoryCodes:issues.length,
   unavailableCodeSessions:issueReasons(Object.entries(reasons)),
   missingByCode:issues,
+  preFreeze75SessionWarmup:{
+   status:'ARCHIVED_BAR_COMPLETENESS_ONLY',
+   sourceFirstDate:last75Dates[0],
+   sourceLastDate:last75Dates.at(-1),
+   requiredHistoricalSessions:75,
+   frozenCodes:freeze.codes.length,
+   codesWithAll75ArchivedBars:warmupComplete,
+   codesWithMissingOrQuarantinedBars:warmupMissingCodes.length,
+   missingCodeDayReasons:warmupMissingReasons,
+   noPostFreezeBarRead:true,
+   noProspectiveSignalRecorded:true,
+   noSourceRightsCertification:true,
+   noPointInTimeCaptureCertification:true,
+   noTradingOrNotificationEligible:true
+  },
   historicalCompleteCaseDiagnostic:{
    denominator:'COMPLETE_HISTORY_SUBSET_ONLY_NOT_ALL_FROZEN_CODES',
    selectedFromFrozenUniverseAfterHistoricalPeriod:true,
