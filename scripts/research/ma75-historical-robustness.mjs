@@ -15,6 +15,38 @@ const avg=values=>values.length?
  round(values.reduce((a,b)=>a+b,0)/values.length):null;
 const dateOf=s=>new Date(s.signalTime*1000).toISOString().slice(0,10);
 const closed=s=>s.outcome5Status==='COMPLETED'&&finite(s.return5Percent);
+// Each recorded return already assumes 0.1% entry and 0.1% exit friction.
+// Reprice the same entry/exit gross price ratio at extra symmetric friction,
+// rather than simply subtracting percentage points from an arithmetic mean.
+const ORIGINAL_FRICTION_PER_SIDE=0.001;
+const EXTRA_ROUNDTRIP_PERCENT=Object.freeze([0,0.10,0.20,0.40]);
+function repriceNetReturnPercent(returnPercent,additionalRoundTripPercent){
+ const perSide=additionalRoundTripPercent/200;
+ if(additionalRoundTripPercent===0)return returnPercent;
+ const ratio=(1-ORIGINAL_FRICTION_PER_SIDE-perSide)/
+             (1-ORIGINAL_FRICTION_PER_SIDE)*
+             (1+ORIGINAL_FRICTION_PER_SIDE)/
+             (1+ORIGINAL_FRICTION_PER_SIDE+perSide);
+ return ((1+returnPercent/100)*ratio-1)*100;
+}
+function costScenario(rows,additionalRoundTripPercent){
+ const completed=rows.filter(closed);
+ const byDate=new Map();
+ const values=[];
+ for(const s of completed){
+  const r=repriceNetReturnPercent(s.return5Percent,additionalRoundTripPercent);
+  values.push(r);
+  const date=dateOf(s),dateValues=byDate.get(date)??[];
+  dateValues.push(r);byDate.set(date,dateValues);
+ }
+ return {
+  completed:completed.length,
+  meanNetReturn5Percent:avg(values),
+  dateEqualWeightedMeanNetReturn5Percent:avg([...byDate.values()].map(avg)),
+  winRatePercent:completed.length?
+   round(100*values.filter(x=>x>0).length/completed.length,2):null
+ };
+}
 function summarizeFixedRows(rows){
  const completed=rows.filter(closed),dates=new Map();
  for(const r of completed){
@@ -67,10 +99,20 @@ export function analyzeMa75RetrospectiveRobustness(rows){
   resultType:'DESCRIPTIVE_STRESS_CHECK_NOT_HOLDOUT',
   allSignals:all,
   earliestNonOverlappingPerCode:noOverlap,
+  incrementalExecutionFrictionSensitivity:EXTRA_ROUNDTRIP_PERCENT.map(additionalRoundTripPercent=>({
+   additionalRoundTripPercent,
+   allBreakouts:costScenario(ordered,additionalRoundTripPercent),
+   earliestNonOverlappingPerCode:costScenario(earliest,additionalRoundTripPercent)
+  })),
+  originalAssumedPerSideFrictionPercent:0.1,
+  additionalFrictionAppliedSymmetricallyPerSide:true,
+  additionalFrictionScenariosAreCounterfactualNotObservedFees:true,
   nonOverlapDefinition:'GREEDY_EARLIEST_BY_CODE_SIGNAL_INDEX_WITH_FIVE_SESSION_EXCLUSION',
   excludesFollowingFiveSessionSignalsWithoutLookingAtFutureOutcome:true,
   eventCountNotIndependentAcrossStocksOrCalendarDates:true,
   dateEqualWeightNotCausalOrPortfolioSimulation:true,
+  candidateSelectionIsPostHoc:true,
+  signalTimeEventClusterMayRemainCorrelated:true,
   futureKnowledgeUsedForTradeSelection:false,
   independentForwardValidation:false,
   eligibleForProduction:false,
