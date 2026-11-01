@@ -4,12 +4,16 @@ export function summarizeMa75Robustness(rows) {
   const ids = new Set();
   const groups = new Map();
   for (const row of rows) {
-    if (!row || typeof row.code !== 'string' || typeof row.date !== 'string' ||
+    if (!row || typeof row.code !== 'string' || typeof row.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) ||
+        !Number.isFinite(Date.parse(row.date + 'T00:00:00Z')) ||
+        new Date(row.date + 'T00:00:00Z').toISOString().slice(0,10) !== row.date ||
         !Number.isFinite(row.return5Percent)) throw new TypeError('Invalid observation');
     const id = row.code + ':' + row.date;
     if (ids.has(id)) throw new TypeError('Duplicate code/date');
     ids.add(id);
-    const regime = ['UP', 'DOWN'].includes(row.regime) ? row.regime : 'UNKNOWN';
+    if (row.regime != null && !['UP','DOWN','UNKNOWN'].includes(row.regime))
+      throw new TypeError('Unrecognized regime label');
+    const regime = row.regime ?? 'UNKNOWN';
     if (!groups.has(regime)) groups.set(regime, []);
     groups.get(regime).push(row);
   }
