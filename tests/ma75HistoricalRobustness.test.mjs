@@ -49,6 +49,37 @@ test('date-equal weighting is distinguished from clustered event-weighted mean',
  assert.equal(out.allSignals.worstCompletedSignalDateMeanPercent,-9);
 });
 
+test('extra symmetric roundtrip friction flips near-zero edge without changing signal selection',()=>{
+ const events=[
+  event('1301','2026-09-02',75,0.0277),
+  event('1302','2026-09-03',77,0.0277)
+ ];
+ const out=analyzeMa75RetrospectiveRobustness(events);
+ assert.equal(out.originalAssumedPerSideFrictionPercent,0.1);
+ const scenarios=out.incrementalExecutionFrictionSensitivity;
+ assert.deepEqual(scenarios.map(s=>s.additionalRoundTripPercent),[0,0.1,0.2,0.4]);
+ assert.equal(scenarios[0].allBreakouts.meanNetReturn5Percent,0.0277);
+ assert.equal(scenarios[0].earliestNonOverlappingPerCode.meanNetReturn5Percent,0.0277);
+ assert.equal(scenarios[0].allBreakouts.winRatePercent,100);
+ assert.ok(scenarios[1].allBreakouts.meanNetReturn5Percent<0);
+ assert.equal(scenarios[1].allBreakouts.winRatePercent,0);
+ assert.equal(scenarios[1].earliestNonOverlappingPerCode.completed,2);
+ assert.ok(scenarios[2].allBreakouts.meanNetReturn5Percent<
+  scenarios[1].allBreakouts.meanNetReturn5Percent);
+ assert.equal(out.additionalFrictionScenariosAreCounterfactualNotObservedFees,true);
+});
+test('friction stress excludes pending and quarantined and retains null when none settled',()=>{
+ const out=analyzeMa75RetrospectiveRobustness([
+  event('1301','2026-10-30',105,null,'PENDING'),
+  event('1302','2026-09-29',96,null,'QUARANTINED_GAP')
+ ]);
+ for(const scenario of out.incrementalExecutionFrictionSensitivity){
+  assert.equal(scenario.allBreakouts.completed,0);
+  assert.equal(scenario.allBreakouts.meanNetReturn5Percent,null);
+  assert.equal(scenario.allBreakouts.dateEqualWeightedMeanNetReturn5Percent,null);
+  assert.equal(scenario.allBreakouts.winRatePercent,null);
+ }
+});
 test('pending-only cohort reports null returns rather than a fake winner',()=>{
  const out=analyzeMa75RetrospectiveRobustness([
   event('1301','2026-10-30',105,null,'PENDING')
