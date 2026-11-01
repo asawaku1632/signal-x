@@ -33,3 +33,12 @@ test('untimestamped regime strings are unknown by default', () => {
  const result=auditMa75StudyRobustness(study,{regimeByDate:{'2026-10-01':'DOWN'}});
  assert.equal(result.regimes.UNKNOWN.count,1);
 });
+
+test('caller cannot disable timestamp evidence validation', () => {
+ const study={observations:[{kind:'BREAKOUT',code:'1001',signalTime:t('2026-10-01'),outcome5Status:'COMPLETED',return5Percent:1}]};
+ const result=auditMa75StudyRobustness(study,{
+  regimeByDate:{'2026-10-01':'UP'},requireAsOfRegimeEvidence:false,
+ });
+ assert.equal(result.regimes.UNKNOWN.count,1);
+ assert.equal(result.regimes.UP.count,0);
+});
