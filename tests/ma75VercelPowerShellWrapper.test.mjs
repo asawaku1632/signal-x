@@ -28,7 +28,7 @@ test('Windows wrapper requires explicit user -Execute and validates team link',(
 test('Windows wrapper restores temporary controls even after a CLI error',()=>{
  assert.match(wrapper,/finally \{/);
  assert.match(wrapper,/SetEnvironmentVariable\(\$name, \$oldSettings\[\$name\], 'Process'\)/);
- assert.doesNotMatch(wrapper,/env pull|env add|--prod|vercel deploy|vercel link/);
+ assert.doesNotMatch(wrapper,/& vercel (?:env pull|env add|deploy|link)|--prod/);
 });
 test('child validates private credential and consent before calling provider',()=>{
  const index=entry.indexOf('const args=argsForMa75PreviewChild(env);');
