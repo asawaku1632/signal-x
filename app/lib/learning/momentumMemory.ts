@@ -142,87 +142,17 @@ export async function saveMomentumMemoryObservations(
   };
 }
 
+/**
+ * Research safety gate: saved daily_stock_results includes exchange holidays,
+ * so OFFSET 0/2/4 over saved rows is NOT a verified 1/3/5 TSE-session horizon.
+ * Preserve existing observations; do not write new potentially mislabeled
+ * outcomes until exchange calendar and price provenance are validated.
+ */
 export async function updateMomentumMemoryOutcomes(
-  targetDate: string,
+  _targetDate: string,
 ): Promise<MomentumMemoryOutcomeResult> {
-  const result = await pool.query(
-    `
-    WITH candidates AS (
-      SELECT
-        m.id,
-        base.price AS base_price,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 0 LIMIT 1
-        ) AS price_1d,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 2 LIMIT 1
-        ) AS price_3d,
-        (
-          SELECT d.price
-          FROM daily_stock_results d
-          WHERE d.code = m.code
-            AND d.date::date > m.trade_date
-            AND d.date::date <= $1::date
-          ORDER BY d.date::date ASC
-          OFFSET 4 LIMIT 1
-        ) AS price_5d
-      FROM momentum_memory_observations m
-      JOIN daily_stock_results base
-        ON base.code = m.code
-       AND base.date::date = m.trade_date
-      WHERE m.observation_flag = TRUE
-        AND m.trade_date < $1::date
-        AND (m.result_1d IS NULL OR m.result_3d IS NULL OR m.result_5d IS NULL)
-    ),
-    updated AS (
-      UPDATE momentum_memory_observations m
-      SET
-        result_1d = COALESCE(
-          m.result_1d,
-          CASE WHEN c.base_price > 0 AND c.price_1d IS NOT NULL
-            THEN ROUND((((c.price_1d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        result_3d = COALESCE(
-          m.result_3d,
-          CASE WHEN c.base_price > 0 AND c.price_3d IS NOT NULL
-            THEN ROUND((((c.price_3d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        result_5d = COALESCE(
-          m.result_5d,
-          CASE WHEN c.base_price > 0 AND c.price_5d IS NOT NULL
-            THEN ROUND((((c.price_5d - c.base_price) / c.base_price) * 100)::numeric, 4)
-          END
-        ),
-        updated_at = NOW()
-      FROM candidates c
-      WHERE m.id = c.id
-        AND (c.price_1d IS NOT NULL OR c.price_3d IS NOT NULL OR c.price_5d IS NOT NULL)
-      RETURNING m.id
-    )
-    SELECT COUNT(*)::int AS updated_count FROM updated
-    `,
-    [targetDate],
-  );
-
-  return {
-    momentumMemoryOutcomesUpdated: Number(result.rows[0]?.updated_count ?? 0),
-  };
+  return { momentumMemoryOutcomesUpdated: 0 };
 }
-
 
 /**
  * Safety gate: market_learning_logs includes saved holiday and weekend snapshots
