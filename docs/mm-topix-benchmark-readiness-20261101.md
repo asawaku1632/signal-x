@@ -27,3 +27,10 @@ Status: BLOCKED. No trading edge claimed.
 - Weekend-only filtering does NOT exclude the four weekday holidays above.
 - July 7 to July 20 has a substantial logging gap; the fifth *logged* weekday is not necessarily the fifth exchange session.
 - Consequently the provisional fifth-logged-weekday query MUST NOT be treated as a verified five-exchange-session benchmark. Keep benchmark/notification release blocked until independent session calendar coverage is proven.
+
+## Stock-outcome horizon audit
+- The production daily_stock_results table contains 955 distinct codes on each of 2026-09-21 and 2026-09-22, despite both being exchange holidays.
+- updateMomentumMemoryOutcomes currently selects OFFSET 0/2/4 from saved daily_stock_results rows for each code, without verified exchange-session filtering.
+- A read-only October duplicate (code,date) check returned no duplicate groups, but this does not fix holiday rows or missing real sessions.
+- Thus existing result_1d/result_3d/result_5d are NOT yet proven to be actual exchange-session forward returns. Treat them as provisional; do not rewrite historical outcomes without a verified calendar and explicit remediation plan.
+- Any future benchmark comparison must use the exact same independently verified fifth exchange-session date as the stock return.
