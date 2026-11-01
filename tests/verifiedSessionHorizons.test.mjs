@@ -38,7 +38,7 @@ test("holiday stock snapshots do not shift horizons", () => {
 test("missing exact fifth-session TOPIX does not substitute a later close", () => {
   const index = new Map(topix);
   index.delete("2026-09-30");
-  assert.equal(align({ ...fixture(), indexCloses: index }).horizons[5].status, "MISSING_CLOSE");
+  assert.equal(align({ ...fixture(), indexCloses: index }).horizons[5].status, "STOCK_ONLY");
 });
 
 test("missing calendar session, duplicate and unordered dates are rejected when not verified", () => {
@@ -56,5 +56,12 @@ test("missing base prices and invalid index values block or withhold results", (
   assert.equal(align({ ...fixture(), stockCloses: new Map() }).status, "BLOCKED");
   const index = new Map(topix);
   index.set("2026-09-30", 0);
-  assert.equal(align({ ...fixture(), indexCloses: index }).horizons[5].status, "MISSING_CLOSE");
+  assert.equal(align({ ...fixture(), indexCloses: index }).horizons[5].status, "STOCK_ONLY");
+});
+
+test("verified stock outcomes remain available with no TOPIX base close",()=>{
+  const result=align({...fixture(),indexCloses:new Map()});
+  assert.equal(result.horizons[5].status,"STOCK_ONLY");
+  assert.ok(Math.abs(result.horizons[5].stockReturn-10)<1e-9);
+  assert.equal(result.horizons[5].excessReturn,null);
 });
