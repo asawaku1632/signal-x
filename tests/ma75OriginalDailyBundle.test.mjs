@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {auditMa75OriginalDailyBundle,MA75_ORIGINAL_DAILY_BUNDLE_VERSION}
  from '../app/lib/research/ma75OriginalDailyBundle.mjs';
-import {parseMa75BundleArgs} from '../scripts/research/ma75-offline-daily-bundle.mjs';
+import {parseMa75BundleArgs,summarizeMa75BundleFiles} from '../scripts/research/ma75-offline-daily-bundle.mjs';
 
 const freeze=()=>({
  schemaVersion:'ma75-forward-universe-candidate-freeze-v1',
@@ -51,7 +51,8 @@ const fixture=()=>{
   ])]}))
  };
 };
-const audit=bundle=>auditMa75OriginalDailyBundle(freeze(),bundle);
+const audit=(bundle,asOf='2026-12-01T10:05:00Z')=>
+ auditMa75OriginalDailyBundle(freeze(),bundle,{asOf});
 test('76 source envelopes and raw calendar produce only historical hypothetical summary',()=>{
  const r=audit(fixture());
  assert.equal(r.structural76DayCoverage,true);
@@ -175,4 +176,74 @@ test('missing frozen symbol cannot be made complete by a different valid TSE sec
  const r=audit(f);
  assert.equal(r.structural76DayCoverage,false);
  assert.equal(r.hypotheticalOfflineCrossoverCount,null);
+});
+
+test('missing or malformed as-of clock is rejected even for apparently complete saved history',()=>{
+ const f=fixture();
+ for(const supplied of [undefined,'no-time','2026-11-04','2026-11-04T08:30:00']){
+  assert.throws(()=>auditMa75OriginalDailyBundle(freeze(),f,{asOf:supplied}),TypeError);
+ }
+});
+test('future study date is not a historical signal relative to audit time',()=>{
+ const f=fixture();
+ assert.throws(()=>audit(f,'2026-11-01T02:00:00Z'),/NOT_PUBLISHED/);
+ assert.throws(()=>audit(f,'2026-11-04T07:29:59Z'),/NOT_PUBLISHED/);
+});
+test('later daily publication cannot be certified by observing market close',()=>{
+ const f=fixture();
+ assert.throws(()=>audit(f,'2026-11-04T06:31:00Z'),/NOT_PUBLISHED/);
+});
+test('provider pages claiming receipts after as-of are not treated as prior information',()=>{
+ const f=fixture();
+ assert.throws(()=>audit(f,'2026-11-30T10:00:00Z'),/ORIGINAL_PAGE_RECEIPT_AFTER_AUDIT_ASOF/);
+ const actual=audit(f,'2026-12-01T10:00:00Z');
+ assert.equal(actual.auditAsOf,'2026-12-01T10:00:00.000Z');
+ assert.equal(actual.structural76DayCoverage,true);
+ assert.equal(actual.pointInTimeAvailabilityVerified,false);
+});
+test('unknown timezone and forged future single-page capture cannot raise study coverage',()=>{
+ const f=fixture();
+ f.dayPages[5].pages[0].receivedAt='2026-12-02T00:00:00Z';
+ assert.throws(()=>audit(f),/ORIGINAL_PAGE_RECEIPT_AFTER_AUDIT_ASOF/);
+ f.dayPages[5].pages[0].receivedAt='2026-12-01T10:00:00';
+ assert.throws(()=>audit(f),/ORIGINAL_PAGE_RECEIPT_AFTER_AUDIT_ASOF/);
+});
+test('calendar captured in the future or without an offset cannot verify old stock dates',()=>{
+ for(const v of ['2026-12-02T10:00:00Z','2026-12-01T10:00:00']){
+  const f=fixture();f.calendarSnapshot.capturedAt=v;
+  assert.throws(()=>audit(f),/TSE_CALENDAR_CAPTURE/);
+ }
+});
+test('CLI refuses future as-of without writing to disk, then saves historical aggregate exclusively',()=>{
+ const f=fixture();
+ const input='/tmp/frozen-test-source.json',output='/tmp/frozen-test-output.json';
+ const writes=[];
+ const args={input,output};
+ const deps={
+  stat:()=>({isFile:()=>true,isSymbolicLink:()=>false,size:4000}),
+  read:path=>path===input?JSON.stringify(f):JSON.stringify(freeze()),
+  write:(path,data,options)=>writes.push({path,json:JSON.parse(data),options}),
+  now:()=>new Date('2026-11-01T02:00:00Z'),
+ };
+ assert.throws(()=>summarizeMa75BundleFiles(args,deps),/NOT_PUBLISHED/);
+ assert.equal(writes.length,0);
+ deps.now=()=>new Date('2026-12-01T10:05:00Z');
+ const r=summarizeMa75BundleFiles(args,deps);
+ assert.equal(r.structural76DayCoverage,true);
+ assert.equal(r.auditAsOf,'2026-12-01T10:05:00.000Z');
+ assert.equal(writes.length,1);
+ assert.equal(writes[0].options.flag,'wx');
+ assert.equal(writes[0].options.mode,0o600);
+ assert.equal(writes[0].json.eligibleForNotifications,false);
+ assert.equal(JSON.stringify(writes[0].json).includes('AdjFactor'),false);
+});
+test('bad system clock fails safely and never saves an apparent signal',()=>{
+ const f=fixture(),written=[];
+ assert.throws(()=>summarizeMa75BundleFiles({input:'a.json',output:'b.json'},{
+  stat:()=>({isFile:()=>true,isSymbolicLink:()=>false,size:100}),
+  read:path=>path==='a.json'?JSON.stringify(f):JSON.stringify(freeze()),
+  write:(...args)=>written.push(args),
+  now:()=>new Date(NaN)
+ }),/INVALID_AUDIT_SYSTEM_CLOCK/);
+ assert.equal(written.length,0);
 });

@@ -24,7 +24,7 @@ export function parseMa75BundleArgs(argv){
  return args;
 }
 export function summarizeMa75BundleFiles({input,output}, {
- read=readFileSync,stat=lstatSync,write=writeFileSync
+ read=readFileSync,stat=lstatSync,write=writeFileSync,now=()=>new Date()
 }={}){
  const file=stat(input);
  if(!file.isFile()||file.isSymbolicLink()||file.size<=0||file.size>MAX_JSON_BYTES)
@@ -34,7 +34,12 @@ export function summarizeMa75BundleFiles({input,output}, {
    throw new TypeError('INPUT_EXCEEDS_SAFE_SIZE');
  const freeze=JSON.parse(read(FROZEN_FILE,'utf8'));
  const bundle=JSON.parse(raw);
- const summary=auditMa75OriginalDailyBundle(freeze,bundle);
+ const auditClock=now();
+ if(!(auditClock instanceof Date)||!Number.isFinite(auditClock.getTime()))
+  throw new TypeError('INVALID_AUDIT_SYSTEM_CLOCK');
+ const summary=auditMa75OriginalDailyBundle(freeze,bundle,{
+  asOf:auditClock.toISOString()
+ });
  // Always exclusive: do not overwrite a previous audit or source file.
  write(output,JSON.stringify(summary,null,2)+'\n',{
    flag:'wx',encoding:'utf8',mode:0o600

@@ -1,6 +1,6 @@
 # Offline original daily J-Quants bundle audit (Draft PR #297)
 
-This is for already captured original historical data ONLY. It does not contact J-Quants, read keys, buy an add-on, update Supabase, deploy an app, calculate validated forward returns, or send notifications.
+This is for already captured original historical data ONLY. The CLI enforces a real audit-time cutoff: it refuses future source receipts, future calendar receipt claims, or a study date earlier than the conservative approximate post-16:30 JST daily update window. It does not contact J-Quants, read keys, buy an add-on, update Supabase, deploy an app, calculate validated forward returns, or send notifications.
 
 ## Input
 
@@ -16,7 +16,7 @@ Expected normalized four-character freeze: `docs/ma75-forward-cohort-freeze-2026
 
     node scripts/research/ma75-offline-daily-bundle.mjs --input=./research-private/original-pages.json --output=./research-private/original-pages-summary.json
 
-Store the captured input privately and use appropriate J-Quants license terms; do not commit raw provider responses or credentials to GitHub. Output uses exclusive create and contains aggregate metadata only. The script never makes API requests.
+Store the captured input privately and use appropriate J-Quants license terms; do not commit raw provider responses or credentials to GitHub. Output uses exclusive create and contains aggregate metadata only. The script never makes API requests. The CLI passes its current system time to the audit; an explicit `asOf` timestamp is mandatory for pure-code tests and embedding. The 16:30 JST floor is an estimated safety window, **not authenticated proof of vendor release**.
 
 ## Interpretation
 

@@ -13,7 +13,7 @@ const validDate=value=>typeof value==='string'&&DATE.test(value)&&
  Number.isFinite(Date.parse(value+'T00:00:00Z'))&&
  new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
 
-export function auditMa75OriginalDailyBundle(freeze,bundle){
+export function auditMa75OriginalDailyBundle(freeze,bundle,{asOf}={}){
  validateMa75FrozenUniverse(freeze);
  if(!bundle||typeof bundle!=='object'||Array.isArray(bundle)||
     bundle.schemaVersion!==MA75_ORIGINAL_DAILY_BUNDLE_VERSION||
@@ -22,6 +22,21 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
     bundle.sessions.at(-1)<freeze.firstEligibleSignalDate||
     !Array.isArray(bundle.dayPages)||bundle.dayPages.length>76)
   throw new TypeError('Require original-page bundle with exactly 76 ordered sessions and at most 76 dated captures');
+ // An explicit as-of clock is mandatory. Archived JSON may claim future
+ // capture times; never infer that those records existed on audit day.
+ const asOfMillis=typeof asOf==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(asOf)?
+  Date.parse(asOf):NaN;
+ const releaseFloor=Date.parse(bundle.sessions.at(-1)+'T07:30:00Z');
+ if(!Number.isFinite(asOfMillis)||asOfMillis<Date.parse(freeze.frozenAt)||
+    asOfMillis<releaseFloor)
+  throw new TypeError('HISTORICAL_SOURCE_WINDOW_NOT_PUBLISHED_AS_OF_AUDIT');
+ const capturedMs=t=>typeof t==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(t)?
+  Date.parse(t):NaN;
+ if(bundle.calendarSnapshot!==undefined&&bundle.calendarSnapshot!==null){
+  const calendarTime=capturedMs(bundle.calendarSnapshot.capturedAt);
+  if(!Number.isFinite(calendarTime)||calendarTime>asOfMillis)
+   throw new TypeError('TSE_CALENDAR_CAPTURE_IS_FUTURE_OR_UNDATED');
+ }
  const allowedDates=new Set(bundle.sessions),seen=new Set(),reports=[],sourceProjections=[];
  for(const entry of bundle.dayPages){
   const date=entry?.date,pages=entry?.pages;
@@ -29,6 +44,10 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
     !Array.isArray(pages)||pages.length<1||pages.length>50||
     pages.some(p=>!p||!Array.isArray(p.response?.data)||p.response.data.length>10000))
    throw new TypeError('Duplicate, foreign or oversized original date-page capture');
+  if(pages.some(p=>{
+   const receipt=capturedMs(p?.receivedAt);
+   return !Number.isFinite(receipt)||receipt>asOfMillis;
+  }))throw new TypeError('ORIGINAL_PAGE_RECEIPT_AFTER_AUDIT_ASOF');
   seen.add(date);
   // Never accept a user-authored summary in place of original provider envelopes.
   const projection=projectMa75FullDateSource(freeze,{date,pages});
@@ -43,6 +62,8 @@ export function auditMa75OriginalDailyBundle(freeze,bundle){
  const complete=audit.structuralCoverageComplete===true;
  return {
   version:MA75_ORIGINAL_DAILY_BUNDLE_VERSION,
+  auditAsOf: new Date(asOfMillis).toISOString(),
+  historicalUpdateTimeIsEstimate:true,
   freezeSize:freeze.codes.length,firstEligibleDate:freeze.firstEligibleSignalDate,
   studySignalDate:bundle.sessions.at(-1),requiredSessions:76,
   submittedDateCaptures:reports.length,missingDateCaptures:audit.missingSessions,
