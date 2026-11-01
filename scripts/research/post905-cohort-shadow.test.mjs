@@ -38,7 +38,7 @@ test('three pre-09:05 bars remain excluded with explicit unknown gap cause',()=>
  assert.equal(s.submitted,2);assert.equal(s.accepted,1);
  assert.deepEqual(s.excluded,[{code:'1301',date:'2026-10-29',
   reason:'INCOMPLETE_PRE905_MINUTE_COVERAGE',observedPre905Bars:3,
-  expectedClockMinutes:5,missingMinuteCause:'UNKNOWN_NO_TRADE_OR_DATA_GAP'}]);
+  expectedClockMinutes:5,missingMinuteCause:'UNKNOWN_NO_TRADE_OR_DATA_GAP',missingPre905Minutes:null}]);
  assert.equal(s.thresholds[0].denominator,1);
  assert.equal(s.eligibleForProduction,false);
 });
@@ -48,4 +48,14 @@ test('zero early bars and bad reconciliation are not misclassified as no-trade',
  const s=summarizePost905Cohort([noReference,blocked]);
  assert.deepEqual(s.excluded.map(x=>x.reason),['UNVERIFIED_OR_INCOMPLETE','UNVERIFIED_OR_INCOMPLETE']);
  assert.equal(s.accepted,0);assert.equal(s.thresholds[0].reachedRatePercent,null);
+});
+
+test('excluded sparse historical report retains missing clock slots',()=>{
+ const sparse=report('1301',0.22497,-0.22497);
+ sparse.post905.pre905BarCount=3;
+ sparse.post905.missingPre905Minutes=['09:01','09:03'];
+ const s=summarizePost905Cohort([sparse]);
+ assert.equal(s.accepted,0);
+ assert.deepEqual(s.excluded[0].missingPre905Minutes,['09:01','09:03']);
+ assert.equal(s.excluded[0].missingMinuteCause,'UNKNOWN_NO_TRADE_OR_DATA_GAP');
 });
