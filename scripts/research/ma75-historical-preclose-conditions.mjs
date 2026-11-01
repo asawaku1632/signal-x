@@ -8,6 +8,8 @@
  *
  * No I/O, API calls, production scores, notifications, or trading.
  */
+import {analyzeMa75RetrospectiveRobustness} from './ma75-historical-robustness.mjs';
+
 const fixedConditions=Object.freeze([
  {id:'ALL_BREAKOUTS',label:'All eligible breakout close signals',
   test:()=>true},
@@ -78,6 +80,7 @@ export function analyzeMa75HistoricalPrecloseConditions(observations){
    condition:condition.id,
    definition:condition.label,
    ...summarize(rows),
+   dependenceStressCheck:analyzeMa75RetrospectiveRobustness(rows),
    signalMonthBreakdown:months.map(month=>({
     month,...summarize(rows.filter(s=>monthlyKey(s)===month))
    }))
