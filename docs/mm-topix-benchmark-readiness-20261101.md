@@ -34,3 +34,10 @@ Status: BLOCKED. No trading edge claimed.
 - A read-only October duplicate (code,date) check returned no duplicate groups, but this does not fix holiday rows or missing real sessions.
 - Thus existing result_1d/result_3d/result_5d are NOT yet proven to be actual exchange-session forward returns. Treat them as provisional; do not rewrite historical outcomes without a verified calendar and explicit remediation plan.
 - Any future benchmark comparison must use the exact same independently verified fifth exchange-session date as the stock return.
+
+## Holiday carry-forward evidence (read-only)
+- 2026-09-21 and 2026-09-22 each contain 955 codes in daily_stock_results.
+- Every one of those 955 code-level prices exactly equals the 2026-09-18 price (955 unchanged, zero changed on each date).
+- These holiday snapshots must not count as forward exchange sessions; stored MM 1/3/5-day outcomes require a non-destructive, independently calendared shadow recomputation.
+- This equality is evidence of carry-forward behavior, not proof of the ingestion implementation.
+- No production updates or backfills were performed.
