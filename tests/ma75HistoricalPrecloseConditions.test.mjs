@@ -7,7 +7,7 @@ import {analyzeMa75HistoricalPrecloseConditions}
 const signal=(code,date,{kind='BREAKOUT',ma75Rising=false,
  volumeRatio=1,return5Percent=1,outcome5Status='COMPLETED',
  budgetEligible=true}={})=>({
- code,kind,ma75Rising,volumeRatio,
+ code,kind,ma75Rising,volumeRatio,signalIndex:75,
  signalTime:Math.floor(Date.parse(date+'T00:00:00Z')/1000),
  outcome5Status,return5Percent,
  profit5Yen100:return5Percent*1000,budgetEligible
@@ -52,7 +52,12 @@ test('feature conditions use only breakout-close SMA slope and trailing volume, 
  assert.equal(byId.ALL_BREAKOUTS.signalMonthBreakdown[0].completed,2);
  assert.equal(byId.ALL_BREAKOUTS.signalMonthBreakdown[1].pending,1);
  assert.equal(byId.ALL_BREAKOUTS.signalMonthBreakdown[1].quarantined,1);
- assert.equal(JSON.stringify(out).includes('90'),false);
+ for(const g of out.conditions){
+  assert.equal(g.dependenceStressCheck.eligibleForProduction,false);
+  assert.equal(g.dependenceStressCheck.independentForwardValidation,false);
+  assert.equal(g.dependenceStressCheck.earliestNonOverlappingPerCode.signals,g.total);
+ }
+ assert.equal(byId.ALL_BREAKOUTS.completed,4);
 });
 test('malformed outcomes cannot silently bias settled denominator',()=>{
  const good=signal('1301','2026-09-10',{ma75Rising:true,volumeRatio:2});
