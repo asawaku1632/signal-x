@@ -24,8 +24,12 @@ if (-not $Execute) {
   if ($LASTEXITCODE -ne 0) { throw 'J-Quants retrospective DRY RUN failed.' }
   return
 }
-if (-not (Get-Command vercel -ErrorAction SilentlyContinue)) {
-  throw 'Vercel CLI is unavailable. Install it privately, sign in, and link the verified project first.'
+# Windows PowerShell prefers the npm-generated vercel.ps1 shim over vercel.cmd.
+# The PowerShell shim consumes the literal '--' separator on some installations,
+# so Vercel receives no child command. Invoke the native .cmd shim explicitly.
+$vercelNative = Get-Command 'vercel.cmd' -CommandType Application -ErrorAction SilentlyContinue
+if (-not $vercelNative) {
+  throw 'Cannot find native vercel.cmd launcher. Run Get-Command vercel.cmd; the PowerShell vercel.ps1 shim cannot safely run this research job.'
 }
 if (-not (Test-Path '.vercel/project.json' -PathType Leaf)) {
   throw 'Link this local repo to Vercel project signal-x under team signalx-runner-v2-trial2 using vercel link, then re-run.'
@@ -54,9 +58,9 @@ try {
   foreach ($name in $setting.Keys) {
     [Environment]::SetEnvironmentVariable($name, $setting[$name], 'Process')
   }
-  # No Node flags appear after '--': workaround for Vercel CLI 59.x
-  # parsing --from as a Vercel flag before launching the child.
-  & vercel env run -e preview --git-branch $expectedBranch -- node $childScript
+  # Force the native .cmd launcher to preserve the required '--' separator.
+  # Dates remain private process environment variables, not Vercel arguments.
+  & $vercelNative.Source env run -e preview --git-branch $expectedBranch '--' node $childScript
   if ($LASTEXITCODE -ne 0) {
     throw 'Historical read was blocked. Do not paste credentials; share only the redacted error category.'
   }
