@@ -15,7 +15,6 @@ const dateFromSignal = seconds => {
 export function auditMa75StudyRobustness(study, {
   kind = 'BREAKOUT',
   regimeByDate = {},
-  requireAsOfRegimeEvidence = true,
 } = {}) {
   if (!Array.isArray(study?.observations) || !['BREAKOUT','RETEST'].includes(kind) ||
       !regimeByDate || typeof regimeByDate !== 'object' || Array.isArray(regimeByDate))
@@ -37,9 +36,8 @@ export function auditMa75StudyRobustness(study, {
       if (typeof evidence === 'object' && evidence !== null &&
           ['UP','DOWN'].includes(evidence.regime) &&
           Number.isSafeInteger(evidence.availableAt) &&
+          evidence.availableAt > 0 &&
           evidence.availableAt <= row.signalTime) regime = evidence.regime;
-      else if (!requireAsOfRegimeEvidence && ['UP','DOWN'].includes(evidence))
-        regime = evidence;
     }
     rows.push({ code: String(row.code), date,
       return5Percent: row.return5Percent, regime });
