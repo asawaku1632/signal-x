@@ -24,7 +24,8 @@ const OFFLINE_PAGE_COMPLETE=new Set(['DAILY_BAR','NO_TRADE','CORPORATE_ACTION_RE
 const validPositive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
 const validRawBar=(bar,code,date)=>bar?.code===code&&
   bar.tradeDate===date&&bar.unadjusted===true&&
-  [bar.open,bar.high,bar.low,bar.close,bar.volume].every(validPositive)&&
+  [bar.open,bar.high,bar.low,bar.close].every(validPositive)&&
+  Number.isSafeInteger(bar.volume)&&bar.volume>0&&
   bar.high>=Math.max(bar.open,bar.close,bar.low)&&
   bar.low<=Math.min(bar.open,bar.close,bar.high);
 
@@ -95,6 +96,13 @@ export function planMa75JQuantsAcquisition(freeze,{
        r.paginationComplete!==true||!Array.isArray(r.failures)||r.failures.length!==0||
        !Number.isSafeInteger(r.readPages)||r.readPages<1||
        !Number.isSafeInteger(r.rawProviderRows)||r.rawProviderRows<0||
+       r.auditScope!=='FROZEN_UNIVERSE'||r.requestedCode!==null||
+       r.originalFrozenCohortSize!==freeze.codes.length||
+       r.verifiedOriginalProviderCapture!==false||
+       r.adjustedHistoricalAsOfValidated!==false||
+       !Array.isArray(r.unmappedRows)||r.unmappedRows.length!==0||
+       !Array.isArray(r.duplicateCodeDates)||r.duplicateCodeDates.length!==0||
+       !Array.isArray(r.outsideFrozenCodes)||r.outsideFrozenCodes.length!==0||
        r.expectedFrozenCodes!==freeze.codes.length||
        !Array.isArray(rows)||rows.length!==freeze.codes.length||
        rows.some((x,i)=>x?.code!==freeze.codes[i]||x.tradeDate!==date||
@@ -105,10 +113,12 @@ export function planMa75JQuantsAcquisition(freeze,{
            x.bar!==null||x.actionDetails?.independentlyVerified!==false)))||
        r.eligibleForForwardSignal!==false||
        r.providerRightsVerified!==false||
-       !r.counts||typeof r.counts!=='object'||
+       !r.counts||typeof r.counts!=='object'||Array.isArray(r.counts)||
+       Object.keys(r.counts).length!==new Set(rows.map(x=>x.status)).size||
        !Number.isInteger(r.structurallyUsableRawBars)||
        r.structurallyUsableRawBars!==rows.filter(x=>x.status==='DAILY_BAR').length||
-       r.rawProviderRows<r.structurallyUsableRawBars+rows.filter(x=>x.status==='NO_TRADE').length||
+       // Every raw source row must be attributed to an original provider status.
+       r.rawProviderRows!==rows.filter(x=>OFFLINE_PAGE_COMPLETE.has(x.status)).length||
        Object.keys(r.counts).some(k=>r.counts[k]!==rows.filter(x=>x.status===k).length)||
        rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
        state='PREVIOUS_AUDIT_INCOMPLETE';

@@ -26,6 +26,9 @@ const archive=date=>({
  firstReceivedAt:'2026-11-02T07:40:00Z',
  lastReceivedAt:'2026-11-02T07:45:00Z',
  readPages:1,rawProviderRows:3,
+ auditScope:'FROZEN_UNIVERSE',requestedCode:null,originalFrozenCohortSize:3,
+ verifiedOriginalProviderCapture:false,adjustedHistoricalAsOfValidated:false,
+ unmappedRows:[],duplicateCodeDates:[],outsideFrozenCodes:[],
  paginationComplete:true,failures:[],expectedFrozenCodes:3,
  structurallyUsableRawBars:3,counts:{DAILY_BAR:3},
  eligibleForForwardSignal:false,providerRightsVerified:false,
@@ -338,4 +341,51 @@ test('complete price and calendar structure is not proof of original data-provid
  assert.equal(r.independentlyAuthenticatedCalendar,false);
  assert.equal(r.providerRightsVerified,false);
  assert.equal(r.eligibleForProduction,false);
+});
+
+test('an inflated raw provider count cannot become full 76-day archived coverage',()=>{
+ const audits=sessions().map(archive);
+ audits[20].rawProviderRows=4;
+ const r=plan({audits});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.archivedUsableBarCells,225);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('full-cohort read planner rejects a relabeled single-code daily provider audit',()=>{
+ const audits=sessions().map(archive);
+ audits[20].auditScope='SINGLE_CODE_PILOT';
+ audits[20].requestedCode='1301';
+ const r=plan({audits});
+ assert.equal(r.states.incompleteExisting,1);
+ assert.equal(r.structuralHistoricalInputsPresent,false);
+});
+test('unexpected provider symbols and unmapped date rows remain untrusted',()=>{
+ for(const field of ['outsideFrozenCodes','unmappedRows','duplicateCodeDates']){
+  const audits=sessions().map(archive);
+  audits[20][field].push('FOREIGN_OR_INVALID');
+  const r=plan({audits});
+  assert.equal(r.states.incompleteExisting,1);
+  assert.equal(r.structuralHistoricalInputsPresent,false);
+ }
+});
+test('daily provider untrusted source metadata is mandatory even for matching synthetic prices',()=>{
+ for(const field of ['originalFrozenCohortSize','verifiedOriginalProviderCapture','adjustedHistoricalAsOfValidated']){
+  const audits=sessions().map(archive);
+  delete audits[20][field];
+  assert.equal(plan({audits}).states.incompleteExisting,1);
+ }
+});
+test('fractional or unsafe daily share counts cannot be counted as real archived bars',()=>{
+ for(const volume of [1.5,Number.MAX_SAFE_INTEGER+1]){
+  const audits=sessions().map(archive);
+  audits[20].rows[0].bar.volume=volume;
+  const r=plan({audits});
+  assert.equal(r.states.incompleteExisting,1);
+  assert.equal(r.structuralHistoricalInputsPresent,false);
+ }
+});
+test('extra invented provider status counts cannot certify complete daily history',()=>{
+ const audits=sessions().map(archive);
+ audits[20].counts.OTHER=0;
+ assert.equal(plan({audits}).states.incompleteExisting,1);
 });
