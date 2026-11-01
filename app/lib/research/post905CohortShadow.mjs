@@ -27,7 +27,12 @@ export function summarizePost905Cohort(reports){
     p.pre905BarCount>=1&&p.pre905BarCount<5;
    excluded.push({code,date,reason:missingEarlyBars?'INCOMPLETE_PRE905_MINUTE_COVERAGE':'UNVERIFIED_OR_INCOMPLETE',
     ...(missingEarlyBars?{observedPre905Bars:p.pre905BarCount,expectedClockMinutes:5,
-      missingMinuteCause:'UNKNOWN_NO_TRADE_OR_DATA_GAP'}:{})});
+      missingMinuteCause:'UNKNOWN_NO_TRADE_OR_DATA_GAP',
+      missingPre905Minutes:Array.isArray(p.missingPre905Minutes)&&
+       p.missingPre905Minutes.length===5-p.pre905BarCount&&
+       p.missingPre905Minutes.every(t=>typeof t==='string'&&/^09:0[0-4]$/.test(t))&&
+       new Set(p.missingPre905Minutes).size===p.missingPre905Minutes.length?
+       p.missingPre905Minutes:null}:{})});
    continue;
   }
   accepted.push({code,date,upside:p.upsideFromReferencePercent,
