@@ -100,3 +100,61 @@ $c.dependenceStressCheck.incrementalExecutionFrictionSensitivity |
 The command reads only the local ignored `research-private` cache and
 prints derived summary statistics; no external service or secret is needed.
 Do not upload original J-Quants daily JSON, API keys or `.env.local`.
+
+
+## Readiness and explicit manual capture bridge (2026-11-01)
+
+Existing pure MA75 forward-manifest, timestamp audit, replay, five-session settlement,
+and independent review gates remain in place. Nothing below schedules a job or
+produces a buy, sell, score, recommendation or forward win rate. No paid minute
+data are required for this daily-bar-only shadow.
+
+A separate owner-local one-day bridge is now available:
+- `scripts/research/ma75-forward-local-one-day.mjs` — date-only, original
+  full-market J-Quants V2 capture, dry-run without network by default.
+- `scripts/research/ma75-run-forward-day-local.ps1` — Windows runner with
+  secure hidden input for an **already active** V2 key only when expressly
+  passed `-Execute`. It restores prior process-level key/consent values.
+- Destination `research-private/ma75-forward-YYYY-MM-DD-jquants-daily.json`
+  is a **new, distinct filename**, excluded from Git. Existing file
+  overwrite is forbidden; no historical day is replaced.
+- Exposes no full-market prices in the terminal. A stored original day is
+  not source-verified, nor a validated forward signal. Historical archive
+  remains a separate provenance tier.
+- The 122-day offline archive audit also includes
+  `preFreeze75SessionWarmup`: exactly the most recent 75 archived trading
+  date rows, counts of full-window clean prior history versus gaps, **with
+  explicit flags that no post-freeze signal or provenance verification has
+  occurred**. This is an input readiness inventory, not a win rate.
+
+**First eligible signal date: Monday 2026-11-02 (JST).** On **2026-11-01**
+the first-date dry-run is the only supported invocation, and should report
+`DRY_RUN_SESSION_NOT_YET_PUBLISHED`, network requests 0, writes 0:
+
+```powershell
+git switch research/ma75-breakout-retest-shadow-20261031
+if ($LASTEXITCODE -ne 0) { throw "research branch missing" }
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw "git update failed" }
+.\\scripts\\research\\ma75-run-forward-day-local.ps1 -Date 2026-11-02
+$r = node .\\scripts\\research\\ma75-local-coverage-audit.mjs | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "warmup audit failed" }
+$r.preFreeze75SessionWarmup | Format-List
+```
+
+**Only on or after Nov 2, 2026 at 16:30 Japan time, IF the licensed V2
+daily source is really available and the owner explicitly wants one manual
+provider read**, run from the research worktree:
+
+```powershell
+.\\scripts\\research\\ma75-run-forward-day-local.ps1 -Date 2026-11-02 -Execute
+```
+
+The wrapper checks the time threshold *before asking for a key*; this
+threshold is a conservative eligibility guard, **not proof the provider has
+published data, not permission to use the data for external redistribution,
+and not proof of a next-open executable signal**. Manual owner-run results
+must still be independently checked for source rights, live timestamp
+provenance, provider changes, corporate actions, calendar and fills before
+any forward study outcome can be certified. No automatic daily polling or
+future capture is promised.
