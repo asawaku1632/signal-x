@@ -152,3 +152,26 @@ test('invalid JSON or oversized provider payload cannot produce a saved capture'
   date,apiKey:'mock',clock:now,fetchImpl:async()=>src
  }),/JQUANTS_ONE_DATE_/);
 });
+
+test('bad OHLCV for a frozen code prevents private source file write',async()=>{
+ const damaged={...bar('13010'),H:80};
+ let writes=0;
+ await assert.rejects(()=>runMa75OneDateCapture([...args,'--execute'],{
+  env:{SIGNALX_RESEARCH_ALLOW_JQUANTS_READONLY:'YES',JQUANTS_API_KEY:'secret'},
+  clock:now,read:()=>JSON.stringify(frozen()),
+  fetchImpl:async()=>response([damaged,bar('186A0')]),
+  write:()=>{writes++;}
+ }),/INVALID_FROZEN_STOCK_DAY/);
+ assert.equal(writes,0);
+});
+test('genuine no-trade and rights-review rows remain archived but not trade eligible',async()=>{
+ const nt={...bar('13010'),O:null,H:null,L:null,C:null,Vo:null};
+ const rights={...bar('186A0'),AdjFactor:0.5};
+ const r=await acquireMa75OneDatePages(frozen(),{
+  date,apiKey:'mock',clock:now,
+  fetchImpl:async()=>response([nt,rights])
+ });
+ assert.equal(r.completeProviderPagination,true);
+ assert.equal(r.eligibleForProduction,false);
+ assert.equal(r.eligibleForNotifications,false);
+});

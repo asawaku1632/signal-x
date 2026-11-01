@@ -101,6 +101,11 @@ export async function acquireMa75OneDatePages(freeze,{
    const projected=projectMa75FullDateSource(freeze,{date,pages});
    if(!projected.completeProviderPagination)
     throw new Error('JQUANTS_ONE_DATE_UNVERIFIED_PAGINATION');
+   // Keep true no-trade/corporate-action/missing rows for manual review, but
+   // never privately save a source as verified if a frozen OHLCV row is corrupt.
+   if(projected.audit.failures.length>0||projected.audit.rows.some(r=>
+       ['INVALID_OHLCV','DUPLICATE_CODE_DATE','BLOCKED_PAGINATION'].includes(r.status)))
+    throw new Error('JQUANTS_ONE_DATE_INVALID_FROZEN_STOCK_DAY');
    return {
     version:MA75_DATE_CAPTURE_VERSION,date,sourceEndpoint:MA75_DAILY_ENDPOINT,
     requestScope:'ALL_LISTED_ONE_DATE',pages,
