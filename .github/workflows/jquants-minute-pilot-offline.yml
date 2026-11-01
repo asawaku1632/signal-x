@@ -23,3 +23,7 @@ jobs:
             tests/morningMinuteDailyReconciliation.test.mjs \
             tests/morningMinuteSingleCodePilot.test.mjs \
             tests/ma75JQuantsDailyPages.test.mjs
+
+      - name: Verify all MA75-only offline research modules without API secrets
+        run: |
+          node --test tests/ma75*.test.mjs
