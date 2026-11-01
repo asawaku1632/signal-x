@@ -250,3 +250,53 @@ test('caller cannot override declared sessions from inside raw calendar payload'
  assert.equal(r.calendarStructuralPass,true);
  assert.equal(r.rows.length,2);
 });
+
+
+test('single-code daily pilot cannot be relabeled as complete 953-code-type window',()=>{
+ const f=fixture();
+ f.reports[5].auditScope='SINGLE_CODE_PILOT';
+ f.reports[5].requestedCode='1301';
+ const r=audit(f);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.equal(r.invalidReports[0].reason,'INVALID_OR_INCOMPLETE_PAGE_AUDIT');
+ assert.equal(r.counts.HISTORY_INCOMPLETE,2);
+});
+test('unreliable or reversed daily-page receipt times block 76-session classification',()=>{
+ const f=fixture();
+ f.reports[4].firstReceivedAt='2026-09-30T00:00:00Z';
+ const r=audit(f);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.equal(r.invalidReports[0].reason,'INVALID_OR_INCOMPLETE_PAGE_AUDIT');
+ const second=fixture();
+ second.reports[4].lastReceivedAt='2026-01-01T00:00:00Z';
+ assert.equal(audit(second).counts.HISTORY_INCOMPLETE,2);
+ const third=fixture();
+ third.reports[4].firstReceivedAt='2026-12-01T10:00:00'; // missing zone
+ assert.equal(audit(third).structuralCoverageComplete,false);
+});
+test('provider row totals are reconciled against actual frozen bar counts',()=>{
+ const f=fixture();
+ f.reports[7].rawProviderRows=0;
+ const r=audit(f);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.ok(r.invalidReports.some(x=>x.reason==='TAMPERED_PROVIDER_ROW_COUNTS'));
+});
+test('extra wrong-date provider row and duplicate provider ID block window',()=>{
+ const extra=fixture();
+ extra.reports[10].unmappedRows.push({code:'1301',reason:'WRONG_DATE_OR_SECURITY_CLASS'});
+ assert.equal(audit(extra).structuralCoverageComplete,false);
+ const dup=fixture();
+ dup.reports[10].duplicateCodeDates.push('1301:'+dup.dates[10]);
+ assert.equal(audit(dup).structuralCoverageComplete,false);
+});
+test('one-day audit must not self-certify provenance or fake its original cohort size',()=>{
+ const f=fixture();
+ f.reports[30].verifiedOriginalProviderCapture=true;
+ assert.equal(audit(f).counts.HISTORY_INCOMPLETE,2);
+ const g=fixture();
+ g.reports[30].originalFrozenCohortSize=1;
+ assert.equal(audit(g).counts.HISTORY_INCOMPLETE,2);
+ const h=fixture();
+ h.reports[30].readPages=0;
+ assert.equal(audit(h).counts.HISTORY_INCOMPLETE,2);
+});
