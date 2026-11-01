@@ -57,3 +57,13 @@ test('invalid observation dates are rejected before comparison',()=>{
   assert.equal(audit(f).reason,'INVALID_OBSERVATION');
  }
 });
+
+test('future observation relative to as-of blocks entire audit',()=>{
+ const f=fixture();
+ f.observations[0].tradeDate='2026-09-24';
+ f.asOfDate='2026-09-22';
+ const r=audit(f);
+ assert.equal(r.status,'BLOCKED');
+ assert.equal(r.reason,'OBSERVATION_NOT_BEFORE_AS_OF');
+ assert.equal(r.notificationEligible,false);
+});
