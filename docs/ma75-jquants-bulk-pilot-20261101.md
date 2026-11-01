@@ -53,3 +53,37 @@ This command requires **no API key, env settings, Vercel, subscription changes, 
 Do not upload private original daily JSON files, API credentials, or the contents of `.env.local`. For review, paste **only** the terminal's aggregate `ma75_local_completion_audit_v1` report, which contains counts, codes, and descriptive statistics but excludes raw prices and credentials.
 
 The original primary summary is immutable and is not overwritten. If 122 saved dates cannot be reconciled or data are tampered with, the diagnostic fails closed; no incomplete data are silently treated as full coverage.
+
+
+## First owner-local retrospective evidence: plain MA75 entry has no demonstrated advantage
+
+On 2026-11-01 the owner ran the private 122-date **read-only** completion audit, yielding the **912 of 953 fixed snapshot codes** with valid complete histories. This is not the 953-code headline and has no independent after-freeze observations.
+
+**All complete cases, synthetic next-open buy and day-five-close sell, 0.1% friction each side:**
+
+| Signal | Observed | Five-day complete | Win rate | Mean net five-day return | Mean 100-share P/L |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| MA75 breakout | 1,162 | 1,029 | 43.63% | -0.4586% | -¥2,510 |
+| MA75 support retest | 553 | 508 | 44.49% | -0.6067% | -¥3,289 |
+
+The completed budget-eligible breakout subset (from the actual **next open**, which was not known at the breakout close) had 725 outcomes, 43.17% win and mean -0.4667%. The analogous retest subset had 365 outcomes, 42.47% win and mean -0.7917%. No taxes or all real execution costs are accounted for.
+
+The 508 **ex-post paired** breakout/retest observations had breakout mean **+0.7891%** and retest mean **-0.6067%**, breakout win **56.5%**, retest win **44.49%**, and retest outperformed breakout in **28.15%**. Crucially, these 508 breakout cases were selected **because a later retest occurred**. At the original breakout close the future retest was unknowable; this is not an implementable breakout-filter rule and must not be touted as a +0.79% edge.
+
+The 41 history-incomplete codes (242 absent provider rows and 38 corporate-action-review code-days, overlapping by code) remain outside the complete-history subset. The full 953-code winning rate is **not determined**. Signals on the same code can overlap, historical winners are selected from a later snapshot and the observed window includes only a short post-SMA75 portion; even positive historical subgroup statistics would not establish a deployable forward advantage.
+
+### Ex-ante condition check, still deliberately exploratory
+
+The offline completion audit now also includes `historicalCompleteCaseDiagnostic.precloseConditions`: four **fixed, reproducible** exploratory groups: all breakouts; 75-day SMA rising at signal close; breakout-day volume at least 1.5 times the preceding 20-day mean; both conditions. Each reports settled/pending/quarantined counts, 5-day descriptive win/return metrics and **signal-month breakdowns**. Criteria use only completed-close information, but these hypotheses were selected **after** looking at aggregate history. They are *not* a genuine held-out training/test split, and a discovered positive subset may still be noise, time clustering or multiple testing. Budget eligibility calculated from the **next actual open** is explicitly an execution diagnostic, *not* a feature available at signal close.
+
+Use the unchanged command:
+
+```powershell
+git switch research/ma75-breakout-retest-shadow-20261031
+git pull --ff-only
+node .\scripts\research\ma75-local-coverage-audit.mjs
+```
+
+For compact sharing, the user may locally run `node .\scripts\research\ma75-local-coverage-audit.mjs | ConvertFrom-Json | Select-Object -ExpandProperty historicalCompleteCaseDiagnostic | Select-Object -ExpandProperty precloseConditions | ConvertTo-Json -Depth 12`; this prints **derived aggregate data**, no API key or original private daily source files. Do not upload raw licensed J-Quants pages.
+
+**Decision: keep signal promotion locked.** `eligibleForProduction`, `eligibleForNotifications` and `eligibleForTrading` remain false until post-freeze forward observations, reliable adjustment/event handling, robust independent dates and market regimes and realistic costs are verified.
