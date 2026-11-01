@@ -26,7 +26,7 @@ test('unverified independent capture and fill are rejected',()=>{
  assert.equal(evaluateForward([{...row(),fillVerified:false}],opts).rejected.UNVERIFIED_FILL,1);
 });
 test('train and test split by fixed chronological cutoff',()=>{
- const result=evaluateForward([row('2026-10-29'),row('2026-10-30')],opts);
+ const result=evaluateForward([row('2026-10-29'),row('2026-10-31')],{...opts,cutoffDate:'2026-10-30'});
  assert.equal(result.train.n,1);assert.equal(result.test.n,1);
  assert.equal(result.sufficientlySampled,false);
 });
@@ -42,4 +42,10 @@ test('no records or invalid costs fail closed',()=>{
 test('same-day exit cannot masquerade as one-day forward outcome',()=>{
  const r=row();r.exitAt=r.date+'T10:00:00+09:00';
  assert.equal(evaluateForward([r],opts).rejected.INVALID_HOLDING_PERIOD,1);
+});
+
+test('train outcome crossing cutoff is excluded to prevent future leakage',()=>{
+ const result=evaluateForward([row('2026-10-29')],opts);
+ assert.equal(result.accepted,0);
+ assert.equal(result.rejected.TRAIN_OUTCOME_CROSSES_CUTOFF,1);
 });
