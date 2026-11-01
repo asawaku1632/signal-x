@@ -263,7 +263,7 @@ test('single-code daily pilot cannot be relabeled as complete 953-code-type wind
 });
 test('unreliable or reversed daily-page receipt times block 76-session classification',()=>{
  const f=fixture();
- f.reports[4].firstReceivedAt='2026-09-30T00:00:00Z';
+ f.reports[4].firstReceivedAt='2026-01-01T00:00:00Z';
  const r=audit(f);
  assert.equal(r.structuralCoverageComplete,false);
  assert.equal(r.invalidReports[0].reason,'INVALID_OR_INCOMPLETE_PAGE_AUDIT');
