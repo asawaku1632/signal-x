@@ -50,3 +50,10 @@ test('invalid as-of dates are rejected before research comparison',()=>{
   assert.equal(audit({...fixture(),asOfDate}).reason,'AS_OF_OUTSIDE_CALENDAR');
  }
 });
+
+test('invalid observation dates are rejected before comparison',()=>{
+ for(const tradeDate of ['2026-02-30','2026-99-99','bad-date']) {
+  const f=fixture();f.observations[0].tradeDate=tradeDate;
+  assert.equal(audit(f).reason,'INVALID_OBSERVATION');
+ }
+});
