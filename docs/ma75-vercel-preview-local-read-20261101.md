@@ -8,7 +8,7 @@ From the latest signal-x research-branch checkout on **Windows PowerShell**:
 2. If not linked yet, use Vercel CLI to sign in and link the **same account**: `vercel link --project signal-x --scope signalx-runner-v2-trial2`. The wrapper refuses any unexpected `.vercel/project.json` project/team ID.
 3. Explicit historical live read, already authorized data only: `./scripts/research/ma75-run-with-vercel-preview.ps1 -Execute`
 
-Step (3) invokes `vercel env run -e preview --git-branch research/ma75-breakout-retest-shadow-20261031 -- node scripts/research/ma75-jquants-bulk-retrospective.mjs --from=2026-05-01 --to=2026-10-30 --execute`.
+Step (3) invokes `vercel env run -e preview --git-branch research/ma75-breakout-retest-shadow-20261031 -- node scripts/research/ma75-jquants-vercel-preview-entry.mjs`. Vercel CLI 59.7 on Windows PowerShell was observed rejecting forwarded `--from` options, so `-From`, `-To` and explicit `-Execute` are now transmitted via **temporary process environment variables** to a local child script. The child validates every date, consent flag and the presence of the J-Quants key **before** any provider request. All temporary controls are restored afterward; none are saved to an env file.
 
 This reads an official raw business calendar, validates each calendar day, requests original all-listed OHLCV for at most 130 market days sequentially at bounded pace, audits complete pagination and per-frozen-symbol coverage, and stores raw day responses locally inside ignored `research-private/`. A previously completed day is reused **only after its original source rows/date/pagination and captured code counts are revalidated**. An untrustworthy or incomplete existing file fails safely; no overwrite or invented results. Process-level `SIGNALX_RESEARCH_ALLOW_JQUANTS_READONLY=YES` is restored afterward.
 
@@ -21,3 +21,5 @@ The CLI writes a private summary named `research-private/ma75-jquants-bulk-summa
 Official Vercel source: https://vercel.com/docs/cli/env
 Official J-Quants daily source: https://jpx-jquants.com/ja/spec/eq-bars-daily
 Official J-Quants calendar source: https://jpx-jquants.com/ja/spec/mkt-cal
+
+Windows CLI 59.7 original failure: `Error: unknown or unexpected option: --from` before any provider request. Fixed by the no-flag child runner above, not by upgrading the Vercel CLI or changing the J-Quants subscription. If the child reports a missing private key, **do not paste the key**; Preview sensitive secrets may not be readable in local CLI execution depending on Vercel configuration. Stop at the reported failure rather than improvising a workaround involving credentials.
