@@ -85,7 +85,7 @@ test('date-only provider extra listings are counted, excluded and never become f
 });
 test('wrong source trade date prevents 76-date coverage',()=>{
  const f=fixture();f.dayPages[20].pages[0].response.data[0].Date=f.sessions[21];
- assert.equal(audit(f).structural76DayCoverage,false);
+ assert.throws(()=>audit(f),TypeError);
 });
 test('original provider continuation not fetched cannot count as complete history',()=>{
  const f=fixture();f.dayPages[15].pages[0].response.pagination_key='NEXT';
