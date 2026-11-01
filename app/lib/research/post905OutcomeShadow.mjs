@@ -26,6 +26,9 @@ export function measurePost905Outcomes(rows,{code,date}={}) {
   bars.sort((a,b)=>a.minute-b.minute);
   const before=bars.filter(b=>b.minute>=540&&b.minute<545);
   const after=bars.filter(b=>b.minute>=545&&b.minute<600);
+  const expectedPre905Minutes=['09:00','09:01','09:02','09:03','09:04'];
+  const observedPre905Minutes=before.map(b=>b.time);
+  const missingPre905Minutes=expectedPre905Minutes.filter(t=>!observedPre905Minutes.includes(t));
   // This is a historical reference close, NOT a verified 09:05 execution price.
   const reference=before.length?before.at(-1).close:null;
   const maxHigh=after.length?Math.max(...after.map(b=>b.high)):null;
@@ -35,7 +38,9 @@ export function measurePost905Outcomes(rows,{code,date}={}) {
   return {
     version:'post905_outcome_shadow_v1',code,date,
     asOf905ReferenceClose:reference,referenceIsExecutable:false,
-    pre905BarCount:before.length,post905MorningBarCount:after.length,
+    pre905BarCount:before.length,observedPre905Minutes,missingPre905Minutes,
+    missingPre905MinuteCause:missingPre905Minutes.length?'UNKNOWN_NO_TRADE_OR_DATA_GAP':null,
+    post905MorningBarCount:after.length,
     post905HighestHigh:maxHigh,post905LowestLow:minLow,
     upsideFromReferencePercent:reference&&maxHigh!==null?pct(reference,maxHigh):null,
     downsideFromReferencePercent:reference&&minLow!==null?pct(reference,minLow):null,
