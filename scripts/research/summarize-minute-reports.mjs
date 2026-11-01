@@ -32,15 +32,26 @@ if(files.length===0||files.length>100) {
      minuteBars:r.parsedMinuteBars});
   }
   const mean=k=>rows.reduce((s,r)=>s+r[k],0)/rows.length;
+  const grouped=predicate=>{
+   const subset=rows.filter(predicate);
+   return {count:subset.length,
+    averageMaximumMorningUpsidePct:subset.length?subset.reduce((n,r)=>n+r.upsidePct,0)/subset.length:null,
+    averageMaximumMorningDownsidePct:subset.length?subset.reduce((n,r)=>n+r.downsidePct,0)/subset.length:null,
+    dates:subset.map(r=>r.date).sort()};
+  };
   console.log(JSON.stringify({
    status:'OFFLINE_HISTORICAL_DESCRIPTIVE_ONLY',count:rows.length,
    uniqueCodes:new Set(rows.map(r=>r.code)).size,
    uniqueDates:new Set(rows.map(r=>r.date)).size,
    averageMaximumMorningUpsidePct:mean('upsidePct'),
    averageMaximumMorningDownsidePct:mean('downsidePct'),
+   pre905Coverage:{fiveObservedBars:grouped(r=>r.pre905Bars===5),
+    fewerThanFiveObservedBars:grouped(r=>r.pre905Bars<5),
+    otherOrUnknown:grouped(r=>!Number.isInteger(r.pre905Bars)||r.pre905Bars>5)},
    records:rows.sort((a,b)=>a.date.localeCompare(b.date)||a.code.localeCompare(b.code)),
    caveats:['Intraday extrema are not executable returns or win rates',
     'No chronological high/low execution ordering, fees, slippage or actual 09:05 availability',
+    'Missing 09:00-09:04 bars may represent no trades or data gaps; not automatically bad data',
     'Does not verify 76-session MA75 coverage, 953-code universe, or trading edge'],
    eligibleForNotifications:false,eligibleForProduction:false
   },null,2));
