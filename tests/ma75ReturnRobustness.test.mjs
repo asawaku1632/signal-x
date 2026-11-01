@@ -28,3 +28,24 @@ test('duplicate and invalid returns are rejected', () => {
     { code: '1001', date: '2026-10-01', return5Percent: NaN },
   ]));
 });
+
+test('rejects impossible dates and unknown regime labels', () => {
+  assert.throws(() => summarizeMa75Robustness([
+    { code: '1001', date: '2026-02-30', return5Percent: 1, regime: 'DOWN' },
+  ]));
+  assert.throws(() => summarizeMa75Robustness([
+    { code: '1001', date: '2026-10-01', return5Percent: 1, regime: 'FUTURE_UP' },
+  ]));
+});
+
+test('trimmed mean limits a single extreme outlier in a sufficiently large sample', () => {
+  const rows = Array.from({length: 20}, (_, i) => ({
+    code: String(1000+i), date: '2026-10-01', return5Percent: i === 0 ? 113.81 : 0,
+    regime: 'DOWN',
+  }));
+  const result = summarizeMa75Robustness(rows);
+  assert.ok(result.overall.mean > 5);
+  assert.equal(result.overall.trimmedMean, 0);
+  assert.equal(result.overall.distinctDates, 1);
+  assert.equal(result.eligibleForNotifications, false);
+});
