@@ -13,9 +13,12 @@ const entry=readFileSync(
 
 test('Windows Vercel Preview launcher never forwards unknown --from or --to CLI flags',()=>{
  assert.match(wrapper,
-  /& vercel env run -e preview --git-branch \$expectedBranch -- node \$childScript/);
- assert.doesNotMatch(wrapper,/vercel env run[^\n]*--from/);
- assert.doesNotMatch(wrapper,/vercel env run[^\n]*@arguments/);
+  /& \$vercelNative\.Source env run -e preview --git-branch \$expectedBranch '--' node \$childScript/);
+ assert.doesNotMatch(wrapper,/env run[^\n]*--from/);
+ assert.doesNotMatch(wrapper,/env run[^\n]*@arguments/);
+ assert.doesNotMatch(wrapper,/& vercel env run/);
+ assert.match(wrapper,/Get-Command 'vercel\.cmd' -CommandType Application/);
+ assert.match(wrapper,/if \(-not \$vercelNative\)/);
  assert.match(wrapper,/\$childScript = 'scripts\/research\/ma75-jquants-vercel-preview-entry\.mjs'/);
 });
 test('Windows wrapper requires explicit user -Execute and validates team link',()=>{
