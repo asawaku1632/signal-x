@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 /** Offline validation of already-saved minute reports. No database or network. */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inventoryDirectory } from './post905-local-source-inventory.mjs';
 import { loadReports } from './post905-stratified-summary.mjs';
 import { assessResearchReadiness } from './post905-research-readiness.mjs';
+
+export function planNextEvidence(readiness) {
+  const next = [];
+  if (readiness.acceptedDates < 2) next.push({code:'MORE_DISTINCT_DATES',minimumAdditionalDates:2-readiness.acceptedDates,action:'Add historical minute reports for a different trading date; no paid retrieval is initiated'});
+  if (readiness.reportsWithoutPre905TimestampEvidence > 0) next.push({code:'PRE905_TIMESTAMP_EVIDENCE',affectedReports:readiness.reportsWithoutPre905TimestampEvidence,action:'Inspect actual bar-end and availability timestamps; never synthesize capture times'});
+  next.push({code:'INDEPENDENT_ASOF_REPLAY',action:'Independently replay inputs available by 09:05 JST; historical reports alone are insufficient'});
+  next.push({code:'FORWARD_AND_COST_VALIDATION',action:'Only after replay, measure out-of-sample returns, slippage, fees and fill feasibility'});
+  return next;
+}
 
 export function validateLocalReports(directory) {
   const inventory=inventoryDirectory(directory);
@@ -13,7 +22,7 @@ export function validateLocalReports(directory) {
   const mismatch=inventory.invalidReportFiles>0 || inventory.minuteReportFiles!==readiness.submitted;
   return {
     version:'post905_local_validation_bundle_v1',
-    inventory, readiness,
+    inventory, readiness, nextEvidenceSteps:planNextEvidence(readiness),
     consistentReportCounts:!mismatch,
     verificationStatus:mismatch?'REVIEW_REQUIRED':'DESCRIPTIVE_ONLY',
     historicalOnly:true, independentReplayVerified:false,
