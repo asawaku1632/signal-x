@@ -70,7 +70,8 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
      }
      if(observedMinutes.has(m)){errors.push('DUPLICATE_MINUTE_BAR');continue}
      observedMinutes.add(m);
-     if(![row.O,row.H,row.L,row.C,row.Vo,row.Va].every(validNumber)||
+     if(![row.O,row.H,row.L,row.C,row.Va].every(validNumber)||
+         !Number.isSafeInteger(row.Vo)||row.Vo<=0||
          row.H<Math.max(row.O,row.C,row.L)||
          row.L>Math.min(row.O,row.C,row.H)||
          row.Va<row.L*row.Vo*.99||
@@ -90,6 +91,9 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
    if(next===null)finished=true;
  }
  if(!finished&&!errors.length)errors.push('INCOMPLETE_PAGE_CHAIN');
+ // Provider share volume must be an exact safe integer, including its daily sum.
+ const totalShares=bars.reduce((sum,bar)=>sum+bar.volume,0);
+ if(!Number.isSafeInteger(totalShares))errors.push('UNSAFE_AGGREGATE_VOLUME');
  const uniqueErrors=[...new Set(errors)];
  const valid=finished&&uniqueErrors.length===0;
  bars.sort((a,b)=>a.minute-b.minute);
@@ -102,7 +106,7 @@ export function auditMorningMinuteShadow(freeze,{code,date,pages}={}){
    high:bars.length?Math.max(...bars.map(b=>b.high)):null,
    low:bars.length?Math.min(...bars.map(b=>b.low)):null,
    close:bars.at(-1)?.close??null,
-   volume:bars.reduce((total,b)=>total+b.volume,0),
+   volume:totalShares,
    turnover:bars.reduce((total,b)=>total+b.turnover,0),
    independentlyVerifiedSource:false,
  } : null;

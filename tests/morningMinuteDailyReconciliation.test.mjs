@@ -380,3 +380,22 @@ test('a one-stock daily source may match its day but can never claim one-date fu
  assert.equal(r.sessionDatesActuallyReconciled,1);
  assert.equal(r.frozen76SessionHistoryVerified,false);
 });
+
+test('inflated original raw provider row count is rejected, not mistaken for complete evidence',()=>{
+ const m=minute(),d=daily();
+ const r=audit(m,{...d,rawProviderRows:d.rawProviderRows+1});
+ assert.ok(r.blockers.includes('INVALID_OR_DIFFERENT_DAILY_AUDIT'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+ assert.equal(r.eligibleForNotifications,false);
+});
+test('forged unsafe aggregate volume cannot pass even when matching a daily claim',()=>{
+ const m=minute(),d=daily();
+ const huge=Number.MAX_SAFE_INTEGER+1;
+ const r=audit({...m,dailyObservation:{...m.dailyObservation,volume:huge}},
+   {...d,rows:d.rows.map(x=>x.code===code?{
+     ...x,bar:{...x.bar,volume:huge}
+   }:x)});
+ assert.ok(r.blockers.includes('INVALID_MINUTE_DAY_AGGREGATE'));
+ assert.ok(r.blockers.includes('INVALID_UNADJUSTED_DAILY_BAR'));
+ assert.equal(r.structuralOneCodeDayMatched,false);
+});

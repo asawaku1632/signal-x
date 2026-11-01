@@ -166,3 +166,24 @@ test('unrecognized, absent or non-frozen symbols cannot be used in a pilot',()=>
  assert.throws(()=>sample(undefined,{date:'2026-11-31'}),TypeError);
  assert.throws(()=>auditMorningMinuteShadow(freeze(),{code:'3753',date:tradeDate,pages:[]}),TypeError);
 });
+
+test('fractional and unsafe share volumes are quarantined before 09:05 features exist',()=>{
+ for(const volume of [0.5,1.5,Number.MAX_SAFE_INTEGER+1]){
+  const r=sample([page([bar('09:00',100,{Vo:volume,Va:volume*100})])]);
+  assert.equal(r.structuralPass,false);
+  assert.ok(r.errors.includes('INVALID_RAW_OHLCV_TURNOVER'));
+  assert.equal(r.asOf905,null);
+  assert.equal(r.retrospective,null);
+ }
+});
+test('sum of otherwise safe minute share counts cannot overflow safe integer precision',()=>{
+ const huge=Number.MAX_SAFE_INTEGER;
+ const r=sample([page([
+  bar('09:00',100,{Vo:huge,Va:huge*100}),
+  bar('09:01',100,{Vo:huge,Va:huge*100})
+ ])]);
+ assert.equal(r.structuralPass,false);
+ assert.ok(r.errors.includes('UNSAFE_AGGREGATE_VOLUME'));
+ assert.equal(r.dailyObservation,null);
+ assert.equal(r.asOf905,null);
+});

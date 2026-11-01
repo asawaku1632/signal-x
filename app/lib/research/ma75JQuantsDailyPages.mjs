@@ -113,7 +113,7 @@ export function parseMa75JQuantsDailyPages(freeze,{date,pages=[],requestedCode=n
         (r.Vo===null||r.Vo===0)){
       status='NO_TRADE';
     }else if(![r.O,r.H,r.L,r.C,r.Vo].every(val)||
-      !(r.O>0&&r.H>0&&r.L>0&&r.C>0&&r.Vo>0)||
+      !(r.O>0&&r.H>0&&r.L>0&&r.C>0&&Number.isSafeInteger(r.Vo)&&r.Vo>0)||
       r.H<Math.max(r.O,r.C,r.L)||r.L>Math.min(r.O,r.C,r.H)){
       status='INVALID_OHLCV';
     }else {

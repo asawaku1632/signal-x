@@ -39,7 +39,8 @@ const reportedRowCountsMatch=daily=>{
  return Object.keys(counts).length===Object.keys(daily.counts).length&&
     Object.entries(counts).every(([name,n])=>daily.counts[name]===n)&&
     daily.structurallyUsableRawBars===(counts.DAILY_BAR??0)&&
-    daily.rawProviderRows>=observedProviderRows;
+    // Every raw source row must be accounted for; inflated counts are untrusted.
+    daily.rawProviderRows===observedProviderRows;
 };
 const same=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&
  Math.abs(a-b)<=1e-8*Math.max(1,Math.abs(a),Math.abs(b));
@@ -94,7 +95,7 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
       ![aggregate.open,aggregate.high,aggregate.low,aggregate.close].every(positive)||
       aggregate.high<Math.max(aggregate.open,aggregate.close,aggregate.low)||
       aggregate.low>Math.min(aggregate.open,aggregate.close,aggregate.high)))||
-    !positive(aggregate.volume)&&aggregate.barCount>0||
+    (!Number.isSafeInteger(aggregate.volume)||aggregate.volume<=0)&&aggregate.barCount>0||
     !positive(aggregate.turnover)&&aggregate.barCount>0)
    reasons.push('INVALID_MINUTE_DAY_AGGREGATE');
  const noTrades=aggregate?.barCount===0;
@@ -106,7 +107,8 @@ export function reconcileMorningMinuteDaily(freeze,{code,date,minute,daily}={}){
    if(noTrades)reasons.push('DAILY_TRADES_BUT_NO_MINUTE_BARS');
    const dailyBar=row.bar;
    if(dailyBar?.unadjusted!==true||dailyBar.code!==code||dailyBar.tradeDate!==date||
-      ![dailyBar.open,dailyBar.high,dailyBar.low,dailyBar.close,dailyBar.volume].every(positive)||
+      ![dailyBar.open,dailyBar.high,dailyBar.low,dailyBar.close].every(positive)||
+      !Number.isSafeInteger(dailyBar.volume)||dailyBar.volume<=0||
       dailyBar.high<Math.max(dailyBar.open,dailyBar.close,dailyBar.low)||
       dailyBar.low>Math.min(dailyBar.open,dailyBar.close,dailyBar.high))
      reasons.push('INVALID_UNADJUSTED_DAILY_BAR');

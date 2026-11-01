@@ -213,3 +213,11 @@ test('missing and undocumented corporate-action metadata cannot assert ordinary 
   assert.equal(row.actionDetails.reason,'MISSING_OR_INVALID_EVENT_METADATA');
  }
 });
+
+test('fractional or unsafe daily share counts are never treated as valid provider OHLCV',()=>{
+ for(const shares of [0.5,1.5,Number.MAX_SAFE_INTEGER+1]){
+  const row=parse(make([bar('13010',{Vo:shares})],[])).rows.find(x=>x.code==='1301');
+  assert.equal(row.status,'INVALID_OHLCV');
+  assert.equal(row.bar,null);
+ }
+});
