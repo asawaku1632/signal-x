@@ -35,21 +35,21 @@ The current code still requires a locally verified real run before any claim tha
 
 ## Completed first real local 122-session capture; offline denominator audit
 
-A user-local run on 2026-11-01 reported the final \`HISTORICAL_ONLY\` private summary for 2026-05-01 through 2026-10-30:
+A user-local run on 2026-11-01 reported the final `HISTORICAL_ONLY` private summary for 2026-05-01 through 2026-10-30:
 
 - 122 / 122 calendar-selected sessions, **542,190 original full-market date rows**; 24 cached days and 98 newly downloaded on the final run
-- Fixed cohort **953** stocks, with **912** stocks having \`DAILY_BAR\` in all 122 sessions; **41** missing at least one required date
-- Across 953 × 122 required stock-date slots: **242 \`MISSING_PROVIDER_ROW\`** and **38 \`CORPORATE_ACTION_REVIEW\`**
-- Actual frozen-universe-wide historical return fields \`results\` and \`paired\` remain **null**, with no independent forward results as of the 2026-10-31 frozen-cohort date; production and notification eligibility stay false
+- Fixed cohort **953** stocks, with **912** stocks having `DAILY_BAR` in all 122 sessions; **41** missing at least one required date
+- Across 953 × 122 required stock-date slots: **242 `MISSING_PROVIDER_ROW`** and **38 `CORPORATE_ACTION_REVIEW`**
+- Actual frozen-universe-wide historical return fields `results` and `paired` remain **null**, with no independent forward results as of the 2026-10-31 frozen-cohort date; production and notification eligibility stay false
 
 **Offline next stage:** From the repo root (research branch), run:
 
-\`\`\`powershell
+```powershell
 node .\scripts\research\ma75-local-coverage-audit.mjs
-\`\`\`
+```
 
-This command requires **no API key, env settings, Vercel, subscription changes, extra download or network**. It loads the existing ignored \`research-private/\` daily files, verifies each saved full-date capture against the frozen cohort, reconciles the original terminal summary, and reports the per-code missing date ranges and event reasons. It also prints the existing **912-stock complete-history subset's retrospective statistics separately** as \`historicalCompleteCaseDiagnostic\`, never as the full 953-stock result. Because the frozen stock sample was assembled on October 30 and historical completeness is retrospectively known, selection/survivorship and event overlap biases remain; these rates cannot be used as independent buy signals.
+This command requires **no API key, env settings, Vercel, subscription changes, extra download or network**. It loads the existing ignored `research-private/` daily files, verifies each saved full-date capture against the frozen cohort, reconciles the original terminal summary, and reports the per-code missing date ranges and event reasons. It also prints the existing **912-stock complete-history subset's retrospective statistics separately** as `historicalCompleteCaseDiagnostic`, never as the full 953-stock result. Because the frozen stock sample was assembled on October 30 and historical completeness is retrospectively known, selection/survivorship and event overlap biases remain; these rates cannot be used as independent buy signals.
 
-Do not upload private original daily JSON files, API credentials, or the contents of \`.env.local\`. For review, paste **only** the terminal's aggregate \`ma75_local_completion_audit_v1\` report, which contains counts, codes, and descriptive statistics but excludes raw prices and credentials.
+Do not upload private original daily JSON files, API credentials, or the contents of `.env.local`. For review, paste **only** the terminal's aggregate `ma75_local_completion_audit_v1` report, which contains counts, codes, and descriptive statistics but excludes raw prices and credentials.
 
 The original primary summary is immutable and is not overwritten. If 122 saved dates cannot be reconciled or data are tampered with, the diagnostic fails closed; no incomplete data are silently treated as full coverage.
