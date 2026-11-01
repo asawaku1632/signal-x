@@ -2,7 +2,7 @@ import { alignVerifiedSessionHorizons } from "./verifiedSessionHorizons.mjs";
 
 /**
  * Read-only comparison: never updates persisted outcomes.
- * Both stock and TOPIX closes are required for a READY comparison.
+ * Stock-only returns remain comparable when TOPIX is missing; excess returns remain withheld.
  * Calendar provenance must be verified upstream.
  */
 export function compareMmOutcomeShadow({
@@ -30,8 +30,8 @@ export function compareMmOutcomeShadow({
         sessionDate: candidate?.date ?? null,
         status: candidate?.status ?? result.status,
         storedReturn: typeof saved === "number" && Number.isFinite(saved) ? saved : null,
-        shadowReturn: candidate?.status === "READY" ? candidate.stockReturn : null,
-        delta: candidate?.status === "READY" && typeof saved === "number" && Number.isFinite(saved)
+        shadowReturn: ["READY", "STOCK_ONLY"].includes(candidate?.status) ? candidate.stockReturn : null,
+        delta: ["READY", "STOCK_ONLY"].includes(candidate?.status) && typeof saved === "number" && Number.isFinite(saved)
           ? candidate.stockReturn - saved : null,
         benchmarkReturn: candidate?.status === "READY" ? candidate.benchmarkReturn : null,
         excessReturn: candidate?.status === "READY" ? candidate.excessReturn : null,
