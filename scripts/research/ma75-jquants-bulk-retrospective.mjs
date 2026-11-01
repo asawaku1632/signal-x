@@ -105,6 +105,7 @@ export async function runMa75BulkResearch(argv,{
  pause=ms=>new Promise(done=>setTimeout(done,ms)),
  readFreeze=()=>JSON.parse(readFileSync(FREEZE,'utf8')),
  readCached=readMa75PrivateSavedDate,
+ writePrivate=safeWrite,ensurePrivate=realPrivate,
  persist=true
 }={}){
  const opts=parseMa75BulkArgs(argv);
@@ -133,7 +134,7 @@ export async function runMa75BulkResearch(argv,{
  if(!body||!Array.isArray(body.data)||body.pagination_key)
   throw new TypeError('CALENDAR_PAGINATION_OR_RESPONSE_UNVERIFIED');
  const sessions=validateMa75OriginalTseCalendar(body.data,opts.from,opts.to);
- if(persist)realPrivate();
+ if(persist)ensurePrivate();
  const captures=[],perCode=new Map(freeze.codes.map(c=>[c,[]]));
  let alreadySavedDates=0,newlyDownloadedDates=0;
  const unavailableReasons={};
@@ -147,7 +148,7 @@ export async function runMa75BulkResearch(argv,{
   const project=validateMa75SavedDailyForReplay(freeze,date,data);
   if(cached){alreadySavedDates++}
   else{
-   if(persist)safeWrite(privateFile,data);
+   if(persist)writePrivate(privateFile,data);
    newlyDownloadedDates++;
   }
   for(const r of project.audit.rows)if(r.status!=='DAILY_BAR')
@@ -196,7 +197,7 @@ export async function runMa75BulkResearch(argv,{
   eligibleForProduction:false,eligibleForNotifications:false,
   eligibleForAIPowerScoring:false,eligibleForTrading:false
  };
- if(persist)safeWrite('research-private/ma75-jquants-bulk-summary-'+opts.to+'.json',aggregate);
+ if(persist)writePrivate('research-private/ma75-jquants-bulk-summary-'+opts.to+'.json',aggregate);
  return aggregate;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
