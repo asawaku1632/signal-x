@@ -76,7 +76,7 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
       !Number.isSafeInteger(r.rawProviderRows)||r.rawProviderRows<0||
       !Array.isArray(r.unmappedRows)||r.unmappedRows.length!==0||
       !Array.isArray(r.duplicateCodeDates)||r.duplicateCodeDates.length!==0||
-      !Array.isArray(r.outsideFrozenCodes)||
+      !Array.isArray(r.outsideFrozenCodes)||r.outsideFrozenCodes.length!==0||
       r.verifiedOriginalProviderCapture!==false||
       r.adjustedHistoricalAsOfValidated!==false||
       !validReceivedAt(r.firstReceivedAt,date)||
@@ -85,9 +85,12 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
       reason='INVALID_OR_INCOMPLETE_PAGE_AUDIT';
     else if(!r.counts||typeof r.counts!=='object'||
       !Number.isInteger(r.structurallyUsableRawBars)||
+      Array.isArray(r.counts)||
+      Object.keys(r.counts).length!==new Set(r.rows.map(x=>x.status)).size||
       Object.keys(r.counts).some(k=>r.counts[k]!==r.rows.filter(x=>x.status===k).length)||
       r.structurallyUsableRawBars!==r.rows.filter(x=>x.status==='DAILY_BAR').length||
-      r.rawProviderRows<r.rows.filter(x=>['DAILY_BAR','NO_TRADE',
+      // No unaccounted provider rows: a claimed extra source row is not proof.
+      r.rawProviderRows!==r.rows.filter(x=>['DAILY_BAR','NO_TRADE',
         'INVALID_OHLCV','CORPORATE_ACTION_REVIEW'].includes(x.status)).length||
       r.rows.some(x=>!Object.prototype.hasOwnProperty.call(r.counts,x.status)))
       reason='TAMPERED_PROVIDER_ROW_COUNTS';
@@ -97,7 +100,8 @@ export function auditMa75JQuantsDailyWindow(freeze,{sessions,reports,calendarSna
       (row.status==='DAILY_BAR'&&(
         row.bar?.code!==row.code||row.bar?.tradeDate!==date||row.bar?.unadjusted!==true||
         ![row.bar.open,row.bar.high,row.bar.low,row.bar.close,row.bar.volume].every(number)||
-        row.bar.open<=0||row.bar.close<=0||row.bar.low<=0||row.bar.high<=0||row.bar.volume<=0||
+        row.bar.open<=0||row.bar.close<=0||row.bar.low<=0||row.bar.high<=0||
+        !Number.isSafeInteger(row.bar.volume)||row.bar.volume<=0||
         row.bar.low>Math.min(row.bar.open,row.bar.close,row.bar.high)||
         row.bar.high<Math.max(row.bar.open,row.bar.close,row.bar.low)))||
       (row.status!=='DAILY_BAR'&&row.bar!==null)))

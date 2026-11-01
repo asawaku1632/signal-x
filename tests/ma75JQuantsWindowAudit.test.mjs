@@ -300,3 +300,42 @@ test('one-day audit must not self-certify provenance or fake its original cohort
  h.reports[30].readPages=0;
  assert.equal(audit(h).counts.HISTORY_INCOMPLETE,2);
 });
+
+test('inflated original source rows cannot certify 76 complete sessions',()=>{
+ for(const added of [1,50]){
+  const f=fixture();f.reports[7].rawProviderRows+=added;
+  const r=audit(f);
+  assert.equal(r.structuralCoverageComplete,false);
+  assert.equal(r.invalidReports[0].reason,'TAMPERED_PROVIDER_ROW_COUNTS');
+  assert.equal(r.counts.HISTORY_INCOMPLETE,2);
+  assert.equal(r.eligibleForProduction,false);
+ }
+});
+test('foreign source code blocks entire original 76-session date even when frozen rows look complete',()=>{
+ const f=fixture();
+ f.reports[8].outsideFrozenCodes.push('9999');
+ const r=audit(f);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.equal(r.invalidReports[0].reason,'INVALID_OR_INCOMPLETE_PAGE_AUDIT');
+ assert.equal(r.generatedForwardSignals,0);
+});
+test('extra invented zero-count statuses and malformed count shape cannot certify provider coverage',()=>{
+ const f=fixture();
+ f.reports[9].counts.MISSING_PROVIDER_ROW=0;
+ const r=audit(f);
+ assert.equal(r.structuralCoverageComplete,false);
+ assert.equal(r.invalidReports[0].reason,'TAMPERED_PROVIDER_ROW_COUNTS');
+ const g=fixture();
+ g.reports[9].counts=['DAILY_BAR'];
+ assert.equal(audit(g).structuralCoverageComplete,false);
+});
+test('fractional and unsafe tampered daily share totals invalidate historical crossover',()=>{
+ for(const v of [1.5,Number.MAX_SAFE_INTEGER+1]){
+  const f=fixture();
+  f.reports[11].rows[0].bar.volume=v;
+  const r=audit(f);
+  assert.equal(r.structuralCoverageComplete,false);
+  assert.equal(r.invalidReports[0].reason,'INCONSISTENT_OR_TAMPERED_CODE_ROWS');
+  assert.ok(r.rows.every(x=>x.signal===null));
+ }
+});
