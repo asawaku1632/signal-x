@@ -8,6 +8,7 @@ const CODE=/^[0-9]{3}[0-9A-Z]$/;
 const ISO=/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 function dateOK(d){if(typeof d!=='string'||!DAY.test(d))return false;const ms=Date.parse(d+'T00:00:00Z');return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===d;}
 function instant(t){return typeof t==='string'&&ISO.test(t)&&Number.isFinite(Date.parse(t))?Date.parse(t):null;}
+const jstDate=ms=>new Date(ms+9*3600000).toISOString().slice(0,10);
 const finitePositive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const round=n=>Math.round(n*10000)/10000;
 export function evaluateForward(rows,{cutoffDate,feeBps=0,slippageBps=0,minTrain=20,minTest=20}={}){
@@ -27,8 +28,9 @@ export function evaluateForward(rows,{cutoffDate,feeBps=0,slippageBps=0,minTrain
   else if(r.independentCapture!==true||r.sourceVerified!==true||r.lookaheadFreeVerified!==true)reason='UNVERIFIED_ASOF_EVIDENCE';
   else if([bar,received,decision,entry,exit].some(x=>x===null)||!(bar<=received&&received<=decision&&decision<=nine&&nine<=entry&&entry<exit))reason='INVALID_TIMELINE';
   else if(!finitePositive(r.entryPrice)||!finitePositive(r.exitPrice)||r.fillVerified!==true)reason='UNVERIFIED_FILL';
-  else if(!Number.isInteger(r.holdingTradingDays)||r.holdingTradingDays<1||r.holdingTradingDays>5||new Date(exit).toISOString().slice(0,10)<=r.date)reason='INVALID_HOLDING_PERIOD';
+  else if(!Number.isInteger(r.holdingTradingDays)||r.holdingTradingDays<1||r.holdingTradingDays>5||jstDate(exit)<=r.date)reason='INVALID_HOLDING_PERIOD';
   else if(r.outcomeComplete!==true||r.outcomeKnownAtDecision===true)reason='OUTCOME_UNVERIFIED';
+  else if(r.date<=cutoffDate && jstDate(exit)>cutoffDate)reason='TRAIN_OUTCOME_CROSSES_CUTOFF';
   if(reason){rejected[reason]=(rejected[reason]??0)+1;continue;}
   const gross=(r.exitPrice/r.entryPrice-1)*100;
   const net=gross-(2*feeBps+2*slippageBps)/100;
