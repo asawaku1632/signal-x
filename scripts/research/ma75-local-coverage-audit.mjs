@@ -138,7 +138,7 @@ export function analyzeMa75SavedCompletion({freeze,baselineSummary,dateRecords})
   full953HeadlineResults:null,
   full953HeadlinePaired:null,
   independentlyValidatedWinRate:null,
-  postFreezeCompletedCases:0,
+  postFreezeCasesExaminedByThisOfflineAudit:0,
   eligibleForProduction:false,
   eligibleForNotifications:false,
   eligibleForAIPowerScoring:false,
