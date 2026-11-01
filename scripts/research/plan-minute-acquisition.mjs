@@ -46,9 +46,9 @@ try{
     r.dailyReconciliationMatched===true&&
     r.metricsReleasedForHistoricalResearch===true&&
     r.eligibleForProduction===false&&r.eligibleForNotifications===false&&
+    Number.isInteger(r.parsedMinuteBars)&&r.parsedMinuteBars>0&&
     r.post905?.code===code&&r.post905?.date===date&&
-    Number.isFinite(r.post905?.upsideFromReferencePercent)&&
-    Number.isFinite(r.post905?.downsideFromReferencePercent))verified.push(date);
+    r.post905?.eligibleForProduction===false&&r.post905?.eligibleForNotifications===false)verified.push(date);
    else unverified.push(date);
   }catch{unverified.push(date);}
  }
@@ -57,13 +57,13 @@ try{
  const batches=[];
  for(let i=0;i<missing.length;i+=batchSize)batches.push(missing.slice(i,i+batchSize));
  console.log(JSON.stringify({
-  status:'OFFLINE_EXCHANGE_DAY_ACQUISITION_PLAN_ONLY',calendar:'2026_TSE_FIXED_HOLIDAY_LIST_NOT_INDEPENDENTLY_VERIFIED',
+  status:'OFFLINE_EXCHANGE_DAY_ACQUISITION_PLAN_ONLY',calendar:'2026_TSE_FIXED_HOLIDAY_LIST_CROSS_CHECKED_JPX_2026_11_01',
   code,from,to,expectedTradingDayCandidates:expected.length,
   reconciledExistingDays:verified.length,quarantinedExistingDays:unverified,
   missingDays:missing.length,batchesPlanned:batches.length,
   batches:batches.map((dates,i)=>({batch:i+1,dates,
    dryRunCommand:'node .\\scripts\\research\\jquants-minute-bounded-batch.mjs --code='+code+' --dates='+dates.join(',')})),
-  warning:'Fixed holiday list must be independently cross-checked against official exchange calendar before API execution. No execute commands generated.',
+  warning:'2026 holiday dates cross-checked against JPX published market holiday list on 2026-11-01; fixed calendar may not reflect unscheduled closures. No execute commands generated.',
   networkRequests:0,productionWrites:false,notifications:false,
   ma75Verified:false,eligibleForProduction:false,eligibleForNotifications:false
  },null,2));
