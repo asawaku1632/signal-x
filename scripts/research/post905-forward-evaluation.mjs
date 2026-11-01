@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 const DAY=/^20\d{2}-\d{2}-\d{2}$/;
 const CODE=/^[0-9]{3}[0-9A-Z]$/;
 const ISO=/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-function dateOK(d){return typeof d==='string'&&DAY.test(d)&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;}
+function dateOK(d){if(typeof d!=='string'||!DAY.test(d))return false;const ms=Date.parse(d+'T00:00:00Z');return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===d;}
 function instant(t){return typeof t==='string'&&ISO.test(t)&&Number.isFinite(Date.parse(t))?Date.parse(t):null;}
 const finitePositive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const round=n=>Math.round(n*10000)/10000;
