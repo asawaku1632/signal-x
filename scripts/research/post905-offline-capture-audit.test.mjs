@@ -54,3 +54,8 @@ test('requires separate input and output paths', () => {
   assert.throws(()=>parseArgs(['--input=x','--output=x']),/INPUT_OUTPUT_REQUIRED/);
   assert.throws(()=>parseArgs(['--input=x','--output=y','--unknown=z']),/INVALID_ARGUMENTS/);
 });
+
+test('rejects impossible dates rather than accepting regex-shaped dates', () => {
+  assert.throws(() => auditCaptures([{...valid(), trade_date:'2026-02-30'}]), /INVALID_SCOPE/);
+  assert.throws(() => auditCaptures([{...valid(), trade_date:'2026-13-01'}]), /INVALID_SCOPE/);
+});
