@@ -42,9 +42,16 @@ export async function GET(){
       "WHERE trade_date=$1::date AND policy_version=$2 LIMIT 1",
       [slot.date,MORNING_FINAL_POLICY]);
     const run=result.rows[0];
+    const freezeAt=Date.parse(String(run?.frozen_at??"").replace(" ","T")
+      .replace(/([+-]\\d{2})$/, "$1:00"));
+    const earliest=run?.prior_date?
+      Date.parse(run.prior_date+"T18:00:00+09:00"):NaN;
+    const latest=Date.parse(slot.date+"T09:00:00+09:00");
     if(!run||!Array.isArray(run.cohort)||!run.cohort.length||
        run.cohort.length>MAX_CODES||!run.cohort.every(c=>isJpxStockCode(c.code))||
-       !run.frozen_at||!run.prior_date||run.prior_date>=slot.date)
+       !run.frozen_at||!run.prior_date||run.prior_date>=slot.date||
+       !Number.isFinite(freezeAt)||!Number.isFinite(earliest)||
+       freezeAt<earliest||freezeAt>=latest)
       return NextResponse.json({policy:MORNING_PROBE_POLICY,
         status:"VALID_FROZEN_COHORT_UNAVAILABLE",date:slot.date,
         networkCalls:0},{status:409,headers});
