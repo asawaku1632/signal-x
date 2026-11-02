@@ -58,6 +58,52 @@ export function assessPaperMarketGate(
   return { ok: true, reason: "READY" };
 }
 
+
+export type PaperQuote = {
+  price?: unknown;
+  currentPrice?: unknown;
+  dataSource?: unknown;
+  latestBarTimestamp?: unknown;
+};
+export type PaperQuoteGate = PaperMarketGate | {
+  ok: false;
+  reason: "SOURCE_BAR_UNVERIFIED";
+};
+/** A scan refresh is not proof that its underlying Yahoo quote is recent.
+ * A delayed intraday bar may be up to 25 min old for research purposes,
+ * but must originate on the same Tokyo trading day. Never accept daily fallback
+ * for simulated fills. This is still an indicative quote, NOT a tradable bid/ask.
+ */
+export function assessPaperStockQuote(
+  now: Date,
+  scanUpdatedAt: string | null | undefined,
+  stock: PaperQuote | null | undefined,
+): PaperQuoteGate {
+  const gate = assessPaperMarketGate(now, scanUpdatedAt);
+  if (!gate.ok) return gate;
+  const priceValue = stock?.price ?? stock?.currentPrice;
+  const price = priceValue == null || priceValue === "" ? NaN : Number(priceValue);
+  const barSeconds = stock?.latestBarTimestamp;
+  if (!Number.isFinite(price) || price <= 0 ||
+      stock?.dataSource !== "intraday" ||
+      typeof barSeconds !== "number" || !Number.isFinite(barSeconds)) {
+    return {ok: false, reason: "SOURCE_BAR_UNVERIFIED"};
+  }
+  const barTime = new Date(barSeconds * 1000);
+  const barAge = now.getTime() - barTime.getTime();
+  if (barAge < 0 || barAge > 25 * 60_000) {
+    return {ok: false, reason: "SOURCE_BAR_UNVERIFIED"};
+  }
+  try {
+    if (getTseCashSessionStatus(barTime).date !== getTseCashSessionStatus(now).date) {
+      return {ok: false, reason: "SOURCE_BAR_UNVERIFIED"};
+    }
+  } catch {
+    return {ok: false, reason: "SOURCE_BAR_UNVERIFIED"};
+  }
+  return {ok: true, reason: "READY"};
+}
+
 /**
  * Historical paper-trade quality flag. Old trades are never removed or
  * rewritten, but a weekend/holiday/pre-09:05 assumed fill cannot count
