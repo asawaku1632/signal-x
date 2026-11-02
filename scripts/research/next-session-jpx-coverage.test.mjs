@@ -96,3 +96,10 @@ test("owner page is not duplicated and has an explicit missing-candle alert",()=
   assert.match(ui,/summarizeMorningCaptureHealth/);
   assert.match(ui,/5分足不足/);
 });
+
+test("no morning archive must remain NO_CAPTURE_DATA rather than inventing zero losses",()=>{
+  const health=summarizeMorningCaptureHealth([]);
+  assert.equal(health.status,"NO_CAPTURE_DATA");
+  assert.equal(health.availablePct,null);
+  assert.equal(health.slots,0);
+});
