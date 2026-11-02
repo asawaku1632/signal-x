@@ -12,7 +12,7 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const fail=why=>{throw new TypeError('MA75_FIRST_DAY_FREEZE_'+why)};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const canonicalCodes=rows=>rows.map(row=>row.code).sort();
-export function buildMa75FirstDayResearchFreeze(report,{sourceSha256,recordedAt}={}){
+export function buildMa75FirstDayResearchFreeze(report,{sourceSha256,historySha256,recordedAt}={}){
  if(!report||report.version!=='ma75_first_forward_day_shadow_v1'||
     report.status!=='OFFLINE_SHADOW_PATTERN_REVIEW_ONLY'||
     report.requestedSignalDate!=='2026-11-02'||
@@ -27,7 +27,8 @@ export function buildMa75FirstDayResearchFreeze(report,{sourceSha256,recordedAt}
     report.eligibleForAIPowerScoring!==false||
     report.independentForwardOutcomes!==0)
   fail('NOT_FIRST_DAY_RESEARCH_ONLY');
- if(typeof sourceSha256!=='string'||!/^[0-9a-f]{64}$/.test(sourceSha256))
+ if(typeof sourceSha256!=='string'||!/^[0-9a-f]{64}$/.test(sourceSha256)||
+    typeof historySha256!=='string'||!/^[0-9a-f]{64}$/.test(historySha256))
   fail('SOURCE_DIGEST_REQUIRED');
  const timestamp=Date.parse(recordedAt);
  if(typeof recordedAt!=='string'||!Number.isFinite(timestamp)||
@@ -89,6 +90,7 @@ export function buildMa75FirstDayResearchFreeze(report,{sourceSha256,recordedAt}
   version:MA75_FIRST_DAY_FREEZE_VERSION,
   createdAt:recordedAt,
   capturedSourceSha256:sourceSha256,
+  historicalWarmupSourceSha256:historySha256,
   firstForwardDate:'2026-11-02',
   priorHistoryLast:'2026-10-30',
   frozenPopulation:953,
@@ -143,7 +145,9 @@ export function verifyMa75FirstDayResearchFreeze(value){
    eligibleForTrading:false,eligibleForAIPowerScoring:false
   };
   return same(value,buildMa75FirstDayResearchFreeze(source,{
-   sourceSha256:payload.capturedSourceSha256,recordedAt:payload.createdAt
+   sourceSha256:payload.capturedSourceSha256,
+   historySha256:payload.historicalWarmupSourceSha256,
+   recordedAt:payload.createdAt
   }));
  }catch{return false}
 }
