@@ -22,3 +22,7 @@ Before promotion: (1) verify historical acquisition as-of and bar adjustment; (2
 No production changes, notifications, trading or additional services are authorized.
 
 Gemini comparison set 6158, 5216, 4074, 3839: none has a matching `chart:<code>:1D` entry in the current 130 saved daily snapshots. Therefore the four cannot be classified from this source; absence is not a negative signal.
+
+## Additional read-only quality audit (2026-11-02)
+Across six codes 4187, 4401, 5805, 6088, 6264, 7775, inspected 731 stored bars (five codes with 122 each and 6264 with 121): invalid OHLCV 0, duplicate bar timestamps 0, flat high=low bars 0, >45% opening or closing gaps versus previous close 0. This is a basic series-level check, not proof of corporate-action adjustments, source timing, or fillability.
+Missing outcomes are explained by stale saved charts: 7775 latest stored pre-Nov-2 bar is 2026-10-14, 4187 latest is 2026-10-15. Do not classify them as winners or losers. Refresh must be separately authorized and verified without extra cost; do not overwrite production data as part of this research.
