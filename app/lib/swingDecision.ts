@@ -2,7 +2,8 @@ export type SwingDecisionStatus =
   | "NEW_CANDIDATE"
   | "HOLD"
   | "TAKE_PROFIT_WATCH"
-  | "EXIT";
+  | "EXIT"
+  | "DATA_WAIT";
 
 export type SwingDecisionInput = {
   currentPrice: number;
@@ -15,6 +16,8 @@ export type SwingDecisionInput = {
   stopLoss?: number | null;
   startedAt?: string | null;
   trackingDays?: number | null;
+  /** Explicitly false only when the scan is missing/stale. Omitted preserves existing audits. */
+  marketDataFresh?: boolean;
 };
 
 export type SwingDecision = {
@@ -80,6 +83,19 @@ export function getSwingDecision(input: SwingDecisionInput): SwingDecision {
   }
 
   const pnlPercent = currentPrice > 0 ? ((currentPrice / entryPrice) - 1) * 100 : 0;
+  if (input.marketDataFresh === false) {
+    return {
+      status: "DATA_WAIT",
+      label: "最新データ確認待ち",
+      icon: "⚪",
+      tone: "amber",
+      summary: "株価やAI分析の鮮度が確認できません。撤退・継続の自動判定を保留しています。",
+      reasons: ["古いスキャンや購入時のAIスコアを現在の撤退理由に使用しません"],
+      pnlPercent,
+      holdingDays,
+      reviewDue,
+    };
+  }
   const reachedStop = stopLoss != null && stopLoss > 0 && currentPrice <= stopLoss;
   const weakAi = aiPower != null && aiPower < 55;
   const severeLoss = pnlPercent <= -3;

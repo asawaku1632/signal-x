@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test:paper-integrity && next build",
     "start": "next start",
     "lint": "eslint",
-    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs"
+    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
+    "test:paper-integrity": "node --experimental-strip-types --test tests/paperSimulationIntegrity.test.mjs tests/swingExitAudit.test.mjs"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.1",
