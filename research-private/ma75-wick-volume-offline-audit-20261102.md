@@ -58,3 +58,14 @@ Completed hypothetical 5-session outcomes: all N=5 mean +5.338%; excluding Augus
 
 ## Benchmark availability audit (2026-11-02, read-only)
 No daily chart snapshots matching N225, TOPIX, 225, 1306 or 1321. public.market_learning_logs has 75 rows dated 2026-07-03 through 2026-11-02, but zero positive Nikkei values and zero positive TOPIX values. Consequently no same-horizon benchmark excess return is calculated or claimed. The table schema contains nikkei and topix numeric columns, but they are not populated in these records. A separately sourced, timestamped, price-adjustment-consistent benchmark series is required; avoid backfilling unverified data.
+
+## Same-month internal-universe comparison (2026-11-02, read-only)
+Compared five completed triple-condition events against all other eligible cached stock-date rows in the **same calendar month**, using identical next-open to fifth-close hypothetical returns and 0.1% friction per side. This is NOT a Nikkei/TOPIX benchmark or a date-matched control.
+
+| Month | Triple signal N / mean % / positive % | Other eligible N / mean % / positive % | Mean difference, pp |
+|---|---|---|---:|
+| 2026-08 | 3 / +7.425 / 66.67 | 2123 / -0.344 / 47.90 | +7.769 |
+| 2026-09 | 1 / +3.416 / 100 | 2461 / +1.196 / 54.82 | +2.220 |
+| 2026-10 | 1 / +0.999 / 100 | 848 / +2.204 / 64.15 | -1.205 |
+
+October underperforms its same-month comparison despite a positive absolute modeled return. Event rows overlap within and between symbols; group composition and sample availability differ by month. No causal edge or live trading readiness inferred. Next: date-matched and sector/liquidity matched controls, independent benchmark OHLC, and forward data.
