@@ -119,6 +119,7 @@ export function reviewMa75FirstForwardDay(freeze,{
   allBreakoutShadowCount:breakouts.length,
   risingMa75BreakoutShadowCount:rising.length,
   breakoutWithoutRisingCount:flatOrFalling,
+  allBreakoutShadowPatterns:breakouts,
   shadowPatterns:rising,
   reasonCounts:reasons,
   incompleteAndQuarantined:list,
@@ -131,6 +132,7 @@ export function reviewMa75FirstForwardDay(freeze,{
   return5Percent:null,
   validatedForwardWinRate:null,
   independentForwardOutcomes:0,
+  allBreakoutGroupsIncludeUnprofitableCandidates:true,
   eligibleForProduction:false,eligibleForNotifications:false,
   eligibleForTrading:false,eligibleForAIPowerScoring:false,
   note:'Captured daily bars allow an offline pattern calculation, not proof they were available by a tradeable decision time. Do not place orders from this shadow list.'
