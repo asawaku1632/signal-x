@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditMa75PriceHistory as audit,auditMa75SourceAsOf as asof} from './ma75WickVolumeSafety.mjs';
+const bars=Array.from({length:80},(_,i)=>({time:1700000000+i*86400,open:100,high:105,low:95,close:100,volume:1000}));
+const mutate=(i,changes)=>bars.map((b,k)=>k===i?{...b,...changes}:{...b});
+test('normal history passes',()=>assert.equal(audit(bars,5,79),'PASS'));
+test('price discontinuity quarantined',()=>assert.equal(audit(mutate(40,{open:200,high:210,low:190,close:200}),5,79),'QUARANTINED_PRICE_GAP'));
+test('duplicate timestamps rejected',()=>assert.equal(audit(mutate(40,{time:bars[39].time}),5,79),'DUPLICATE_OR_UNSORTED'));
+test('invalid OHLC rejected',()=>assert.equal(audit(mutate(40,{high:90}),5,79),'INVALID_OHLCV_OR_TIME'));
+test('out of range window rejected',()=>assert.equal(audit(bars,0,80),'INVALID_WINDOW'));
+test('self-reported source is not authenticated',()=>assert.equal(asof({source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:150}),'TIMING_PLAUSIBLE_NOT_AUTHENTICATED'));
+test('late capture is offline only',()=>assert.equal(asof({source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:201}),'LATE_CAPTURE_OFFLINE_ONLY'));
+test('premature capture rejected',()=>assert.equal(asof({source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:99}),'CAPTURE_BEFORE_SIGNAL_CLOSE'));
+test('missing source rejected',()=>assert.equal(asof({source:'',signalCloseAt:100,entryOpenAt:200,capturedAt:150}),'PROVENANCE_UNVERIFIED'));
