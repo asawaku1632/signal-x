@@ -16,6 +16,8 @@ const urlOk=value=>{
 /**
  * Published time AND record-observed time must precede the frozen decision.
  * Unknown timing/data is never converted into a positive catalyst.
+ * TIMING_ELIGIBLE_ONLY checks metadata chronology, NOT the truth of filing
+ * content or an official-source identity; those require separate review.
  * One event is counted at most once even if duplicate records are supplied.
  */
 export function assessAsOfCatalysts({code,freezeAt,records=[]}){
@@ -41,7 +43,7 @@ export function assessAsOfCatalysts({code,freezeAt,records=[]}){
   accepted.sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt)||
     a.sourceUrl.localeCompare(b.sourceUrl));
   return {policy:CATALYST_POLICY,code:String(code),freezeAt,
-    status:accepted.length?"VERIFIED_AS_OF":"NOT_VERIFIED",
+    status:accepted.length?"TIMING_ELIGIBLE_ONLY":"NOT_VERIFIED",
     accepted,rejected,afterFreeze};
 }
 
@@ -56,6 +58,7 @@ export function assessFrozenBudgetMorning(watch,run){
      !Number.isFinite(watch.referencePrice)||watch.referencePrice<=0||
      !Number.isFinite(watch.score)||!Number.isFinite(watch.budgetYen)||
      !Number.isInteger(watch.shares)||watch.shares!==100)return no("INVALID_WATCH");
+  if(watch.referencePrice*watch.shares>watch.budgetYen)return no("PRIOR_BUDGET_FAIL");
   if(!run||run.trade_date!==watch.targetTradeDate||
     run.prior_date!==watch.referencePriceDate)return no("NOT_FROZEN");
   // PostgreSQL timestamptz::text can be YYYY-MM-DD HH:MM:SS+00.
