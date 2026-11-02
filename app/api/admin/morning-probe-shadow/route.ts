@@ -4,6 +4,7 @@ import pool from "@/app/lib/postgres";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {isJpxStockCode} from "@/app/lib/research/jpxStockCode.mjs";
+import {sealMorningProbeArchive} from "@/app/lib/research/morningProbeArchive.mjs";
 import {
   evaluateMorningProbe,probeSlotAt,summarizeMorningProbes,MORNING_PROBE_POLICY
 } from "@/app/lib/research/morningProbeShadow.mjs";
@@ -64,6 +65,7 @@ export async function GET(){
       // a response as having been known in the prior five-minute slot.
       if(probeSlotAt(requestTime).slot!==slot.slot)return {
         code:candidate.code,tradeDate:slot.date,probeSlot:slot.slot,
+        requestedAt:requestTime.toISOString(),receivedAt:requestTime.toISOString(),
         status:"SLOT_ROLLOVER",networkStatus:"NOT_REQUESTED"};
       const url="https://query1.finance.yahoo.com/v8/finance/chart/"+
         encodeURIComponent(candidate.code+".T")+"?range=1d&interval=5m";
@@ -73,7 +75,8 @@ export async function GET(){
           signal:AbortSignal.timeout(8000)});
         const receivedAt=new Date();
         if(!res.ok)return {code:candidate.code,tradeDate:slot.date,
-          probeSlot:slot.slot,status:"UPSTREAM_HTTP_ERROR",
+          probeSlot:slot.slot,requestedAt:requestTime.toISOString(),
+          status:"UPSTREAM_HTTP_ERROR",
           upstreamHttpStatus:res.status,receivedAt:receivedAt.toISOString()};
         const payload=await res.json();
         const result=payload?.chart?.result?.[0],q=result?.indicators?.quote?.[0];
@@ -97,6 +100,7 @@ export async function GET(){
           ["TimeoutError","AbortError"].includes(error.name)?
           "UPSTREAM_TIMEOUT":"UPSTREAM_RESPONSE_UNAVAILABLE";
         return {code:candidate.code,tradeDate:slot.date,probeSlot:slot.slot,
+          requestedAt:requestTime.toISOString(),
           status:reason,receivedAt:new Date().toISOString()};
       }
     }));
@@ -108,10 +112,20 @@ export async function GET(){
           !("networkStatus" in p && p.networkStatus==="NOT_REQUESTED")).length,
         note:"All observations discarded from this slot, do not backdate"},
         {status:409,headers});
-    return NextResponse.json({policy:MORNING_PROBE_POLICY,
-      status:"REFERENCE_RESEARCH_ONLY",date:slot.date,slot:slot.slot,
+    const batch={
+      policy:MORNING_PROBE_POLICY,status:"REFERENCE_RESEARCH_ONLY",
+      date:slot.date,priorDate:run.prior_date,slot:slot.slot,
+      serverStartedAt:requestedAt.toISOString(),
+      serverFinishedAt:finishedAt.toISOString(),
+      cohortFrozenAt:new Date(freezeAt).toISOString(),
+      frozenCodes:run.cohort.map(c=>c.code),probes,
+    };
+    const archive=sealMorningProbeArchive(batch);
+    return NextResponse.json({
+      ...batch,
       networkCalls:probes.filter(p=>!("networkStatus" in p && p.networkStatus==="NOT_REQUESTED")).length,
-      probes,coverage:summarizeMorningProbes(probes),
+      coverage:summarizeMorningProbes(probes),
+      archive,
       warning:"NOT_A_LIVE_BUY_SIGNAL_AND_NOT_A_FILLABLE_5M_OPEN"},
       {headers});
   }catch(error){
