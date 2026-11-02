@@ -16,7 +16,7 @@ test('future data cannot change signal classification',()=>{
  assert.deepEqual(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101}),first);
 });
 test('flat execution window is unverified',()=>{
- const changed=bars.map(x=>({...x}));changed[76]={...changed[76],open:1000,high:1000,low:1000,close:1000};
+ const changed=bars.map(x=>({...x}));changed[76]={...changed[76],open:100,high:100,low:100,close:100};
  const a=auditMa75FillAndBudget({bars:changed,signalIndex:75});
  assert.equal(a.status,'FILL_UNVERIFIED');
  assert.equal(a.fillVerified,false);
