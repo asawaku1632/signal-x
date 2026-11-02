@@ -1,3 +1,4 @@
+import { auditMa75PriceHistory } from './ma75WickVolumeSafety.mjs';
 /** Research-only frozen candidate. No scoring, trading or notifications. */
 export const MA75_WICK_VOLUME_V1 = Object.freeze({
   upperWickMinimum: 0.35, volumeRatioMinimum: 1.5,
@@ -18,6 +19,8 @@ export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior
   if (!values.every(finitePositive) || b.high < Math.max(b.open,b.close) ||
       b.low > Math.min(b.open,b.close) || b.high <= b.low)
     return { status: 'INVALID_OHLCV_OR_ZERO_RANGE', eligible: false };
+  const safety = auditMa75PriceHistory(bars, signalIndex-74, signalIndex);
+  if (safety !== 'PASS') return {status:safety,eligible:false};
   const volumeMean = recent.reduce((s,x)=>s+x.volume,0)/recent.length;
   const wick = (b.high-Math.max(b.open,b.close))/(b.high-b.low);
   const volumeRatio = b.volume/volumeMean;
@@ -38,6 +41,8 @@ export function auditMa75FillAndBudget({ bars, signalIndex }) {
       window.some(b=>![b?.open,b?.high,b?.low,b?.close].every(finitePositive) ||
         b.high < Math.max(b.open,b.close) || b.low > Math.min(b.open,b.close)))
     return { status:'INVALID_OHLCV' };
+  const safety = auditMa75PriceHistory(bars, signalIndex+1, signalIndex+r.holdSessions);
+  if (safety !== 'PASS') return {status:safety,fillVerified:false};
   const entryYen100=entry.open*(1+r.frictionPerSide)*r.shareLot;
   const fillUnverified=window.some(b=>b.high===b.low);
   const grossReturnPercent=(exit.close*(1-r.frictionPerSide)/
