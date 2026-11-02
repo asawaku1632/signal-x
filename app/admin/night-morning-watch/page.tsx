@@ -72,8 +72,10 @@ export default async function NightMorningWatchPage(){
     try {
       const response=await pool.query<SavedRow>(
         "SELECT code,name,score,price,date::text AS \"snapshotDate\" FROM public.daily_stock_results "+
-        "WHERE date=$1 AND score>=85 AND score<=100 AND price>0 "+
-        "AND code ~ '^[1-9][0-9ACDFGHJKLMNPRSTUWXY][0-9][0-9ACDFGHJKLMNPRSTUWXY]
+        "WHERE date=$1 AND score>=85 AND score<=100 AND price>0 " +
+        "AND code ~ '^[1-9][0-9ACDFGHJKLMNPRSTUWXY][0-9][0-9ACDFGHJKLMNPRSTUWXY]$' " +
+        "ORDER BY score DESC,code ASC LIMIT 1500",
+        [sourceDate]);
       rows=response.rows;
     }catch(error){
       console.error("Night morning saved results unavailable",error);
