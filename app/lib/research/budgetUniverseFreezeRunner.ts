@@ -29,7 +29,8 @@ export async function captureBudgetUniverseShadow(now=new Date()){
   const result=await pool.query<SavedSignal>(
     "SELECT code,name,score,price,date::text AS \"snapshotDate\",(created_at AT TIME ZONE 'UTC') AS \"savedAt\" "+
     "FROM public.daily_stock_results WHERE date=$1 "+
-    "AND created_at<=$2::timestamptz ORDER BY code ASC LIMIT $3",
+    "AND (created_at AT TIME ZONE 'UTC')<=$2::timestamptz "+
+    "ORDER BY code ASC LIMIT $3",
     [dates.sourceDate,now.toISOString(),MAX_DAILY_ROWS+1]);
   const raw=result.rows.map(row=>({
     ...row,
