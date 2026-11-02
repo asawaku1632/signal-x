@@ -12,3 +12,5 @@ test('self-reported source is not authenticated',()=>assert.equal(asof({source:'
 test('late capture is offline only',()=>assert.equal(asof({source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:201}),'LATE_CAPTURE_OFFLINE_ONLY'));
 test('premature capture rejected',()=>assert.equal(asof({source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:99}),'CAPTURE_BEFORE_SIGNAL_CLOSE'));
 test('missing source rejected',()=>assert.equal(asof({source:'',signalCloseAt:100,entryOpenAt:200,capturedAt:150}),'PROVENANCE_UNVERIFIED'));
+
+test('extreme opening gap quarantined even if close recovers',()=>assert.equal(audit(mutate(40,{open:200,high:205,low:95,close:100}),5,79),'QUARANTINED_PRICE_GAP'));
