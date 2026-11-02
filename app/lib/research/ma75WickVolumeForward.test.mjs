@@ -41,3 +41,23 @@ test('duplicate signal history timestamp is rejected',()=>{
  const changed=bars.map(x=>({...x}));changed[75].time=changed[74].time;
  assert.equal(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101}).status,'DUPLICATE_OR_UNSORTED');
 });
+
+test('late source capture blocks forward candidate',()=>{
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101,
+ provenance:{source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:201}});
+ assert.equal(a.eligible,false);
+ assert.equal(a.status,'LATE_CAPTURE_OFFLINE_ONLY');
+});
+test('plausible timing is not asserted as authenticated',()=>{
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101,
+ provenance:{source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:150}});
+ assert.equal(a.eligible,true);
+ assert.equal(a.provenanceStatus,'TIMING_PLAUSIBLE_NOT_AUTHENTICATED');
+});
+test('zero volume baseline cannot yield a valid volume ratio',()=>{
+ const changed=bars.map(x=>({...x}));
+ for(let i=55;i<75;i++)changed[i].volume=0;
+ const a=classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101});
+ assert.equal(a.eligible,false);
+ assert.equal(a.status,'INVALID_VOLUME_BASELINE');
+});
