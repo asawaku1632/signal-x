@@ -69,3 +69,16 @@ Compared five completed triple-condition events against all other eligible cache
 | 2026-10 | 1 / +0.999 / 100 | 848 / +2.204 / 64.15 | -1.205 |
 
 October underperforms its same-month comparison despite a positive absolute modeled return. Event rows overlap within and between symbols; group composition and sample availability differ by month. No causal edge or live trading readiness inferred. Next: date-matched and sector/liquidity matched controls, independent benchmark OHLC, and forward data.
+
+## Same-day price/volume matched internal controls (read-only)
+For each of five completed MA75+wick+volume events, controls are other cached symbols on the **same timestamp**, not themselves triple-signals, with closing price between 0.5x and 2x the target and signal-day volume between 0.25x and 4x target. Each modeled return uses next-session open to fifth-session close with 0.1% friction per side. Controls are unweighted within each target.
+
+| Signal date | Code | Signal % | Control count | Control mean % | Signal minus controls, pp |
+|---|---|---:|---:|---:|---:|
+| 2026-08-05 | 4401 | 15.885 | 30 | -1.086 | +16.972 |
+| 2026-08-10 | 5805 | 8.430 | 13 | -1.945 | +10.376 |
+| 2026-08-14 | 7775 | -2.039 | 5 | +1.725 | -3.765 |
+| 2026-09-08 | 6088 | +3.416 | 8 | +3.823 | -0.406 |
+| 2026-10-05 | 6264 | +0.999 | 38 | +3.763 | -2.764 |
+
+Only **2/5** signal events outperform their matched control mean, despite **4/5** positive absolute returns. Price and share-volume matching does not ensure equal liquidity, market capitalization, sector, beta, volatility, or spread. These are exploratory historical comparisons, not independent randomized controls or proof of alpha. Preserve SHADOW_NOT_APPROVED; no production notifications.
