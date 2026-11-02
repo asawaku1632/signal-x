@@ -8,6 +8,7 @@ import {buildNextSessionBudgetWatch} from "../../app/lib/research/nextSessionBud
 import {assessAsOfCatalysts} from "../../app/lib/research/nextSessionCatalystAudit.mjs";
 import {normalizeTdnetIndex} from "../../app/lib/research/authorizedTdnetIndex.mjs";
 import {summarizeMorningCaptureHealth} from "../../app/lib/research/morningCaptureHealth.mjs";
+import {compareMorningAndLateBars} from "../../app/lib/research/morningLateBarAudit.mjs";
 
 test("JPX 2024+ alphabetic code formats including 590A/641A/642A",()=>{
   for(const code of ["5333","590A","641A","642A","9A7A","1A00"])assert.equal(isJpxStockCode(code),true,code);
@@ -112,4 +113,54 @@ test("no morning archive must remain NO_CAPTURE_DATA rather than inventing zero 
   assert.equal(health.status,"NO_CAPTURE_DATA");
   assert.equal(health.availablePct,null);
   assert.equal(health.slots,0);
+});
+
+test("late bars can explain missing morning feed but cannot backdate a trade",()=>{
+  const mornings=[{trade_date:"2026-11-02",morning_observations:[
+    {code:"5333",label:"UNAVAILABLE",quoteReason:"MISSING_CANDLES"},
+    {code:"8316",label:"UNAVAILABLE",quoteReason:"MISSING_CANDLES"},
+    {code:"590A",label:"BUY_CANDIDATE"},
+  ]}];
+  const later=[{trade_date:"2026-11-02",status:"PARTIAL",results:[
+    {date:"2026-11-02",code:"5333",complete:true,closePrice:5000,
+      entries:[{time:"09:05",entryPrice:4700}]},
+    {date:"2026-11-02",code:"8316",complete:false,closePrice:null,entries:[]},
+    {date:"2026-11-02",code:"590A",complete:true,closePrice:3000,
+      entries:[{time:"09:05",entryPrice:2800}]},
+  ]}];
+  const out=compareMorningAndLateBars(mornings,later);
+  assert.equal(out.morningObserved,1);
+  assert.equal(out.morningUnavailable,2);
+  assert.equal(out.lateAvailableOnly,1);
+  assert.equal(out.stillUnknown,1);
+  assert.equal(out.status,"RETROSPECTIVE_BARS_ONLY");
+  assert.match(out.warning,/DOES_NOT_VALIDATE/);
+});
+test("a future day's afternoon candles never repair a previous day",()=>{
+  const mornings=[{trade_date:"2026-11-02",morning_observations:[
+    {code:"5333",label:"UNAVAILABLE"}]}];
+  const later=[{trade_date:"2026-11-04",status:"COMPLETE",results:[
+    {date:"2026-11-04",code:"5333",complete:true,closePrice:5000,
+      entries:[{time:"09:05",entryPrice:4800}]}]}];
+  const out=compareMorningAndLateBars(mornings,later);
+  assert.equal(out.lateAvailableOnly,0);
+  assert.equal(out.stillUnknown,1);
+});
+test("duplicate late evidence is not taken as a verified quote",()=>{
+  const mornings=[{trade_date:"2026-11-02",morning_observations:[
+    {code:"5333",label:"UNAVAILABLE"}]}];
+  const row={date:"2026-11-02",code:"5333",complete:true,closePrice:5000,
+    entries:[{time:"09:05",entryPrice:4800}]};
+  const out=compareMorningAndLateBars(mornings,[{
+    trade_date:"2026-11-02",status:"COMPLETE",results:[row,row]}]);
+  assert.equal(out.lateAvailableOnly,0);
+  assert.equal(out.stillUnknown,1);
+});
+test("owner research page has complete SQL, single JSX and explicit as-of audit",()=>{
+  const src=readFileSync("app/admin/night-morning-watch/page.tsx","utf8");
+  assert.equal(src.split("return <main").length-1,1);
+  assert.equal(src.split("</main>;").length-1,1);
+  assert.ok(src.includes("AND code ~ '^[1-9][0-9ACDFGHJKLMNPRSTUWXY][0-9][0-9ACDFGHJKLMNPRSTUWXY]$'"));
+  assert.ok(src.includes('"ORDER BY score DESC,code ASC LIMIT 1500"'));
+  assert.match(src,/compareMorningAndLateBars/);
 });
