@@ -42,8 +42,10 @@ export async function GET(){
       "WHERE trade_date=$1::date AND policy_version=$2 LIMIT 1",
       [slot.date,MORNING_FINAL_POLICY]);
     const run=result.rows[0];
-    const freezeAt=Date.parse(String(run?.frozen_at??"").replace(" ","T")
-      .replace(/([+-]\\d{2})$/, "$1:00"));
+    const rawFrozen=String(run?.frozen_at??"").replace(" ","T");
+    const frozenIso=rawFrozen.endsWith("+00")?
+      rawFrozen.slice(0,-3)+"+00:00":rawFrozen;
+    const freezeAt=Date.parse(frozenIso);
     const earliest=run?.prior_date?
       Date.parse(run.prior_date+"T18:00:00+09:00"):NaN;
     const latest=Date.parse(slot.date+"T09:00:00+09:00");
