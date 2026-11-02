@@ -70,7 +70,9 @@ export function isMarketSessionPaperEntry(startedAt: string | null | undefined) 
   try {
     const session = getTseCashSessionStatus(when);
     const minutes = session.hour * 60 + session.minute;
-    return session.open && minutes >= 9 * 60 + 5 && minutes < 15 * 60 + 25;
+    return session.open && minutes >= 9 * 60 + 5 &&
+      !(minutes >= 11 * 60 + 30 && minutes < 12 * 60 + 30) &&
+      minutes < 15 * 60 + 25;
   } catch {
     return false;
   }
