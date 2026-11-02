@@ -1,4 +1,4 @@
-import { auditMa75PriceHistory } from './ma75WickVolumeSafety.mjs';
+import { auditMa75PriceHistory, auditMa75SourceAsOf } from './ma75WickVolumeSafety.mjs';
 /** Research-only frozen candidate. No scoring, trading or notifications. */
 export const MA75_WICK_VOLUME_V1 = Object.freeze({
   upperWickMinimum: 0.35, volumeRatioMinimum: 1.5,
@@ -8,7 +8,7 @@ export const MA75_WICK_VOLUME_V1 = Object.freeze({
 });
 const finitePositive = x => typeof x === 'number' && Number.isFinite(x) && x > 0;
 /** Only information available at the completed signal-day close is used for selection. */
-export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior }) {
+export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior, provenance = null }) {
   const r = MA75_WICK_VOLUME_V1;
   if (!Array.isArray(bars) || !Number.isInteger(signalIndex) || signalIndex < 75 ||
       signalIndex >= bars.length || !finitePositive(ma75Today) || !finitePositive(ma75Prior))
@@ -21,13 +21,20 @@ export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior
     return { status: 'INVALID_OHLCV_OR_ZERO_RANGE', eligible: false };
   const safety = auditMa75PriceHistory(bars, signalIndex-74, signalIndex);
   if (safety !== 'PASS') return {status:safety,eligible:false};
+  if (provenance !== null) {
+    const provenanceStatus = auditMa75SourceAsOf(provenance);
+    if (provenanceStatus !== 'TIMING_PLAUSIBLE_NOT_AUTHENTICATED')
+      return {status:provenanceStatus,eligible:false};
+  }
   const volumeMean = recent.reduce((s,x)=>s+x.volume,0)/recent.length;
   const wick = (b.high-Math.max(b.open,b.close))/(b.high-b.low);
+  if (!(volumeMean > 0)) return {status:'INVALID_VOLUME_BASELINE',eligible:false};
   const volumeRatio = b.volume/volumeMean;
   const breakout = b.close > ma75Today && p.close <= ma75Prior;
   return { status: 'SHADOW_ONLY', eligible: breakout && wick >= r.upperWickMinimum &&
     volumeRatio >= r.volumeRatioMinimum, breakout, upperWickRatio: wick,
-    volumeRatio, selectionAsOf: b.time ?? null };
+    volumeRatio, selectionAsOf: b.time ?? null,
+    provenanceStatus: provenance === null ? 'PROVENANCE_NOT_SUPPLIED' : 'TIMING_PLAUSIBLE_NOT_AUTHENTICATED' };
 }
 /** Future bars are used for outcome audit only, never candidate selection. */
 export function auditMa75FillAndBudget({ bars, signalIndex }) {
