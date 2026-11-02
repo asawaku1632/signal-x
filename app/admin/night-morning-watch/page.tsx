@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import MorningProbeDownload from "./MorningProbeDownload";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
@@ -318,13 +319,15 @@ export default async function NightMorningWatchPage(){
           買えたことにはしません。検証結果を保存するDB処理、通知、注文はありません。
           手動で開いた時だけ最大5回の既存Yahoo参照を行います。
         </p>
+        <MorningProbeDownload />
         <a href="/api/admin/morning-probe-shadow" target="_blank" rel="noopener noreferrer"
-          className="mt-3 inline-block rounded-lg border border-blue-300 px-3 py-2 text-sm font-bold text-blue-800">
-          9:15〜9:30の取得状況を手動チェック（研究用JSON）
+          className="mt-2 block text-xs font-bold text-blue-700">
+          JSONを画面表示だけで確認する（ダウンロードしない）
         </a>
         <p className="mt-2 text-[11px] text-slate-500">
-          チェック可能時間：9:15〜9:34。取得結果は一時表示のみ。
-          サーバー側で保存していないため、後日の再現性確認には別の取得時刻付き保存が必要です。
+          チェック可能時間：9:15〜9:34。結果はサーバーDBには保存されません。
+          証拠JSONをスマホに保存すると、後で日別の取得成功率を照合できます。
+          保存し忘れた観測結果を過去へさかのぼって再生成しません。
         </p>
       </section>
 
