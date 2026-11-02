@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {freezeBudgetUniverse,BUDGET_UNIVERSE_POLICY}
   from "../../app/lib/research/budgetUniverseFreeze.mjs";
-import {normalizeTdnetIndex,readAuthorizedTdnetIndex}
+import {normalizeTdnetIndex,readAuthorizedTdnetIndex,linkFrozenBudgetTdnetHints}
   from "../../app/lib/research/authorizedTdnetIndex.mjs";
 const base={
   sourceDate:"2026-11-02",tradeDate:"2026-11-04",
@@ -147,4 +147,36 @@ test("403 upstream is not treated as entitled or proof of a disclosure",async()=
  fetcher:async()=>({ok:false,status:403})});
  assert.equal(r.status,"UPSTREAM_ERROR");
  assert.equal(r.items.length,0);
+});
+
+test("licensed TDnet index known before freeze annotates existing candidate only",()=>{
+  const snap=freeze();
+  const payload={data:[{...td.data[0],DiscNo:"20261102100000",Code:"10000"}]};
+  const records=normalizeTdnetIndex(payload,opts).items;
+  const result=linkFrozenBudgetTdnetHints(snap,records);
+  assert.equal(result.snapshotHash,snap.sha256);
+  assert.equal(result.matchedSymbols,1);
+  assert.equal(result.rows.find(r=>r.code==="1000").evidenceStatus,"TITLE_KNOWN_AS_OF_ONLY");
+  assert.equal(result.rows.find(r=>r.code==="1000").hints[0].status,"TIMING_ELIGIBLE_INDEX_ONLY");
+  assert.equal(snap.cohort.find(r=>r.code==="1000").evidence,"PRE_FROZEN_AI_ONLY");
+});
+test("publication known only after freeze is NOT retroactively linked",()=>{
+  const snap=freeze();
+  const payload={data:[{...td.data[0],DiscNo:"20261102100000",Code:"10000"}]};
+  const records=normalizeTdnetIndex(payload,{
+    ...opts,observedAt:"2026-11-02T18:30:00+09:00"}).items;
+  const result=linkFrozenBudgetTdnetHints(snap,records);
+  assert.equal(result.matchedSymbols,0);
+  assert.equal(result.postFreeze,1);
+});
+test("corrupted snapshot or fabricated title cannot change frozen records",()=>{
+  const snap=freeze();
+  assert.throws(()=>linkFrozenBudgetTdnetHints({...snap,sha256:"fake"},[]));
+  const result=linkFrozenBudgetTdnetHints(snap,[{
+    source:"unverified-forum",status:"INDEX_HINT_ONLY",code:"1000",discNo:"20261102100000",
+    publishedAt:"2026-11-02T06:40:00Z",observedAt:"2026-11-02T07:30:00Z",
+    hint:"UPWARD_REVISION_TITLE_ONLY",
+  }]);
+  assert.equal(result.matchedSymbols,0);
+  assert.equal(result.invalid,1);
 });
