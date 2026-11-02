@@ -61,3 +61,9 @@ test('zero volume baseline cannot yield a valid volume ratio',()=>{
  assert.equal(a.eligible,false);
  assert.equal(a.status,'INVALID_VOLUME_BASELINE');
 });
+
+test('overnight gap from signal to entry is quarantined',()=>{
+ const changed=bars.map(x=>({...x}));
+ changed[76]={...changed[76],open:170,high:175,low:165,close:170};
+ assert.equal(auditMa75FillAndBudget({bars:changed,signalIndex:75}).status,'QUARANTINED_PRICE_GAP');
+});
