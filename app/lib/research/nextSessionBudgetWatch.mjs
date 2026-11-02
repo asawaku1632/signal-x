@@ -1,3 +1,4 @@
+import {isJpxStockCode} from "./jpxStockCode.mjs";
 /**
  * Owner-only next-session budget shortlist (SHADOW / READ-ONLY).
  * Inputs are one completed session's saved AI snapshots. This function never
@@ -34,7 +35,7 @@ export function buildNextSessionBudgetWatch({
     const score = numeric(row?.score);
     const price = numeric(row?.price);
     const rowDate = row?.snapshotDate ?? row?.date ?? sourceDate;
-    if (!/^[0-9]{4}$/.test(code) || score === null || score < 85 || score > 100 ||
+    if (!isJpxStockCode(code) || score === null || score < 85 || score > 100 ||
       price === null || price <= 0 || !Number.isFinite(price * shares) ||
       rowDate !== sourceDate || !String(row?.name ?? "").trim()) {
       invalidRows++;
