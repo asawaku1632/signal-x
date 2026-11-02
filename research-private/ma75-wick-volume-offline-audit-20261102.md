@@ -55,3 +55,6 @@ Same 130 cached daily chart series, hypothetical entry at next session open and 
 
 ## Leave-out sensitivity (2026-11-02 read-only)
 Completed hypothetical 5-session outcomes: all N=5 mean +5.338%; excluding August N=2 mean +2.208%; excluding best single outcome N=4 mean +2.701%; excluding worst single outcome N=4 mean +7.183%. This is exploratory sensitivity only; N=2–5 is inadequate for a stable predictive expectation. Do not promote into production based on these numbers.
+
+## Benchmark availability audit (2026-11-02, read-only)
+No daily chart snapshots matching N225, TOPIX, 225, 1306 or 1321. public.market_learning_logs has 75 rows dated 2026-07-03 through 2026-11-02, but zero positive Nikkei values and zero positive TOPIX values. Consequently no same-horizon benchmark excess return is calculated or claimed. The table schema contains nikkei and topix numeric columns, but they are not populated in these records. A separately sourced, timestamped, price-adjustment-consistent benchmark series is required; avoid backfilling unverified data.
