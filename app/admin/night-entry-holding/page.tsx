@@ -4,7 +4,8 @@ import BottomNav from "@/app/components/BottomNav";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
-import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
+import {ENTRY_TIME_SHADOW_VERSION,jstParts} from "@/app/lib/research/entryTimeShadow.mjs";
+import {NEXT_SESSION_FORWARD_POLICY,summarizeFrozenBudgetOutcomes} from "@/app/lib/research/nextSessionBudgetForward.mjs";
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {nightMorningTradingDates,buildNightMorningCandidates} from "@/app/lib/research/nightMorningWatch.mjs";
 import {historicPeriodEvidence} from "@/app/lib/research/nightHoldingGuidance.mjs";
@@ -92,6 +93,11 @@ export default async function NightEntryHoldingPage(){
     isTradingDate:isTseTradingDate,now:new Date(),
   }) as ObservedStockDay[];
   const stats=summarizeNightHolding(observations);
+  const asOfDate=jstParts(new Date()).date;
+  const budgetForward=[100000,300000,350000,500000].map(budgetYen=>
+    summarizeFrozenBudgetOutcomes(observations,{
+      budgetYen,asOfDate,targetProfitYen:7000,lossThresholdYen:10000,
+    }));
   const gateStats=summarizeMorningGateHolding(observations);
   const latest=observations.slice(0,12);
   let futureCandidates:{code:string;name:string;score:number;referencePrice:number;rank:number}[]=[];
@@ -131,6 +137,52 @@ export default async function NightEntryHoldingPage(){
           将来値は事前候補の選定に使いません。
         </p>
       </header>
+
+      <section className="rounded-2xl border border-blue-200 bg-white p-4">
+        <h2 className="text-lg font-black">💴 予算別・9:05から1/3/5営業日後の検証</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          前夜に固定された最大5銘柄のうち、前夜と9:05の両方で100株が予算以内、
+          かつ保存済み9:05判定が「買い候補」だった銘柄日のみ比較。
+          「注意」「見送り」は取引として数えません。
+          目標は税引前7,000円、損失警戒目安は10,000円です。
+        </p>
+        {baseError||futureError?<p role="alert" className="mt-2 text-xs font-bold text-rose-700">
+          履歴データの取得が不完全です。成績の推定は表示しません。
+        </p>:null}
+        {!baseError&&!futureError&&budgetForward.map(stat=><div key={stat.budgetYen}
+          className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-black">予算 {yen(stat.budgetYen)}</p>
+          <p className="mt-1 text-xs text-slate-600">
+            前夜予算内 {stat.frozenEligible}件 ／
+            朝の予算超過 {stat.overBudget}件 ／
+            朝の注意・見送り {stat.gateRejected}件 ／
+            朝の記録不足 {stat.noMorning}件
+          </p>
+          <div className="mt-2 space-y-2">
+            {stat.horizons.map(h=><div key={h.horizon} className="rounded-lg border bg-white p-2 text-xs">
+              <p className="font-black">{h.horizon}営業日後：観測 {h.checked}件 /
+                {h.days}営業日（満期未到達や株価欠損は勝敗に含めず）
+              </p>
+              {!h.sufficient?<p className="mt-1 font-bold text-amber-800">
+                検証不足（最低30件・10営業日）。有利な条件とは判定しません。
+              </p>:<div className="mt-1 space-y-1">
+                <p>平均 {pnl(h.avgPnl100)} ／ 中央値 {pnl(h.medianPnl100)}</p>
+                <p>参考プラス率 {h.positiveRate?.toFixed(1)}% ／
+                  7,000円以上 {h.targetHits}/{h.checked}件
+                  （{h.targetHitRate?.toFixed(1)}%）
+                </p>
+                <p>−10,000円以下 {h.lossThresholdBreaches}/{h.checked}件</p>
+              </div>}
+            </div>)}
+          </div>
+        </div>)}
+        <p className="mt-2 text-[11px] leading-5 text-amber-900">
+          事前固定トップ5の範囲に限定した研究で、全銘柄からの予算別最適選定ではありません。
+          参考の9:05始値と日次保存価格を使用し、板・手数料・税金・滑り・配当・分割調整は未検証。
+          検証済みの将来利益確率として公開しません。
+        </p>
+        <p className="mt-1 text-[10px] text-slate-500">{NEXT_SESSION_FORWARD_POLICY}</p>
+      </section>
 
       <section className="rounded-2xl border border-indigo-200 bg-white p-4">
         <h2 className="text-lg font-black">📅 次の候補：1日・3日・5日後の参考傾向</h2>
