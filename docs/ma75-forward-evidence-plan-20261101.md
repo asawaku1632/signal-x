@@ -224,3 +224,76 @@ profitability; the predeclared MA75 strategy retains **NO PRODUCTION
 PROMOTION**. The next calendar trading session after November 2 must
 be validated against an official source before a hypothetical entry
 could be simulated; the CLI does not infer it or attempt to fill it.
+
+
+## 2026-11-02 first real shadow cohort and one-time local fingerprint
+
+Owner completed an offline read of **Nov 2, 2026** source: fixed frozen
+953 codes; **925** with complete 75-session warmup, **28** missing warmup,
+**zero** additional current-date missing rows among the 925,
+**one** large price discontinuity quarantined, **924** analyzable.
+**27** MA75 close breakouts on Nov 2, of which **22** had SMA75 rising,
+and **5** breakouts did not have SMA75 rising. This is a count of
+`CLOSE_TIME_SHADOW_PATTERN_ONLY` records, **not an audited actionable
+signal**, trade recommendation, profit rate or evidence of a reliable edge.
+The 22 rising cases must not be used without also retaining the
+27-breakout original control denominator.
+
+**Next cash market trading session is 2026-11-04 (Wednesday).**
+Japan Exchange Group lists Nov 3 (Tuesday) as a market holiday for
+Culture Day: https://www.jpx.co.jp/corporate/about-jpx/calendar/
+If the market follows its published schedule, subsequent five-day
+hypothetical close exits after Nov 2 signals are Nov 10 (Nov 4, 5, 6,
+9, 10). Neither future opening prices nor outcomes can be evaluated as
+of Nov 2.
+
+### Offline capture of a fixed first-day research baseline
+
+The `ma75FirstDayResearchFreeze` pure module now retains **all**
+breakouts, the rising subset, and every excluded/quarantined code; there
+is no 22-only winners-chosen denominator. The optional owner-local
+`ma75-freeze-first-forward-day.mjs` CLI hashes the one Nov 2
+original saved file AND each of the 75 pre-freeze daily sources, while
+retaining no original licensed OHLCV in the derived output.
+
+From the branch and worktree that already contain the private captures:
+
+```powershell
+git switch research/ma75-breakout-retest-shadow-20261031
+if ($LASTEXITCODE -ne 0) { throw "研究ブランチの切替失敗" }
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw "研究ブランチの更新失敗" }
+
+# No writes; preview expected 27 breakout patterns, 22 rising
+node .\scripts\research\ma75-freeze-first-forward-day.mjs
+if ($LASTEXITCODE -ne 0) { throw "研究プレビュー失敗" }
+
+# Explicit opt-in to write ONE derived manifest, once, before 2026-11-04 09:00 JST
+node .\scripts\research\ma75-freeze-first-forward-day.mjs --freeze
+if ($LASTEXITCODE -ne 0) { throw "研究用凍結に失敗" }
+
+# Read-only verification on this or a later day
+node .\scripts\research\ma75-freeze-first-forward-day.mjs --verify
+if ($LASTEXITCODE -ne 0) { throw "凍結データの照合失敗" }
+```
+
+The destination is exactly
+`research-private/ma75-first-forward-2026-11-02-cohort-freeze.json`.
+It uses `flag: wx` (exclusive create); a second freeze refuses to
+overwrite the first. The manifest contains only derived code-level
+observations, exclusion reasons, local timestamps and SHA256 fingerprints,
+not original licensed stock price pages or API keys.
+
+A local system clock / SHA256 manifest is **not independent proof**
+that original provider prices were truly published or available before
+the next opening bell, and does not certify license rights, market
+session authenticity, corporate actions, fees, fill quality or positive
+expected returns. Therefore no signal promotion occurs even if this
+manual freeze is successful.
+
+If a freeze is attempted **after** 2026-11-04 09:00 JST, the CLI
+refuses a retroactive pre-open freeze instead of backdating it.
+`--verify` can continue checking a previously created file later.
+No new J-Quants provider calls, scheduled jobs, Supabase mutations,
+production deployments, broker actions or alerts are initiated by this
+workflow.
