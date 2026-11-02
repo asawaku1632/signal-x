@@ -13,9 +13,9 @@ const evidence={
   sourceUrl:"https://example.co.jp/ir/20261030",
 };
 const freezeAt="2026-11-02T18:10:00+09:00";
-test("verified company IR must have public and observed timestamps before the freeze",()=>{
+test("a timestamp-eligible IR record still needs independent content review",()=>{
   const r=assessAsOfCatalysts({code:"5333",freezeAt,records:[evidence,evidence]});
-  assert.equal(r.status,"VERIFIED_AS_OF");assert.equal(r.accepted.length,1);
+  assert.equal(r.status,"TIMING_ELIGIBLE_ONLY");assert.equal(r.accepted.length,1);
   assert.equal(r.accepted[0].publishedAt,evidence.publishedAt);
 });
 test("a later press release is excluded from an earlier frozen shortlist",()=>{
@@ -54,6 +54,9 @@ test("a budget compliant at night can fail budget after opening gap",()=>{
   const r=assessFrozenBudgetMorning(stock,{...frozen,
     morning_observations:[{...frozen.morning_observations[0],price0905:3600}]});
   assert.equal(r.status,"OVER_BUDGET");
+});
+test("even a perfectly frozen candidate is blocked when prior-night budget is too small",()=>{
+  assert.equal(assessFrozenBudgetMorning({...stock,budgetYen:300000},frozen).status,"PRIOR_BUDGET_FAIL");
 });
 test("unfrozen row, mismatched score, missing bar and late saved morning fail closed",()=>{
   assert.equal(assessFrozenBudgetMorning(stock,null).status,"NOT_FROZEN");
