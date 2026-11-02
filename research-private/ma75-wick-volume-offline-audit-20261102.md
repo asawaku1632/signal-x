@@ -20,3 +20,5 @@ Five observed outcomes: arithmetic mean +5.3382%, positive fraction 4/5 (80%). *
 Before promotion: (1) verify historical acquisition as-of and bar adjustment; (2) run local Node tests/CI; (3) audit OHLCV chronology, extreme open/close gaps and flat bars; (4) validate actual execution assumptions; (5) obtain complete point-in-time market universe and untouched forward sample; (6) compare all baselines, regimes and multiple-testing corrections; (7) record risk, drawdown and turnover; (8) separate production approval.
 
 No production changes, notifications, trading or additional services are authorized.
+
+Gemini comparison set 6158, 5216, 4074, 3839: none has a matching `chart:<code>:1D` entry in the current 130 saved daily snapshots. Therefore the four cannot be classified from this source; absence is not a negative signal.
