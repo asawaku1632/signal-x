@@ -21,13 +21,17 @@ type Candle={time:number;open:number|null;high:number|null;low:number|null;
   close:number|null;volume:number|null};
 
 /**
- * EXPLICIT MANUAL GET ONLY. No schedule/cron, DB write, order, ranking update
+ * EXPLICIT OWNER-INITIATED POST ONLY. No schedule/cron, DB write, order, ranking update
  * or notification. Owner's one request costs at most 5 existing Yahoo HTTP
  * reads, and only on a trading day during 09:15..09:34 Japan time.
  */
-export async function GET(){
+export async function POST(request:Request){
   const {isOwner}=await getLearningOwnerSession();
   if(!isOwner)return NextResponse.json({error:"NOT_FOUND"},{status:404,headers});
+  const origin=request.headers.get("origin");
+  if(!origin||origin!==new URL(request.url).origin)
+    return NextResponse.json({error:"ORIGIN_NOT_ALLOWED"},
+      {status:403,headers});
   const requestedAt=new Date();
   const slot=probeSlotAt(requestedAt);
   if(!slot.allowed||!isTseTradingDate(slot.date))
