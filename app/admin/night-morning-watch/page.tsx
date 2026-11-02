@@ -7,6 +7,7 @@ import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar
 import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {summarizeMorningCaptureHealth} from "@/app/lib/research/morningCaptureHealth.mjs";
+import {compareMorningAndLateBars} from "@/app/lib/research/morningLateBarAudit.mjs";
 import {assessAsOfCatalysts,assessFrozenBudgetMorning} from "@/app/lib/research/nextSessionCatalystAudit.mjs";
 import {
   NEXT_SESSION_BUDGET_PRESETS,buildNextSessionBudgetWatch
@@ -32,6 +33,7 @@ type FrozenBudgetSnapshot={
 };
 type FrozenBudgetRow={snapshot:FrozenBudgetSnapshot};
 type MorningCaptureRow={trade_date:string;morning_observations:unknown[]};
+type LateBarRow={trade_date:string;status:string;results:unknown[]};
 type MorningFreezeRun={trade_date:string;prior_date:string;frozen_at:string;
   cohort:unknown[];morning_state:string;morning_saved_at:string|null;
   morning_observations:unknown[]};
@@ -68,6 +70,8 @@ export default async function NightMorningWatchPage(){
   let fullBudgetFreezeReadError=false;
   let captureRows:MorningCaptureRow[]=[];
   let captureReadError=false;
+  let lateRows:LateBarRow[]=[];
+  let lateReadError=false;
   if(sourceDate&&tradeDate){
     try {
       const response=await pool.query<SavedRow>(
@@ -134,7 +138,19 @@ export default async function NightMorningWatchPage(){
     console.error("morning capture quality query unavailable",error);
     captureReadError=true;
   }
+  try {
+    const result=await pool.query<LateBarRow>(
+      "SELECT trade_date::text,status,results FROM public.entry_time_shadow_runs "+
+      "WHERE policy_version=$1 ORDER BY trade_date DESC LIMIT 20",
+      [ENTRY_TIME_SHADOW_VERSION]);
+    lateRows=result.rows;
+  }catch(error){
+    console.error("late bar quality query unavailable",error);
+    lateReadError=true;
+  }
   const captureHealth=summarizeMorningCaptureHealth(captureReadError?[]:captureRows);
+  const lateCoverage=compareMorningAndLateBars(captureReadError?[]:captureRows,
+    lateReadError?[]:lateRows);
   const candidates:NightMorningCandidate[]=candidateReadError?[]:buildNightMorningCandidates(rows);
   const evidence:Evidence[]=evidenceReadError||!tradeDate?[]:
     summarizeNightMorningEvidence(runs,tradeDate);
@@ -269,6 +285,17 @@ export default async function NightMorningWatchPage(){
             （{captureHealth.availablePct??"—"}%）
           </p>
           <p className="mt-1">データ不足 {captureHealth.unavailable}件 ／ 5分足不足 {captureHealth.missing}件</p>
+          {!captureReadError&&!lateReadError&&<p className="mt-2 font-bold text-indigo-900">
+            同じ日・同じ銘柄で大引け後に5分足の検証ができた例：
+            {lateCoverage.lateAvailableOnly} / {lateCoverage.morningUnavailable}件
+          </p>}
+          {lateReadError?<p className="mt-2 text-rose-800">
+            大引け後の研究データを取得できませんでした。
+          </p>:null}
+          <p className="mt-1 text-slate-600">
+            大引け後に取得できても、9:08に判定・約定できた証拠にはなりません。
+            過去の朝判定を後から変更せず、配信時刻の検証だけに使用します。
+          </p>
           {captureHealth.status==="NO_USABLE_MORNING_DECISIONS"?
             <p role="alert" className="mt-2 font-bold text-rose-800">
               朝判定の実績をまだ評価できません。5分足の取得時刻・配信遅延を監査してください。
