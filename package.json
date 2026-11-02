@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test:next-session && next build",
     "start": "next start",
     "lint": "eslint",
-    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs"
+    "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
+    "test:next-session": "node --experimental-strip-types --test scripts/research/next-session-budget-watch.test.mjs scripts/research/next-session-evidence-forward.test.mjs"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.1",
