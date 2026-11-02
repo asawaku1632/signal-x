@@ -48,7 +48,7 @@ export function auditMa75FillAndBudget({ bars, signalIndex }) {
       window.some(b=>![b?.open,b?.high,b?.low,b?.close].every(finitePositive) ||
         b.high < Math.max(b.open,b.close) || b.low > Math.min(b.open,b.close)))
     return { status:'INVALID_OHLCV' };
-  const safety = auditMa75PriceHistory(bars, signalIndex+1, signalIndex+r.holdSessions);
+  const safety = auditMa75PriceHistory(bars, signalIndex, signalIndex+r.holdSessions);
   if (safety !== 'PASS') return {status:safety,fillVerified:false};
   const entryYen100=entry.open*(1+r.frictionPerSide)*r.shareLot;
   const minLots=Math.max(1,Math.ceil(r.budgetMinYen/entryYen100));
