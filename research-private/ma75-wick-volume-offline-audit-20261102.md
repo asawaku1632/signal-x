@@ -34,3 +34,6 @@ Offline evaluator updated to expose observed session count, losing and zero-retu
 
 ## Flat OHLC bar investigation (read-only)
 The 12 high=low bars across 8 symbols are: 3361 (2, volume 100–200), 3909 (1, volume 670200), 4436 (3, volume 34400–63700), 4493 (1, volume 407200), 6866 (1, volume 51800), 6925 (1, volume 236500), 6966 (1, volume 552500), 8848 (2, volume 506000–758700). A flat OHLC bar with substantial recorded volume can reflect price-limit trading or data representation and is not automatically a zero-volume bar or corruption. Investigate exchange halts/limits, adjusted prices, timestamp and vendor semantics before classification. None of these eight codes is among the six codes producing the seven provisional MA75 signals; this does not rule out effects on universe-wide baseline comparisons.
+
+## Flat-bar sensitivity comparison
+Read-only SQL on the 130 cached daily series: baseline 7 candidate signals, 5 available modeled five-session outcomes, mean +5.338%, positive fraction 80%. After excluding **all eight symbols** containing any of the 12 high=low bars: **7 signals, 5 outcomes, +5.338%, 80%** (unchanged). This is an entire-symbol exclusion sensitivity analysis, not a validation of the flat bars themselves. Same sample selection bias, stale outcome data, execution uncertainty and no prospective validation apply.
