@@ -320,10 +320,7 @@ export default async function NightMorningWatchPage(){
           手動で開いた時だけ最大5回の既存Yahoo参照を行います。
         </p>
         <MorningProbeDownload />
-        <a href="/api/admin/morning-probe-shadow" target="_blank" rel="noopener noreferrer"
-          className="mt-2 block text-xs font-bold text-blue-700">
-          JSONを画面表示だけで確認する（ダウンロードしない）
-        </a>
+
         <p className="mt-2 text-[11px] text-slate-500">
           チェック可能時間：9:15〜9:34。結果はサーバーDBには保存されません。
           証拠JSONをスマホに保存すると、後で日別の取得成功率を照合できます。
