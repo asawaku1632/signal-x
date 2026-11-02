@@ -155,6 +155,9 @@ test("owner-only probe route is manual and cannot mutate research history",()=>{
   const route=readFileSync("app/api/admin/morning-probe-shadow/route.ts","utf8");
   const vercel=readFileSync("vercel.json","utf8");
   assert.match(route,/getLearningOwnerSession/);
+  assert.match(route,/export async function POST\(request:Request\)/);
+  assert.match(route,/origin!==new URL\(request.url\).origin/);
+  assert.doesNotMatch(route,/export async function GET\(/);
   assert.match(route,/isTseTradingDate/);
   assert.match(route,/morning_final_check_runs/);
   assert.match(route,/const MAX_CODES=5/);
