@@ -142,6 +142,15 @@ test("aggregation reports observation coverage, never win or buy probability",()
   assert.equal(summary.excluded,1);
   assert.equal(summary.performanceEvidence,"NONE_NO_CONFIRMED_FILLS");
 });
+test("unusual provider 09:05:30 time is not a normal five-minute candle",()=>{
+  const broken=candle("09:05",{time:candle("09:05").time+30});
+  const r=evaluateMorningProbe(make({bars:[candle("09:00"),broken,candle("09:10")]}));
+  assert.equal(r.status,"INCONSISTENT_UPSTREAM_BARS");
+  assert.deepEqual(r.missingSlots,["09:05"]);
+});
+test("invalid November 31 calendar date is rejected rather than shifted into December",()=>{
+  assert.throws(()=>evaluateMorningProbe(make({tradeDate:"2026-11-31"})),/INVALID_PROBE_TARGET/);
+});
 test("owner-only probe route is manual and cannot mutate research history",()=>{
   const route=readFileSync("app/api/admin/morning-probe-shadow/route.ts","utf8");
   const vercel=readFileSync("vercel.json","utf8");
