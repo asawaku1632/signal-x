@@ -10,6 +10,7 @@
 - UI showed 'EXIT' based on AI POWER 0 and day change -1.28%.
 - NGK posted upward-revised full-year guidance and dividend revision at 2026-10-30 15:40 JST, **after** the 10/30 close. Market news reported a buy-indicated open 11/2.
 - Therefore the screenshot's paper gain is mathematically correct for the saved price pair, **not evidence that a 4,613-yen entry was achievable on Sunday after that earnings news**.
+- The 2026-11-02 TSE opening trade was reported as **JPY 5,013 at 09:15** (Yahoo quote page). Comparing an opening-trade *hypothetical* 100-share entry with the screenshot's JPY 4,949 gives **-JPY 6,400**, rather than +JPY 33,600. This is arithmetic, not proof of any individual's executable broker fill. https://finance.yahoo.co.jp/quote/5333.T
 
 Sources:
 - https://finance.yahoo.co.jp/quote/5333.T/disclosure
