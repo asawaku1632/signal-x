@@ -57,19 +57,27 @@ export function assessFrozenBudgetMorning(watch,run){
      !Number.isFinite(watch.score)||!Number.isFinite(watch.budgetYen)||
      !Number.isInteger(watch.shares)||watch.shares!==100)return no("INVALID_WATCH");
   if(!run||run.trade_date!==watch.targetTradeDate||
-    run.prior_date!==watch.referencePriceDate||
-    !validTime(run.frozen_at))return no("NOT_FROZEN");
-  const freeze=Date.parse(run.frozen_at);
+    run.prior_date!==watch.referencePriceDate)return no("NOT_FROZEN");
+  // PostgreSQL timestamptz::text can be YYYY-MM-DD HH:MM:SS+00.
+  // A timestamp without an explicit timezone is not accepted.
+  const dbTime=value=>{
+    const raw=String(value??"");
+    if(!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)$/.test(raw))return NaN;
+    const tz=raw.replace(" ","T").replace(/([+-]\d{2})$/, "$1:00")
+      .replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+    return Date.parse(tz);
+  };
+  const freeze=dbTime(run.frozen_at);
   const earliest=Date.parse(run.prior_date+"T18:00:00+09:00");
   const latest=Date.parse(run.trade_date+"T09:00:00+09:00");
-  if(freeze<earliest||freeze>=latest)return no("NOT_FROZEN");
+  if(!Number.isFinite(freeze)||freeze<earliest||freeze>=latest)return no("NOT_FROZEN");
   const matches=(Array.isArray(run.cohort)?run.cohort:[]).filter(x=>
     String(x?.code)===watch.code);
   if(matches.length!==1||
     Number(matches[0].score)!==watch.score||
     Math.abs(Number(matches[0].referencePrice)-watch.referencePrice)>0.001)
     return no("NOT_FROZEN");
-  const saved=Date.parse(String(run.morning_saved_at??""));
+  const saved=dbTime(run.morning_saved_at);
   const windowStart=Date.parse(run.trade_date+"T09:05:00+09:00");
   const windowEnd=Date.parse(run.trade_date+"T09:19:00+09:00");
   if(!["COMPLETE","PARTIAL"].includes(run.morning_state)||
