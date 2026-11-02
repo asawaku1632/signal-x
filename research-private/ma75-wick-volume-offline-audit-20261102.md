@@ -88,3 +88,16 @@ Five completed signal events, equal weight per signal (not per control row): sig
 
 ## Tail-frequency audit (read-only, five completed observations)
 Hypothetical five-session net returns: >=+5%: 2/5; >=+10%: 1/5; <=-5%: 0/5; minimum -2.039%; maximum +15.885%. Same-day price/volume matched relative returns: minimum -3.765 pp, maximum +16.972 pp, sample standard deviation 9.150 pp. Small sample; absence of a large observed loss is not a risk guarantee. No intrahold maximum adverse excursion, real fills, or independent forward validation yet. Production and notifications remain disabled.
+
+## Intrahold daily-low adverse excursion audit (2026-11-02, read-only)
+For the five completed triple-condition signals, use the next trading session OPEN as hypothetical entry and the MINIMUM daily LOW from sessions +1 through +5 as the worst observed price relative to entry. This is entry-relative adverse excursion, **not** peak-to-trough drawdown and not a stop-order fill simulation. Five-session net return includes 0.1% friction per side; daily-low excursions exclude friction.
+
+| Code | Signal date | Final 5-session net % | Lowest low vs entry % | Highest high vs entry % |
+|---|---|---:|---:|---:|
+| 4401 | 2026-08-05 | +15.885 | -0.098 | +20.891 |
+| 5805 | 2026-08-10 | +8.430 | -3.548 | +12.786 |
+| 7775 | 2026-08-14 | -2.039 | -2.765 | 0.000 |
+| 6088 | 2026-09-08 | +3.416 | -2.899 | +4.167 |
+| 6264 | 2026-10-05 | +0.999 | **-7.696** | +2.714 |
+
+6264 demonstrates a positive fifth-close return can conceal a deep intrahold adverse move. With a nominal JPY 200,000 position, -7.696% represents about JPY 15,392 mark-to-market loss before costs, exceeding a JPY 10,000 loss tolerance. Intraday order of high/low is unknown from daily bars; no executable stop-loss fill is asserted. Historical observations are only five and do not establish future downside bounds. SHADOW_NOT_APPROVED.
