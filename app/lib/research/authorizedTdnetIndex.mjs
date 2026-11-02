@@ -80,3 +80,43 @@ export async function readAuthorizedTdnetIndex({date,enabled=false,approved=fals
   return {status:result.paginationKey?"INCOMPLETE_PAGINATION":"INDEX_ONLY",
     ...result,networkCalls:1};
 }
+
+/**
+ * Read-only join of already-frozen symbols with timely *observed* TDnet index
+ * metadata. No new API call, no change to candidate order, score or hash.
+ * Facts published after freeze, or discovered after freeze, are not evidence
+ * that the model knew of them before buying. "Title hint" is not earnings data.
+ */
+export function linkFrozenBudgetTdnetHints(snapshot,records=[]){
+  const frozen=Date.parse(snapshot?.frozenAt??"");
+  if(!Number.isFinite(frozen)||!Array.isArray(snapshot?.cohort)||
+     typeof snapshot.sha256!=="string"||!/^[0-9a-f]{64}$/.test(snapshot.sha256))
+    throw Error("INVALID_FROZEN_SNAPSHOT");
+  const seen=new Set();
+  let postFreeze=0,unmatched=0,invalid=0;
+  const byCode=new Map(snapshot.cohort.map(c=>[String(c.code),[]]));
+  for(const r of Array.isArray(records)?records:[]){
+    if(!r||r.source!=="JQUANTS_TDNET_INDEX"||
+       r.status!=="INDEX_HINT_ONLY"||
+       !/^[0-9]{4}$/.test(String(r.code))||
+       !/^\d{14}$/.test(String(r.discNo))){invalid++;continue;}
+    const publicTime=Date.parse(r.publishedAt??"");
+    const receiptTime=Date.parse(r.observedAt??"");
+    if(!Number.isFinite(publicTime)||!Number.isFinite(receiptTime)||
+       receiptTime<publicTime){invalid++;continue;}
+    if(publicTime>frozen||receiptTime>frozen){postFreeze++;continue;}
+    const target=byCode.get(r.code);
+    if(!target){unmatched++;continue;}
+    if(seen.has(r.discNo))continue;
+    seen.add(r.discNo);
+    target.push({discNo:r.discNo,title:r.title,publishedAt:r.publishedAt,
+      observedAt:r.observedAt,hint:r.hint,status:"TIMING_ELIGIBLE_INDEX_ONLY"});
+  }
+  return {snapshotHash:snapshot.sha256,policy:TDNET_ADAPTER_POLICY,
+    frozenAt:snapshot.frozenAt,postFreeze,unmatched,invalid,
+    matchedSymbols:[...byCode].filter(([,v])=>v.length>0).length,
+    rows:snapshot.cohort.map(c=>({code:c.code,aiScore:c.score,
+      referencePrice:c.referencePrice,hints:byCode.get(c.code)??[],
+      evidenceStatus:(byCode.get(c.code)?.length??0)>0?
+        "TITLE_KNOWN_AS_OF_ONLY":"NO_VERIFIED_IR_EVIDENCE"}))};
+}
