@@ -21,7 +21,7 @@ const bucket=(parts)=>{
   const m=parts.minute;
   return m>=555&&m<575?hhmm(Math.floor(m/5)*5):null;
 };
-const completePriceBar=b=>positive(b.open)&&positive(b.high)&&positive(b.low)&&
+const completePriceBar=b=>!!b&&positive(b.open)&&positive(b.high)&&positive(b.low)&&
   positive(b.close)&&validVolume(b.volume)&&b.low<=Math.min(b.open,b.close)&&
   b.high>=Math.max(b.open,b.close)&&b.high>=b.low;
 
