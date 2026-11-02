@@ -85,3 +85,6 @@ Only **2/5** signal events outperform their matched control mean, despite **4/5*
 
 ## Aggregate matched-control sensitivity (read-only)
 Five completed signal events, equal weight per signal (not per control row): signal mean +5.338%; average of the five control-group means +1.256%; mean signal-minus-control +4.082 percentage points; **median excess -0.406 percentage points**; signal outperforms matched-control mean in only **2/5** cases; excluding the three August signals, mean excess **-1.585 percentage points** (N=2). The mean advantage is driven by the two large August relative winners and is not a stable cross-period effect. No evidence of live-tradable alpha, no notification or production approval.
+
+## Tail-frequency audit (read-only, five completed observations)
+Hypothetical five-session net returns: >=+5%: 2/5; >=+10%: 1/5; <=-5%: 0/5; minimum -2.039%; maximum +15.885%. Same-day price/volume matched relative returns: minimum -3.765 pp, maximum +16.972 pp, sample standard deviation 9.150 pp. Small sample; absence of a large observed loss is not a risk guarantee. No intrahold maximum adverse excursion, real fills, or independent forward validation yet. Production and notifications remain disabled.
