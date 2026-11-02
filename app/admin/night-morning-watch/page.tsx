@@ -306,6 +306,28 @@ export default async function NightMorningWatchPage(){
         </div>}
       </section>
 
+      <section className="rounded-2xl border border-blue-200 bg-white p-4">
+        <h2 className="text-lg font-black">🔍 朝9:15〜9:30・分足取得の手動検証</h2>
+        <p className="mt-2 text-xs leading-5 text-slate-600">
+          朝9:08の価格確認待ちが続いているため、同じ前夜固定の最大5銘柄について、
+          9:15・9:20・9:25・9:30の各時間帯に5分足を受信できるかを調べる研究専用機能です。
+          時刻は日本時間。休場日や指定時間外は取得しません。
+        </p>
+        <p className="mt-2 text-xs font-semibold text-amber-900">
+          過去の判定は書き換えません。取得を確認した時刻より前の価格で
+          買えたことにはしません。検証結果を保存するDB処理、通知、注文はありません。
+          手動で開いた時だけ最大5回の既存Yahoo参照を行います。
+        </p>
+        <a href="/api/admin/morning-probe-shadow" target="_blank" rel="noopener noreferrer"
+          className="mt-3 inline-block rounded-lg border border-blue-300 px-3 py-2 text-sm font-bold text-blue-800">
+          9:15〜9:30の取得状況を手動チェック（研究用JSON）
+        </a>
+        <p className="mt-2 text-[11px] text-slate-500">
+          チェック可能時間：9:15〜9:34。取得結果は一時表示のみ。
+          サーバー側で保存していないため、後日の再現性確認には別の取得時刻付き保存が必要です。
+        </p>
+      </section>
+
       <section className="rounded-2xl border border-indigo-200 bg-white p-4">
         <h2 className="text-lg font-black">🔒 全予算候補・前夜固定の状況</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
