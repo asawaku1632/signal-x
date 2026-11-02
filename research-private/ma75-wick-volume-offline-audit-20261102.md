@@ -49,3 +49,6 @@ Same 130 cached daily chart series, hypothetical entry at next session open and 
 | Remaining bars | 5140 | 0.753 | 53.52 | -23.563 | 159.670 |
 
 **Interpretation limits:** Unequal group sizes; only five complete triple-condition outcomes; overlapping rolling five-session outcomes and repeated stocks; no market/regime adjustment; no bootstrap uncertainty; price adjustment/corporate actions unverified; no real fills. 'OTHER' includes extreme positive outliers (+159.670%). These comparisons are exploratory and cannot justify a production alert. All counts are event rows, not unique stocks or independent trials.
+
+## Month-by-month audit (read-only, completed outcomes only)
+2026-08: N=3, mean +7.425%, range -2.039% to +15.885%; 2026-09: N=1, +3.416%; 2026-10: N=1, +0.999%. Two further October signals have no complete five-session outcomes in cached snapshots and are **not** included. The monthly apparent decline cannot establish trend deterioration with N=1 in September and October. August dominates the overall +5.338% average.
