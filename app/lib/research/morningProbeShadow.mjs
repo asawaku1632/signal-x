@@ -12,7 +12,8 @@ export const MORNING_PROBE_SLOTS=Object.freeze(["09:15","09:20","09:25","09:30"]
 const positive=x=>typeof x==="number"&&Number.isFinite(x)&&x>0;
 const validVolume=x=>typeof x==="number"&&Number.isFinite(x)&&x>=0;
 const dateValid=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
-  Number.isFinite(Date.parse(x+"T00:00:00Z"));
+  Number.isFinite(Date.parse(x+"T00:00:00Z"))&&
+  new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
 const timestamp=x=>new Date(x).getTime();
 const hhmm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
 const timeIndex=x=>Number(x.slice(0,2))*60+Number(x.slice(3));
@@ -66,7 +67,9 @@ export function evaluateMorningProbe({tradeDate,code,bars,receivedAt,requestedAt
   const observed=new Map();
   let duplicateOrInvalid=false;
   for(const bar of bars){
-    if(!Number.isSafeInteger(bar?.time)||bar.time<=0){duplicateOrInvalid=true;continue;}
+    if(!Number.isSafeInteger(bar?.time)||bar.time<=0||bar.time%300!==0){
+      duplicateOrInvalid=true;continue;
+    }
     const local=jstParts(bar.time*1000);
     if(local.date!==tradeDate)continue;
     // No 09:10 candle CLOSE can be known before 09:15. No future bar may
