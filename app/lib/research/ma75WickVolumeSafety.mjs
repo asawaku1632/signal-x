@@ -5,7 +5,7 @@ export function auditMa75PriceHistory(bars,start,end){
  if(!Array.isArray(bars)||!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>=bars.length||start>end)return 'INVALID_WINDOW';
  for(let i=start;i<=end;i++){
   if(!valid(bars[i]))return 'INVALID_OHLCV_OR_TIME';
-  if(i>0){if(!valid(bars[i-1]))return 'INVALID_OHLCV_OR_TIME';if(bars[i].time<=bars[i-1].time)return 'DUPLICATE_OR_UNSORTED';if(Math.abs(bars[i].close/bars[i-1].close-1)>0.45)return 'QUARANTINED_PRICE_GAP';}
+  if(i>0){if(!valid(bars[i-1]))return 'INVALID_OHLCV_OR_TIME';if(bars[i].time<=bars[i-1].time)return 'DUPLICATE_OR_UNSORTED';if(Math.abs(bars[i].close/bars[i-1].close-1)>0.45||Math.abs(bars[i].open/bars[i-1].close-1)>0.45)return 'QUARANTINED_PRICE_GAP';}
  }
  return 'PASS';
 }
