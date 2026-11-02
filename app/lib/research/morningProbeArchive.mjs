@@ -15,10 +15,10 @@ const observedStatuses=new Set([
   "OUTSIDE_SLOT_OR_ROLLOVER",
 ]);
 const asMillis=x=>{
-  if(typeof x!=="string"||!/(Z|[+-]\\d{2}:\\d{2})$/.test(x))return NaN;
+  if(typeof x!=="string"||!/(Z|[+-]\d{2}:\d{2})$/.test(x))return NaN;
   return Date.parse(x);
 };
-const dayValid=x=>typeof x==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x)&&
+const dayValid=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
   Number.isFinite(Date.parse(x+"T00:00:00Z"))&&
   new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
 const dateTime=(date,hhmm)=>Date.parse(date+"T"+hhmm+":00+09:00");
