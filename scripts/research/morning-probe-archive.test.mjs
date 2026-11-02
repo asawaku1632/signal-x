@@ -92,14 +92,16 @@ test("duplicate probe response for the same stock is not counted twice",()=>{
   })),/OBSERVATION/);
 });
 test("receivedAt before requestedAt is invalid",()=>{
+  const record={...makeRecord("5333"),receivedAt:at("09:15:24")};
   assert.throws(()=>sealMorningProbeArchive(makeBatch({
-    probes:[makeRecord("5333",{receivedAt:at("09:15:24")}),makeRecord("8316")],
+    probes:[record,makeRecord("8316")],
   })),/RECEIPT_TIME/);
 });
 test("a five-minute slot rollover prevents sealing a prior-slot observation",()=>{
+  const record={...makeRecord("5333"),receivedAt:at("09:20:00")};
   assert.throws(()=>sealMorningProbeArchive(makeBatch({
     serverFinishedAt:at("09:20:02"),
-    probes:[makeRecord("5333",{receivedAt:at("09:20:00")}),makeRecord("8316")],
+    probes:[record,makeRecord("8316")],
   })),/SLOT_ROLLOVER/);
 });
 test("missing 09:05 quote is preserved as missing, not a loss or a win",()=>{
