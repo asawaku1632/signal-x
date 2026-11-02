@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { assessPaperMarketGate, isMarketSessionPaperEntry } from "../app/lib/simulationIntegrity.ts";
+import { assessPaperMarketGate, assessPaperStockQuote, isMarketSessionPaperEntry } from "../app/lib/simulationIntegrity.ts";
 import { getSwingDecision } from "../app/lib/swingDecision.ts";
 
 const at = (s) => new Date(s);
@@ -49,17 +49,33 @@ test("stale scan and 7.28% hypothetical gain do not issue EXIT based on old AI=0
   assert.equal(getSwingDecision({ ...input, aiPower: null, marketDataFresh: true }).status, "TAKE_PROFIT_WATCH");
 });
 
+
+test("a new snapshot with old underlying price is NOT a valid paper fill", () => {
+  const now = at("2026-11-02T00:20:00Z");
+  const saved = "2026-11-02T00:19:00Z";
+  const intraday = (bar, source = "intraday") => ({
+    code: "5333", price: 4949, dataSource: source, latestBarTimestamp: Date.parse(bar)/1000,
+  });
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-10-30T06:25:00Z")).reason, "SOURCE_BAR_UNVERIFIED");
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-11-02T00:10:00Z", "daily_fallback")).reason, "SOURCE_BAR_UNVERIFIED");
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-11-02T00:10:00Z")).ok, true);
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-11-02T00:10:00Z", "intraday")).ok, true);
+  assert.equal(assessPaperStockQuote(now, saved, {price:4949, dataSource:"intraday"}).reason, "SOURCE_BAR_UNVERIFIED");
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-11-02T00:30:00Z")).reason, "SOURCE_BAR_UNVERIFIED");
+  assert.equal(assessPaperStockQuote(now, saved, intraday("2026-11-01T23:50:00Z")).reason, "SOURCE_BAR_UNVERIFIED");
+});
+
 test("UI does not reuse purchase-time score or quietly hide off-session fills", () => {
   const ui = readFileSync("app/simulation/page.tsx", "utf8");
   assert.doesNotMatch(ui, /aiPower:s\?\.score\?\?s\?\.aiPower\?\?t\.aiScore/);
   assert.match(ui, /isMarketSessionPaperEntry\(selected\.startedAt\)/);
-  assert.match(ui, /marketDataFresh:!!s&&assessPaperMarketGate/);
+  assert.match(ui, /marketDataFresh:!!s&&assessPaperStockQuote/);
   assert.match(ui, /setScanUpdatedAt/);
 });
 
 test("server rejects stale and off-session paper buys AND sells", () => {
   const api = readFileSync("app/api/paper-trades/route.ts", "utf8");
-  assert.match(api, /assessPaperMarketGate\(new Date\(\),snapshot\?\.updatedAt\?\?null\)/);
+  assert.match(api, /assessPaperStockQuote\(new Date\(\),snapshot\?\.updatedAt\?\?null,stock\)/);
   assert.match(api, /verifiedSimulatedQuote\(code,entryPrice\)/);
   assert.match(api, /verifiedSimulatedQuote\(opened\.code,exitPrice\)/);
 });
