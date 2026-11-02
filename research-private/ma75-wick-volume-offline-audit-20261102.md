@@ -26,3 +26,8 @@ Gemini comparison set 6158, 5216, 4074, 3839: none has a matching `chart:<code>:
 ## Additional read-only quality audit (2026-11-02)
 Across six codes 4187, 4401, 5805, 6088, 6264, 7775, inspected 731 stored bars (five codes with 122 each and 6264 with 121): invalid OHLCV 0, duplicate bar timestamps 0, flat high=low bars 0, >45% opening or closing gaps versus previous close 0. This is a basic series-level check, not proof of corporate-action adjustments, source timing, or fillability.
 Missing outcomes are explained by stale saved charts: 7775 latest stored pre-Nov-2 bar is 2026-10-14, 4187 latest is 2026-10-15. Do not classify them as winners or losers. Refresh must be separately authorized and verified without extra cost; do not overwrite production data as part of this research.
+
+## Data freshness follow-up
+Read-only database metadata confirms `chart:7775:1D` last updated at 2026-10-14 19:51:46 UTC and `chart:4187:1D` at 2026-10-15 10:53:59 UTC. Their saved chart series therefore cannot provide the five-session outcomes for 2026-10-09 and 2026-10-13 signals, respectively. This is a **coverage gap**, not evidence of positive or negative performance. No data refresh or paid API call performed.
+
+Offline evaluator updated to expose observed session count, losing and zero-return counts, and min/max hypothetical returns. Test source added but CI execution remains unverified. No production changes.
