@@ -6,6 +6,9 @@ import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
 import {
+  NEXT_SESSION_BUDGET_PRESETS,buildNextSessionBudgetWatch
+} from "@/app/lib/research/nextSessionBudgetWatch.mjs";
+import {
   NIGHT_MORNING_POLICY, NIGHT_MORNING_MIN_SAMPLES,NIGHT_MORNING_MIN_DAYS,
   nightMorningTradingDates,buildNightMorningCandidates,summarizeNightMorningEvidence
 } from "@/app/lib/research/nightMorningWatch.mjs";
@@ -13,7 +16,7 @@ import {
 export const dynamic="force-dynamic";
 export const revalidate=0;
 
-type SavedRow={code:string;name:string;score:number|string;price:number|string};
+type SavedRow={code:string;name:string;score:number|string;price:number|string;snapshotDate:string};
 type NightMorningCandidate={
   code:string;name:string;score:number;referencePrice:number;rank:number;band:string
 };
@@ -48,9 +51,9 @@ export default async function NightMorningWatchPage(){
   if(sourceDate&&tradeDate){
     try {
       const response=await pool.query<SavedRow>(
-        "SELECT code,name,score,price FROM public.daily_stock_results "+
+        "SELECT code,name,score,price,date::text AS \"snapshotDate\" FROM public.daily_stock_results "+
         "WHERE date=$1 AND score>=85 AND price>0 AND code ~ '^[0-9]{4}$' "+
-        "ORDER BY score DESC,code ASC LIMIT 5",[sourceDate]);
+        "ORDER BY score DESC,code ASC LIMIT 1500",[sourceDate]);
       rows=response.rows;
     }catch(error){
       console.error("Night morning saved results unavailable",error);
@@ -72,6 +75,12 @@ export default async function NightMorningWatchPage(){
   const candidates:NightMorningCandidate[]=candidateReadError?[]:buildNightMorningCandidates(rows);
   const evidence:Evidence[]=evidenceReadError||!tradeDate?[]:
     summarizeNightMorningEvidence(runs,tradeDate);
+  const budgetWatches=sourceDate&&tradeDate&&!candidateReadError?
+    NEXT_SESSION_BUDGET_PRESETS.map(budgetYen=>
+      buildNextSessionBudgetWatch({
+        rows,sourceDate,tradeDate,budgetYen,targetProfitYen:7000,limit:3,
+      })): [];
+  const budgetUniverseCapped=rows.length>=1500;
   const byBand=new Map(evidence.map(e=>[e.band,e]));
   const samples=evidence.reduce((sum,e)=>sum+e.count,0);
   const hasError=dateError||candidateReadError;
@@ -165,6 +174,58 @@ export default async function NightMorningWatchPage(){
             </div>;
           })}
         </div>:null}
+      </section>
+
+      <section className="rounded-2xl border border-blue-200 bg-white p-4">
+        <h2 className="text-lg font-black">💴 翌取引日・予算別の研究候補</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          保存済みAI POWER 85以上から100株単位で計算。10万・30万・35万・50万円の予算別に
+          最大3銘柄を表示します。順位は保存AIスコア順で、翌日の上昇率や利益の予測順位ではありません。
+          保存価格は実際に購入できる株価と異なるため、9:05以降の最新価格で再判定が必要です。
+        </p>
+        <p className="mt-2 text-xs font-bold text-blue-800">
+          保存日 {sourceDate??"—"} ／ 次の検証対象日 {tradeDate??"—"}
+        </p>
+        {budgetUniverseCapped?<p role="alert" className="mt-2 text-xs text-amber-800">
+          研究データの読込上限1500件に達しました。全銘柄の網羅性を保証しません。
+        </p>:null}
+        {budgetWatches.map(watch=><div key={watch.budgetYen}
+          className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-black">予算 {yen(watch.budgetYen)} ／
+            条件に合う保存銘柄 {watch.eligibleCount}件</p>
+          {watch.candidates.length===0?<p className="mt-2 text-xs text-slate-600">
+            現時点ではこの予算内に条件を満たす候補がありません。
+          </p>:null}
+          {watch.candidates.map(stock=><div key={stock.code}
+            className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <div className="flex justify-between gap-2">
+              <b>参考{stock.rank}位｜{stock.code} {stock.name}</b>
+              <span className="text-indigo-700 font-black">AI {stock.score}</span>
+            </div>
+            <p className="mt-1 text-xs leading-5">
+              保存価格 {yen(stock.referencePrice)} ・100株参考額 {yen(stock.referenceCostYen)}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">
+              税・手数料・滑りを除き7,000円を得るには、
+              100株で1株+{yen(stock.requiredRiseYenPerShare)}（+{stock.requiredRisePercent}%）が必要。
+              これは到達予想ではありません。
+            </p>
+            <p className="mt-1 text-xs leading-5 text-amber-800">
+              業績材料・出来高：未検証。9:05以降に最新価格・板・急落リスクを再判定。
+            </p>
+          </div>)}
+          {watch.conflictsExcluded>0?<p className="mt-2 text-xs text-amber-800">
+            不一致のある重複記録 {watch.conflictsExcluded}銘柄は除外しました。
+          </p>:null}
+        </div>)}
+        <Link href="/admin/morning-final-check"
+          className="mt-3 block text-sm font-bold text-blue-700">
+          9:05以降の再判定研究へ →
+        </Link>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          本機能は管理者限定のシャドー表示です。買い推奨、実注文、通知、一般向けランキングには
+          反映していません。材料と出来高を未確認のまま「上がる本命」と断言しません。
+        </p>
       </section>
 
       <section className="rounded-2xl border bg-white p-4">
