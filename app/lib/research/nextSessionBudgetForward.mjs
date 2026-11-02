@@ -1,10 +1,14 @@
 /**
  * Owner-only historical outcome audit for a PRE-FROZEN top-five cohort.
  * Input: buildNightHoldingStudy() rows, which require an actual night freeze,
- * identical prior score/price, original 09:05 morning decision and timestamped
- * after-close prices. Do not retrospectively create a cohort from winners.
+ * identical prior score/price, saved 09:05 morning decision and timestamped
+ * after-close prices. The morning decision is saved around 09:08; never
+ * pretend that a later decision could buy at the earlier 09:05 bar OPEN.
+ * Use 09:30 OPEN only, the earliest universally post-decision slot archived
+ * by the existing independent study. No actual executable bid/ask proof.
+ * Do not retrospectively create a cohort from winners.
  */
-export const NEXT_SESSION_FORWARD_POLICY="FROZEN_BUDGET_0905_1_3_5_SHADOW_V1";
+export const NEXT_SESSION_FORWARD_POLICY="FROZEN_0905_DECISION_0930_ENTRY_BUDGET_1_3_5_V2";
 export const NEXT_SESSION_FORWARD_HORIZONS=Object.freeze([1,3,5]);
 export const MIN_FORWARD_STOCK_DAYS=30;
 export const MIN_FORWARD_TRADE_DAYS=10;
@@ -17,7 +21,8 @@ const median=arr=>{const s=[...arr].sort((a,b)=>a-b),n=s.length;
   return n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2;};
 
 /** Match price and budget AT 09:05 as well as at the prior-night freeze.
- * Do not count CAUTION/SKIP as trades or zero-return observations.
+ * The 09:05 decision precedes the hypothetical 09:30 entry. Do not count
+ * CAUTION/SKIP as trades or zero-return observations.
  * Missing outcomes are omitted from performance denominators, not "losses".
  * Insufficient sample metrics remain null, while sample coverage is shown.
  */
@@ -43,11 +48,11 @@ export function summarizeFrozenBudgetOutcomes(rows,{
        !valid(row.entries?.PREVIOUS_REFERENCE)||
        row.entries.PREVIOUS_REFERENCE*100>budgetYen)continue;
     frozenEligible++;
-    if(!valid(row.entries?.["09:05"])||
+    if(!valid(row.entries?.["09:30"])||
        !["BUY_CANDIDATE","CAUTION","SKIP"].includes(row.morningGate)){
       noMorning++;continue;
     }
-    if(row.entries["09:05"]*100>budgetYen){overBudget++;continue;}
+    if(row.entries["09:30"]*100>budgetYen){overBudget++;continue;}
     if(row.morningGate!=="BUY_CANDIDATE"){gateRejected++;continue;}
     eligible.push(row);
   }
@@ -56,7 +61,7 @@ export function summarizeFrozenBudgetOutcomes(rows,{
       r.targetDates[horizon]<asOfDate);
     const completed=mature.filter(r=>valid(r.exits?.[horizon]));
     const days=new Set(completed.map(r=>r.date)).size;
-    const pnls=completed.map(r=>Number(((r.exits[horizon]-r.entries["09:05"])*100).toFixed(2)));
+    const pnls=completed.map(r=>Number(((r.exits[horizon]-r.entries["09:30"])*100).toFixed(2)));
     const sufficient=pnls.length>=MIN_FORWARD_STOCK_DAYS&&days>=MIN_FORWARD_TRADE_DAYS;
     return {horizon,eligible:eligible.length,matured:mature.length,
       checked:pnls.length,missing:mature.length-pnls.length,days,sufficient,
