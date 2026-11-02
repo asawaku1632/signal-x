@@ -1,3 +1,4 @@
+import {isJpxStockCode} from "./jpxStockCode.mjs";
 /**
  * Strict as-of catalyst evidence intake, SHADOW ONLY.
  * Never infer that an issuer revised guidance from price action or a title.
@@ -21,7 +22,7 @@ const urlOk=value=>{
  * One event is counted at most once even if duplicate records are supplied.
  */
 export function assessAsOfCatalysts({code,freezeAt,records=[]}){
-  if(!/^[0-9]{4}$/.test(String(code))||!validTime(freezeAt))throw Error("INVALID_CATALYST_TARGET");
+  if(!isJpxStockCode(String(code))||!validTime(freezeAt))throw Error("INVALID_CATALYST_TARGET");
   const cutoff=Date.parse(freezeAt);
   const accepted=[],seen=new Set();
   let rejected=0,afterFreeze=0;
@@ -53,7 +54,7 @@ export function assessAsOfCatalysts({code,freezeAt,records=[]}){
  */
 export function assessFrozenBudgetMorning(watch,run){
   const no=reason=>({status:reason,price0905:null,morningLabel:null,referenceCostYen:null});
-  if(!watch||!/^[0-9]{4}$/.test(String(watch.code))||
+  if(!watch||!isJpxStockCode(String(watch.code))||
      !/^\d{4}-\d{2}-\d{2}$/.test(String(watch.targetTradeDate))||
      !Number.isFinite(watch.referencePrice)||watch.referencePrice<=0||
      !Number.isFinite(watch.score)||!Number.isFinite(watch.budgetYen)||
