@@ -155,6 +155,9 @@ test("manual route generates evidence but contains no DB writes or scheduled job
   const ui=readFileSync("app/admin/night-morning-watch/MorningProbeDownload.tsx","utf8");
   const vercel=readFileSync("vercel.json","utf8");
   assert.match(route,/sealMorningProbeArchive\(batch\)/);
+  assert.match(route,/export async function POST\(request:Request\)/);
+  assert.match(route,/origin!==new URL\(request.url\).origin/);
+  assert.doesNotMatch(route,/export async function GET\(/);
   assert.match(route,/serverStartedAt:requestedAt.toISOString\(\)/);
   assert.match(route,/cohortFrozenAt:new Date\(freezeAt\).toISOString\(\)/);
   assert.doesNotMatch(route,/INSERT INTO|DELETE FROM|UPDATE public/);
