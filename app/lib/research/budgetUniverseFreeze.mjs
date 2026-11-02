@@ -1,3 +1,4 @@
+import {isJpxStockCode} from "./jpxStockCode.mjs";
 /** Immutable, complete-as-of nightly budget-universe cohort (research-only).
  * Does not fetch quotes, IR, tomorrow's prices or any outcome data.
  */
@@ -30,7 +31,7 @@ export function freezeBudgetUniverse({
     const code=String(r?.code??""),score=number(r?.score),price=number(r?.price);
     const date=r?.snapshotDate??r?.date;
     const saved=ms(r?.savedAt??r?.createdAt);
-    if(!/^[0-9]{4}$/.test(code)||!String(r?.name??"").trim()||
+    if(!isJpxStockCode(code)||!String(r?.name??"").trim()||
        score===null||score<0||score>100||price===null||price<=0||
        date!==sourceDate||!Number.isFinite(saved)||saved>freeze){
       invalid.push(code||"INVALID");
