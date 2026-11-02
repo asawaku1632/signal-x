@@ -7,8 +7,8 @@ The independent stored `morning_final_check_runs` history for 9 sessions (2026-1
 
 ## Delivered
 1. `morningProbeShadow.mjs`: deterministic timestamp/source/5-minute candle audit.
-2. `GET /api/admin/morning-probe-shadow`: owner-only, manual, limited to actual JPX trading days and Japan 09:15:00–09:34:59. Each request queries the existing immutable previous-night cohort, maximum five codes, and makes at most 5 Yahoo 5-minute chart reads. No user-controlled tickers or unrestricted scan.
-3. No page-load or Cron triggers. A manual anchor on the owner-only `/admin/night-morning-watch` page opens the JSON only when clicked; opening the admin page itself does **not** call Yahoo through this new route.
+2. `POST /api/admin/morning-probe-shadow`: owner-only, manual, limited to actual JPX trading days and Japan 09:15:00–09:34:59. Each request queries the existing immutable previous-night cohort, maximum five codes, and makes at most 5 Yahoo 5-minute chart reads. No user-controlled tickers or unrestricted scan.
+3. No page-load or Cron triggers. A manual button on the owner-only `/admin/night-morning-watch` page creates the downloadable JSON only when clicked; opening the admin page itself does **not** call Yahoo through this new route.
 4. Each response includes server-side request and receipt times, exact probe slot, source/exchange time-zone verification, missing completed candle slots, and upstream-unavailable reasons. A request finishing in a later slot is invalidated. Bad provider timestamps, malformed bar OHLC, duplicate bars and absent volume fail closed.
 5. In the first 09:15 probe the code requires completed 09:00/09:05/09:10 bars; 09:20 additionally needs 09:15, 09:25 needs 09:20, 09:30 needs 09:25.
 6. The next **reference** bar start is strictly after receiving the observation: 09:15→09:20, 09:20→09:25, 09:25→09:30, 09:30→09:35. This reference is **not an executable price**. A retrospective entry may only be researched after the new bar was actually recorded.
