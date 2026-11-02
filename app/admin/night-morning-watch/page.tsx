@@ -23,6 +23,13 @@ type NightMorningCandidate={
   code:string;name:string;score:number;referencePrice:number;rank:number;band:string
 };
 type StudyRun={trade_date:string;results:unknown};
+type FrozenBudgetSnapshot={
+  policy:string;frozenAt:string;sourceDate:string;tradeDate:string;
+  observedUniverseCount:number;expectedUniverseCount:number;
+  coverage:number;sha256:string;cohort:unknown[];
+  budgets:{budgetYen:number;codes:string[]}[];
+};
+type FrozenBudgetRow={snapshot:FrozenBudgetSnapshot};
 type MorningFreezeRun={trade_date:string;prior_date:string;frozen_at:string;
   cohort:unknown[];morning_state:string;morning_saved_at:string|null;
   morning_observations:unknown[]};
@@ -55,6 +62,8 @@ export default async function NightMorningWatchPage(){
   let evidenceReadError=false;
   let morningFreeze:MorningFreezeRun|null=null;
   let freezeReadError=false;
+  let fullBudgetSnapshot:FrozenBudgetSnapshot|null=null;
+  let fullBudgetFreezeReadError=false;
   if(sourceDate&&tradeDate){
     try {
       const response=await pool.query<SavedRow>(
@@ -91,6 +100,24 @@ export default async function NightMorningWatchPage(){
     }
   }
 
+  if(sourceDate&&tradeDate){
+    try {
+      // Existing deployments do not yet have the shadow table. Check its
+      // existence instead of spamming errors or reconstructing past freezes.
+      const found=await pool.query<{present:string|null}>(
+        "SELECT to_regclass('public.budget_night_shadow_runs')::text AS present");
+      if(found.rows[0]?.present){
+        const result=await pool.query<FrozenBudgetRow>(
+          "SELECT snapshot FROM public.budget_night_shadow_runs "+
+          "WHERE trade_date=$1::date AND prior_date=$2::date LIMIT 1",
+          [tradeDate,sourceDate]);
+        fullBudgetSnapshot=result.rows[0]?.snapshot??null;
+      }
+    }catch(error){
+      console.error("owner budget shadow snapshot read unavailable",error);
+      fullBudgetFreezeReadError=true;
+    }
+  }
   const candidates:NightMorningCandidate[]=candidateReadError?[]:buildNightMorningCandidates(rows);
   const evidence:Evidence[]=evidenceReadError||!tradeDate?[]:
     summarizeNightMorningEvidence(runs,tradeDate);
@@ -208,6 +235,38 @@ export default async function NightMorningWatchPage(){
             </div>;
           })}
         </div>:null}
+      </section>
+
+      <section className="rounded-2xl border border-indigo-200 bg-white p-4">
+        <h2 className="text-lg font-black">🔒 全予算候補・前夜固定の状況</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          既存の「AI上位5件」研究とは別に、保存済みの日次全銘柄を確認して
+          100株予算別の候補を一度だけ固定する独立したシャドー研究です。
+          データカバレッジ80%未満、欠損、対象日不一致の記録では固定しません。
+        </p>
+        {fullBudgetFreezeReadError?<p role="alert" className="mt-2 text-xs text-rose-700">
+          研究テーブルを読み込めません。後から過去の候補を生成しません。
+        </p>:fullBudgetSnapshot?<div className="mt-3 rounded-xl bg-indigo-50 p-3 text-xs">
+          <p className="font-black text-indigo-950">
+            保存済み：{fullBudgetSnapshot.observedUniverseCount} / 
+            {fullBudgetSnapshot.expectedUniverseCount} 銘柄
+            （カバレッジ {fullBudgetSnapshot.coverage}%）
+          </p>
+          <p className="mt-1">
+            事前固定 {new Date(fullBudgetSnapshot.frozenAt).toLocaleString("ja-JP",
+              {timeZone:"Asia/Tokyo"})} / 証跡 {fullBudgetSnapshot.sha256.slice(0,12)}…
+          </p>
+          {fullBudgetSnapshot.budgets.map(b=><p key={b.budgetYen} className="mt-1">
+            予算 {yen(b.budgetYen)}：前夜固定 {b.codes.length}銘柄
+          </p>)}
+        </div>:<p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs leading-5">
+          この取引日には独立した全銘柄の事前固定記録がありません。
+          保存失敗や未有効化の記録を後知恵で埋め合わせません。
+        </p>}
+        <p className="mt-2 text-[11px] text-amber-800">
+          新しい記録の作成には研究テーブル準備と管理者の明示的な有効化が必要です。
+          現在のプレビューでは新規保存・有料TDnet接続・自動通知は無効です。
+        </p>
       </section>
 
       <section className="rounded-2xl border border-blue-200 bg-white p-4">
