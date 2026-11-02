@@ -69,7 +69,7 @@ test("CAUTION or SKIP never masquerades as a verified buy",()=>{
 });
 const sample={
   date:"2026-10-22",code:"8316",freezeAt:"2026-10-21T09:10:00Z",
-  entries:{PREVIOUS_REFERENCE:3100,"09:05":3200},morningGate:"BUY_CANDIDATE",
+  entries:{PREVIOUS_REFERENCE:3100,"09:05":3200,"09:30":3250},morningGate:"BUY_CANDIDATE",
   targetDates:{1:"2026-10-23",3:"2026-10-27",5:"2026-10-29"},
   exits:{1:3260,3:3290,5:3330},
 };
@@ -77,7 +77,8 @@ test("one frozen candidate: target is mathematical outcome, not a predicted win"
   const x=summarizeFrozenBudgetOutcomes([sample],{budgetYen:350000,asOfDate:"2026-11-02"});
   assert.equal(x.frozenEligible,1);assert.equal(x.horizons[0].wins,1);
   assert.equal(x.horizons[0].targetHits,0);
-  assert.equal(x.horizons[1].targetHits,1);
+  assert.equal(x.horizons[1].targetHits,0);
+  assert.equal(x.horizons[2].targetHits,1);
   assert.equal(x.horizons[0].positiveRate,null);
   assert.equal(x.status,"INSUFFICIENT_HISTORY");
 });
@@ -90,7 +91,7 @@ test("horizon not matured or missing future price remains unscored",()=>{
   assert.equal(x.horizons[1].checked,0);assert.equal(x.horizons[2].checked,0);
 });
 test("a 9:05 price over budget cannot be counted as an achieved win",()=>{
-  const x=summarizeFrozenBudgetOutcomes([{...sample,entries:{PREVIOUS_REFERENCE:3100,"09:05":3600},
+  const x=summarizeFrozenBudgetOutcomes([{...sample,entries:{PREVIOUS_REFERENCE:3100,"09:05":3300,"09:30":3600},
     exits:{1:4000,3:4500,5:4700}}],
   {budgetYen:350000,asOfDate:"2026-11-02"});
   assert.equal(x.overBudget,1);assert.equal(x.eligible,0);
@@ -103,6 +104,15 @@ test("unfrozen outcomes, caution labels and duplicates cannot create trade retur
   ],{budgetYen:350000,asOfDate:"2026-11-02"});
   assert.equal(x.eligible,0);assert.equal(x.gateRejected,1);
 });
+test("no profitable 09:05 fill after a later saved 09:08 decision",()=>{
+  // Earlier indicative 09:05 price 3200 would show +6000 yen, but
+  // actual analysis was not saved until 09:08, and 09:30 may be higher.
+  const row={...sample,entries:{...sample.entries,"09:30":3350}};
+  const x=summarizeFrozenBudgetOutcomes([row],{budgetYen:350000,asOfDate:"2026-11-02"});
+  assert.equal(x.horizons[0].wins,0);
+  assert.equal(x.horizons[0].lossThresholdBreaches,0);
+});
+
 test("actual JPX trading calendar skips 2026-11-03 for forward milestones",()=>{
   assert.equal(isTseTradingDate("2026-11-03"),false);
   const t=holdingTradingDates("2026-11-02",isTseTradingDate);
@@ -123,9 +133,10 @@ test("full statistical output only after 30 distinct stock-days over ten session
   assert.equal(days.length,MIN_FORWARD_TRADE_DAYS);
   assert.equal(x.horizons[0].checked,30);
   assert.equal(x.horizons[0].positiveRate,100);
-  assert.equal(x.horizons[0].avgPnl100,6000);
-  assert.equal(x.horizons[1].targetHitRate,100);
-  assert.equal(x.horizons[2].medianPnl100,13000);
+  assert.equal(x.horizons[0].avgPnl100,1000);
+  assert.equal(x.horizons[1].targetHitRate,0);
+  assert.equal(x.horizons[2].targetHitRate,100);
+  assert.equal(x.horizons[2].medianPnl100,8000);
 });
 test("outcomes cannot influence frozen shortlist rank or the as-of catalyst evidence",()=>{
   const base={code:"5333",freezeAt,records:[evidence]};
