@@ -52,3 +52,6 @@ Same 130 cached daily chart series, hypothetical entry at next session open and 
 
 ## Month-by-month audit (read-only, completed outcomes only)
 2026-08: N=3, mean +7.425%, range -2.039% to +15.885%; 2026-09: N=1, +3.416%; 2026-10: N=1, +0.999%. Two further October signals have no complete five-session outcomes in cached snapshots and are **not** included. The monthly apparent decline cannot establish trend deterioration with N=1 in September and October. August dominates the overall +5.338% average.
+
+## Leave-out sensitivity (2026-11-02 read-only)
+Completed hypothetical 5-session outcomes: all N=5 mean +5.338%; excluding August N=2 mean +2.208%; excluding best single outcome N=4 mean +2.701%; excluding worst single outcome N=4 mean +7.183%. This is exploratory sensitivity only; N=2–5 is inadequate for a stable predictive expectation. Do not promote into production based on these numbers.
