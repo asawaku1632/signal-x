@@ -139,10 +139,11 @@ export default async function NightEntryHoldingPage(){
       </header>
 
       <section className="rounded-2xl border border-blue-200 bg-white p-4">
-        <h2 className="text-lg font-black">💴 予算別・9:05から1/3/5営業日後の検証</h2>
+        <h2 className="text-lg font-black">💴 予算別・9:05判定→9:30参考購入→1/3/5営業日後</h2>
         <p className="mt-1 text-xs leading-5 text-slate-600">
-          前夜に固定された最大5銘柄のうち、前夜と9:05の両方で100株が予算以内、
+          前夜に固定された最大5銘柄のうち、前夜と9:30の両方で100株が予算以内、
           かつ保存済み9:05判定が「買い候補」だった銘柄日のみ比較。
+          朝判定は9:08ごろに保存されるため、9:05価格で判定後に買えたと仮定しません。
           「注意」「見送り」は取引として数えません。
           目標は税引前7,000円、損失警戒目安は10,000円です。
         </p>
@@ -154,9 +155,9 @@ export default async function NightEntryHoldingPage(){
           <p className="text-sm font-black">予算 {yen(stat.budgetYen)}</p>
           <p className="mt-1 text-xs text-slate-600">
             前夜予算内 {stat.frozenEligible}件 ／
-            朝の予算超過 {stat.overBudget}件 ／
+            9:30の予算超過 {stat.overBudget}件 ／
             朝の注意・見送り {stat.gateRejected}件 ／
-            朝の記録不足 {stat.noMorning}件
+            朝判定・9:30価格の不足 {stat.noMorning}件
           </p>
           <div className="mt-2 space-y-2">
             {stat.horizons.map(h=><div key={h.horizon} className="rounded-lg border bg-white p-2 text-xs">
@@ -178,7 +179,8 @@ export default async function NightEntryHoldingPage(){
         </div>)}
         <p className="mt-2 text-[11px] leading-5 text-amber-900">
           事前固定トップ5の範囲に限定した研究で、全銘柄からの予算別最適選定ではありません。
-          参考の9:05始値と日次保存価格を使用し、板・手数料・税金・滑り・配当・分割調整は未検証。
+          9:05の保存判定と、その後の9:30参考始値・日次保存価格を使用。9:30時点の買付可能性、
+          板・手数料・税金・滑り・配当・分割調整は未検証。
           検証済みの将来利益確率として公開しません。
         </p>
         <p className="mt-1 text-[10px] text-slate-500">{NEXT_SESSION_FORWARD_POLICY}</p>
