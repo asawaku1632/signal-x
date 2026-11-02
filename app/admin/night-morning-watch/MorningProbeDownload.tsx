@@ -21,7 +21,7 @@ export default function MorningProbeDownload(){
     setLoading(true);setFailed(false);setNotice("");
     try {
       const result=await fetch("/api/admin/morning-probe-shadow",{
-        method:"GET",credentials:"same-origin",cache:"no-store",
+        method:"POST",credentials:"same-origin",cache:"no-store",
         headers:{"Accept":"application/json"},
       });
       const data=await result.json() as ManualProbeResponse;
