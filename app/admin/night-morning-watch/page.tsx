@@ -106,11 +106,13 @@ export default async function NightMorningWatchPage(){
       const morning=assessFrozenBudgetMorning({
         ...stock,budgetYen:watch.budgetYen,
       },morningFreeze);
-      // The catalyst feed is not yet connected. Never invent a verified event.
-      const catalysts=assessAsOfCatalysts({
-        code:stock.code,
-        freezeAt:sourceDate+"T18:10:00+09:00",records:[],
-      });
+      // Until a verified IR feed is connected, never label an event confirmed.
+      // Use only the stored (real) frozen timestamp, never an assumed freeze.
+      const freezeMs=Date.parse(String(morningFreeze?.frozen_at??""));
+      const catalysts=Number.isFinite(freezeMs)?
+        assessAsOfCatalysts({code:stock.code,
+          freezeAt:new Date(freezeMs).toISOString(),records:[]}):
+        {status:"NOT_VERIFIED",accepted:[]};
       return [key,{morning,catalysts}] as const;
     })));
   const byBand=new Map(evidence.map(e=>[e.band,e]));
@@ -276,6 +278,10 @@ export default async function NightMorningWatchPage(){
         <Link href="/admin/morning-final-check"
           className="mt-3 block text-sm font-bold text-blue-700">
           9:05以降の再判定研究へ →
+        </Link>
+        <Link href="/admin/night-entry-holding"
+          className="mt-3 block text-sm font-bold text-blue-700">
+          予算別・1/3/5営業日後の答え合わせを見る →
         </Link>
         <p className="mt-2 text-xs leading-5 text-slate-500">
           本機能は管理者限定のシャドー表示です。買い推奨、実注文、通知、一般向けランキングには
