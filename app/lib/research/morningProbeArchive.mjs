@@ -35,12 +35,12 @@ export function sealMorningProbeArchive(batch){
   if(batch?.policy!==MORNING_PROBE_POLICY||
      batch?.status!=="REFERENCE_RESEARCH_ONLY"||
      !dayValid(batch.date)||!MORNING_PROBE_SLOTS.includes(batch.slot))err("BATCH");
+  if(!dayValid(batch.priorDate)||batch.priorDate>=batch.date)err("PRIOR_DATE");
   const started=asMillis(batch.serverStartedAt),ended=asMillis(batch.serverFinishedAt),
     frozen=asMillis(batch.cohortFrozenAt);
   if(!Number.isFinite(started)||!Number.isFinite(ended)||!Number.isFinite(frozen)||
     started>ended||frozen>=dateTime(batch.date,"09:00")||
     frozen<dateTime(batch.priorDate,"18:00"))err("TIMELINE");
-  if(!dayValid(batch.priorDate)||batch.priorDate>=batch.date)err("PRIOR_DATE");
   if(!Array.isArray(batch.probes)||batch.probes.length<1||batch.probes.length>5||
      !Array.isArray(batch.frozenCodes)||batch.frozenCodes.length!==batch.probes.length)
     err("COHORT");
