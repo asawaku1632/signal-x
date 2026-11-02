@@ -21,11 +21,23 @@ test('flat execution window is unverified',()=>{
  assert.equal(a.status,'FILL_UNVERIFIED');
  assert.equal(a.fillVerified,false);
 });
-test('100-share budget is checked at hypothetical entry price',()=>{
+test('multiple 100-share lots can satisfy budget',()=>{
  const a=auditMa75FillAndBudget({bars,signalIndex:75});
  assert.equal(a.status,'HYPOTHETICAL_ONLY');
- assert.equal(a.budgetEligible,false);
+ assert.equal(a.budgetEligible,true);
+ assert.equal(a.minLots,10);
+ assert.equal(a.maxLots,49);
 });
 test('pending outcomes are not treated as returns',()=>{
  assert.equal(auditMa75FillAndBudget({bars:bars.slice(0,76),signalIndex:75}).status,'PENDING');
+});
+
+test('price discontinuity in outcome is quarantined',()=>{
+ const changed=bars.map(x=>({...x}));
+ changed[77]={...changed[77],open:200,high:205,low:195,close:200};
+ assert.equal(auditMa75FillAndBudget({bars:changed,signalIndex:75}).status,'QUARANTINED_PRICE_GAP');
+});
+test('duplicate signal history timestamp is rejected',()=>{
+ const changed=bars.map(x=>({...x}));changed[75].time=changed[74].time;
+ assert.equal(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101}).status,'DUPLICATE_OR_UNSORTED');
 });
