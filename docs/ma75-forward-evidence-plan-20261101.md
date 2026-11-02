@@ -158,3 +158,69 @@ must still be independently checked for source rights, live timestamp
 provenance, provider changes, corporate actions, calendar and fills before
 any forward study outcome can be certified. No automatic daily polling or
 future capture is promised.
+
+
+## November 2 owner-local provider day: captured, not tradeable
+
+The owner reported a successful **2026-11-02** manual opt-in original V2 daily source capture (first frozen-eligible date). PowerShell returned:
+
+- Status: `ORIGINAL_FORWARD_DAY_CAPTURED_PRIVATE`
+- Original J-Quants all-listed rows: **4,445**, pages **1**
+- Frozen cohort projected rows: **953**
+- Private source filename: `research-private/ma75-forward-2026-11-02-jquants-daily.json`
+- Provider publication/authenticity and rights independently verified: **no**
+- Next-open source timing independently audited: **no**
+- Forward signal generated, five-session outcomes, notification authorization: **no**
+
+The existing prefreeze 75-session archived warmup (July 10 to October 30)
+contained 925 fully archived 75-bar histories out of 953 fixed codes,
+with 28 incomplete histories; 108 missing provider code-date rows and
+26 corporate-action review code-date rows. These 134 unavailable code-day
+entries do not imply 134 distinct codes.
+
+### First-date shadow-only technical classification (new)
+
+The offline CLI uses only the **already saved** 122-session private archive
+and its **separately named** 2026-11-02 post-freeze date file.
+It audits all 122 original archived dates for integrity, then builds
+75 historical trading sessions + the captured November 2 close for each
+original frozen code. This detects breakout/retest-type *technical
+classification inputs only*, not settled outcomes or trade suggestions.
+
+```powershell
+cd C:\Users\neomo\signal-x-minute-research
+git switch research/ma75-breakout-retest-shadow-20261031
+if ($LASTEXITCODE -ne 0) { throw "branch switch failed" }
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw "branch update failed" }
+
+$r = node .\scripts\research\ma75-local-first-forward-review.mjs | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "offline first-date audit failed" }
+
+$r | Select-Object requestedSignalDate,fixedFrozenCodes,
+    codesWithCompletePrior75,blockedPrior75,
+    blockedCurrentDayAmongCompletePrior75,
+    quarantinedPriceDiscontinuity,analyzableCodeCount,
+    allBreakoutShadowCount,risingMa75BreakoutShadowCount |
+    Format-List
+
+$r.shadowPatterns | Select-Object code,sma75Rising,historicalVolumeRatio |
+    Format-Table -AutoSize
+```
+
+There is **no API key prompt, network request, daily recapture, new
+file output, production change, auto-monitoring, real execution or
+provider-cost change**. The raw licensed pages remain local; the
+derived console output contains research codes/aggregate statuses only.
+If the original forward capture or any cached historical date is missing
+or tampered with, the entire local audit fails closed. Market information
+recorded late cannot retrospectively become a valid next-open signal:
+the `shadowPatterns` field explicitly withholds point-in-time provider
+authentication, official session-calendar verification, source rights,
+corporate-action certification and outcome rates.
+
+One November 2 observation day cannot establish reproducibility or
+profitability; the predeclared MA75 strategy retains **NO PRODUCTION
+PROMOTION**. The next calendar trading session after November 2 must
+be validated against an official source before a hypothetical entry
+could be simulated; the CLI does not infer it or attempt to fill it.
