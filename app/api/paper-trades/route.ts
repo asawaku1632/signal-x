@@ -3,15 +3,15 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth";
 import { cancelPaperTrade, closePaperTrade, createPaperTrade, getPaperTrades } from "@/app/lib/paperTrades";
 import { getLatestScanSnapshot } from "@/app/lib/scanSnapshot";
-import { assessPaperMarketGate } from "@/app/lib/simulationIntegrity";
+import { assessPaperStockQuote } from "@/app/lib/simulationIntegrity";
 export const dynamic="force-dynamic";
 async function email(){const s=await getServerSession(authOptions);return s?.user?.email?.trim().toLowerCase()||null}
 async function verifiedSimulatedQuote(code:string, submittedPrice:number){
   const snapshot=await getLatestScanSnapshot();
-  const gate=assessPaperMarketGate(new Date(),snapshot?.updatedAt??null);
-  if(!gate.ok) return {ok:false,reason:"取引所休場・取引時間外またはスキャン更新待ちです。保存済み終値で疑似約定することはできません。"};
   const stocks=Array.isArray(snapshot?.payload?.stocks)?snapshot.payload.stocks:[];
   const stock=stocks.find((row:{code?:string})=>String(row.code??"")===code);
+  const gate=assessPaperStockQuote(new Date(),snapshot?.updatedAt??null,stock);
+  if(!gate.ok) return {ok:false,reason:"休場中・スキャン更新待ち・株価の観測時刻未検証です。新しい取引日の5分足が確認できません。"};
   const value=stock?.price??stock?.currentPrice;
   const price=value==null?NaN:Number(value);
   if(!Number.isFinite(price)||price<=0) return {ok:false,reason:"最新の有効な銘柄価格が見つかりません。"};
