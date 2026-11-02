@@ -1,4 +1,4 @@
-import { getTseCashSessionStatus } from "./technicalObservation/tseMarketCalendar";
+import { getTseCashSessionStatus } from "./technicalObservation/tseMarketCalendar.ts";
 
 export const PAPER_SIMULATION_MAX_SCAN_AGE_MS = 2 * 60 * 1000;
 
