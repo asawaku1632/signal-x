@@ -82,3 +82,6 @@ For each of five completed MA75+wick+volume events, controls are other cached sy
 | 2026-10-05 | 6264 | +0.999 | 38 | +3.763 | -2.764 |
 
 Only **2/5** signal events outperform their matched control mean, despite **4/5** positive absolute returns. Price and share-volume matching does not ensure equal liquidity, market capitalization, sector, beta, volatility, or spread. These are exploratory historical comparisons, not independent randomized controls or proof of alpha. Preserve SHADOW_NOT_APPROVED; no production notifications.
+
+## Aggregate matched-control sensitivity (read-only)
+Five completed signal events, equal weight per signal (not per control row): signal mean +5.338%; average of the five control-group means +1.256%; mean signal-minus-control +4.082 percentage points; **median excess -0.406 percentage points**; signal outperforms matched-control mean in only **2/5** cases; excluding the three August signals, mean excess **-1.585 percentage points** (N=2). The mean advantage is driven by the two large August relative winners and is not a stable cross-period effect. No evidence of live-tradable alpha, no notification or production approval.
