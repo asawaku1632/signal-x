@@ -97,6 +97,16 @@ test("owner page is not duplicated and has an explicit missing-candle alert",()=
   assert.match(ui,/5分足不足/);
 });
 
+test("read-only candidate SQL has a complete quoted JPX regex and price cap",()=>{
+  const page=readFileSync("app/admin/night-morning-watch/page.tsx","utf8");
+  assert.match(page,/AND code ~ '\^\[1-9\]/);
+  assert.match(page,/AND score<=100 AND price>0/);
+  assert.doesNotMatch(page,/code ~ '\^\[0-9A-Z\]\{4\} /);
+});
+test("server freeze compares UTC-naive stored times explicitly against UTC cutoff",()=>{
+  const runner=readFileSync("app/lib/research/budgetUniverseFreezeRunner.ts","utf8");
+  assert.match(runner,/\(created_at AT TIME ZONE 'UTC'\)<\=\$2::timestamptz/);
+});
 test("no morning archive must remain NO_CAPTURE_DATA rather than inventing zero losses",()=>{
   const health=summarizeMorningCaptureHealth([]);
   assert.equal(health.status,"NO_CAPTURE_DATA");
