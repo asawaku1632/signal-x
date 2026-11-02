@@ -37,3 +37,15 @@ The 12 high=low bars across 8 symbols are: 3361 (2, volume 100–200), 3909 (1, 
 
 ## Flat-bar sensitivity comparison
 Read-only SQL on the 130 cached daily series: baseline 7 candidate signals, 5 available modeled five-session outcomes, mean +5.338%, positive fraction 80%. After excluding **all eight symbols** containing any of the 12 high=low bars: **7 signals, 5 outcomes, +5.338%, 80%** (unchanged). This is an entire-symbol exclusion sensitivity analysis, not a validation of the flat bars themselves. Same sample selection bias, stale outcome data, execution uncertainty and no prospective validation apply.
+
+## Comparative baseline audit (2026-11-02, read-only)
+Same 130 cached daily chart series, hypothetical entry at next session open and exit at signal+5 session close, 0.1% friction each side, requiring available entry and exit bars. Four **mutually exclusive** cohorts:
+
+| Cohort | N | Mean return % | Positive % | Worst % | Best % |
+|---|---:|---:|---:|---:|---:|
+| All 3: MA75 upward cross, wick>=35%, volume>=1.5x | 5 | 5.338 | 80.00 | -2.039 | 15.885 |
+| MA75 cross, not both other conditions | 161 | 0.165 | 53.42 | -17.270 | 22.391 |
+| Wick+volume, no MA75 cross | 139 | 1.223 | 54.68 | -14.238 | 33.669 |
+| Remaining bars | 5140 | 0.753 | 53.52 | -23.563 | 159.670 |
+
+**Interpretation limits:** Unequal group sizes; only five complete triple-condition outcomes; overlapping rolling five-session outcomes and repeated stocks; no market/regime adjustment; no bootstrap uncertainty; price adjustment/corporate actions unverified; no real fills. 'OTHER' includes extreme positive outliers (+159.670%). These comparisons are exploratory and cannot justify a production alert. All counts are event rows, not unique stocks or independent trials.
