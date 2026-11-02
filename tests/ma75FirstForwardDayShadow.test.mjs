@@ -44,6 +44,9 @@ test('first forward observation uses only preceding 75 days and one captured clo
  assert.equal(result.analyzableCodeCount,2);
  assert.equal(result.allBreakoutShadowCount,1);
  assert.equal(result.risingMa75BreakoutShadowCount,1);
+ assert.equal(result.allBreakoutShadowPatterns.length,1);
+ assert.equal(result.allBreakoutShadowPatterns[0].code,'1301');
+ assert.equal(result.allBreakoutGroupsIncludeUnprofitableCandidates,true);
  assert.equal(result.nonBreakout,1);
  assert.deepEqual(result.shadowPatterns.map(r=>r.code),['1301']);
  assert.equal(result.shadowPatterns[0].sma75Rising,true);
