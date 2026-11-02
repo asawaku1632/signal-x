@@ -248,7 +248,7 @@ export default async function NightMorningWatchPage(){
               const check=morningByBudget.get(watch.budgetYen+":"+stock.code);
               const morning=check?.morning;
               const labels:Record<string,string>={
-                INVALID_WATCH:"候補データ不正",NOT_FROZEN:"事前固定記録なし",
+                INVALID_WATCH:"候補データ不正",PRIOR_BUDGET_FAIL:"前夜の時点で予算超過",NOT_FROZEN:"事前固定記録なし",
                 MORNING_UNVERIFIED:"朝9:05判定の保存待ち",
                 OVER_BUDGET:"朝9:05の参考株価では予算超過",
                 RESEARCH_CONDITION:"朝9:05研究の条件を通過",
@@ -264,8 +264,8 @@ export default async function NightMorningWatchPage(){
                   100株 {yen(morning.referenceCostYen??0)}
                 </p>:null}
                 <p className="text-amber-800">
-                  決算・上方修正・出来高：{check?.catalysts.status==="VERIFIED_AS_OF"?
-                    "発表・観測時刻の検証あり":"証拠データ未接続・未検証"}。
+                  決算・上方修正・出来高：{check?.catalysts.status==="TIMING_ELIGIBLE_ONLY"?
+                    "入力された時刻の整合性のみ確認（内容未検証）":"証拠データ未接続・未検証"}。
                   朝の研究条件を通過しても、実際の約定や利益は保証できません。
                 </p>
               </div>;
