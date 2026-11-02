@@ -10,6 +10,7 @@ export const MIN_FORWARD_STOCK_DAYS=30;
 export const MIN_FORWARD_TRADE_DAYS=10;
 const valid=n=>typeof n==="number"&&Number.isFinite(n)&&n>0;
 const validDay=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
+  Number.isFinite(Date.parse(x+"T00:00:00Z"))&&
   new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
 const average=arr=>arr.reduce((s,x)=>s+x,0)/arr.length;
 const median=arr=>{const s=[...arr].sort((a,b)=>a-b),n=s.length;
