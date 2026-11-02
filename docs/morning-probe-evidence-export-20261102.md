@@ -7,7 +7,7 @@
 
 ## One-click Android / desktop use
 - On a supported next trading day (Wednesday **2026-11-04** after the 11/3 JPX holiday), open `/admin/night-morning-watch` as owner.
-- During **09:15:00–09:34:59 Japan time**, explicitly press **「5分足を確認して証拠JSONを保存」**. The button makes an owner-authenticated, same-origin call to `/api/admin/morning-probe-shadow`; a mere page visit triggers zero Yahoo requests from this new route.
+- During **09:15:00–09:34:59 Japan time**, explicitly press **「5分足を確認して証拠JSONを保存」**. The button makes an owner-authenticated, same-origin POST call to `/api/admin/morning-probe-shadow`; a mere page visit triggers zero Yahoo requests from this new route.
 - The route reads the previously night-frozen at-most-five symbols and queries existing Yahoo five-minute charts (at most five calls). It returns `archive` with server-side receipt timestamp per symbol, batch start/end timestamps, prior freeze time, missing completed bars, upstream failure codes, and indicative reference slots.
 - The browser initiates download `signalx-morning-probe-YYYY-MM-DD-HHMM.json`. On Android, check the downloads folder. The browser reports when a download was requested, **not** that storage completed; user can review the file.
 - If the time window, owner, DB or chart query is unavailable, nothing is fabricated and the button reports the failure. Repeating the same slot generates an additional response, but does not increase unique observation count.
@@ -43,3 +43,6 @@ If you only have an Android phone, you can upload the downloaded JSON exports to
 - `app/admin/night-morning-watch/MorningProbeDownload.tsx` — user-initiated download button; no page-load fetch, no server write.
 - `scripts/research/report-morning-probe-archives.mjs` — local aggregate on saved files, no network.
 - `scripts/research/morning-probe-archive.test.mjs` — 20 archive/provenance/Android UI regression tests included in `npm run test:next-session` build gate.
+
+### Request safety
+The route accepts only an owner-authenticated same-origin **POST**. Ordinary URL navigation and GET prefetch cannot cause new Yahoo requests. The UI does not make any request until the explicit button click.
