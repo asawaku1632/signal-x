@@ -1,3 +1,4 @@
+import {isJpxStockCode,fromJquantsFiveCharacterCode} from "./jpxStockCode.mjs";
 /** Opt-in TDnet index adapter (J-Quants v2).
  * JPX free disclosure site disallows automated scraping. This adapter never
  * contacts it. TDnet /td/list requires a paid add-on. A disabled call performs
@@ -10,12 +11,7 @@ const validDay=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
   new Date(s+"T00:00:00Z").toISOString().slice(0,10)===s;
 const validTime=s=>typeof s==="string"&&/^\d{2}:\d{2}$/.test(s)&&
   Number(s.slice(0,2))<24&&Number(s.slice(3))<60;
-const codeOf=x=>{
-  const raw=String(x??"");
-  if(/^[0-9]{4}$/.test(raw))return raw;
-  if(/^[0-9]{4}0$/.test(raw))return raw.slice(0,4);
-  return null; // Never guess letter-containing identifiers.
-};
+const codeOf=x=>fromJquantsFiveCharacterCode(x);
 function titleHint(title){
   if(/(?:業績予想|通期業績|利益予想).*?(?:上方修正|上方に修正|上方へ修正)/.test(title))
     return "UPWARD_REVISION_TITLE_ONLY";
@@ -98,7 +94,7 @@ export function linkFrozenBudgetTdnetHints(snapshot,records=[]){
   for(const r of Array.isArray(records)?records:[]){
     if(!r||r.source!=="JQUANTS_TDNET_INDEX"||
        r.status!=="INDEX_HINT_ONLY"||
-       !/^[0-9]{4}$/.test(String(r.code))||
+       !isJpxStockCode(String(r.code))||
        !/^\d{14}$/.test(String(r.discNo))){invalid++;continue;}
     const publicTime=Date.parse(r.publishedAt??"");
     const receiptTime=Date.parse(r.observedAt??"");
