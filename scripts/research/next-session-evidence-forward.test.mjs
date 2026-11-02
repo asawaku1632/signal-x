@@ -51,7 +51,8 @@ test("9:05 matches actual archived night freeze even with PG timezone text",()=>
   assert.equal(r.status,"RESEARCH_CONDITION");assert.equal(r.referenceCostYen,321000);
 });
 test("a budget compliant at night can fail budget after opening gap",()=>{
-  const r=assessFrozenBudgetMorning({...stock,budgetYen:300000},frozen);
+  const r=assessFrozenBudgetMorning(stock,{...frozen,
+    morning_observations:[{...frozen.morning_observations[0],price0905:3600}]});
   assert.equal(r.status,"OVER_BUDGET");
 });
 test("unfrozen row, mismatched score, missing bar and late saved morning fail closed",()=>{
@@ -114,8 +115,8 @@ test("full statistical output only after 30 distinct stock-days over ten session
     "2026-10-02","2026-10-05","2026-10-06","2026-10-07",
     "2026-10-08","2026-10-09"];
   const rows=days.flatMap(date=>["1001","1002","1003"].map(code=>({
-    ...sample,date,code,freezeAt:date+"T00:00:00Z",
-    targetDates:{1:"2026-10-13",3:"2026-10-14",5:"2026-10-15"},
+    ...sample,date,code,freezeAt:new Date(Date.parse(date+"T00:00:00Z")-14*60*60*1000).toISOString(),
+    targetDates:holdingTradingDates(date,isTseTradingDate),
   })));
   const x=summarizeFrozenBudgetOutcomes(rows,{budgetYen:350000,asOfDate:"2026-11-02"});
   assert.equal(rows.length,MIN_FORWARD_STOCK_DAYS);
