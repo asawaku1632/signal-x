@@ -41,3 +41,17 @@ Access to the actual `DATABASE_URL` archive and row-level observation timestamps
 node --test scripts/research/next-session-budget-watch.test.mjs
 ```
 The scenario prices in tests are fictional test fixtures taken from screenshot examples, not verified market quotes.
+
+## Stage-2 addition (2026-11-02)
+- `nextSessionCatalystAudit.mjs`: a reviewed, timestamped catalyst is accepted **only** when the issuer code, event type, HTTPS source, title, official release timestamp and observation timestamp exist and were known before the stored cohort freeze. Post-freeze IR is *not* a valid prior-night edge. The intake has no active IR retrieval connector, so UI truthfully reports **NOT_VERIFIED**.
+- `assessFrozenBudgetMorning`: exact pair-match with `morning_final_check_runs` using trade date, prior date, actual `frozen_at`, same candidate score/price, morning saved timestamp, and original 09:05 label/price. At 09:05, 100-share cost may exceed the prior-night budget; this is `OVER_BUDGET`, not a promising candidate. Only an actually saved night-cohort member is labelled verified, never post-selected from winners.
+- `nextSessionBudgetForward.mjs`: compares `buildNightHoldingStudy` observations for 100-share candidate costs under 10/30/35/50万円 budgets and frozen 09:05 BUY_CANDIDATE. Only actual saved 1/3/5 trading-date reference snapshots, strictly matured before as-of day, count. Reports sample sizes and missing prices. Means/medians/positive and +7,000円 hit rates stay hidden until **30 stock-days and 10 distinct trade sessions** per horizon.
+- Added owner-only cards to `/admin/night-morning-watch` and `/admin/night-entry-holding` using the existing research archive and no DB write. The frozen top-five subset is **not** the full stock-universe budget winner ranking.
+- No new paid data feed, no cron, no DB migration and no public investor recommendation. The existing pseudo-profit issue is separately addressed in Draft PR #300; this PR does not bypass its fillability requirements.
+- `npm run test:next-session` runs the original 7 tests plus 18 additional as-of/evidence/forward checks; Vercel preview build is gated on the suite.
+
+### Evidence still missing
+1. No official IR/TDnet ingestion, verified observation timestamps, or company-event coverage statistics. Price jumps alone never prove an earlier disclosed material.
+2. `morning_final_check_runs` only froze up to five highest-score candidates; current budget shortlist may contain additional symbols. Those must show `NOT_FROZEN`, and are ineligible for causal performance claims.
+3. Quotes are stored Yahoo 5-minute **reference opening prices**, not actual executable bid/ask fills; future comparison uses archived daily scan price, not official split-adjusted total return. Slippage, fees, corporate actions, market regime and liquidity remain unverified.
+4. Existing scores alone have not demonstrated out-of-sample edge. Do not promote this data to production ranking, notifications or trading decisions.
