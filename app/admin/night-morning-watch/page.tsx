@@ -5,6 +5,8 @@ import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {ENTRY_TIME_SHADOW_VERSION} from "@/app/lib/research/entryTimeShadow.mjs";
+import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
+import {assessAsOfCatalysts,assessFrozenBudgetMorning} from "@/app/lib/research/nextSessionCatalystAudit.mjs";
 import {
   NEXT_SESSION_BUDGET_PRESETS,buildNextSessionBudgetWatch
 } from "@/app/lib/research/nextSessionBudgetWatch.mjs";
@@ -21,6 +23,9 @@ type NightMorningCandidate={
   code:string;name:string;score:number;referencePrice:number;rank:number;band:string
 };
 type StudyRun={trade_date:string;results:unknown};
+type MorningFreezeRun={trade_date:string;prior_date:string;frozen_at:string;
+  cohort:unknown[];morning_state:string;morning_saved_at:string|null;
+  morning_observations:unknown[]};
 type Evidence={
   band:string;count:number;wins:number;days:number;sufficient:boolean;
   observedPositiveRate:number|null;avgPnl100:number|null
@@ -48,6 +53,8 @@ export default async function NightMorningWatchPage(){
   let runs:StudyRun[]=[];
   let candidateReadError=false;
   let evidenceReadError=false;
+  let morningFreeze:MorningFreezeRun|null=null;
+  let freezeReadError=false;
   if(sourceDate&&tradeDate){
     try {
       const response=await pool.query<SavedRow>(
@@ -58,6 +65,18 @@ export default async function NightMorningWatchPage(){
     }catch(error){
       console.error("Night morning saved results unavailable",error);
       candidateReadError=true;
+    }
+    try {
+      const result=await pool.query<MorningFreezeRun>(
+        "SELECT trade_date::text,prior_date::text,frozen_at::text,cohort, "+
+        "morning_state,morning_saved_at::text,morning_observations "+
+        "FROM public.morning_final_check_runs "+
+        "WHERE policy_version=$1 AND trade_date=$2::date AND prior_date=$3::date "+
+        "LIMIT 1",[MORNING_FINAL_POLICY,tradeDate,sourceDate]);
+      morningFreeze=result.rows[0]??null;
+    }catch(error){
+      console.error("budget shadow morning freeze read unavailable",error);
+      freezeReadError=true;
     }
     try {
       const response=await pool.query<StudyRun>(
@@ -81,6 +100,19 @@ export default async function NightMorningWatchPage(){
         rows,sourceDate,tradeDate,budgetYen,targetProfitYen:7000,limit:3,
       })): [];
   const budgetUniverseCapped=rows.length>=1500;
+  const morningByBudget=new Map(budgetWatches.flatMap(watch=>
+    watch.candidates.map(stock=>{
+      const key=watch.budgetYen+":"+stock.code;
+      const morning=assessFrozenBudgetMorning({
+        ...stock,budgetYen:watch.budgetYen,
+      },morningFreeze);
+      // The catalyst feed is not yet connected. Never invent a verified event.
+      const catalysts=assessAsOfCatalysts({
+        code:stock.code,
+        freezeAt:sourceDate+"T18:10:00+09:00",records:[],
+      });
+      return [key,{morning,catalysts}] as const;
+    })));
   const byBand=new Map(evidence.map(e=>[e.band,e]));
   const samples=evidence.reduce((sum,e)=>sum+e.count,0);
   const hasError=dateError||candidateReadError;
@@ -210,9 +242,32 @@ export default async function NightMorningWatchPage(){
               100株で1株+{yen(stock.requiredRiseYenPerShare)}（+{stock.requiredRisePercent}%）が必要。
               これは到達予想ではありません。
             </p>
-            <p className="mt-1 text-xs leading-5 text-amber-800">
-              業績材料・出来高：未検証。9:05以降に最新価格・板・急落リスクを再判定。
-            </p>
+            {(()=>{
+              const check=morningByBudget.get(watch.budgetYen+":"+stock.code);
+              const morning=check?.morning;
+              const labels:Record<string,string>={
+                INVALID_WATCH:"候補データ不正",NOT_FROZEN:"事前固定記録なし",
+                MORNING_UNVERIFIED:"朝9:05判定の保存待ち",
+                OVER_BUDGET:"朝9:05の参考株価では予算超過",
+                RESEARCH_CONDITION:"朝9:05研究の条件を通過",
+                RESEARCH_WAIT:"朝9:05研究は注意・見送り",
+              };
+              return <div className="mt-2 space-y-1 text-xs leading-5">
+                <p className="font-bold text-indigo-800">
+                  前夜固定・9:05照合：{freezeReadError?
+                    "研究DBを取得できません":labels[morning?.status??""]??"未検証"}
+                </p>
+                {morning?.price0905!=null?<p>
+                  9:05参考価格 {yen(morning.price0905)} /
+                  100株 {yen(morning.referenceCostYen??0)}
+                </p>:null}
+                <p className="text-amber-800">
+                  決算・上方修正・出来高：{check?.catalysts.status==="VERIFIED_AS_OF"?
+                    "発表・観測時刻の検証あり":"証拠データ未接続・未検証"}。
+                  朝の研究条件を通過しても、実際の約定や利益は保証できません。
+                </p>
+              </div>;
+            })()}
           </div>)}
           {watch.conflictsExcluded>0?<p className="mt-2 text-xs text-amber-800">
             不一致のある重複記録 {watch.conflictsExcluded}銘柄は除外しました。
