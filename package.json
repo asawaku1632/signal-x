@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
-    "test:next-session": "node --experimental-strip-types --test scripts/research/next-session-budget-watch.test.mjs scripts/research/next-session-evidence-forward.test.mjs"
+    "test:next-session": "node --experimental-strip-types --test scripts/research/next-session-budget-watch.test.mjs scripts/research/next-session-evidence-forward.test.mjs scripts/research/budget-universe-tdnet.test.mjs"
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.1",
