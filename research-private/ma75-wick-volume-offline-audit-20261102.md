@@ -104,3 +104,16 @@ For the five completed triple-condition signals, use the next trading session OP
 
 ## Idealized JPY 10,000 stop threshold sensitivity (2026-11-02)
 Using the five completed historical events, the first daily low touching an entry-relative loss threshold was counted. Position values JPY 100k / 200k / 300k / 500k imply thresholds -10% / -5% / -3.333% / -2%. Touch counts were 0/5, 1/5, 2/5, 4/5. Hypothetical five-session hold mean was +5.338%. Assuming perfect execution at the exact threshold on first touch, with 0.1% friction per side, idealized stop-exit means were +5.338%, +4.100%, +2.042%, +1.420% respectively. No opening gap below the threshold was observed on first-touch days, but daily OHLC cannot establish actual fill, order priority or intraday path. This is NOT a validated stop-loss strategy. Lots, price ticks, spreads and execution costs remain unmodeled. No production or notification approval.
+
+## 100-share lot and minimum-budget audit (2026-11-02, read-only)
+Historical next-session entry prices and minimum 100-share multiples satisfying JPY 100k minimum exposure, with maximum budget JPY 500k. Lowest five-session daily low determines adverse excursion. Hypothetical fifth-close P&L deducts 0.1% per side; no taxes, actual fill verification, lot/market eligibility confirmation, or stop execution simulation.
+
+| Code | Entry JPY | Minimum shares | Position JPY | Worst observed excursion JPY | Fifth-close hypothetical net JPY |
+|---|---:|---:|---:|---:|---:|
+| 4401 | 4064 | 100 | 406400 | -400 | +64622 |
+| 5805 | 2706 | 100 | 270600 | -9600 | +22835 |
+| 7775 | 434 | 300 | 130200 | -3600 | -2658 |
+| 6088 | 552 | 200 | 110400 | -3200 | +3775 |
+| 6264 | 2248 | 100 | 224800 | -17300 | +2248 |
+
+Among five historical events, 6264 cannot meet both the JPY 100k minimum budget and JPY 10k maximum observed adverse excursion at any standard 100-share lot. The 100-share budget-eligible ranges: 4401 100; 5805 100; 7775 300-1000 (maximum 800 within *observed* JPY 10k excursion); 6088 200-900 (maximum 600 within observed JPY 10k excursion); 6264 100-200 (none within observed JPY 10k excursion). These are hindsight diagnostics, not prospective safe position sizes. No production release or notifications.
