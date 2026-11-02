@@ -44,10 +44,16 @@ export function auditMa75FillAndBudget({ bars, signalIndex }) {
   const safety = auditMa75PriceHistory(bars, signalIndex+1, signalIndex+r.holdSessions);
   if (safety !== 'PASS') return {status:safety,fillVerified:false};
   const entryYen100=entry.open*(1+r.frictionPerSide)*r.shareLot;
+  const minLots=Math.max(1,Math.ceil(r.budgetMinYen/entryYen100));
+  const maxLots=Math.floor(r.budgetMaxYen/entryYen100);
+  const budgetLotsAvailable=maxLots>=minLots;
   const fillUnverified=window.some(b=>b.high===b.low);
   const grossReturnPercent=(exit.close*(1-r.frictionPerSide)/
     (entry.open*(1+r.frictionPerSide))-1)*100;
   return { status:fillUnverified?'FILL_UNVERIFIED':'HYPOTHETICAL_ONLY',
-    budgetEligible:entryYen100>=r.budgetMinYen && entryYen100<=r.budgetMaxYen,
+    budgetEligible:budgetLotsAvailable, minLots:budgetLotsAvailable?minLots:null,
+    maxLots:budgetLotsAvailable?maxLots:null,
+    minShares:budgetLotsAvailable?minLots*r.shareLot:null,
+    maxShares:budgetLotsAvailable?maxLots*r.shareLot:null,
     entryYen100, grossReturnPercent, fillVerified:false };
 }
