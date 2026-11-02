@@ -36,6 +36,9 @@ export function assessPaperMarketGate(
   if (minutes < 9 * 60 + 5) {
     return { ok: false, reason: "WAIT_FIRST_FIVE_MINUTES" };
   }
+  if (minutes >= 11 * 60 + 30 && minutes < 12 * 60 + 30) {
+    return { ok: false, reason: "MARKET_CLOSED" };
+  }
   if (minutes >= 15 * 60 + 25) {
     return { ok: false, reason: "CLOSING_AUCTION" };
   }
