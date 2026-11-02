@@ -96,12 +96,12 @@ export async function GET(){
     if(actualSlot.slot!==slot.slot||actualSlot.date!==slot.date)
       return NextResponse.json({policy:MORNING_PROBE_POLICY,
         status:"OVERALL_SLOT_ROLLOVER",networkCalls:probes.filter(p=>
-          p.networkStatus!=="NOT_REQUESTED").length,
+          !("networkStatus" in p && p.networkStatus==="NOT_REQUESTED")).length,
         note:"All observations discarded from this slot, do not backdate"},
         {status:409,headers});
     return NextResponse.json({policy:MORNING_PROBE_POLICY,
       status:"REFERENCE_RESEARCH_ONLY",date:slot.date,slot:slot.slot,
-      networkCalls:probes.filter(p=>p.networkStatus!=="NOT_REQUESTED").length,
+      networkCalls:probes.filter(p=>!("networkStatus" in p && p.networkStatus==="NOT_REQUESTED")).length,
       probes,coverage:summarizeMorningProbes(probes),
       warning:"NOT_A_LIVE_BUY_SIGNAL_AND_NOT_A_FILLABLE_5M_OPEN"},
       {headers});
