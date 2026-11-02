@@ -60,3 +60,32 @@ The scenario prices in tests are fictional test fixtures taken from screenshot e
 - A 09:05 classification is usually saved around 09:08. **Buying at 09:05 based on that decision is impossible**. The forward summary now uses an independently archived **09:30 bar OPEN** for indicative 100-share entry, with the original saved 09:05 classification as a precondition.
 - Both the prior-night reference cost and the later 09:30 reference cost must be within the selected budget. Missing 09:30 anchors are excluded, not fabricated; caution/skip is not zero P&L.
 - Remaining uncertainty: a Yahoo 09:30 five-minute OPEN is not evidence that 100 shares were actually available to fill at that price. It is strictly a research reference, not tradable ROI.
+
+## Stage 3 — full budget-universe freeze + authorized TDnet adapter (2026-11-02)
+### Official source policy
+- JPX free public disclosure service explicitly requests that automated scraping **not** be used: https://www.jpx.co.jp/listing/disclosure/01.html
+- Official J-Quants v2 `/td/list` is documented at https://jpx-jquants.com/ja/spec/td-list and **requires the TimelyDisclosure add-on**. We have not subscribed, paid, made a live API call or enabled any scheduled collection.
+- `authorizedTdnetIndex.mjs` is an opt-in adapter. `enabled=false` or `approved=false` returns `DISABLED_NO_COST` without network access. On an authorized call it forwards `x-api-key` only to `https://api.jquants.com/v2/td/list`, records real receipt time, preserves disclosure number, and returns `INDEX_HINT_ONLY`. A headline is **not evidence of higher earnings**. Pagination is marked incomplete rather than dropping further records silently. No API credentials are in GitHub code.
+- No official IR file contents or economic event magnitudes are yet parsed; human review or licensed document-body access is required. Reports are not promoted as verified surprises.
+
+### Budget full-cohort implementation
+- `budgetUniverseFreeze.mjs` consumes a single completed day of previously saved AI results. It validates the real as-of period (source-session 18:10–19:00 JST), each row's saved timestamp, at most 1500 stock-day entries, uniqueness of stock/date, an expected universe count and minimum 80% coverage. It does not select hindsight winners. The canonical SHA-256 hash supports detecting future mutation.
+- The fixed cohort contains **all** AI POWER >=85 symbols in the accepted universe with flags for 100-share budgets of 10/30/35/50万円. Stored budget lists are not truncated to top five.
+- New `scripts/research/sql/budget_night_shadow_runs.sql` is a **review-only schema proposal**. It has not been applied to the production PostgreSQL database or the connected development Supabase instance. Table has RLS enabled and no client policies. The application's insert uses `ON CONFLICT (trade_date) DO NOTHING`; existing snapshots are never overwritten.
+- New owner-only `POST /api/admin/budget-universe-shadow` can capture a cohort only when `BUDGET_UNIVERSE_SHADOW_WRITE_ENABLED=true` is explicitly set by the operator, the same-origin request comes from the owner, and the existing 18:10–19:00 exchange calendar gate passes. It has **no Vercel Cron entry**, no read/write client access and is disabled by default. Do not enable until the target DATABASE_URL and schema are verified and the user explicitly approves activation.
+- The owner page displays a stored full-universe cohort count/coverage/hash only when that table exists. It never retrospectively reconstructs a missing frozen cohort. The existing top-five study is unchanged.
+- The 100-share numerical budget freeze does not imply you could execute 100 shares at the saved scan reference price. Morning checks, liquidity and transaction costs are separate future checks.
+
+### Stage-3 verification
+```sh
+npm run test:next-session
+```
+The test suite now includes 47 fixture tests in three modules covering the original budget list, timestamped evidence and 1/3/5-session outcomes, plus the full-universe snapshot and zero-network-by-default TDnet adapter. The Vercel preview `next build` runs only after tests pass.
+
+### Activation checklist (NOT authorized by this Draft)
+1. Inspect the actual PostgreSQL target, verify table ownership and permissions, and create a properly versioned migration through the project's normal migration workflow. Do not execute the proposed SQL against a different dev project.
+2. Check that the daily AI result's scan coverage, `created_at` timestamps and saved price quality are genuinely adequate at 18:10.
+3. Confirm the new snapshot table is readable only by the owner-side server; test the one-shot freeze in a non-production DB.
+4. Approve the write flag deliberately (currently **off**); verify exact same-day freeze and hash before any recurring job is considered.
+5. For TDnet, **separately** confirm add-on entitlement, fees and API credentials before switching on the transport. A J-Quants Standard stock-data subscription alone does not imply TDnet entitlement.
+6. After complete coverage for enough future days, independently compare 09:05 classifications with **post-decision 09:30** research entries, 1/3/5-day outcomes, drawdown and the fixed 7,000/10,000-yen thresholds. Never use post-freeze IR to select the cohort.
