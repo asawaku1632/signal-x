@@ -6,14 +6,14 @@ const bars=Array.from({length:82},(_,i)=>({
 }));
 bars[75]={...bars[75],open:105,high:120,low:100,close:110,volume:200};
 test('qualifying wick and volume use signal day and prior 20 bars only',()=>{
- const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101});
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+10/75,ma75Prior:100});
  assert.equal(a.eligible,true);
  assert.equal(a.status,'SHADOW_ONLY');
 });
 test('future data cannot change signal classification',()=>{
- const first=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101});
+ const first=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+10/75,ma75Prior:100});
  const changed=bars.map(x=>({...x}));changed[76].close=999;
- assert.deepEqual(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101}),first);
+ assert.deepEqual(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:100+10/75,ma75Prior:100}),first);
 });
 test('flat execution window is unverified',()=>{
  const changed=bars.map(x=>({...x}));changed[76]={...changed[76],open:100,high:100,low:100,close:100};
@@ -39,17 +39,17 @@ test('price discontinuity in outcome is quarantined',()=>{
 });
 test('duplicate signal history timestamp is rejected',()=>{
  const changed=bars.map(x=>({...x}));changed[75].time=changed[74].time;
- assert.equal(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101}).status,'DUPLICATE_OR_UNSORTED');
+ assert.equal(classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:100+10/75,ma75Prior:100}).status,'DUPLICATE_OR_UNSORTED');
 });
 
 test('late source capture blocks forward candidate',()=>{
- const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101,
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+10/75,ma75Prior:100,
  provenance:{source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:201}});
  assert.equal(a.eligible,false);
  assert.equal(a.status,'LATE_CAPTURE_OFFLINE_ONLY');
 });
 test('plausible timing is not asserted as authenticated',()=>{
- const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101,
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+10/75,ma75Prior:100,
  provenance:{source:'yahoo_chart',signalCloseAt:100,entryOpenAt:200,capturedAt:150}});
  assert.equal(a.eligible,true);
  assert.equal(a.provenanceStatus,'TIMING_PLAUSIBLE_NOT_AUTHENTICATED');
@@ -57,7 +57,7 @@ test('plausible timing is not asserted as authenticated',()=>{
 test('zero volume baseline cannot yield a valid volume ratio',()=>{
  const changed=bars.map(x=>({...x}));
  for(let i=55;i<75;i++)changed[i].volume=0;
- const a=classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:105,ma75Prior:101});
+ const a=classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:100+10/75,ma75Prior:100});
  assert.equal(a.eligible,false);
  assert.equal(a.status,'INVALID_VOLUME_BASELINE');
 });
@@ -66,4 +66,14 @@ test('overnight gap from signal to entry is quarantined',()=>{
  const changed=bars.map(x=>({...x}));
  changed[76]={...changed[76],open:170,high:175,low:165,close:170};
  assert.equal(auditMa75FillAndBudget({bars:changed,signalIndex:75}).status,'QUARANTINED_PRICE_GAP');
+});
+
+test('classifier rejects MA75 inputs inconsistent with historical closes',()=>{
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:105,ma75Prior:101});
+ assert.equal(a.status,'MA75_ASOF_MISMATCH');
+ assert.equal(a.eligible,false);
+});
+test('classifier rejects future-contaminated MA75 even with unchanged historical bars',()=>{
+ const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+11/75,ma75Prior:100});
+ assert.equal(a.status,'MA75_ASOF_MISMATCH');
 });
