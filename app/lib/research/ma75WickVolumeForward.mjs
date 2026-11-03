@@ -1,4 +1,4 @@
-import { auditMa75PriceHistory, auditMa75SourceAsOf } from './ma75WickVolumeSafety.mjs';
+import { auditMa75PriceHistory, auditMa75SourceAsOf, auditMa75AsOfInputs } from './ma75WickVolumeSafety.mjs';
 /** Research-only frozen candidate. No scoring, trading or notifications. */
 export const MA75_WICK_VOLUME_V1 = Object.freeze({
   upperWickMinimum: 0.35, volumeRatioMinimum: 1.5,
@@ -21,6 +21,8 @@ export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior
     return { status: 'INVALID_OHLCV_OR_ZERO_RANGE', eligible: false };
   const safety = auditMa75PriceHistory(bars, signalIndex-74, signalIndex);
   if (safety !== 'PASS') return {status:safety,eligible:false};
+  const ma75Audit = auditMa75AsOfInputs({bars,signalIndex,ma75Today,ma75Prior});
+  if (!ma75Audit.verified) return {status:ma75Audit.status,eligible:false};
   if (provenance !== null) {
     const provenanceStatus = auditMa75SourceAsOf(provenance);
     if (provenanceStatus !== 'TIMING_PLAUSIBLE_NOT_AUTHENTICATED')
