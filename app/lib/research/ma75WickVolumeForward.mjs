@@ -15,8 +15,9 @@ export function classifyMa75WickVolume({ bars, signalIndex, ma75Today, ma75Prior
     return { status: 'INVALID_INPUT', eligible: false };
   const b = bars[signalIndex], p = bars[signalIndex - 1];
   const recent = bars.slice(signalIndex - r.volumeLookback, signalIndex);
-  const values = [b?.open,b?.high,b?.low,b?.close,b?.volume,p?.close,...recent.map(x=>x?.volume)];
-  if (!values.every(finitePositive) || b.high < Math.max(b.open,b.close) ||
+  const values = [b?.open,b?.high,b?.low,b?.close,b?.volume,p?.close];
+  const volumeHistoryValid = recent.every(x=>typeof x?.volume==='number' && Number.isFinite(x.volume) && x.volume>=0);
+  if (!values.every(finitePositive) || !volumeHistoryValid || b.high < Math.max(b.open,b.close) ||
       b.low > Math.min(b.open,b.close) || b.high <= b.low)
     return { status: 'INVALID_OHLCV_OR_ZERO_RANGE', eligible: false };
   const safety = auditMa75PriceHistory(bars, signalIndex-74, signalIndex);
