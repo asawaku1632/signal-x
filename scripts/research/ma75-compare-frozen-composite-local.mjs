@@ -28,7 +28,9 @@ const asDayUnix=date=>Math.floor(Date.parse(date+'T00:00:00Z')/1000);
 export function runMa75FrozenCompositeLocal({
  read=readFileSync,list=readdirSync,fileInfo=lstatSync,
  loadSource=readMa75PrivateSavedDate,
- verifyOriginals=runMa75FirstDayCohortFreeze
+ projectDay=validateMa75SavedDailyForReplay,
+ verifyOriginals=runMa75FirstDayCohortFreeze,
+ expectedCohortSha256=PINNED_FIRST_FORWARD_COHORT_SHA256
 }={}){
  const info=fileInfo(resolve(DIR));
  if(!info.isDirectory()||info.isSymbolicLink())
@@ -39,7 +41,7 @@ export function runMa75FrozenCompositeLocal({
   fail('FROZEN_COHORT_FILE_UNSAFE');
  const manifest=JSON.parse(read(COHORT,'utf8'));
  if(!verifyMa75FirstDayResearchFreeze(manifest)||
-    manifest.freezeSha256!==PINNED_FIRST_FORWARD_COHORT_SHA256||
+    manifest.freezeSha256!==expectedCohortSha256||
     manifest.breakoutsTotal!==27||manifest.risingBreakoutCount!==22||
     manifest.frozenPopulation!==953)
   fail('COHORT_DOES_NOT_MATCH_NOV2_APPROVED_FREEZE');
@@ -68,7 +70,7 @@ export function runMa75FrozenCompositeLocal({
    date+'-jquants-daily.json');
   const saved=loadSource(path);
   if(!saved)fail('ONE_OF_76_SOURCE_DAYS_MISSING');
-  const projection=validateMa75SavedDailyForReplay(freeze,date,saved);
+  const projection=projectDay(freeze,date,saved);
   const found=new Map(projection.audit.rows.map(x=>[x.code,x]));
   for(const [code,bars] of series){
    const row=found.get(code);
@@ -82,7 +84,7 @@ export function runMa75FrozenCompositeLocal({
  const result=compareMa75FirstDayComposite(manifest,{
   priorDates,series:[...series].map(([code,bars])=>({code,bars}))
  });
- if(result.frozenCohortSha256!==PINNED_FIRST_FORWARD_COHORT_SHA256||
+ if(result.frozenCohortSha256!==expectedCohortSha256||
     result.originalCapturedSourceSha256!==manifest.capturedSourceSha256||
     result.originalHistoricalWarmupSha256!==manifest.historicalWarmupSourceSha256)
   fail('SOURCE_DIGEST_RECONCILIATION_FAILED');
