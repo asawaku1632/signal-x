@@ -77,3 +77,18 @@ test('classifier rejects future-contaminated MA75 even with unchanged historical
  const a=classifyMa75WickVolume({bars,signalIndex:75,ma75Today:100+11/75,ma75Prior:100});
  assert.equal(a.status,'MA75_ASOF_MISMATCH');
 });
+
+test('negative volume in prior window is invalid OHLCV',()=>{
+ const changed=bars.map(x=>({...x}));
+ changed[60].volume=-1;
+ const a=classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:100+10/75,ma75Prior:100});
+ assert.equal(a.status,'INVALID_OHLCV_OR_ZERO_RANGE');
+ assert.equal(a.eligible,false);
+});
+test('zero baseline has explicit rejection status',()=>{
+ const changed=bars.map(x=>({...x}));
+ for(let i=55;i<75;i++)changed[i].volume=0;
+ const a=classifyMa75WickVolume({bars:changed,signalIndex:75,ma75Today:100+10/75,ma75Prior:100});
+ assert.equal(a.status,'INVALID_VOLUME_BASELINE');
+ assert.equal(a.eligible,false);
+});
