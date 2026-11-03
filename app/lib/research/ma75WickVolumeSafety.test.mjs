@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {auditMa75PriceHistory as audit,auditMa75SourceAsOf as asof} from './ma75WickVolumeSafety.mjs';
+import {auditMa75PriceHistory as audit,auditMa75SourceAsOf as asof,auditMa75AsOfInputs as ma75} from './ma75WickVolumeSafety.mjs';
 const bars=Array.from({length:80},(_,i)=>({time:1700000000+i*86400,open:100,high:105,low:95,close:100,volume:1000}));
 const mutate=(i,changes)=>bars.map((b,k)=>k===i?{...b,...changes}:{...b});
 test('normal history passes',()=>assert.equal(audit(bars,5,79),'PASS'));
@@ -14,3 +14,24 @@ test('premature capture rejected',()=>assert.equal(asof({source:'yahoo_chart',si
 test('missing source rejected',()=>assert.equal(asof({source:'',signalCloseAt:100,entryOpenAt:200,capturedAt:150}),'PROVENANCE_UNVERIFIED'));
 
 test('extreme opening gap quarantined even if close recovers',()=>assert.equal(audit(mutate(40,{open:200,high:205,low:95,close:100}),5,79),'QUARANTINED_PRICE_GAP'));
+
+test('MA75 as-of matches 75 historical closes',()=>{
+ const a=ma75({bars,signalIndex:75,ma75Today:100,ma75Prior:100});
+ assert.equal(a.status,'MA75_ASOF_MATCH');assert.equal(a.verified,true);
+});
+test('MA75 as-of rejects mismatched input',()=>{
+ const a=ma75({bars,signalIndex:75,ma75Today:101,ma75Prior:100});
+ assert.equal(a.status,'MA75_ASOF_MISMATCH');assert.equal(a.verified,false);
+});
+test('MA75 as-of is independent of future candles',()=>{
+ const changed=bars.map(x=>({...x}));changed[76].close=900;
+ assert.deepEqual(ma75({bars:changed,signalIndex:75,ma75Today:100,ma75Prior:100}),
+ ma75({bars,signalIndex:75,ma75Today:100,ma75Prior:100}));
+});
+test('MA75 as-of requires 75 prior closes',()=>{
+ assert.equal(ma75({bars,signalIndex:74,ma75Today:100,ma75Prior:100}).verified,false);
+});
+test('MA75 as-of rejects duplicate timestamps',()=>{
+ const changed=mutate(75,{time:bars[74].time});
+ assert.equal(ma75({bars:changed,signalIndex:75,ma75Today:100,ma75Prior:100}).status,'DUPLICATE_OR_UNSORTED');
+});
