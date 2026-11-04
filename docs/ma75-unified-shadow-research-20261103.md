@@ -239,3 +239,70 @@ and 76 original source file bytes are **not modified by this fix**.
 No profit rate or trade decision is validated. An error still could
 reflect a different source/integrity issue; do not claim the local
 failure's exact root cause before seeing the new whitelisted code.
+
+
+## 2026-11-04 archive date inventory regression — fixed
+
+Owner-local command failed after updating the strict-filter patch with:
+`MA75_COMPOSITE_LOCAL_AUDIT_BLOCKED_OR_FAILED:
+MA75_FIRST_FORWARD_LOCAL_UNEXPECTED_ARCHIVE_DATES`.
+
+Source inspection found a concrete **date-inventory scope mismatch**:
+- `ma75-local-coverage-audit.mjs` already audits **only** original
+  `2026-05-01 .. 2026-10-30` archived daily source names (122 sessions).
+- The newer first-day replay, original fingerprint verifier and composite
+  wrapper instead counted **every** date-looking
+  `YYYY-MM-DD-jquants-daily.json` filename anywhere in
+  `research-private`. A newer, independently added daily source file
+  could make the original archive appear to have more than 122 dates.
+- The owner's exact additional file inventory has **not** been inspected.
+  This source mismatch explains the failure class but does not by itself
+  prove what extra filename was present on the local Windows machine.
+
+**Fix** (code only): each of the three later tools now applies the same
+exclusive **original historical-window filter** before checking 122
+unique archived dates and unchanged endpoints. Post-October-30 dated
+files can coexist but cannot enter the 75-session signal calculation,
+become part of the frozen 76-file SHA256, or affect the original
+27-control/22-rising membership. Missing an original historical date
+still fails closed; content/tamper checks, frozen cohort digest and
+corporate-action rules are unchanged.
+
+Regression fixtures include an unrelated Nov 2 source date, Nov 4
+ordinary archived-style source date, and Nov 4 separately named forward
+capture. They check that all are **ignored**, the 76 pre-frozen source
+files are still exactly audited, the original digest remains unchanged,
+and missing original sessions continue to block comparisons. No local
+licensed J-Quants pages are ever uploaded or updated.
+
+**Owner's safe next command** (read-only, NO --freeze):
+
+~~~powershell
+cd C:\Users\neomo\signal-x-minute-research
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw "Git更新失敗" }
+
+node .\scripts\research\ma75-freeze-first-forward-day.mjs --verify
+if ($LASTEXITCODE -ne 0) { throw "固定済み研究の照合失敗" }
+
+$r = $null
+$r = node .\scripts\research\ma75-compare-frozen-composite-local.mjs | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "複合条件の読取監査失敗" }
+$r | Select-Object status,originalAllBreakouts,originalRisingBreakouts,
+  firstDayWickAndVolumeComposite,firstDayRisingAndComposite,
+  notEvaluableBreakouts,strictQualityQuarantinedBreakouts |
+  Format-List
+$r.notEvaluableReasons | Format-List
+$r.perFrozenBreakout |
+  Where-Object { $_.compoundMatched -eq $true } |
+  Select-Object code,risingMA75,upperWickRatio,volumeRatio |
+  Format-Table -AutoSize
+~~~
+
+GitHub CI [run 41821628643](https://github.com/asawaku1632/signal-x/actions/runs/41821628643)
+passed 521/521 synthetic tests (135 minute + 386 MA75/research),
+failures 0. **The owner-private local source command still requires
+this new local re-run; the real composite match count remains unknown
+until then.** All three groups remain `SHADOW_NOT_APPROVED`,
+and no live trading, notifications, scoring, original-source write or
+new J-Quants API call is authorized.
