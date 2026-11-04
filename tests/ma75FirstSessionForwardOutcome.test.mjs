@@ -68,7 +68,7 @@ const synthetic=()=>{
   audit:{failures:[],rows:codes.map(code=>({
    code,tradeDate:'2026-11-04',
    status:'DAILY_BAR',bar:{
-    tradeDate:'2026-11-04',code,open:100,high:110,low:95,
+    tradeDate:'2026-11-04',code,open:100,high:110,low:code==='1878'?85:95,
     close:code==='1878'?90:105,volume:1000
    }
   }))}
