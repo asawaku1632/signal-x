@@ -17,9 +17,17 @@ const freeze=()=>({
  automaticCollectionEnabled:false,liveTradingEligible:false,
  notificationEligible:false,independentlyValidatedForwardReturns:0
 });
-const dayList=Array.from({length:122},(_,i)=>new Date(
- Date.parse('2026-10-30T00:00:00Z')-(121-i)*86400000
-).toISOString().slice(0,10));
+// Synthetic historical date names preserve the authentic archived endpoints
+// and exactly 75 original warmup sessions; no market-calendar inference.
+const dayList=[
+ ...Array.from({length:47},(_,i)=>new Date(
+  Date.parse('2026-05-01T00:00:00Z')+i*86400000
+ ).toISOString().slice(0,10)),
+ ...Array.from({length:74},(_,i)=>new Date(
+  Date.parse('2026-07-10T00:00:00Z')+i*86400000
+ ).toISOString().slice(0,10)),
+ '2026-10-30'
+];
 const first=dayList.at(-75);
 const forwardDay='2026-11-02';
 const capture=date=>{
@@ -43,7 +51,7 @@ const capture=date=>{
 };
 const archive=()=>({
  status:'OFFLINE_HISTORICAL_DIAGNOSTIC_ONLY',frozenCodes:2,
- dates:122,to:'2026-10-30',
+ dates:122,from:'2026-05-01',to:'2026-10-30',
  preFreeze75SessionWarmup:{requiredHistoricalSessions:75,
   sourceFirstDate:first,sourceLastDate:'2026-10-30',
   codesWithAll75ArchivedBars:2}
@@ -83,6 +91,28 @@ test('local first-day review joins 75 original archived pages with one distinct 
  assert.equal(r.eligibleForNotifications,false);
  assert.equal(r.eligibleForTrading,false);
  assert.equal(r.sourceRightsReviewRequired,true);
+});
+
+test('later saved J-Quants dates cannot alter original 122-session warmup',()=>{
+ const original=runMa75LocalFirstForwardReview(mocks());
+ const touched=[];
+ const extended=runMa75LocalFirstForwardReview(mocks({
+  files:()=>[...list(), '2026-11-04-jquants-daily.json',
+   'ma75-forward-2026-11-04-jquants-daily.json'],
+  readCapture:path=>{
+   touched.push(path);
+   if(path.includes('2026-11-04'))throw Error('FUTURE_DATA_MUST_NOT_BE_READ');
+   return capture(/(20\\d\\d-\\d\\d-\\d\\d)-jquants-daily\\.json$/.exec(path)[1]);
+  }
+ }));
+ assert.deepEqual(extended.shadowPatterns,original.shadowPatterns);
+ assert.equal(extended.historicalWarmupFirst,'2026-07-10');
+ assert.equal(extended.allBreakoutShadowCount,original.allBreakoutShadowCount);
+ assert.equal(touched.length,76);
+ assert.ok(touched.every(path=>!path.includes('2026-11-04')));
+ assert.throws(()=>runMa75LocalFirstForwardReview(mocks({
+  files:()=>list().filter(x=>x!==dayList[4]+'-jquants-daily.json')
+ })),/MA75_FIRST_FORWARD_LOCAL_UNEXPECTED_ARCHIVE_DATES/);
 });
 
 test('unpublished Nov2 day, missing private file, changed warmup and future-dated receipt all block',()=>{
