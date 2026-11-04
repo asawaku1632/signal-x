@@ -105,8 +105,13 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
   try{
    const result=runMa75FrozenCompositeLocal();
    process.stdout.write(JSON.stringify(result,null,2)+'\n');
-  }catch{
-   process.stderr.write('MA75_COMPOSITE_LOCAL_AUDIT_BLOCKED_OR_FAILED\n');
+  }catch(err){
+   // Diagnostic code only: never print file paths, licensed market data,
+   // API secrets, untrusted raw exception text or a full stack trace.
+   const code=typeof err?.message==='string'&&
+    /^[A-Z][A-Z0-9_]{5,120}$/.test(err.message)?
+     err.message:'UNCLASSIFIED_LOCAL_INTEGRITY_ERROR';
+   process.stderr.write('MA75_COMPOSITE_LOCAL_AUDIT_BLOCKED_OR_FAILED: '+code+'\n');
    process.exitCode=1;
   }
  }
