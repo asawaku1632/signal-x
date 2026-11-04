@@ -81,6 +81,20 @@ export function compareMa75FirstDayComposite(frozen,{
    !Number.isFinite(today.volume)||
    Math.abs(today.volume/volumeMean-item.historicalVolumeRatio)>0.00011)
    fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
+  // Null in the already frozen volume-ratio field means a zero-volume
+  // session existed in the preceding 20 bars. Do not silently reinterpret
+  // it as an eligible high-volume event after reading the same originals.
+  if(item.historicalVolumeRatio===null){
+   const reason='STRICT_FILTER_FROZEN_VOLUME_RATIO_UNAVAILABLE';
+   failures[reason]=(failures[reason]??0)+1;
+   comparisons.push({
+    code:item.code,risingMA75:item.sma75Rising,
+    classification:'NOT_EVALUABLE',reason,
+    upperWickRatio:null,volumeRatio:null,compoundMatched:null,
+    return1Percent:null,return3Percent:null,return5Percent:null
+   });
+   continue;
+  }
   const c=classifyMa75WickVolume({
    bars,signalIndex:75,ma75Today:signalMA,ma75Prior:priorMA
   });
@@ -95,7 +109,7 @@ export function compareMa75FirstDayComposite(frozen,{
    });
    continue;
   }
-  if(c.breakout!==true||item.historicalVolumeRatio===null)
+  if(c.breakout!==true)
    fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
   analyzable++;
   const matched=c.eligible===true;
