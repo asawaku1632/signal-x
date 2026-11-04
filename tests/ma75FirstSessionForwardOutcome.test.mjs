@@ -78,6 +78,7 @@ const synthetic=()=>{
 const run=(data,projection=data.projection)=>evaluateMa75FirstSessionForward(
  data.frozen,data.comparison,{
   projection,outcomeDay:'2026-11-04',
+  signalCloseByCode:new Map(groupCodes.map(code=>[code,100])),
   sourceReceiptAt:'2026-11-04T08:00:00Z',
   asOf:'2026-11-04T11:00:00Z'
  });
@@ -162,6 +163,24 @@ test('future data, wrong receipt, duplicate provider row, and changed frozen mem
  assert.throws(()=>evaluateMa75FirstSessionForward(d.frozen,renamed),
   /MA75_FIRST_SESSION_ORIGINAL_BREAKOUTS_RESELECTED_OR_CHANGED/);
 });
+test('abnormal Nov2 close to Nov4 open gap must not become hypothetical profit',()=>{
+ const d=synthetic();
+ const item=d.projection.audit.rows.find(x=>x.code==='9832');
+ item.bar.open=160;item.bar.high=165;item.bar.low=99;item.bar.close=105;
+ const r=run(d);
+ assert.equal(r.groups.allBreakouts.records,27);
+ assert.equal(r.groups.compoundBreakouts.records,3);
+ assert.equal(r.groups.compoundBreakouts.quarantined,1);
+ assert.equal(r.byFrozenCode.find(x=>x.code==='9832').status,
+  'QUARANTINED_UNVERIFIED_OVERNIGHT_PRICE_GAP');
+ assert.equal(r.byFrozenCode.find(x=>x.code==='9832').return1Percent,null);
+ assert.equal(r.tradingEligible,false);
+ assert.throws(()=>evaluateMa75FirstSessionForward(d.frozen,d.comparison,{
+  projection:d.projection,asOf:'2026-11-04T11:00:00Z',
+  sourceReceiptAt:'2026-11-04T08:00:00Z'
+ }),/MA75_FIRST_SESSION_NOV02_CLOSE_EVIDENCE_REQUIRED/);
+});
+
 test('one-day audit never asserts actual fills, profit edge or future three/five-day outcomes',()=>{
  const d=synthetic(),r=run(d);
  assert.equal(r.byFrozenCode[0].actualFillVerified,false);
