@@ -63,7 +63,7 @@ const report=(f,n=5,overrides={})=>evaluateMa75FrozenHorizonLedger(
   sourceReceipts:Object.fromEntries(
    dates.slice(0,n).map(date=>[date,f.receipts[date]])),
   asOf:dates.at(n-1)+'T11:00:00Z',
-  expectedFreezeSha256:SHA,...overrides
+  expectedFreezeSha256:SHA,expectedOriginalCodes:group,...overrides
  });
 test('Nov4 only: preserves full 27/22/3 and never invents 3- and 5-session outcomes',()=>{
  const f=fixture(),r=report(f,1);
