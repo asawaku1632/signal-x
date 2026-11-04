@@ -51,8 +51,10 @@ export function runMa75FrozenCompositeLocal({
     check.originalFilesHashed!==76||
     check.allBreakouts!==27||check.risingBreakouts!==22)
   fail('ORIGINAL_SOURCE_FINGERPRINT_MISMATCH');
+ // Never include additional post-freeze captures in the original
+ // 122-session audit. Those may coexist in the same local private dir.
  const names=list(resolve(DIR)),dates=names.map(x=>HIST.exec(x)?.[1]??null)
-  .filter(Boolean).sort();
+  .filter(date=>date!==null&&date>='2026-05-01'&&date<='2026-10-30').sort();
  if(dates.length!==122||new Set(dates).size!==122||
     dates[0]!=='2026-05-01'||dates.at(-1)!=='2026-10-30')
   fail('HISTORICAL_DATE_POPULATION_CHANGED');
