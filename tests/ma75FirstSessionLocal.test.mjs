@@ -79,8 +79,12 @@ const make=(f,{saved=null,now='2026-11-04T11:00:00.000Z'}={})=>({
   JSON.stringify(f.frozen):
   JSON.stringify({populationSize:953,firstEligibleSignalDate:'2026-11-02'}),
  compare:()=>f.comp,
- readSaved:()=>saved,
+ readSaved:path=>String(path).includes('2026-11-04')?saved:{date:'2026-11-02'},
  validateSaved:(_,date,value)=>{
+  if(date==='2026-11-02')return {
+   audit:{rows:members.map(code=>({code,status:'DAILY_BAR',
+    bar:{close:100}}))}
+  };
   assert.equal(date,'2026-11-04');
   assert.equal(value,saved);
   return f.projection;
