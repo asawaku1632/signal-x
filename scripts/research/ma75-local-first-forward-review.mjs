@@ -48,9 +48,15 @@ export function runMa75LocalFirstForwardReview({
   error('INVALID_FILE_LIST');
  const currentName='ma75-forward-'+firstDate+'-jquants-daily.json';
  if(!names.includes(currentName))error('FORWARD_DATE_CAPTURE_NOT_FOUND');
+ // A later manually captured source day may coexist in research-private.
+ // Reuse the EXACT pre-freeze historical window audited by
+ // runMa75LocalCompletionAudit, not every date-looking filename.
+ // Do not read, count, hash, delete or rewrite later observations here.
  const archiveDates=names.map(name=>HISTORICAL.exec(name)?.[1]??null)
-  .filter(Boolean).sort();
- if(archiveDates.length!==archive.dates||archiveDates.at(-1)!==archive.to)
+  .filter(date=>date!==null&&date>=archive.from&&date<=archive.to).sort();
+ if(archive.from!=='2026-05-01'||archiveDates.length!==archive.dates||
+    new Set(archiveDates).size!==archiveDates.length||
+    archiveDates[0]!==archive.from||archiveDates.at(-1)!==archive.to)
   error('UNEXPECTED_ARCHIVE_DATES');
  const priorDates=archiveDates.slice(-75);
  if(priorDates[0]!==archive.preFreeze75SessionWarmup.sourceFirstDate||
