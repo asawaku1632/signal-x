@@ -115,6 +115,32 @@ test('local read-only comparison keeps 27/22 and verifies source lineage before 
  assert.equal(r.hypotheticalOutcomeStatus,'NOT_YET_OBSERVED');
  assert.equal(r.return5Percent,null);
 });
+test('newly captured dated files do not change Nov2 original 27/22 comparison',()=>{
+ const opts=options(),baseline=runMa75FrozenCompositeLocal(opts);
+ let projectionCalls=0;
+ const project=opts.projectDay;
+ const later=runMa75FrozenCompositeLocal({
+  ...opts,
+  list:()=>[...opts.list(),'2026-11-02-jquants-daily.json',
+   '2026-11-04-jquants-daily.json','ma75-forward-2026-11-04-jquants-daily.json'],
+  projectDay:(freeze,date,saved)=>{
+   assert.ok(date<='2026-11-02');
+   projectionCalls++;
+   return project(freeze,date,saved);
+  }
+ });
+ assert.equal(projectionCalls,76);
+ assert.deepEqual(later,baseline);
+ assert.equal(later.originalAllBreakouts,27);
+ assert.equal(later.originalRisingBreakouts,22);
+ assert.equal(later.networkRequests,0);
+ assert.equal(later.filesWritten,0);
+ assert.throws(()=>runMa75FrozenCompositeLocal({
+  ...opts,
+  list:()=>opts.list().filter(name=>name!==archiveDates[10]+'-jquants-daily.json')
+ }),/MA75_COMPOSITE_LOCAL_HISTORICAL_DATE_POPULATION_CHANGED/);
+});
+
 test('read-only wrapper refuses mismatched 27-signal freeze digest and tampered historical sources',()=>{
  const opts=options();
  assert.equal(PINNED_FIRST_FORWARD_COHORT_SHA256,
