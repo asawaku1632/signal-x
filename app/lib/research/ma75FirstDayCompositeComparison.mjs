@@ -61,15 +61,41 @@ export function compareMa75FirstDayComposite(frozen,{
   }
   const priorMA=mean(bars.slice(0,75).map(x=>x.close));
   const signalMA=mean(bars.slice(1,76).map(x=>x.close));
+  // The frozen 27 were selected using CLOSE-based quality gates. The
+  // separate wick/volume classifier imposes STRICTER intraday OHLC and
+  // opening-gap checks. Those can reject legitimate frozen baseline rows.
+  // Never treat a stricter filter rejection as evidence the original
+  // immutable 27-member population changed.
+  const last=bars[74],today=bars[75];
+  if(!Number.isFinite(priorMA)||!Number.isFinite(signalMA)||
+     !(priorMA>0&&signalMA>0)||
+     !(last.close<=priorMA&&today.close>signalMA)||
+     (signalMA>priorMA)!==item.sma75Rising)
+   fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
+  const last20=bars.slice(55,75).map(x=>x.volume);
+  const anyZero=last20.some(v=>v===0);
+  const volumeMean=mean(last20);
+  if(item.historicalVolumeRatio===null){
+   if(!anyZero)fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
+  }else if(!Number.isFinite(volumeMean)||volumeMean<=0||
+   !Number.isFinite(today.volume)||
+   Math.abs(today.volume/volumeMean-item.historicalVolumeRatio)>0.00011)
+   fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
   const c=classifyMa75WickVolume({
    bars,signalIndex:75,ma75Today:signalMA,ma75Prior:priorMA
   });
-  // Source has to match the existing freeze. Never silently delete
-  // inconvenient control-group signals on a mismatch.
-  if(c.status!=='SHADOW_ONLY'||c.breakout!==true||
-     (signalMA>priorMA)!==item.sma75Rising||
-     (item.historicalVolumeRatio!==null&&
-      Math.abs(c.volumeRatio-item.historicalVolumeRatio)>0.00011))
+  if(c.status!=='SHADOW_ONLY'){
+   const reason='STRICT_FILTER_'+String(c.status);
+   failures[reason]=(failures[reason]??0)+1;
+   comparisons.push({
+    code:item.code,risingMA75:item.sma75Rising,
+    classification:'NOT_EVALUABLE',reason,
+    upperWickRatio:null,volumeRatio:null,compoundMatched:null,
+    return1Percent:null,return3Percent:null,return5Percent:null
+   });
+   continue;
+  }
+  if(c.breakout!==true||item.historicalVolumeRatio===null)
    fail('SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT');
   analyzable++;
   const matched=c.eligible===true;
@@ -103,6 +129,7 @@ export function compareMa75FirstDayComposite(frozen,{
   comparedCompleteOriginalBreakouts:analyzable,
   notEvaluableBreakouts:frozen.breakoutsTotal-analyzable,
   notEvaluableReasons:failures,
+  strictQualityQuarantinedBreakouts:Object.entries(failures).filter(([k])=>k.startsWith('STRICT_FILTER_')).reduce((n,[,v])=>n+v,0),
   perFrozenBreakout:comparisons,
   sourceOrigin:'ORIGINAL_JQUANTS_V2_LOCAL_FILES_ONLY',
   eligibleForProduction:false,eligibleForNotifications:false,
