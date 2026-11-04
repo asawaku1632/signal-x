@@ -71,6 +71,7 @@ const fixtures=()=>{
 };
 const make=(f,{saved=null,now='2026-11-04T11:00:00.000Z'}={})=>({
  clock:()=>new Date(now),
+ expectedCohortSha256:f.frozen.freezeSha256,
  fileInfo:path=>String(path).endsWith('research-private')?
   {isDirectory:()=>true,isSymbolicLink:()=>false}:
   {isFile:()=>true,isSymbolicLink:()=>false,size:5500},
