@@ -44,8 +44,11 @@ export function hashMa75FirstDayOriginals(report,{
  if(report?.requestedSignalDate!==FIRST_DAY||!Array.isArray(fileNames)||
     typeof read!=='function')
   error('REQUIRE_RECONCILED_FIRST_DATE');
+ // Only original 2026-05-01..2026-10-30 archival sessions contribute
+ // to the previously pinned historical hash. Later day captures may
+ // coexist in the private folder but cannot affect this fingerprint.
  const dates=fileNames.map(name=>ARCHIVE.exec(name)?.[1]??null)
-  .filter(Boolean).sort();
+  .filter(date=>date!==null&&date>='2026-05-01'&&date<='2026-10-30').sort();
  if(dates.length!==122||new Set(dates).size!==dates.length||
     dates[0]!=='2026-05-01'||dates.at(-1)!=='2026-10-30')
   error('BASELINE_ARCHIVE_NOT_EXACT');
