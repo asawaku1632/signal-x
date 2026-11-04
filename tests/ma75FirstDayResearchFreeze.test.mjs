@@ -168,6 +168,25 @@ test('missing, oversized, changed or future raw-source receipt abort, no buy sig
   fileNames:names,read:()=> ''
  }),/MA75_FIRST_DAY_COHORT_ORIGINAL_CAPTURE_SIZE_INVALID/);
 });
+test('post-freeze dated files coexist without changing original 76-file hashes or immutable cohort',()=>{
+ const m=mockIo();
+ const before=runMa75FirstDayCohortFreeze([],{...m.io});
+ const extraList=()=>[...names,'2026-11-04-jquants-daily.json',
+  'ma75-forward-2026-11-04-jquants-daily.json'];
+ const after=runMa75FirstDayCohortFreeze([],{...m.io,list:extraList});
+ assert.equal(after.sourceSha256,before.sourceSha256);
+ assert.equal(after.historicalWarmupSha256,before.historicalWarmupSha256);
+ runMa75FirstDayCohortFreeze(['--freeze'],{...m.io});
+ const verified=runMa75FirstDayCohortFreeze(['--verify'],{...m.io,list:extraList});
+ assert.equal(verified.status,'LOCAL_FROZEN_SHADOW_COHORT_INTEGRITY_MATCH');
+ assert.equal(verified.originalFilesHashed,76);
+ assert.equal(m.stats().writes,1);
+ assert.throws(()=>hashMa75FirstDayOriginals(report(),{
+  fileNames:[...names.filter(n=>n!==days[3]+'-jquants-daily.json'),
+   '2026-11-04-jquants-daily.json'],read:()=> 'raw'
+ }),/MA75_FIRST_DAY_COHORT_BASELINE_ARCHIVE_NOT_EXACT/);
+});
+
 test('shadow research modules and CLI cannot reach APIs, deploy, trade or publish alerts',()=>{
  for(const path of [
   '../app/lib/research/ma75FirstDayResearchFreeze.mjs',
