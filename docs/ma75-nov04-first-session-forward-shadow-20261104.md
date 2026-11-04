@@ -30,7 +30,11 @@ trade date, frozen 953 projection and original local receipt chronology,
 then classifies the 27 original codes without reselecting them.
 A missing/no-trade row is PENDING; corporate action, invalid OHLCV or
 flat price bars are QUARANTINED, not treated as zero-return, as a
-profit/loss or as a reason to drop the original code.
+profit/loss or as a reason to drop the original code. The script also
+reloads the hash-verified original Nov 2 closing bar for each of the 27;
+opening or closing price gaps exceeding 45% relative to that close
+are QUARANTINED as unverified possible corporate actions or bad data.
+The gap check is a conservative quality screen, not a real volatility rule.
 
 For each usable Nov 4 original daily bar:
 - Hypothetical entry: 2026-11-04 OPEN, with +0.1% adverse friction.
