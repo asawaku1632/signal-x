@@ -131,6 +131,76 @@ test('tampered price, zero baseline volume, and as-of mismatch fail closed',()=>
  }),/SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT/);
 });
 
+test('stricter OHLC quality quarantines a legitimate frozen baseline rather than throwing',()=>{
+ const base=sample();
+ const flat=base.series.map(x=>({...x,bars:x.bars.map(b=>({...b}))}));
+ flat[0].bars[75]={...flat[0].bars[75],
+  open:110,high:110,low:110,close:110};
+ const out=compareMa75FirstDayComposite(base.frozen,{...base,series:flat});
+ assert.equal(out.originalAllBreakouts,27);
+ assert.equal(out.originalRisingBreakouts,22);
+ assert.equal(out.notEvaluableBreakouts,1);
+ assert.equal(out.comparedCompleteOriginalBreakouts,26);
+ assert.equal(out.strictQualityQuarantinedBreakouts,1);
+ assert.equal(out.perFrozenBreakout[0].classification,'NOT_EVALUABLE');
+ assert.equal(out.perFrozenBreakout[0].reason,'STRICT_FILTER_INVALID_OHLCV_OR_ZERO_RANGE');
+ assert.equal(out.firstDayWickAndVolumeComposite,3);
+ assert.equal(out.return5Percent,null);
+ assert.equal(out.eligibleForNotifications,false);
+});
+test('large opening gap hidden by a normal close quarantines strict-composite only',()=>{
+ const base=sample();
+ const gap=base.series.map(x=>({...x,bars:x.bars.map(b=>({...b}))}));
+ gap[1].bars[75]={...gap[1].bars[75],
+  open:161,high:180,low:99,close:110};
+ const result=compareMa75FirstDayComposite(base.frozen,{...base,series:gap});
+ assert.equal(result.notEvaluableBreakouts,1);
+ assert.equal(result.originalAllBreakouts,27);
+ assert.equal(result.perFrozenBreakout[1].reason,'STRICT_FILTER_QUARANTINED_PRICE_GAP');
+ assert.equal(result.perFrozenBreakout.filter(x=>x.compoundMatched===null).length,1);
+ assert.equal(result.firstDayWickAndVolumeComposite,3);
+ assert.equal(result.independentlyValidatedForwardOutcomes,0);
+});
+test('frozen null volume baseline is excluded from compound subgroup, not retroactively fixed',()=>{
+ const base=sample();
+ const source=base.series.map(x=>({...x,bars:x.bars.map(b=>({...b}))}));
+ source[0].bars[60].volume=0;
+ const e=base.frozen;
+ const report={
+  version:'ma75_first_forward_day_shadow_v1',
+  status:'OFFLINE_SHADOW_PATTERN_REVIEW_ONLY',
+  requestedSignalDate:signalDate,historicalWarmupLast:'2026-10-30',
+  warmupSessions:75,fixedFrozenCodes:953,
+  codesWithCompletePrior75:925,blockedPrior75:28,
+  blockedCurrentDayAmongCompletePrior75:0,quarantinedPriceDiscontinuity:1,
+  analyzableCodeCount:924,nonBreakout:897,
+  allBreakoutShadowCount:27,risingMa75BreakoutShadowCount:22,
+  breakoutWithoutRisingCount:5,
+  allBreakoutShadowPatterns:e.breakoutsAll.map(x=>({
+   ...x,historicalVolumeRatio:x.code==='1300'?null:x.historicalVolumeRatio,
+   status:'CLOSE_TIME_SHADOW_PATTERN_ONLY'
+  })),
+  incompleteAndQuarantined:e.exclusions,
+  snapshotAsOfNextOpenIndependentlyAuthenticated:false,
+  return5Percent:null,validatedForwardWinRate:null,
+  eligibleForProduction:false,eligibleForTrading:false,
+  eligibleForNotifications:false,eligibleForAIPowerScoring:false,
+  independentForwardOutcomes:0
+ };
+ report.shadowPatterns=report.allBreakoutShadowPatterns.filter(x=>x.sma75Rising);
+ const refrozen=buildMa75FirstDayResearchFreeze(report,{
+  sourceSha256:e.capturedSourceSha256,
+  historySha256:e.historicalWarmupSourceSha256,
+  recordedAt:e.createdAt
+ });
+ const r=compareMa75FirstDayComposite(refrozen,{...base,series:source});
+ assert.equal(r.originalAllBreakouts,27);
+ assert.equal(r.firstDayWickAndVolumeComposite,3);
+ assert.equal(r.notEvaluableBreakouts,1);
+ assert.equal(r.perFrozenBreakout[0].reason,'STRICT_FILTER_FROZEN_VOLUME_RATIO_UNAVAILABLE');
+ assert.equal(r.eligibleForProduction,false);
+});
+
 test('different freeze file and invalid session lineage do not classify signals',()=>{
  const data=sample();
  assert.throws(()=>compareMa75FirstDayComposite({
