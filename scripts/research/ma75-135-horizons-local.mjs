@@ -5,12 +5,14 @@
  * Saved Nov5, Nov6, Nov9 and Nov10 sources are OPTIONAL and independently
  * captured by the owner through the existing explicit one-day script.
  */
-import {readFileSync} from 'node:fs';
+import {readFileSync,lstatSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
 import {runMa75FirstSessionLocal} from './ma75-first-session-local.mjs';
 import {PINNED_FIRST_FORWARD_COHORT_SHA256} from
  './ma75-compare-frozen-composite-local.mjs';
+import {verifyMa75FirstDayResearchFreeze} from
+ '../../app/lib/research/ma75FirstDayResearchFreeze.mjs';
 import {evaluateMa75FrozenHorizonLedger,MA75_FROZEN_SESSIONS}
  from '../../app/lib/research/ma75FrozenForwardHorizons.mjs';
 import {readMa75PrivateSavedDate,validateMa75SavedDailyForReplay}
@@ -18,9 +20,10 @@ import {readMa75PrivateSavedDate,validateMa75SavedDailyForReplay}
 
 const FREEZE=new URL('../../docs/ma75-forward-cohort-freeze-20261031.json',import.meta.url);
 const DIR='research-private';
+const MANIFEST=DIR+'/ma75-first-forward-2026-11-02-cohort-freeze.json';
 const fail=s=>{throw new TypeError('MA75_135_LOCAL_'+s)};
 export function runMa75Frozen135Local({
- clock=()=>new Date(),read=readFileSync,
+ clock=()=>new Date(),read=readFileSync,fileInfo=lstatSync,
  first=runMa75FirstSessionLocal,readSaved=readMa75PrivateSavedDate,
  validateSaved=validateMa75SavedDailyForReplay,
  expectedFreezeSha256=PINNED_FIRST_FORWARD_COHORT_SHA256
@@ -32,6 +35,15 @@ export function runMa75Frozen135Local({
  if(firstDay.status!=='SHADOW_NOT_APPROVED'||
     firstDay.frozenCohortSha256!==expectedFreezeSha256)
   fail('IMMUTABLE_FIRST_DAY_INVALID');
+ const manifestInfo=fileInfo(resolve(MANIFEST));
+ if(!manifestInfo.isFile()||manifestInfo.isSymbolicLink()||
+    manifestInfo.size>2*1024*1024)
+  fail('FROZEN_MANIFEST_UNSAFE');
+ const manifest=JSON.parse(read(MANIFEST,'utf8'));
+ if(!verifyMa75FirstDayResearchFreeze(manifest)||
+    manifest.freezeSha256!==expectedFreezeSha256||
+    manifest.breakoutsTotal!==27||manifest.risingBreakoutCount!==22)
+  fail('FROZEN_MANIFEST_CHANGED');
  const freeze=JSON.parse(read(FREEZE,'utf8'));
  if(freeze.populationSize!==953||
     freeze.firstEligibleSignalDate!=='2026-11-02')
@@ -56,7 +68,8 @@ export function runMa75Frozen135Local({
   fail('FIRST_DAY_SOURCE_PRESENCE_CHANGED');
  const report=evaluateMa75FrozenHorizonLedger(firstDay,{
   originalDayProjections,sourceReceipts,
-  asOf:now.toISOString(),expectedFreezeSha256
+  asOf:now.toISOString(),expectedFreezeSha256,
+  expectedOriginalCodes:manifest.breakoutsAll.map(x=>x.code)
  });
  return {...report,localAuditClock:now.toISOString(),
   localSourceReceiptIndependentlyAuthenticated:false,
