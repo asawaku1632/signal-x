@@ -25,7 +25,8 @@ const fail=s=>{throw new TypeError('MA75_FIRST_SESSION_LOCAL_'+s)};
 export function runMa75FirstSessionLocal({
  read=readFileSync,fileInfo=lstatSync,readSaved=readMa75PrivateSavedDate,
  validateSaved=validateMa75SavedDailyForReplay,
- compare=runMa75FrozenCompositeLocal,clock=()=>new Date()
+ compare=runMa75FrozenCompositeLocal,clock=()=>new Date(),
+ expectedCohortSha256=PINNED_FIRST_FORWARD_COHORT_SHA256
 }={}){
  const now=clock();
  if(!(now instanceof Date)||!Number.isFinite(now.getTime()))
@@ -38,7 +39,7 @@ export function runMa75FirstSessionLocal({
   fail('FROZEN_MANIFEST_FILE_UNSAFE');
  const frozen=JSON.parse(read(MANIFEST,'utf8'));
  if(!verifyMa75FirstDayResearchFreeze(frozen)||
-    frozen.freezeSha256!==PINNED_FIRST_FORWARD_COHORT_SHA256)
+    frozen.freezeSha256!==expectedCohortSha256)
   fail('ORIGINAL_NOV02_FREEZE_INVALID');
  const comparison=compare();
  if(comparison.frozenCohortSha256!==frozen.freezeSha256||
