@@ -171,3 +171,71 @@ cannot be accessed through the GitHub connector.
 
 Never add data keys, .env, raw provider pages, private frozen files or
 real broker/order information to GitHub.
+
+
+## 2026-11-04 local integrated comparison: original failure and safe recovery
+
+The owner ran the newly added integrated comparison after successfully
+fast-forwarding Git to ba04b856. The 2026-11-02 immutable 27/22 cohort
+was not replaced, and the command printed only
+`MA75_COMPOSITE_LOCAL_AUDIT_BLOCKED_OR_FAILED`. No derived match
+count was produced. The PowerShell trailing `.` error is unrelated.
+
+Source-code inspection found an integration design mismatch:
+- The original immutable first-day crossover selected from 75 prior
+  bars plus the signal close, screening abnormal CLOSE-to-CLOSE jumps.
+- The later wick/volume classifier has deliberately *stricter*
+  validation: opening price gaps, OHLC high==low, historical volume
+  baseline, and full intra-window integrity. It previously raised a
+  fatal `SOURCE_OR_FROZEN_SIGNAL_DISAGREEMENT` whenever a legitimate
+  frozen crossover failed one of those later quality gates.
+- That behavior discarded the entire group, incorrectly conflating
+  a **stricter subgroup non-evaluability** with **tampering of the
+  immutable original cohort**.
+
+**Fix:** retain all original 27 frozen codes, the existing 22 rising
+members and original SHA256. Check frozen original CLOSE-cross,
+slope and historical volume-ratio integrity first. If the later
+strict filter rejects flat OHLC, >45% opening gap, zero-volume
+baseline, or other stricter quality, record exactly one original
+code as `NOT_EVALUABLE` with a reason
+`STRICT_FILTER_*`, and set `compoundMatched=null` rather than
+claiming false/losing. A changed frozen original close/slope/valid
+volume-ratio remains **fatal**, not quarantined. Future dates never
+enter signal classification.
+
+The CLI now emits **whitelisted uppercase error codes only** when
+the comparison still fails, without provider pages, proprietary
+raw prices, local paths, API keys or stack traces.
+
+### Retry safely (no original-source write)
+
+From the same research worktree:
+
+~~~powershell
+cd C:\Users\neomo\signal-x-minute-research
+git switch research/ma75-breakout-retest-shadow-20261031
+if ($LASTEXITCODE -ne 0) { throw "研究ブランチ切替失敗" }
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw "Git更新失敗" }
+
+$r = $null
+$r = node .\scripts\research\ma75-compare-frozen-composite-local.mjs | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "統合比較監査失敗：表示されたエラーコードを確認" }
+$r | Select-Object status,originalAllBreakouts,originalRisingBreakouts,
+  firstDayWickAndVolumeComposite,firstDayRisingAndComposite,
+  comparedCompleteOriginalBreakouts,notEvaluableBreakouts,
+  strictQualityQuarantinedBreakouts | Format-List
+$r.notEvaluableReasons | Format-List
+$r.perFrozenBreakout |
+  Where-Object { $_.compoundMatched -eq $true } |
+  Select-Object code,risingMA75,upperWickRatio,volumeRatio |
+  Format-Table -AutoSize
+~~~
+
+Do not rerun the one-time --freeze; the original local
+`freezeSha256=1ba1aee5ac05b2c0fd114d3cabe5463bde4409b203544722cf03c04fc0a6612b`
+and 76 original source file bytes are **not modified by this fix**.
+No profit rate or trade decision is validated. An error still could
+reflect a different source/integrity issue; do not claim the local
+failure's exact root cause before seeing the new whitelisted code.
