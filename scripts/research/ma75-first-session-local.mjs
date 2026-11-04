@@ -20,6 +20,7 @@ import {readMa75PrivateSavedDate,validateMa75SavedDailyForReplay}
 const DIR='research-private';
 const MANIFEST=DIR+'/ma75-first-forward-2026-11-02-cohort-freeze.json';
 const NOV4=DIR+'/ma75-forward-2026-11-04-jquants-daily.json';
+const NOV2=DIR+'/ma75-forward-2026-11-02-jquants-daily.json';
 const UNIVERSE=new URL('../../docs/ma75-forward-cohort-freeze-20261031.json',import.meta.url);
 const fail=s=>{throw new TypeError('MA75_FIRST_SESSION_LOCAL_'+s)};
 export function runMa75FirstSessionLocal({
@@ -50,12 +51,21 @@ export function runMa75FirstSessionLocal({
     comparison.notEvaluableBreakouts!==0)
   fail('ORIGINAL_NOV02_THREE_GROUPS_CHANGED');
  const saved=readSaved(NOV4);
- let projection=null,receipt=null;
+ let projection=null,receipt=null,signalCloseByCode=null;
  if(saved!==null){
   if(now.getTime()<Date.parse('2026-11-04T07:30:00Z'))
    fail('OUTCOME_CAPTURE_BEFORE_RESEARCH_RELEASE_FLOOR');
   const original=JSON.parse(read(UNIVERSE,'utf8'));
   projection=validateSaved(original,'2026-11-04',saved);
+  const firstDay=readSaved(NOV2);
+  if(!firstDay)fail('FROZEN_SIGNAL_DAY_ORIGINAL_NOT_FOUND');
+  const source=validateSaved(original,'2026-11-02',firstDay);
+  const ids=new Set(frozen.breakoutsAll.map(x=>x.code));
+  signalCloseByCode=new Map(source.audit.rows
+   .filter(x=>ids.has(x.code)&&x.status==='DAILY_BAR')
+   .map(x=>[x.code,x.bar.close]));
+  if(signalCloseByCode.size!==27)
+   fail('FROZEN_SIGNAL_DAY_CLOSE_NOT_REPLAYABLE');
   if(!Array.isArray(saved.pages)||saved.pages.length<1)
    fail('INVALID_OUTCOME_PAGES');
   const timestamps=saved.pages.map(x=>Date.parse(x.receivedAt));
@@ -66,7 +76,8 @@ export function runMa75FirstSessionLocal({
   receipt=saved.pages.at(-1).receivedAt;
  }
  const result=evaluateMa75FirstSessionForward(frozen,comparison,{
-  outcomeDay:'2026-11-04',projection,sourceReceiptAt:receipt,
+  outcomeDay:'2026-11-04',projection,signalCloseByCode,
+  sourceReceiptAt:receipt,
   asOf:now.toISOString()
  });
  return {...result,
