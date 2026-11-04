@@ -37,7 +37,8 @@ const codeSetEqual=(a,b)=>a.length===b.length&&
  a.every((x,i)=>x===b[i]);
 
 export function evaluateMa75FirstSessionForward(frozen,comparison,{
- outcomeDay=FIRST,projection=null,sourceReceiptAt=null,asOf=null
+ outcomeDay=FIRST,projection=null,signalCloseByCode=null,
+ sourceReceiptAt=null,asOf=null
 }={}){
  if(!verifyMa75FirstDayResearchFreeze(frozen)||
    frozen.firstForwardDate!==SIGNAL||
@@ -72,6 +73,13 @@ export function evaluateMa75FirstSessionForward(frozen,comparison,{
   fail('UNVERIFIED_OR_IMPOSSIBLE_RECEIPT_TIME');
  let byCode=null;
  if(projection!==null){
+  // This is already-verified original Nov 2 CLOSE provenance. Without
+  // it, a split/opening gap on Nov 4 could be misreported as a win.
+  if(!(signalCloseByCode instanceof Map)||
+     signalCloseByCode.size!==27||
+     originals.some(item=>!finite(signalCloseByCode.get(item.code))||
+      signalCloseByCode.get(item.code)<=0))
+   fail('NOV02_CLOSE_EVIDENCE_REQUIRED');
   if(projection.date!==outcomeDay||
      projection.completeProviderPagination!==true||
      projection.audit?.failures?.length!==0||
@@ -110,6 +118,9 @@ export function evaluateMa75FirstSessionForward(frozen,comparison,{
      status='QUARANTINED_INVALID_ORIGINAL_OHLCV';reason=status;
     }else if(b.high===b.low){
      status='QUARANTINED_FLAT_BAR_FILL_UNVERIFIED';reason=status;
+    }else if(Math.abs(b.open/signalCloseByCode.get(item.code)-1)>0.45||
+      Math.abs(b.close/signalCloseByCode.get(item.code)-1)>0.45){
+     status='QUARANTINED_UNVERIFIED_OVERNIGHT_PRICE_GAP';reason=status;
     }else{
      // The signal-day closing price is NOT persisted in the original
      // hash-only freeze. Do not manufacture a close-to-next-open gap check
