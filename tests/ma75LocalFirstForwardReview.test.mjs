@@ -102,7 +102,7 @@ test('later saved J-Quants dates cannot alter original 122-session warmup',()=>{
   readCapture:path=>{
    touched.push(path);
    if(path.includes('2026-11-04'))throw Error('FUTURE_DATA_MUST_NOT_BE_READ');
-   return capture(/(20\\d\\d-\\d\\d-\\d\\d)-jquants-daily\\.json$/.exec(path)[1]);
+   return capture(/(20\d\d-\d\d-\d\d)-jquants-daily\.json$/.exec(path)[1]);
   }
  }));
  assert.deepEqual(extended.shadowPatterns,original.shadowPatterns);
