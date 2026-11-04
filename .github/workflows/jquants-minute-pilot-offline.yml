@@ -1,0 +1,46 @@
+name: J-Quants minute pilot offline safety tests
+on:
+  push:
+    branches:
+      - research/ma75-breakout-retest-shadow-20261031
+  workflow_dispatch:
+jobs:
+  offline-minute-pilot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify historical minute pilot and reconciliation without API secrets
+        run: |
+          node --test \
+            tests/jquantsMinutePilotHttp.test.mjs \
+            tests/jquantsMinutePilot.test.mjs \
+            tests/morningMinuteShadow.test.mjs \
+            tests/morningMinuteDailyReconciliation.test.mjs \
+            tests/morningMinuteSingleCodePilot.test.mjs \
+            tests/ma75JQuantsDailyPages.test.mjs
+
+      - name: Verify all MA75-only offline research modules without API secrets
+        run: |
+          node --test tests/ma75*.test.mjs
+
+      - name: Exercise one-stock historical CLI in dry-run mode (no credentials or network)
+        env:
+          JQUANTS_RESEARCH_PROBE_ENABLED: 'false'
+        run: |
+          node scripts/research/jquants-minute-pilot.mjs --code=3762 --date=2026-10-30 --max-pages=1 --compare-daily > /tmp/minute-pilot-dry-run.json
+          node --input-type=module -e "
+            import {readFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const r=JSON.parse(readFileSync('/tmp/minute-pilot-dry-run.json','utf8'));
+            assert.equal(r.status,'DRY_RUN_NO_KEY_READ_OR_NETWORK');
+            assert.equal(r.callAuthorizedByScript,false);
+            assert.equal(r.code,'3762');
+            assert.equal(r.compareDaily,true);
+            assert.equal(r.requestUpperLimit,2);
+            assert.equal(r.safeForProduction,false);
+          "

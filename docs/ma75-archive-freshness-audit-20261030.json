@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "ma75-archive-freshness-readonly-audit-v1",
+  "inspectionDateJst": "2026-11-01",
+  "targetTradeDate": "2026-10-30",
+  "freeze": {
+    "file": "docs/ma75-forward-cohort-freeze-20261031.json",
+    "stockCodes": 953
+  },
+  "evidence": {
+    "database": "SIGNALX Supabase",
+    "queryType": "READ_ONLY_AGGREGATED_SQL",
+    "tables": [
+      "public.display_snapshots",
+      "public.daily_stock_results"
+    ],
+    "providerForChartSnapshots": "yahoo_chart",
+    "lastBarDateDerivedFrom": "the last candles[-1].time converted from Unix seconds to UTC date"
+  },
+  "results": {
+    "allDistinctSavedDailyCharts": 126,
+    "frozenCodesWithSomeSavedChart": 125,
+    "frozenCodesWithLastChartBarOnTargetDate": 2,
+    "frozenCodesWithOlderLastChartBar": 123,
+    "frozenCodesWithoutSavedDailyChart": 828,
+    "outsideFrozenSavedCharts": 1,
+    "totalFrozenCodes": 953
+  },
+  "limitations": [
+    "Only 2 of the 953 frozen symbols have a SAVED chart whose last bar matches 2026-10-30. This is NOT two licensed, independent, point-in-time-verified prospective signals.",
+    "The 125 symbols with historic chart snapshots do not form 125 target-day current SMA75 inputs.",
+    "Underlying daily_stock_results price is a single scalar, not OHLCV or verified original bar capture for every code-date.",
+    "Yahoo chart service source rights, data adjustment status and original market-capture time are not independently verified.",
+    "The 953-symbol frozen population is application-observed, not independently certified as the complete JPX-listed liquid universe.",
+    "No new J-Quants price data was fetched and no real future study outcomes were produced."
+  ],
+  "researchCode": "app/lib/research/ma75ArchiveReadiness.mjs",
+  "researchVersion": "ma75_archive_readiness_v2",
+  "verification": "14/14 focused JavaScript V8 tests from GitHub fetched head source; NOT a native Node full test suite or production CI",
+  "eligibleForProduction": false,
+  "eligibleForNotifications": false,
+  "validatedForwardWinRate": null,
+  "databaseWrites": false,
+  "providerRequests": false,
+  "addonSubscriptionsManaged": false
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "ma75-saved-coverage-readonly-20261101-v1",
+  "auditDateJst": "2026-11-01",
+  "evidenceType": "READ_ONLY_AGGREGATED_SQL_NOT_PROVIDER_AUTHENTICATION",
+  "cohortFreezeDate": "2026-10-30",
+  "frozenCodes": 953,
+  "stockPriceObservations": {
+    "source": "public.daily_stock_results",
+    "totalRowsAllCodes": 73195,
+    "distinctCodesAllDates": 967,
+    "distinctDatesAllCodes": 78,
+    "frozenCodesWithAtLeast76DistinctPriceDates": 944,
+    "frozenCodesBelow76DistinctPriceDates": 9,
+    "frozenCodesWithAll78DistinctPriceDates": 4,
+    "minimumObservedDatesPerFrozenCode": 19,
+    "maximumObservedDatesPerFrozenCode": 78,
+    "hasVerifiedOHLCV": false,
+    "hasVerifiedTseCalendar": false
+  },
+  "savedChartOHLCV": {
+    "source": "public.display_snapshots where snapshot_key LIKE 'chart:%:1D'",
+    "savedChartCodesTotal": 126,
+    "frozenCodesCovered": 125,
+    "frozenCodesMissing": 828,
+    "chartDatesEndingOn20261030": 2,
+    "frozenChartCodesEndingBefore20261030": 123,
+    "provider": "yahoo_chart",
+    "providerLicenseVerified": false,
+    "independentCaptureVerified": false,
+    "full76SessionUniverseVerified": false
+  },
+  "readOnlyQueries": true,
+  "databaseWrites": false,
+  "credentialsRead": false,
+  "apiCallsMade": false,
+  "eligibility": {
+    "eligibleForForwardSignal": false,
+    "eligibleForAIPower": false,
+    "eligibleForNotifications": false,
+    "eligibleForProduction": false
+  },
+  "interpretation": [
+    "At least 76 observed price dates is not 76 completed authentic daily OHLCV sessions.",
+    "Historical chart views are selective; 2 reference-date charts are not a prospective as-of feed.",
+    "An original provider-authorized 76-session OHLCV calendar and corporate-action reconciliation is still required for each predeclared code.",
+    "No actual future returns or executable fill prices were checked."
+  ]
+}
