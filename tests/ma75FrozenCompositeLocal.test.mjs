@@ -149,4 +149,7 @@ test('cannot follow a symlink, and cannot fetch, overwrite or publish a live not
  assert.doesNotMatch(active,/\bfetch\s*\(|writeFileSync|process\.env|JQUANTS_API_KEY|broker|vercel deploy|notificationSend/);
  assert.match(active,/process\.argv\.length!==2/);
  assert.match(active,/PINNED_FIRST_FORWARD_COHORT_SHA256/);
+ assert.match(active,/UNCLASSIFIED_LOCAL_INTEGRITY_ERROR/);
+ assert.match(active,/\^\[A-Z\]\[A-Z0-9_\]/);
+ assert.doesNotMatch(active,/console\.error\(err\)|process\.stderr\.write\(err\.?stack/);
 });
