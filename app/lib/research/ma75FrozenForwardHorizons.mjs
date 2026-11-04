@@ -74,7 +74,7 @@ const group=rows=>({
 });
 export function evaluateMa75FrozenHorizonLedger(first,{
  originalDayProjections={},sourceReceipts={},asOf='2026-11-04T00:00:00.000Z',
- expectedFreezeSha256
+ expectedOriginalCodes,expectedFreezeSha256
 }={}){
  if(!first||first.version!=='ma75_first_session_forward_observation_v1'||
     first.status!=='SHADOW_NOT_APPROVED'||
@@ -99,6 +99,13 @@ export function evaluateMa75FrozenHorizonLedger(first,{
   codes.add(row.code);
   if(row.compoundWickVolume)comp.push(row.code);
  }
+ const expectedCodes=Array.isArray(expectedOriginalCodes)?
+  [...expectedOriginalCodes].sort():null;
+ const currentCodes=[...codes].sort();
+ if(!expectedCodes||expectedCodes.length!==27||
+    new Set(expectedCodes).size!==27||
+    expectedCodes.some((code,i)=>code!==currentCodes[i]))
+  fail('FROZEN_GROUP_MEMBERSHIP_CHANGED');
  if(first.byFrozenCode.filter(x=>x.risingMA75).length!==22||
     comp.sort().join(',')!=='1878,7172,9832'||
     comp.some(code=>!first.byFrozenCode.find(x=>x.code===code)?.risingMA75))
