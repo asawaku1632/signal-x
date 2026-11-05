@@ -6,7 +6,7 @@
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {studyCapturedJQuantsFourPatterns} from '../../app/lib/research/fourPatternJQuantsBridge.mjs';
+import {studyCapturedJQuantsFourPatterns,reconcileCapturedTradeDay,convertCapturedFinancialSummary} from '../../app/lib/research/fourPatternJQuantsBridge.mjs';
 
 export const CAPTURE_ENDPOINTS=Object.freeze({
  minute:'https://api.jquants.com/v2/equities/bars/minute',
@@ -49,6 +49,37 @@ export function planFourPatternCapture(argv,now=new Date()){
   schedule:false,automatedOrders:false,notifications:false,productionWrites:false,
  };
 }
+
+/**
+ * Report only fixed-format validation codes and the requested trade date.
+ * Never print provider rows, response bodies, upstream exceptions or API keys.
+ */
+export function safeCaptureFailure(error,{stage='UNKNOWN',date=null}={}){
+ const raw=error instanceof Error?error.message:'';
+ const code=/^[A-Z][A-Z0-9_]{2,100}$/.test(raw)?raw:'UNKNOWN_VALIDATION_FAILURE';
+ const allowedStages=new Set(['MINUTE_DAILY','FINANCIAL','FOUR_PATTERN_STUDY']);
+ const wrapped=new Error(code);
+ wrapped.stage=allowedStages.has(stage)?stage:'UNKNOWN';
+ wrapped.tradeDate=dayOK(date)?date:null;
+ return wrapped;
+}
+export function validateCapturedFourPatternDay({code,date,minutePages,dailyPages}){
+ try {
+  const result=reconcileCapturedTradeDay({code,date,minutePages,dailyPages});
+  return {status:'MINUTE_DAILY_RECONCILED',date,observedMinuteBars:result.minuteBarCount};
+ }catch(error){
+  throw safeCaptureFailure(error,{stage:'MINUTE_DAILY',date});
+ }
+}
+export function validateCapturedFourPatternFinancials({code,financialPages}){
+ try{
+  const result=convertCapturedFinancialSummary({code,pages:financialPages});
+  return {status:result.status,usableSnapshots:result.fundamentals.length};
+ }catch(error){
+  throw safeCaptureFailure(error,{stage:'FINANCIAL'});
+ }
+}
+
 const codeMatch=(provider,code)=>provider===code||provider===code+'0';
 export async function requestCapturedJQuantsPages({
  type,code,date=null,maxPages=4,apiKey,fetchImpl=fetch,
@@ -118,6 +149,7 @@ export async function runFourPatternCapture(argv,options={}){
    apiKey,fetchImpl:options.fetchImpl??fetch,
   });
   minuteDays.push({date,pages:minutePages});
+  validateCapturedFourPatternDay({code:plan.code,date,minutePages,dailyPages});
   dailyDays.push({date,pages:dailyPages});
  }
  const financialPages=plan.skipFinancial?null:
@@ -125,10 +157,11 @@ export async function runFourPatternCapture(argv,options={}){
    type:'financial',code:plan.code,maxPages:8,
    apiKey,fetchImpl:options.fetchImpl??fetch,
   });
+ validateCapturedFourPatternFinancials({code:plan.code,financialPages});
  const archive={code:plan.code,minuteDays,dailyDays,financialPages};
  const audit=studyCapturedJQuantsFourPatterns({...archive,timeframe:'BOTH'});
  if(audit.status!=='HISTORICAL_RECONCILED_SHADOW_ONLY')
-  throw Error('CAPTURE_RECONCILIATION_BLOCKED');
+  throw safeCaptureFailure(new Error(audit.status),{stage:'FOUR_PATTERN_STUDY'});
  const dir=resolve('.private-research');
  mkdirSync(dir,{recursive:true,mode:0o700});
  const path=join(dir,plan.filename);
@@ -143,9 +176,11 @@ if(running){
  runFourPatternCapture(process.argv.slice(2)).then(result=>{
   console.log(JSON.stringify(result,null,2));
  }).catch(error=>{
+  const safe=safeCaptureFailure(error,{
+   stage:error?.stage??'UNKNOWN',date:error?.tradeDate??null,
+  });
   console.error('FOUR_PATTERN_CAPTURE_BLOCKED',
-   error instanceof Error&&/^[A-Z_0-9]+$/.test(error.message)?
-   error.message:'UNKNOWN_ERROR');
+   JSON.stringify({stage:safe.stage,tradeDate:safe.tradeDate,reason:safe.message}));
   process.exitCode=1;
  });
 }
