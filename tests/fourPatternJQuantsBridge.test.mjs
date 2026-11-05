@@ -145,3 +145,68 @@ test('one bad day blocks entire multi-day study instead of releasing partial res
   assert.match(r.status,/^BLOCKED_/);
   assert.equal(r.reports.length,0);
 });
+
+test('missing disclosure time or number quarantines individual statements with no invented as-of', () => {
+ const pages=financialPages();
+ pages[0].response.data[1].DiscTime='';
+ const r=convertCapturedFinancialSummary({code,pages});
+ assert.equal(r.status,'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED');
+ assert.equal(r.metadataQuarantineCount,1);
+ assert.equal(r.metadataCounts.quarantinedMissingOrInvalidTime,1);
+ assert.deepEqual(r.fundamentals,[]);
+ assert.equal(r.qualitySignalAllowed,false);
+ const other=financialPages();
+ other[0].response.data[1].DiscNo='';
+ const q=convertCapturedFinancialSummary({code,pages:other});
+ assert.equal(q.metadataCounts.quarantinedMissingOrInvalidNumber,1);
+ assert.deepEqual(q.fundamentals,[]);
+});
+test('even one malformed statement disables all quality fundamentals despite valid YoY pair', () => {
+ const pages=financialPages();
+ pages[0].response.data.push({
+  ...fin('FY','2024-03-31','2024-05-12',900,80,20,'0.44','bad'),
+  DiscTime:'not-recorded',
+ });
+ const r=convertCapturedFinancialSummary({code,pages});
+ assert.equal(r.metadataQuarantineCount,1);
+ assert.equal(r.metadataCounts.candidateStatements,3);
+ assert.equal(r.inputDisclosures,2);
+ assert.equal(r.fundamentals.length,0);
+ assert.equal(r.status,'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED');
+});
+test('non-financial disclosure without date/time is excluded, not silently used', () => {
+ const pages=financialPages();
+ pages[0].response.data.push({Code:'72030',CurPerType:'',DiscTime:'',DiscDate:'',DiscNo:''});
+ const r=convertCapturedFinancialSummary({code,pages});
+ assert.equal(r.status,'CAPTURE_GATED_FINANCIAL_ONLY');
+ assert.equal(r.fundamentals.length,1);
+ assert.equal(r.metadataCounts.excludedUnsupportedPeriodType,1);
+ assert.equal(r.metadataQuarantineCount,0);
+});
+test('financial code mismatch and future disclosure remain hard errors', () => {
+ const pages=financialPages();
+ pages[0].response.data[1].Code='99840';
+ assert.throws(()=>convertCapturedFinancialSummary({code,pages}),/FINANCIAL_WRONG_CODE/);
+ const future=financialPages();
+ future[0].response.data[1].DiscDate='2026-11-04';
+ assert.throws(()=>convertCapturedFinancialSummary({code,pages:future}),
+   /DISCLOSURE_LATER_THAN_ARCHIVE_RECEIPT/);
+});
+
+test('historical price research can finish without untrustworthy financial signal', () => {
+ const f=fixture();
+ const pages=financialPages();
+ pages[0].response.data[1].DiscTime='';
+ const result=studyCapturedJQuantsFourPatterns({
+  code,minuteDays:[{date,pages:f.minutePages}],
+  dailyDays:[{date,pages:f.dailyPages}],
+  financialPages:pages,timeframe:'BOTH',
+ });
+ assert.equal(result.status,'HISTORICAL_RECONCILED_SHADOW_ONLY');
+ assert.equal(result.financialStatus,'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED');
+ assert.equal(result.financialMetadataQuarantineCount,1);
+ assert.equal(result.financialAsOfSnapshots,0);
+ assert.equal(result.reports.length,2);
+ assert.ok(result.reports.every(r=>r.report.summaries.every(s=>s.signals===0)));
+ assert.equal(result.eligibleForNotifications,false);
+});

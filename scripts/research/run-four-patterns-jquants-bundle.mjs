@@ -18,7 +18,11 @@ export function summarizeFourPatternJQuantsArchive(archive,timeframe='BOTH') {
   validatedTradeDates:result.verifiedMinuteDays,
   observedOneMinuteBars:result.capturedOriginalMinutes,
   financialStatus:result.financialStatus,
+  financialMetadataQuarantineCount:result.financialMetadataQuarantineCount??0,
+  financialMetadataCounts:result.financialMetadataCounts??null,
   financialSnapshotsUsableOnlyAfterCapture:result.financialAsOfSnapshots,
+  qualityFinancialPatternEnabled:result.financialStatus==='CAPTURE_GATED_FINANCIAL_ONLY'&&
+   result.financialAsOfSnapshots>0,
   dataSource:'JQUANTS_V2_HISTORICAL_PRIVATE_CAPTURE',
   results:result.reports.map(({timeframe,report})=>({
    timeframe,status:report.status,
