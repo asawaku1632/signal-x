@@ -216,3 +216,49 @@ Research assumptions remain frozen: 30-minute and 60-minute confirmed candles; p
 After verified end-of-window data becomes available, compare all six exact same-date archives using \`run-four-pattern-multistock-shadow.mjs\`. If the final signal-days' outcomes need later daily prices, leave them PENDING; the follow-up end-date extension must be separately designed and verified before making a 5-day claim. **Do not** mislabel historical bulk retrieval as live market availability at the original decision time, nor promote any pattern without genuinely prospective capture and sufficiently many independent observations.
 
 The plan is designed to prevent silent post-hoc redefinitions; it is not itself a successful holdout test. Notification and production flags remain false.
+
+
+## 2026-11-05: 固定済み20営業日の「最終5営業日後」追跡 — 結果専用分足 (SHADOW ONLY)
+
+11月6日〜12月4日の6銘柄・20東証営業日研究計画 (PR #308) は一切変更しない。後で取得した12月7〜11日の5営業日を**決済価格の確認**だけに使うため、別途独立アーカイブとして保持する。
+
+### 期日を固定した2種類の保存ファイル
+
+先にPR #308で固定された本体:
+- 6銘柄: 1301 / 3402 / 3762 / 7203 / 7752 / 9005。
+- 対象期間: 2026-11-06〜2026-12-04、東証20営業日。
+- 銘柄ごとに従来の\`capture-four-pattern-jquants.mjs --skip-financial\`を用いて別々に取得する。
+
+今回の **OUTCOME-ONLY** 追跡データ:
+- 対象期間: **2026-12-07、12-08、12-09、12-10、12-11** の5東証営業日。
+- 銘柄ごとに同じ捕捉コードで **別ファイル** に保存する。最大20日制限内の5営業日捕捉。
+- 日足と1分足が整合しない行、コーポレートアクション、日時・銘柄違い、途中欠落、開示前の取得記録はすべて監査失敗。
+- 研究本体の20日分に後日追跡データを直接追加して再び「買いシグナルを検索」してはいけない。追加5日から新しい候補を生成せず、確定した20日分の\`report.rows\`だけに対して決済価格を付ける。
+
+### PCでの準備 — 現在の時点ではAPI通信せず計画確認のみ
+
+    node .\scripts\research\run-four-pattern-frozen-exit-cohort.mjs --plan
+
+出力は\`FUTURE_CAPTURE_MANIFEST_PLAN_ONLY\`であり、今後必要な12個のローカル保存ファイル名、6銘柄、20+5営業日の正確な日付を表示する。API通信0回、データ読取0回、売買・DB変更0回。対象の期間の株価がまだ公開されていない時点で\`--evaluate\`してはいけない。
+
+### 後日 — データ公開・サブスクリプション・レート制限を確認して捕捉
+
+APIキーは環境変数からのみ使う。**出力やチャットに貼らない**。契約に基づく利用可能日以降で、ユーザーが明示的に許可した各銘柄・各期間にのみ別々に\`--execute\`を実行する。研究本体は6銘柄×20営業日（分足/日足）で最大960 requests（4ページ計画時）、追跡は6銘柄×5営業日で最大240 requests。実際の送信数はページ数で変わり、取得処理は\`--execute\`無しなら常にDRY RUN。自動実行や通知登録はない。
+
+各銘柄の追跡例（12/11以降、J-Quantsで当該日が配信済みのときのみ）:
+
+    node .\scripts\research\capture-four-pattern-jquants.mjs --code=1301 --dates=2026-12-07,2026-12-08,2026-12-09,2026-12-10,2026-12-11 --skip-financial
+
+上記は\`DRY_RUN_ZERO_API\`。実取得する場合のみ\`--execute\`を追加し、事前にリクエスト予算・提供タイミングを確認する。2種類のファイルは\`.private-research/\`配下の別名で作成し、既存ファイルを上書きしない。
+
+### 6銘柄・12ファイルがすべて揃った後のオフライン比較
+
+    node .\scripts\research\run-four-pattern-frozen-exit-cohort.mjs --evaluate
+
+- 20日分の確定ローソク足から生成したシグナルだけを固定し、5日分は決済日の始値/終値/安値のみを参照する。
+- 各銘柄が20+5の正確な日付と逐次結合できることを確認する。間の休場日を飛ばし、未完のファイルや欠損があれば結果を全体でブロック。
+- 以前確定していた1/3/5営業日後の損益は完全一致を強制する。旧\`PENDING\`だけを追跡期間の実データで\`HISTORICAL_HYPOTHETICAL_ONLY\`に変更できる。
+- 6銘柄×20営業日の**元の同期間**に対して、PR #306〜#308と同じ時間足重複除外/同銘柄・同日の重複除外/銘柄別寄与/LOSOを再集計する。5日分はシグナル候補数と銘柄別20日窓のサンプルを増やさない。
+- \`--evaluate\`は12個の予定済みファイル名を読むだけ。API呼び出し・DB書込・新規ファイル作成・自動注文・通知はしない。原票の分足/日足は標準出力に表示しない。
+
+**重要**: ここでの結果は後日取得した過去の値動きによる仮想研究で、当時9:05の価格が利用できたという証拠ではない。将来値動きの再現性・実際の約定・運用安全性は未検証。実売買・通知解禁は不可。2026-11-05時点でこの機能はコードと合成データのテストだけであり、未来の株価・勝率は未取得。
