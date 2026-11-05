@@ -122,6 +122,8 @@ test("admin replay is read-only, access controlled, and not wired to live rankin
   assert.match(page,/if\(!isAdmin\)notFound\(\)/);
   assert.match(page,/daily_result_price_provenance/);
   assert.match(page,/entry_time_shadow_runs/);
+  assert.match(page,/INTERVAL '120 days'/);
+  assert.match(page,/INTERVAL '75 days'/);
   assert.match(page,/replayProvenanceTop5Budget/);
   assert.match(client,/\/admin\/stock-win-rate-ranking\/forward/);
   assert.doesNotMatch(page+code,/\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bfetch\(/);
