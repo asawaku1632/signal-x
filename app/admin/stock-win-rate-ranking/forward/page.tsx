@@ -53,7 +53,7 @@ export default async function WinRateTop5ForwardPage({
         "TO_CHAR(p.recorded_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS \"recordedAt\" "+
         "FROM public.daily_stock_results d "+
         "LEFT JOIN public.daily_result_price_provenance p ON p.daily_result_id=d.id "+
-        "WHERE d.date >= TO_CHAR(CURRENT_DATE - INTERVAL '90 days','YYYY-MM-DD') "+
+        "WHERE d.date >= TO_CHAR(CURRENT_DATE - INTERVAL '120 days','YYYY-MM-DD') "+
         "ORDER BY d.date, d.code LIMIT 100001"
       ),
       pool.query<ArchiveRun>(
@@ -61,8 +61,8 @@ export default async function WinRateTop5ForwardPage({
         "TO_CHAR(finished_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS finished_at,results "+
         "FROM public.entry_time_shadow_runs "+
         "WHERE policy_version='PRIOR_DAY_TOP5_CLOSE_V1' "+
-        "AND trade_date >= CURRENT_DATE - INTERVAL '45 days' "+
-        "ORDER BY trade_date DESC LIMIT 45"
+        "AND trade_date >= CURRENT_DATE - INTERVAL '75 days' "+
+        "ORDER BY trade_date DESC LIMIT 60"
       ),
     ]);
     if(data.rows.length>=100001)throw Error("REPLAY_SOURCE_TRUNCATED");
