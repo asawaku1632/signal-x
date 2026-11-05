@@ -154,3 +154,22 @@ Explicit 1–30 local filenames, max 8MB per file; no wildcard directory scannin
     node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourPatternTradingDayForward.test.mjs tests/fourPatternMultiStockShadow.test.mjs
 
 No new scheduled fetch, automatic order, notification trigger, Supabase write, Vercel secret, GitHub-hosted raw J-Quants dataset, or rule-fitting feature is introduced.
+
+
+## 2026-11-05: Multi-stock attribution and overlapping-method audit
+
+After the 3-stock retrospective pilot (3762/7203/7752; all dates 2026-10-06 to 2026-11-04), the original multi-stock summary had a methodological blind spot: the "portfolio" view keeps the earliest signal across all methods for a stock/day. In the observed pilot its 29 chosen stock/day records have the *same published aggregated result* as the HIGHER_LOW method, whereas standalone EMA_COMPRESSION has a 3-day mean of +8,449 JPY (n=3), median +1,879 JPY. That aggregate difference does **not** demonstrate a safe EMA-first alternative because no such strategy has been independently validated.
+
+The new audit adds only immutable-descriptive output to the *same command*:
+
+- \`byStock\`: original 4-digit code and per-method 1/3/5-day aggregate outcomes (completed/pending/budget-excluded counts, win rate, mean/median, hypothetical 100-share profit and worst per-example profit), plus the conservative earliest-signal portfolio outcomes. No licensed provider rows, individual trades, timestamps or OHLCV values are printed.
+- \`portfolioSelectionAudit\`: how many stock-date pairs have competing methods; which methods were **chosen solely by earlier confirmed candle time** and which were excluded; cross-method pair counts. Does not re-score or choose the best realized outcome.
+- File set, market calendar, 100 shares, per-side 0.1% friction, 500,000-JPY budget, one-per-stock/date portfolio policy, and original 1/3/5-day outcomes stay exactly as in #306.
+- This is attribution only: it cannot prove that emphasizing EMA (or choosing another entry priority) would beat the earliest-signal policy out-of-sample. No automatic order, alerts, deployment or changed trade logic.
+
+### Offline execution
+With the original three private files still in the local ignored folder:
+
+    node .\scripts\research\run-four-pattern-multistock-shadow.mjs .\.private-research\four-pattern-jquants-3762-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7203-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7752-2026-10-06-2026-11-04.json
+
+The new keys only explain where the existing in-sample mean came from, and why some by-strategy signals never appear in the conservative portfolio. They are NOT a basis for notification release.

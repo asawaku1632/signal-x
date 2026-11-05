@@ -194,3 +194,84 @@ test('end-to-end two synthetic independent J-Quants archives stay in shadow mode
  assert.equal(r.eligibleForProduction,false);
  assert.equal(r.researchEvidenceStatus,'NOT_VALIDATED_FOR_TRADING');
 });
+
+test('portfolio policy audit explains suppression without selecting by realized return',()=>{
+ const a=item('3762',[
+  sig('BREAKOUT_RETEST','2026-10-29',500,[50000,70000,0]),
+  sig('EMA_COMPRESSION','2026-10-29',250,[15000,20000,0]),
+  sig('HIGHER_LOW','2026-10-29',100,[-12000,-22000,0]),
+ ]);
+ const r=run([a]),a1=r.portfolioSelectionAudit;
+ assert.equal(r.status,'SINGLE_STOCK_PILOT_SHADOW_ONLY');
+ assert.equal(a1.policy,'EARLIEST_CLOSED_SIGNAL_PER_STOCK_DATE_NOT_MAXIMUM_PROFIT');
+ assert.equal(a1.uniqueStockDates,1);
+ assert.equal(a1.overlappingStockDates,1);
+ assert.equal(a1.selectedByStrategy.HIGHER_LOW,1);
+ assert.equal(a1.selectedByStrategy.EMA_COMPRESSION,0);
+ assert.equal(a1.selectedByStrategy.BREAKOUT_RETEST,0);
+ assert.equal(a1.excludedByStrategy.EMA_COMPRESSION,1);
+ assert.equal(a1.excludedByStrategy.BREAKOUT_RETEST,1);
+ assert.equal(a1.excludedStrategyGivenSelected.HIGHER_LOW.EMA_COMPRESSION,1);
+ assert.equal(a1.excludedStrategyGivenSelected.HIGHER_LOW.BREAKOUT_RETEST,1);
+ assert.equal(r.portfolioByTradingDay[0].averageProfitYen100,-12000);
+ assert.equal(r.byStrategy.find(s=>s.strategy==='BREAKOUT_RETEST').horizons[0].averageProfitYen100,50000);
+ assert.equal(a1.deliberatelyNotReturnOptimized,true);
+ assert.equal(r.canTriggerTrade,false);
+});
+test('per-stock attribution preserves every method despite earliest-method portfolio suppression',()=>{
+ const a=item('3762',[
+  sig('EMA_COMPRESSION','2026-10-29',90,[2807,25784,-7184]),
+  sig('HIGHER_LOW','2026-10-29',80,[-500,-2000,-7000]),
+ ]);
+ const b=item('7203',[
+  sig('EMA_COMPRESSION','2026-10-29',200,[-3017,-2317,-4914]),
+  sig('HIGHER_LOW','2026-10-30',70,[1000,0,0],['DONE','PENDING','PENDING']),
+ ]);
+ const c=item('7752',[
+  sig('EMA_COMPRESSION','2026-10-29',200,[180,1879,-4914]),
+ ]);
+ const r=run([c,a,b]);
+ assert.equal(r.stockCount,3);
+ assert.deepEqual(r.byStock.map(s=>s.code),['3762','7203','7752']);
+ assert.deepEqual(r.byStock.map(s=>s.uniqueStockDateStrategySignals),[2,2,1]);
+ const ema=r.byStrategy.find(s=>s.strategy==='EMA_COMPRESSION');
+ assert.equal(ema.horizons[1].measured,3);
+ assert.equal(ema.horizons[1].averageProfitYen100,8449);
+ assert.equal(ema.horizons[1].medianProfitYen100,1879);
+ const one=r.byStock[0].byStrategy.find(s=>s.strategy==='EMA_COMPRESSION');
+ assert.equal(one.signals,1);
+ assert.equal(one.horizons[1].averageProfitYen100,25784);
+ const two=r.byStock[1].byStrategy.find(s=>s.strategy==='EMA_COMPRESSION');
+ assert.equal(two.horizons[1].averageProfitYen100,-2317);
+ const three=r.byStock[2].byStrategy.find(s=>s.strategy==='EMA_COMPRESSION');
+ assert.equal(three.horizons[1].averageProfitYen100,1879);
+ assert.equal(r.portfolioSelectionAudit.overlappingStockDates,1);
+ assert.equal(r.portfolioSelectionAudit.excludedByStrategy.EMA_COMPRESSION,1);
+ assert.equal(r.portfolioSelectionAudit.selectedByStrategy.HIGHER_LOW,2);
+ assert.equal(r.byStock[1].portfolioByTradingDay[1].pending,1);
+ assert.equal(r.byStock[1].portfolioByTradingDay[1].measured,1);
+ assert.equal(r.eligibleForProduction,false);
+});
+test('attribution and earliest-candle selection are invariant to file ordering',()=>{
+ const a=item('3762',[
+  sig('HIGHER_LOW','2026-10-29',99,[100,0,0]),
+  sig('EMA_COMPRESSION','2026-10-29',80,[1500,0,0]),
+ ]);
+ const b=item('7203',[sig('BREAKOUT_RETEST','2026-10-30',120,[-100,0,0])]);
+ const first=run([a,b]),second=run([b,a]);
+ assert.deepEqual(first.byStock,second.byStock);
+ assert.deepEqual(first.portfolioSelectionAudit,second.portfolioSelectionAudit);
+ assert.deepEqual(first.portfolioByTradingDay,second.portfolioByTradingDay);
+});
+test('stock and portfolio attribution remain empty, null-safe with zero discovered signals',()=>{
+ const r=run([item('7203'),item('3762')]);
+ assert.equal(r.portfolioSelectionAudit.uniqueStockDates,0);
+ assert.equal(r.portfolioSelectionAudit.overlappingStockDates,0);
+ assert.deepEqual(r.portfolioSelectionAudit.selectedByStrategy,{
+  BREAKOUT_RETEST:0,EMA_COMPRESSION:0,HIGHER_LOW:0,
+ });
+ assert.equal(r.byStock.length,2);
+ assert.equal(r.byStock[0].byStrategy[0].horizons[2].winRatePercent,null);
+ assert.equal(r.byStock[0].portfolioByTradingDay[2].measured,0);
+ assert.equal(r.researchEvidenceStatus,'NOT_VALIDATED_FOR_TRADING');
+});
