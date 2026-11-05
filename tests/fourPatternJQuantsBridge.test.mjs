@@ -71,7 +71,7 @@ test('30/60 minute completed buckets split at lunch and include close auctions',
   const half=aggregateReconciledMinutes([d],30);
   const hour=aggregateReconciledMinutes([d],60);
   assert.equal(half.length,5);
-  assert.equal(hour.length,5);
+  assert.equal(hour.length,4);
   assert.equal(half[0].volume,200);
   assert.equal(half[0].open,100);
   assert.equal(half[0].close,101);
@@ -103,8 +103,8 @@ test('empty CFO, negative prior OP and future-only disclosures cannot create qua
   assert.equal(convertCapturedFinancialSummary({code,pages:negative}).fundamentals.length,0);
   const future=financialPages();
   future[0].response.data[1].DiscDate='2026-11-04';
-  assert.equal(convertCapturedFinancialSummary({code,pages:future})
-    .fundamentals[0]?.publishedAt > Date.parse(receivedAt)/1000,true);
+  assert.throws(()=>convertCapturedFinancialSummary({code,pages:future}),
+    /DISCLOSURE_LATER_THAN_ARCHIVE_RECEIPT/);
 });
 test('bad code and mixed financial symbol reject instead of guessing', () => {
   const pages=financialPages();
