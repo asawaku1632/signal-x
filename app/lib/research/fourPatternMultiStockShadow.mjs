@@ -134,7 +134,7 @@ export function summarizeMultiStockFourPatternArchives(archives){
  * raw J-Quants archives and validates them before using this helper.
  * Exposed for synthetic tests of duplicate handling and outcome aggregation.
  */
-export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
+export function summarizeVerifiedMultiStockFourPatternEvaluations(items,{includeLeaveOneOut=true}={}){
  const blocked=reason=>({
   version:FOUR_PATTERN_MULTI_STOCK_VERSION,status:'BLOCKED_'+reason,
   eligibleForNotifications:false,eligibleForProduction:false,
@@ -269,6 +269,57 @@ export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
     selected60m:list.filter(x=>x.timeframe==='60m').length,
     horizons:summaryFor(list)};
   });
+  // Leave-one-stock-out (LOSO): re-run the identical deterministic de-dup
+  // and outcome calculation after excluding one PRESELECTED stock at a time.
+  // No new signal threshold, time window, exit rule or per-exclusion fitting.
+  const leaveOneStockOut={
+   status:codes.size<3?'INSUFFICIENT_STOCKS_FOR_LOSO':
+    (includeLeaveOneOut?'DESCRIPTIVE_LOSO_COMPLETE':'NOT_REQUESTED_INTERNAL'),
+   exclusionBasis:'ONE_STOCK_CODE_AT_A_TIME',
+   observedStockCount:codes.size,
+   method:'SAME_RULES_SAME_DATES_NO_PARAMETER_TUNING',
+   outcomes:[],
+   promotionEligible:false,
+   warnings:[
+    'LOSO removes one stock but not time/sector correlation or selection bias.',
+    'In-sample LOSO is NOT independent out-of-sample evidence.',
+   ],
+  };
+  if(includeLeaveOneOut&&codes.size>=3){
+   for(const omitted of [...codes].sort()){
+    const subset=items.filter(x=>x.archive.code!==omitted);
+    const sub=summarizeVerifiedMultiStockFourPatternEvaluations(subset,{
+     includeLeaveOneOut:false,
+    });
+    if(sub.status!=='MULTI_STOCK_RETROSPECTIVE_SHADOW_ONLY'||
+       sub.stockCount!==codes.size-1)fail('LOSO_SUBSET_EVALUATION_FAILED');
+    leaveOneStockOut.outcomes.push({
+     omittedCode:omitted,remainingStockCount:sub.stockCount,
+     remainingCodes:sub.stockCodes,
+     byStrategy:sub.byStrategy.map(({strategy,horizons})=>({
+      strategy,horizons:horizons.map(h=>({
+       tradingDays:h.tradingDays,measured:h.measured,
+       pending:h.pending,budgetExcluded:h.budgetExcluded,
+       measuredStockCount:h.measuredStockCount,
+       winRatePercent:h.winRatePercent,
+       meanReturnPercent:h.averageReturnPercent,
+       medianReturnPercent:h.medianReturnPercent,
+       averageProfitYen100:h.averageProfitYen100,
+       medianProfitYen100:h.medianProfitYen100,
+       worstProfitYen100:h.worstProfitYen100,
+       worstAdversePercent:h.worstAdversePercent,
+      })),
+     })),
+     portfolioByTradingDay:sub.portfolioByTradingDay.map(h=>({
+      tradingDays:h.tradingDays,measured:h.measured,
+      pending:h.pending,budgetExcluded:h.budgetExcluded,
+      winRatePercent:h.winRatePercent,
+      averageProfitYen100:h.averageProfitYen100,
+      medianProfitYen100:h.medianProfitYen100,
+     })),
+    });
+   }
+  }
   return {version:FOUR_PATTERN_MULTI_STOCK_VERSION,
    status:codes.size===1?'SINGLE_STOCK_PILOT_SHADOW_ONLY':
     'MULTI_STOCK_RETROSPECTIVE_SHADOW_ONLY',
@@ -286,7 +337,7 @@ export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
    timeframeDuplicatesDropped,uniqueStockDateStrategySignals:selected.length,
    crossStrategyDuplicatesDropped,uniquePortfolioStockDateSignals:portfolioSelected.length,
    byStrategy,portfolioByTradingDay:summaryFor(portfolioSelected),
-   byStock,portfolioSelectionAudit,
+   byStock,portfolioSelectionAudit,leaveOneStockOut,
    measuredResultsDoNotProveFutureEdge:true,
    historicalAsOfMarketDataWasNotLive:true,
    eligibleForNotifications:false,eligibleForProduction:false,canTriggerTrade:false,
