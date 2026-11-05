@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/admin";
 import pool from "@/app/lib/postgres";
+import { calculateStockOutcomeRates } from "@/app/lib/learning/stockWinRateMath";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -56,23 +57,33 @@ export async function GET(request: Request) {
     const ranking = rows.map((row) => {
       const win = Number(row.win);
       const lose = Number(row.lose);
-      const judged = win + lose;
+      const hold = Number(row.hold);
       return {
         code: String(row.code),
         name: String(row.name ?? row.code),
         total: Number(row.total),
         win,
         lose,
-        hold: Number(row.hold),
+        hold,
         unknown: Number(row.unknown),
-        judged,
-        winRate: judged > 0 ? Math.round((win / judged) * 1000) / 10 : null,
+        ...calculateStockOutcomeRates(win, lose, hold),
         latestDate: row.latest_date ? String(row.latest_date).slice(0, 10) : null,
       };
     });
 
     return NextResponse.json(
-      { success: true, scope, count: ranking.length, ranking, updatedAt: new Date().toISOString() },
+      {
+        success: true, scope, count: ranking.length, ranking,
+        updatedAt: new Date().toISOString(),
+        definitions: {
+          horizon: "保存日の翌東証営業日の保存価格との比較（実際の約定価格ではありません）",
+          win: "翌営業日の比較価格が保存価格より2%以上上昇",
+          lose: "翌営業日の比較価格が保存価格より2%以上下落",
+          hold: "騰落率が-2%より大きく+2%未満",
+          winRate: "WIN / (WIN + LOSE)。HOLD・未判定を除く条件付き比率",
+          winAmongAllRate: "WIN / (WIN + LOSE + HOLD)。未判定のみ除く+2%達成率",
+        },
+      },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     );
   } catch (error) {
