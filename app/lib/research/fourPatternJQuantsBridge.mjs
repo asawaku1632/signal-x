@@ -191,9 +191,13 @@ export function convertCapturedFinancialSummary({code, pages}) {
     // Forecast-only / dividend-only rows may legitimately omit period end.
     if (!['FY','1Q','2Q','3Q'].includes(r.CurPerType)) continue;
     if (!dayOK(date)) continue;
+    const basis=typeof r.DocType==='string'&&/_NonConsolidated(?:_|$)/.test(r.DocType)
+      ? 'NONCONSOLIDATED' : typeof r.DocType==='string'&&
+        /_Consolidated(?:_|$)/.test(r.DocType) ? 'CONSOLIDATED' : null;
+    if (!basis) continue;
     const sales=signedNumber(r.Sales), op=signedNumber(r.OP);
     const cfo=signedNumber(r.CFO), equityRatio=signedNumber(r.EqAR);
-    list.push({disclosedAt:Math.floor(disclosedAt/1000),
+    list.push({basis,disclosedAt:Math.floor(disclosedAt/1000),
       availableAt:Math.max(Math.floor(disclosedAt/1000),lastReceivedAt),
       no:r.DiscNo, type:r.CurPerType, date,
       sales,op,cfo,equityRatio});
@@ -204,7 +208,8 @@ export function convertCapturedFinancialSummary({code, pages}) {
     const priorDate=periodYearEarlier(current.date);
     if (!priorDate || !positive(current.sales) || !positive(current.op) ||
         !positive(current.cfo) || current.equityRatio === null) continue;
-    const prior=list.filter(p=>p.type===current.type && p.date===priorDate &&
+    const prior=list.filter(p=>p.type===current.type && p.basis===current.basis &&
+      p.date===priorDate &&
       p.disclosedAt<=current.disclosedAt && positive(p.sales) && positive(p.op))
       .at(-1);
     if (!prior) continue;
