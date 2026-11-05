@@ -113,3 +113,44 @@ https://jpx-jquants.com/ja/spec/fin-summary
     node --test tests/fourPatternTradingDayForward.test.mjs tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs
 
 この追加は SHADOW ONLY / ローカルのみ。既存保存ファイルを上書きせず、APIキーへのアクセス・ネットワーク接続・本番DB/通知/売買を行わない。
+
+
+## 2026-11-05: Multi-stock cohort / 30m + 60m duplicate control (SHADOW ONLY)
+
+Existing sample: security 3762, 20 JPX trading days (2026-10-06 to 2026-11-04), 5,584 matched original one-minute bars. The prior one-symbol 1/3/5 trading-day outcomes are **in-sample anecdotes**, not evidence of tradable signal superiority.
+
+New files:
+- \`app/lib/research/fourPatternMultiStockShadow.mjs\`
+- \`scripts/research/run-four-pattern-multistock-shadow.mjs\`
+- \`tests/fourPatternMultiStockShadow.test.mjs\`
+
+### Exact existing time-window requirement
+
+All compared symbols MUST have complete, individually reconciled J-Quants original minute/daily archives on **the identical 20 dates**, with all listed JPX trading sessions consecutive. Any mismatch, invalid record, duplicate stock code, conflicting timeframe outcomes, or financial inclusion blocks the cohort. Silent gap filling is prohibited. A 2026-10-29–10-30 two-day archive is NOT comparable to a 2026-10-06–2026-11-04 twenty-day archive.
+
+New capture commands are optional and local; do NOT re-fetch 3762 if already archived. Example for **another user-selected, entitled symbol** (substitute its real four-digit code):
+
+    node .\scripts\research\capture-four-pattern-jquants.mjs --code=7203 --dates=2026-10-06,2026-10-07,2026-10-08,2026-10-09,2026-10-13,2026-10-14,2026-10-15,2026-10-16,2026-10-19,2026-10-20,2026-10-21,2026-10-22,2026-10-23,2026-10-26,2026-10-27,2026-10-28,2026-10-29,2026-10-30,2026-11-02,2026-11-04 --skip-financial
+
+That command is **DRY_RUN_ZERO_API** by default; add \`--execute\` only after separately setting \`JQUANTS_RESEARCH_PROBE_ENABLED=true\` and private \`JQUANTS_API_KEY\`, confirming usage limits and permitted data use. One 20-day 2-endpoint file can plan up to 160 HTTP requests (max 4 pages for each day/endpoint), actual count varies. Files are written exclusively under ignored \`.private-research/\`. They must not be pushed or posted to public PRs.
+
+### Local read-only multi-stock comparison
+
+    node .\scripts\research\run-four-pattern-multistock-shadow.mjs .\.private-research\four-pattern-jquants-3762-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7203-2026-10-06-2026-11-04.json
+
+Explicit 1–30 local filenames, max 8MB per file; no wildcard directory scanning or provider access. One file produces \`SINGLE_STOCK_PILOT_SHADOW_ONLY\` and cannot be characterized as a multi-stock research result.
+
+**Frozen prior-to-outcomes methodology**:
+- Price signals only: BREAKOUT_RETEST, EMA_COMPRESSION, HIGHER_LOW. QUALITY_PULLBACK requires verified financial data and remains outside this cohort.
+- 30-minute and 60-minute signals within the same stock/day/strategy are de-duplicated, retaining the earliest closed-candle signal; tie breaks to 30 minutes. A disagreement in the supposedly common daily outcome blocks results rather than hiding discrepancies.
+- One result per strategy/stock/day is used for by-strategy tables. Different strategies may flag the same stock/day; a separate **portfolio view** conservatively keeps only the earliest signal across strategies per stock/day. Do not add by-strategy counts to claim independent trades.
+- Buy at the next JPX trading day's first traded price and hypothetically sell at the close 1/3/5 JPX trading sessions after the signal; per-side 0.1% friction, 100 shares, <=500,000 JPY entry budget. Same frozen strategy conditions as existing one-stock report.
+- Partial future outcomes remain \`PENDING\`; exceeded budgets are \`BUDGET_EXCLUDED\`; neither enter win-rate or mean-return denominators. Trade and portfolio summaries include measured count, unique symbols/dates, positive-return frequency, mean, median, worst hypothetical loss, worst adverse move, and shares of outcomes >=7,000 JPY, >=10,000 JPY, <=-10,000 JPY.
+- Cross-timeframe and per-strategy de-duplication does **not** eliminate serial dependence, correlated sector moves, cherry-picked symbols, or hindsight from choosing the sample. Multiple date windows, prospective frozen cohorts and enough independent market regimes are needed before promoting any hypothesis.
+- \`historicalAsOfMarketDataWasNotLive=true\`, \`canTriggerTrade=false\`, \`eligibleForNotifications=false\`, and \`researchEvidenceStatus=NOT_VALIDATED_FOR_TRADING\` remain hard stops. No realized orders, returns, or production signal claims.
+
+### Testing
+
+    node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourPatternTradingDayForward.test.mjs tests/fourPatternMultiStockShadow.test.mjs
+
+No new scheduled fetch, automatic order, notification trigger, Supabase write, Vercel secret, GitHub-hosted raw J-Quants dataset, or rule-fitting feature is introduced.
