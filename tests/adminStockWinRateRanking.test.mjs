@@ -42,6 +42,6 @@ test("admin hub exposes private ranking without changing public results screens"
   assert.match(client, /useState<SortMode>\("reach"\)/);
   assert.match(client, /sort === "reach"/);
   assert.match(client, /売買の勝率や3〜5営業日の利益率ではありません/);
-  assert.match(client, /WIN \/ \(WIN \+ LOSE \+ HOLD\)/);
+  assert.match(client, /WIN ÷ \(WIN \+ LOSE \+ HOLD\)/);
   assert.match(client, /fetch\("\/api\/admin\/stock-win-rate-ranking/);
 });
