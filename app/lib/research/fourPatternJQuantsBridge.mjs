@@ -182,11 +182,15 @@ export function convertCapturedFinancialSummary({code, pages}) {
   for (const r of rows) {
     if (!codeMatch(r?.Code,code)) fail('FINANCIAL_WRONG_CODE');
     const disclosedAt=discTimestamp(r), date=r?.CurPerEn;
-    if (!Number.isFinite(disclosedAt) || !dayOK(date) || !r?.DiscNo ||
+    if (!Number.isFinite(disclosedAt) || !r?.DiscNo ||
         typeof r.DiscNo !== 'string') fail('INVALID_DISCLOSURE_METADATA');
+    if (Math.floor(disclosedAt/1000) > lastReceivedAt)
+      fail('DISCLOSURE_LATER_THAN_ARCHIVE_RECEIPT');
     if (keys.has(r.DiscNo)) fail('DUPLICATE_DISCLOSURE_NUMBER');
     keys.add(r.DiscNo);
+    // Forecast-only / dividend-only rows may legitimately omit period end.
     if (!['FY','1Q','2Q','3Q'].includes(r.CurPerType)) continue;
+    if (!dayOK(date)) continue;
     const sales=signedNumber(r.Sales), op=signedNumber(r.OP);
     const cfo=signedNumber(r.CFO), equityRatio=signedNumber(r.EqAR);
     list.push({disclosedAt:Math.floor(disclosedAt/1000),
