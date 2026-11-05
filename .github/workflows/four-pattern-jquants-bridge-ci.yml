@@ -13,6 +13,9 @@ on:
       - "app/lib/research/fourPatternMultiStockShadow.mjs"
       - "scripts/research/run-four-pattern-multistock-shadow.mjs"
       - "tests/fourPatternMultiStockShadow.test.mjs"
+      - "app/lib/research/fourPatternReplicationPlan.mjs"
+      - "scripts/research/show-four-pattern-replication-plan.mjs"
+      - "tests/fourPatternReplicationPlan.test.mjs"
       - "tests/fourPatternJQuantsBridge.test.mjs"
       - "tests/fourPatternJQuantsCapture.test.mjs"
       - "docs/four-pattern-jquants-bridge.md"
@@ -31,6 +34,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourPatternTradingDayForward.test.mjs tests/fourPatternMultiStockShadow.test.mjs
+      - run: node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourPatternTradingDayForward.test.mjs tests/fourPatternMultiStockShadow.test.mjs tests/fourPatternReplicationPlan.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
