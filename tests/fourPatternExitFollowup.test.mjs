@@ -86,6 +86,11 @@ test('a 4-day tail is refused; no substituting the last known day as exit',()=>{
 test('incorrect tail day, duplicate day, wrong stock or financial data are rejected',()=>{
  const a=pair();a.followupArchive.minuteDays[2].date='2026-12-10';
  assert.equal(evaluateFrozenFourPatternExitFollowup(a).status,
+  'BLOCKED_MISSING_OR_UNPAIRED_DATES');
+ const extra=pair();
+ extra.followupArchive.minuteDays[2].date='2026-12-10';
+ extra.followupArchive.dailyDays[2].date='2026-12-10';
+ assert.equal(evaluateFrozenFourPatternExitFollowup(extra).status,
   'BLOCKED_ARCHIVE_DATES_OUTSIDE_FROZEN_PLAN');
  const b=pair();b.followupArchive.code='7203';
  assert.equal(evaluateFrozenFourPatternExitFollowup(b).status,
