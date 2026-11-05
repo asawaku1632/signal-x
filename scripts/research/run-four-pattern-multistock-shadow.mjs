@@ -17,7 +17,7 @@ export function runMultiStockFourPatternLocal(argv){
   argv.length>MULTI_STOCK_LIMITS.maxArchives||argv.some(s=>
    typeof s!=='string'||!s.trim()||s.startsWith('--')))
   throw Error('USAGE_EXPLICIT_PRIVATE_ARCHIVES_1_TO_30');
- const paths=argv.map(resolve);
+ const paths=argv.map(path=>resolve(path));
  if(new Set(paths).size!==paths.length)
   throw Error('DUPLICATE_LOCAL_ARCHIVE_PATH');
  const archives=paths.map(path=>{
