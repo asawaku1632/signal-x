@@ -165,8 +165,15 @@ export function signalAtFourPatterns({ candles, fundamentals = [], index }) {
   });
 }
 /** Daily results use 1/3/5 trading sessions; intraday results use 1/3/5 bars. */
+/**
+ * @param {{code: string, timeframe?: '1D'|'30m'|'60m',
+ *   candles: Array<{time:number,open:number,high:number,low:number,close:number,volume:number}>,
+ *   fundamentals?: Array<{publishedAt:number,revenueGrowthPct:number,operatingProfitGrowthPct:number,
+ *     equityRatioPct:number,operatingCashFlowYen:number}>,
+ *   source?:string}} input
+ */
 export function studyFourPatterns({ code, timeframe = '1D', candles,
-    fundamentals = [], source = 'UNVERIFIED_HISTORICAL' } = {}) {
+    fundamentals = [], source = 'UNVERIFIED_HISTORICAL' }) {
   if (typeof code !== 'string' || !/^[0-9]{3}[0-9A-Z]$/.test(code) ||
       !['1D', '30m', '60m'].includes(timeframe))
     return { status: 'INVALID_CODE_OR_TIMEFRAME', rows: [], summaries: [] };
