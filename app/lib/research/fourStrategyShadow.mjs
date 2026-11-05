@@ -108,7 +108,8 @@ export function verifiedFundamentalsAt(fundamentals, time) {
     f.publishedAt > 0 && f.publishedAt <= time &&
     [f.revenueGrowthPct, f.operatingProfitGrowthPct, f.equityRatioPct,
      f.operatingCashFlowYen].every(validNumber));
-  eligible.sort((a, b) => b.publishedAt - a.publishedAt);
+  eligible.sort((a, b) => b.publishedAt - a.publishedAt ||
+    (b.disclosureEpoch ?? 0) - (a.disclosureEpoch ?? 0));
   const f = eligible[0];
   if (!f || f.revenueGrowthPct < 5 || f.operatingProfitGrowthPct < 5 ||
       f.equityRatioPct < 30 || f.operatingCashFlowYen <= 0) return null;
