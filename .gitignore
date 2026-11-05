@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Locally captured, licensed J-Quants research pages (never commit)
+/.private-research/
