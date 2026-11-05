@@ -74,7 +74,9 @@ export function validateCapturedFourPatternDay({code,date,minutePages,dailyPages
 export function validateCapturedFourPatternFinancials({code,financialPages}){
  try{
   const result=convertCapturedFinancialSummary({code,pages:financialPages});
-  return {status:result.status,usableSnapshots:result.fundamentals.length};
+  return {status:result.status,usableSnapshots:result.fundamentals.length,
+   metadataQuarantineCount:result.metadataQuarantineCount??0,
+   metadataCounts:result.metadataCounts??null};
  }catch(error){
   throw safeCaptureFailure(error,{stage:'FINANCIAL'});
  }
@@ -157,7 +159,7 @@ export async function runFourPatternCapture(argv,options={}){
    type:'financial',code:plan.code,maxPages:8,
    apiKey,fetchImpl:options.fetchImpl??fetch,
   });
- validateCapturedFourPatternFinancials({code:plan.code,financialPages});
+ const financialCheck=validateCapturedFourPatternFinancials({code:plan.code,financialPages});
  const archive={code:plan.code,minuteDays,dailyDays,financialPages};
  const audit=studyCapturedJQuantsFourPatterns({...archive,timeframe:'BOTH'});
  if(audit.status!=='HISTORICAL_RECONCILED_SHADOW_ONLY')
@@ -169,6 +171,11 @@ export async function runFourPatternCapture(argv,options={}){
  return {status:'CAPTURED_PRIVATE_LOCAL_ONLY',code:plan.code,
   captureFile:path,dates:plan.dates,minuteRows:audit.capturedOriginalMinutes,
   financialSnapshots:audit.financialAsOfSnapshots,
+  financialStatus:financialCheck.status,
+  financialMetadataQuarantineCount:financialCheck.metadataQuarantineCount,
+  financialMetadataCounts:financialCheck.metadataCounts,
+  qualityFinancialPatternEnabled:financialCheck.status==='CAPTURE_GATED_FINANCIAL_ONLY'&&
+   audit.financialAsOfSnapshots>0,
   safeForTrading:false,eligibleForProduction:false};
 }
 const running=process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url);
