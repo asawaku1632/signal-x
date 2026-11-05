@@ -173,3 +173,46 @@ With the original three private files still in the local ignored folder:
     node .\scripts\research\run-four-pattern-multistock-shadow.mjs .\.private-research\four-pattern-jquants-3762-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7203-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7752-2026-10-06-2026-11-04.json
 
 The new keys only explain where the existing in-sample mean came from, and why some by-strategy signals never appear in the conservative portfolio. They are NOT a basis for notification release.
+
+
+## 2026-11-05: In-sample LOSO sensitivity audit and next-period replication preregistration
+
+### Existing 2026-10-06–11-04 three-stock result is highly sensitive
+
+EMA_COMPRESSION / 3 JPX trading days, hypothetical 100 shares, 0.1% per-side friction:
+- 3762: +25,784 JPY
+- 7203: -2,317 JPY
+- 7752: +1,879 JPY
+- Pooled: +8,449 JPY (n=3, median +1,879)
+- Without 3762: -219 JPY (n=2)
+- Without 7203: +13,832 JPY (n=2)
+- Without 7752: +11,734 JPY (n=2)
+
+That is not a robust edge; it is an ex-post analysis of three observations sharing two signal dates. The existing local multistock command now reports \`leaveOneStockOut\` for **every** method / 1, 3 and 5 JPX trading-day horizon and the conservative portfolio. It calls the **same** proven dedup and outcome engine on each strict subset of already evaluated archives; no data is fetched again, parameters are unchanged, and unknown/PENDING outcomes stay unmeasured.
+
+    node .\scripts\research\run-four-pattern-multistock-shadow.mjs .\.private-research\four-pattern-jquants-3762-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7203-2026-10-06-2026-11-04.json .\.private-research\four-pattern-jquants-7752-2026-10-06-2026-11-04.json
+
+This program is an **IN-SAMPLE leave-one-stock-out stress test**, not a forward validation or another independent market regime. Correlated signals and outcomes remain dependent.
+
+### Frozen 20-trading-day next-period plan, authored before it begins
+
+The separate code \`app/lib/research/fourPatternReplicationPlan.mjs\` predeclares an immutable evaluation design. The Git commit timestamp and fixed tests establish when the plan was authored, not the stock returns. Read it safely via:
+
+    node .\scripts\research\show-four-pattern-replication-plan.mjs
+
+This plan takes **no API action, no scheduled job and no orders**. Exact next 20 JPX trading dates are fixed:
+
+    2026-11-06,2026-11-09,2026-11-10,2026-11-11,2026-11-12,
+    2026-11-13,2026-11-16,2026-11-17,2026-11-18,2026-11-19,
+    2026-11-20,2026-11-24,2026-11-25,2026-11-26,2026-11-27,
+    2026-11-30,2026-12-01,2026-12-02,2026-12-03,2026-12-04
+
+JPX holiday 2026-11-23 is deliberately excluded. Fixed stock codes: previously examined \`3762\`, \`7203\`, \`7752\`; and additional comparison names \`1301\`, \`3402\`, \`9005\`. They are **not** stock purchase recommendations or a random statistically representative universe. No substitute stocks or dates after observing the results.
+
+Research assumptions remain frozen: 30-minute and 60-minute confirmed candles; price-only BREAKOUT_RETEST / EMA_COMPRESSION / HIGHER_LOW; 1/3/5 JPX trading-day horizons; next-day open entry and target-day close exit; 100 shares; 0.1% per side; max purchase price 500,000 JPY; conservative first-signal per stock/date dedup; unresolved future labels PENDING. All licensed raw data stays in ignored local storage.
+
+**Data has not yet been captured**. J-Quants V2's historical data for this future window cannot be acquired now. Each one-stock 20-date capture is separately opt-in and has a planned maximum of 160 API requests at four pages per endpoint; six would have an overall upper bound of 960, though actual usage may be lower. Check account limits, permitted usage and publication latency before executing. Do not capture unpublished sessions or run automatic captures from the repository.
+
+After verified end-of-window data becomes available, compare all six exact same-date archives using \`run-four-pattern-multistock-shadow.mjs\`. If the final signal-days' outcomes need later daily prices, leave them PENDING; the follow-up end-date extension must be separately designed and verified before making a 5-day claim. **Do not** mislabel historical bulk retrieval as live market availability at the original decision time, nor promote any pattern without genuinely prospective capture and sufficiently many independent observations.
+
+The plan is designed to prevent silent post-hoc redefinitions; it is not itself a successful holdout test. Notification and production flags remain false.
