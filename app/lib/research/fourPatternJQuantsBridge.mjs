@@ -205,7 +205,7 @@ export function convertCapturedFinancialSummary({code, pages}) {
       continue;
     }
     if (typeof r.DiscTime !== 'string' ||
-        !/^([01]\\d|2[0-3]):[0-5]\\d:00$/.test(r.DiscTime)) {
+        !/^([01]\d|2[0-3]):[0-5]\d:00$/.test(r.DiscTime)) {
       metadata.quarantinedMissingOrInvalidTime++;
       continue;
     }
