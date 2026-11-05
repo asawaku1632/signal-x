@@ -53,6 +53,15 @@ export default async function FourPatternsShadowPage({ searchParams }: Props) {
           <p className="mt-2 text-sm leading-6">水平線リテスト・EMA収縮・安値切り上げ・優良株押し目の独立した研究。確定済み日足で仮想100株の成績を比較します。</p>
           <p className="mt-2 text-xs text-slate-500">版 {FOUR_PATTERN_VERSION} ／ 売買注文・本番通知・AI POWER反映なし</p>
         </header>
+        <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950 dark:border-indigo-900 dark:bg-slate-900 dark:text-indigo-200">
+          <h2 className="font-black">📊 J-Quants 30分足・60分足の研究接続</h2>
+          <p className="mt-1">過去の1分足と公式日足を照合して30分足・60分足へ集約する、ローカル研究ツールが利用可能です。決算の開示日時・前年同期との照合にも対応しました。</p>
+          <p className="mt-1 font-bold">現状はPC内の専用コマンドだけで動作します。このWeb画面でJ-Quantsの分足や決算データを自動取得しているわけではありません。</p>
+          <a href="https://github.com/asawaku1632/signal-x/blob/main/docs/four-pattern-jquants-bridge.md"
+            target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs font-black underline">
+            J-Quants研究の手順と安全上の制限を見る
+          </a>
+        </section>
         <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
           <p className="font-black">研究結果は買い推奨でも利益予測でもありません。</p>
           <p className="mt-1">日足と過去データだけの事後検証です。当日の9:05判定ではありません。EMA収縮の30分・1時間足は、別途分足の確定データが必要です。この画面は日足だけを扱います。</p>
