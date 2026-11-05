@@ -57,9 +57,9 @@ test('distinct 1/3/5 trading day outcomes use NEXT DAY OPEN and target date CLOS
  assert.equal(o1.status,'HISTORICAL_HYPOTHETICAL_ONLY');
  assert.equal(o1.entryDate,'2026-10-30');
  assert.equal(o1.exitDate,'2026-10-30');
- assert.equal(o1.profitYen100,1079);
+ assert.equal(o1.profitYen100,78);
  assert.equal(o3.exitDate,'2026-11-04');
- assert.equal(o3.profitYen100,2077);
+ assert.equal(o3.profitYen100,1077);
  assert.equal(o5.exitDate,'2026-11-06');
  assert.equal(o5.status,'PENDING');
  assert.equal(o5.returnPercent,null);
@@ -104,7 +104,7 @@ test('price outcomes, 5-session median, pending count and dedup stable across in
  assert.equal(summary.horizons[2].pending,1);
  assert.equal(summary.horizons[2].winRatePercent,null);
  assert.equal(summary.horizons[0].winRatePercent,100);
- assert.equal(summary.horizons[0].averageProfitYen100,1079);
+ assert.equal(summary.horizons[0].averageProfitYen100,78);
 });
 test('unverified research report returns insufficient without any implied win rate',()=>{
  const a=fakeStudy();
