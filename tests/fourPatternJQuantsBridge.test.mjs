@@ -192,3 +192,21 @@ test('financial code mismatch and future disclosure remain hard errors', () => {
  assert.throws(()=>convertCapturedFinancialSummary({code,pages:future}),
    /DISCLOSURE_LATER_THAN_ARCHIVE_RECEIPT/);
 });
+
+test('historical price research can finish without untrustworthy financial signal', () => {
+ const f=fixture();
+ const pages=financialPages();
+ pages[0].response.data[1].DiscTime='';
+ const result=studyCapturedJQuantsFourPatterns({
+  code,minuteDays:[{date,pages:f.minutePages}],
+  dailyDays:[{date,pages:f.dailyPages}],
+  financialPages:pages,timeframe:'BOTH',
+ });
+ assert.equal(result.status,'HISTORICAL_RECONCILED_SHADOW_ONLY');
+ assert.equal(result.financialStatus,'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED');
+ assert.equal(result.financialMetadataQuarantineCount,1);
+ assert.equal(result.financialAsOfSnapshots,0);
+ assert.equal(result.reports.length,2);
+ assert.ok(result.reports.every(r=>r.report.summaries.every(s=>s.signals===0)));
+ assert.equal(result.eligibleForNotifications,false);
+});
