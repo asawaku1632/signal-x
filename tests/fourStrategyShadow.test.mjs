@@ -91,3 +91,46 @@ test('production AI scoring, notifications, network and DB are never imported', 
   const source = readFileSync(new URL('../app/lib/research/fourStrategyShadow.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /(?:\bfetch\s*\(|\bINSERT\b|\bUPDATE\b|\bDELETE\b|sendLine|calculateAiScore|process\.env)/);
 });
+
+test('retained two-peak breakout enters only after confirmed retest', () => {
+  const bars = Array.from({ length: 100 }, (_, i) => bar(i, 90 + i * 0.22, {
+    open: 89.8 + i * 0.22, high: 90.6 + i * 0.22,
+    low: 89.2 + i * 0.22 }));
+  bars[60] = bar(60, 103.2, { open: 103, high: 114, low: 102.5 });
+  bars[72] = bar(72, 105.84, { open: 105.5, high: 114.2, low: 105 });
+  bars[90] = bar(90, 116, { open: 111, high: 117, low: 110, volume: 2500 });
+  bars[91] = bar(91, 115.5, { open: 114, high: 116, low: 113.5 });
+  const initial = signalAtFourPatterns({ candles: bars, index: 90 });
+  assert.equal(initial.some(s => s.strategy === 'BREAKOUT_RETEST'), false);
+  const confirmed = signalAtFourPatterns({ candles: bars, index: 91 });
+  assert.ok(confirmed.some(s => s.strategy === 'BREAKOUT_RETEST'));
+});
+test('higher low is confirmed by a later bullish bar rather than hindsight', () => {
+  const bars = flat();
+  bars[70] = bar(70, 94, { open: 93.5, high: 94.5, low: 92 });
+  bars[86] = bar(86, 95, { open: 94.6, high: 95.5, low: 93 });
+  bars[90] = bar(90, 104, { open: 101, high: 104.5, low: 100.4 });
+  assert.ok(signalAtFourPatterns({ candles: bars, index: 90 })
+    .some(s => s.strategy === 'HIGHER_LOW'));
+  const disqualified = flat();
+  disqualified[70] = bars[70];
+  disqualified[86] = bar(86, 91, { open: 90, high: 91.5, low: 89 });
+  disqualified[90] = bars[90];
+  assert.equal(signalAtFourPatterns({ candles: disqualified, index: 90 })
+    .some(s => s.strategy === 'HIGHER_LOW'), false);
+});
+test('quality pullback requires point-in-time good fundamentals AND price rebound', () => {
+  const bars = Array.from({ length: 105 }, (_, i) => bar(i, 100 + i * 0.35));
+  const prices = [126, 124, 121, 120];
+  for (let i = 96; i <= 99; i++) {
+    bars[i] = bar(i, prices[i - 96], { open: prices[i - 96] + 1,
+      high: prices[i - 96] + 2, low: prices[i - 96] - 1 });
+  }
+  bars[100] = bar(100, 130, { open: 124, high: 131, low: 123 });
+  const confirmed = signalAtFourPatterns({
+    candles: bars, fundamentals: goodFundamentals(bars[99].time), index: 100,
+  });
+  assert.ok(confirmed.some(s => s.strategy === 'QUALITY_PULLBACK'));
+  assert.equal(signalAtFourPatterns({ candles: bars, index: 100 })
+    .some(s => s.strategy === 'QUALITY_PULLBACK'), false);
+});
