@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { calculateStockOutcomeRates } from "@/app/lib/learning/stockWinRateMath";
 
 type Scope = "all" | "recent30";
-type SortMode = "best" | "worst" | "wins" | "losses" | "samples";
+type SortMode = "reach" | "best" | "worst" | "wins" | "losses" | "samples";
 type StockRow = {
   code: string;
   name: string;
@@ -14,7 +15,9 @@ type StockRow = {
   hold: number;
   unknown: number;
   judged: number;
+  settled: number;
   winRate: number | null;
+  winAmongAllRate: number | null;
   latestDate: string | null;
 };
 type RankingPayload = {
@@ -39,7 +42,7 @@ function CountCard({ label, value }: { label: string; value: string }) {
 
 export default function AdminWinRateRankingClient() {
   const [scope, setScope] = useState<Scope>("all");
-  const [sort, setSort] = useState<SortMode>("best");
+  const [sort, setSort] = useState<SortMode>("reach");
   const [minJudged, setMinJudged] = useState(10);
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(40);
@@ -90,7 +93,7 @@ export default function AdminWinRateRankingClient() {
       win,
       lose,
       hold,
-      winRate: win + lose === 0 ? null : Math.round((win / (win + lose)) * 1000) / 10,
+      ...calculateStockOutcomeRates(win, lose, hold),
     };
   }, [ranking]);
 
@@ -101,6 +104,13 @@ export default function AdminWinRateRankingClient() {
       (!keyword || item.code.toLowerCase().includes(keyword) || item.name.toLocaleLowerCase("ja-JP").includes(keyword)),
     );
     items.sort((a, b) => {
+      if (sort === "reach") {
+        if (a.winAmongAllRate === null || b.winAmongAllRate === null) {
+          return a.winAmongAllRate === null ? (b.winAmongAllRate === null ? b.settled - a.settled : 1) : -1;
+        }
+        return b.winAmongAllRate - a.winAmongAllRate ||
+          b.settled - a.settled || b.win - a.win || a.code.localeCompare(b.code);
+      }
       if (sort === "wins") return b.win - a.win || b.judged - a.judged;
       if (sort === "losses") return b.lose - a.lose || b.judged - a.judged;
       if (sort === "samples") return b.judged - a.judged || b.total - a.total;
@@ -129,7 +139,7 @@ export default function AdminWinRateRankingClient() {
           <p className="text-xs font-black tracking-widest text-blue-600">SIGNALX ADMIN / AI LEARNING</p>
           <h1 className="mt-2 text-2xl font-black sm:text-3xl">🏆 全銘柄・勝敗ランキング</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            AIの日次判定を銘柄ごとに比較。勝率・勝ち数・負け数・検証母数で並べ替えできます。
+            保存日の株価と翌東証営業日の保存価格を比べた学習用の株価分類です。売買の勝率や3〜5営業日の利益率ではありません。
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {([
@@ -158,7 +168,8 @@ export default function AdminWinRateRankingClient() {
           <>
             <section aria-label="集計概要" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <CountCard label="対象銘柄" value={ranking.length.toLocaleString("ja-JP") + "銘柄"} />
-              <CountCard label="勝率（勝敗確定のみ）" value={rate(overall.winRate)} />
+              <CountCard label="翌営業日+2%達成率（HOLD含む）" value={rate(overall.winAmongAllRate)} />
+              <CountCard label="条件付き勝率（WIN/LOSEのみ）" value={rate(overall.winRate)} />
               <CountCard label="WIN" value={overall.win.toLocaleString("ja-JP")} />
               <CountCard label="LOSE" value={overall.lose.toLocaleString("ja-JP")} />
               <CountCard label="HOLD" value={overall.hold.toLocaleString("ja-JP")} />
@@ -185,7 +196,8 @@ export default function AdminWinRateRankingClient() {
                     onChange={(e) => { setSort(e.target.value as SortMode); setVisibleCount(40); }}
                     className="mt-1 block w-full rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900"
                   >
-                    <option value="best">🏆 勝率が高い順</option>
+                    <option value="reach">📈 +2%達成率が高い順（標準）</option>
+                    <option value="best">🏆 条件付き勝率が高い順</option>
                     <option value="worst">⚠️ 勝率が低い順</option>
                     <option value="wins">WINが多い順</option>
                     <option value="losses">LOSEが多い順</option>
@@ -226,7 +238,7 @@ export default function AdminWinRateRankingClient() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-base font-black">{item.name} <span className="text-sm text-slate-500">({item.code})</span></p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
-                        検証 {item.total}件・勝敗確定 {item.judged}件・HOLD {item.hold}件・未判定 {item.unknown}件
+                        検証 {item.total}件・判定済み {item.settled}件・勝敗確定 {item.judged}件・HOLD {item.hold}件・未判定 {item.unknown}件
                       </p>
                       <p className="mt-1 text-xs font-bold">
                         <span className="text-emerald-700">WIN {item.win}</span>
@@ -234,10 +246,16 @@ export default function AdminWinRateRankingClient() {
                         <span className="text-red-600">LOSE {item.lose}</span>
                         {item.judged < 10 && <span className="ml-2 text-amber-600">⚠ 母数少</span>}
                       </p>
+                      {item.hold > item.judged && (
+                        <p className="mt-1 text-[11px] font-bold text-amber-700">
+                          HOLDが勝敗確定数より多いため、条件付き勝率の読み違いに注意
+                        </p>
+                      )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[11px] font-bold text-slate-500">勝率</p>
-                      <p className="text-xl font-black text-blue-700 sm:text-2xl">{rate(item.winRate)}</p>
+                      <p className="text-[11px] font-bold text-slate-500">翌営業日+2%率</p>
+                      <p className="text-xl font-black text-blue-700 sm:text-2xl">{rate(item.winAmongAllRate)}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-600">条件付き勝率 {rate(item.winRate)}</p>
                       <p className="mt-1 text-xs font-black text-blue-600">詳細 →</p>
                     </div>
                   </div>
@@ -260,9 +278,12 @@ export default function AdminWinRateRankingClient() {
             </section>
 
             <p className="mt-5 rounded-2xl bg-slate-100 p-4 text-xs leading-6 text-slate-600">
-              勝率 = WIN ÷ (WIN + LOSE)。HOLD・UNKNOWNは勝率から除外します。
-              「直近30件」は各銘柄で新しい順に30保存件（HOLD・UNKNOWNも含む）を集計します。
-              同じ銘柄の過去の判定結果であり、将来の利益や投資成果を保証しません。
+              WINは翌営業日の保存価格が+2%以上、LOSEは-2%以下、HOLDはその間です。
+              標準表示の「+2%達成率」はWIN ÷ (WIN + LOSE + HOLD)、従来の「条件付き勝率」はWIN ÷ (WIN + LOSE)。
+              未判定はどちらも除外します。例えば22勝4敗・HOLD52件なら条件付き勝率84.6%に対して+2%達成率は28.2%です。
+              「直近30件」は各銘柄で新しい順に30保存件（HOLD・未判定も含む）を集計します。
+              比較価格は約定価格ではなく、売買コスト・売買時刻・下落途中の損失・3〜5営業日後の結果を反映していません。
+              同銘柄の連続観測も独立した試行とは限りません。将来の利益や購入成功確率を示す数字ではありません。
               ランキングは読み取り専用で、AI判定・通知・学習データを変更しません。
             </p>
           </>

@@ -19,8 +19,8 @@ test("admin stock leaderboard requires server-side authentication on page and AP
 
 test("ranking uses completed win/loss decisions and makes no writes", () => {
   const api = read("app/api/admin/stock-win-rate-ranking/route.ts");
-  assert.match(api, /judged = win \+ lose/);
-  assert.match(api, /judged > 0 \? Math\.round\(\(win \/ judged\) \* 1000\) \/ 10 : null/);
+  assert.match(api, /calculateStockOutcomeRates\(win, lose, hold\)/);
+  assert.match(api, /winAmongAllRate/);
   assert.match(api, /WHERE result = 'WIN'/);
   assert.match(api, /WHERE result = 'LOSE'/);
   assert.match(api, /WHERE result = 'HOLD'/);
@@ -38,6 +38,10 @@ test("admin hub exposes private ranking without changing public results screens"
   assert.match(monitor, /href="\/admin\/stock-win-rate-ranking"/);
   assert.match(client, /\/api\/admin\/stock-win-rate-ranking\?scope=/);
   assert.match(client, /minJudged/);
-  assert.match(client, /"best" \| "worst" \| "wins" \| "losses" \| "samples"/);
+  assert.match(client, /"reach" \| "best" \| "worst" \| "wins" \| "losses" \| "samples"/);
+  assert.match(client, /useState<SortMode>\("reach"\)/);
+  assert.match(client, /sort === "reach"/);
+  assert.match(client, /売買の勝率や3〜5営業日の利益率ではありません/);
+  assert.match(client, /WIN ÷ \(WIN \+ LOSE \+ HOLD\)/);
   assert.match(client, /fetch\("\/api\/admin\/stock-win-rate-ranking/);
 });
