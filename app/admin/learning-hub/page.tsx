@@ -144,6 +144,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "9984・3762の確定日足でスクイーズ後と通常の上抜けを比較（保存・通知なし）",
       },
       {
+        href: "/admin/four-patterns-shadow", icon: "🔬",
+        title: "4手法まとめて比較", tag: "本人専用・研究用",
+        detail: "水平線リテスト・EMA収縮・安値切り上げ・業績押し目の独立研究。データ不足は未検証と表示",
+      },
+      {
         href: "/admin/horizontal-retest", icon: "📏",
         title: "水平線ブレイク・押し目検証", tag: "研究用",
         detail: "過去の日足で反発後の勝率・100株損益を隔離検証",
