@@ -167,7 +167,7 @@ export function signalAtFourPatterns({ candles, fundamentals = [], index }) {
 /** Daily results use 1/3/5 trading sessions; intraday results use 1/3/5 bars. */
 /**
  * @param {{code: string, timeframe?: '1D'|'30m'|'60m',
- *   candles: Array<{time:number,open:number,high:number,low:number,close:number,volume:number}>,
+ *   candles: Array<{time:number,open:number,high:number,low:number,close:number,volume?:number}>,
  *   fundamentals?: Array<{publishedAt:number,revenueGrowthPct:number,operatingProfitGrowthPct:number,
  *     equityRatioPct:number,operatingCashFlowYen:number}>,
  *   source?:string}} input
