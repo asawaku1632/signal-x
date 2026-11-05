@@ -275,3 +275,62 @@ test('stock and portfolio attribution remain empty, null-safe with zero discover
  assert.equal(r.byStock[0].portfolioByTradingDay[2].measured,0);
  assert.equal(r.researchEvidenceStatus,'NOT_VALIDATED_FOR_TRADING');
 });
+
+test('in-sample LOSO shows EMA 3-day mean flips below zero when code 3762 is omitted',()=>{
+ const set=[
+  item('3762',[sig('EMA_COMPRESSION','2026-10-29',100,[2807,25784,-7184],['DONE','DONE','DONE'])]),
+  item('7203',[sig('EMA_COMPRESSION','2026-10-29',100,[-3017,-2317,-4914],['DONE','DONE','DONE'])]),
+  item('7752',[sig('EMA_COMPRESSION','2026-10-29',100,[180,1879,-4914],['DONE','DONE','DONE'])]),
+ ];
+ const result=run(set);
+ assert.equal(result.status,'MULTI_STOCK_RETROSPECTIVE_SHADOW_ONLY');
+ const loso=result.leaveOneStockOut;
+ assert.equal(loso.status,'DESCRIPTIVE_LOSO_COMPLETE');
+ assert.equal(loso.promotionEligible,false);
+ assert.deepEqual(loso.outcomes.map(x=>x.omittedCode),['3762','7203','7752']);
+ const at=(excluded,horizon=3)=>loso.outcomes.find(x=>x.omittedCode===excluded)
+  .byStrategy.find(x=>x.strategy==='EMA_COMPRESSION').horizons
+  .find(x=>x.tradingDays===horizon);
+ assert.equal(at('3762').measured,2);
+ assert.equal(at('3762').averageProfitYen100,-219);
+ assert.equal(at('7203').averageProfitYen100,13832);
+ assert.equal(at('7752').averageProfitYen100,11734);
+ assert.equal(result.byStrategy.find(x=>x.strategy==='EMA_COMPRESSION')
+  .horizons[1].averageProfitYen100,8449);
+ assert.equal(at('3762',5).measured,2);
+ assert.equal(at('3762',5).pending,0);
+ assert.equal(loso.outcomes[0].portfolioByTradingDay.length,3);
+ assert.equal(result.canTriggerTrade,false);
+});
+test('LOSO with less than 3 independent symbols is not misrepresented',()=>{
+ const one=run([item('3762')]);
+ assert.equal(one.leaveOneStockOut.status,'INSUFFICIENT_STOCKS_FOR_LOSO');
+ assert.deepEqual(one.leaveOneStockOut.outcomes,[]);
+ const two=run([item('3762'),item('7203')]);
+ assert.equal(two.leaveOneStockOut.status,'INSUFFICIENT_STOCKS_FOR_LOSO');
+ assert.deepEqual(two.leaveOneStockOut.outcomes,[]);
+});
+test('LOSO method and portfolio outputs remain invariant under archive order',()=>{
+ const set=[
+ item('7752',[sig('HIGHER_LOW','2026-10-30',130,[500,1200,0])]),
+ item('3762',[sig('EMA_COMPRESSION','2026-10-29',110,[1000,2000,0])]),
+ item('7203',[sig('BREAKOUT_RETEST','2026-10-29',90,[-800,-900,0])]),
+ ];
+ const a=run(set),b=run([...set].reverse());
+ assert.deepEqual(a.leaveOneStockOut,b.leaveOneStockOut);
+ assert.equal(a.leaveOneStockOut.outcomes.length,3);
+});
+test('LOSO treats PENDING and budget exclusions as unmeasured, not zero-profit wins',()=>{
+ const set=[
+ item('7752',[sig('HIGHER_LOW','2026-10-30',130,[500,0,0],['DONE','PENDING','PENDING'])]),
+ item('3762',[sig('HIGHER_LOW','2026-10-29',110,[1000,0,0],['DONE','BUDGET_EXCLUDED','PENDING'])]),
+ item('7203',[sig('HIGHER_LOW','2026-10-29',90,[-800,0,0],['DONE','PENDING','BUDGET_EXCLUDED'])]),
+ ];
+ const result=run(set);
+ const sub=result.leaveOneStockOut.outcomes.find(x=>x.omittedCode==='3762');
+ const at3=sub.byStrategy.find(x=>x.strategy==='HIGHER_LOW').horizons[1];
+ assert.equal(at3.measured,0);
+ assert.equal(at3.pending,2);
+ assert.equal(at3.winRatePercent,null);
+ assert.equal(at3.averageProfitYen100,null);
+});
