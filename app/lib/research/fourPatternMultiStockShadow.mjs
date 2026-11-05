@@ -198,6 +198,70 @@ export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
      portfolio.set(key,c);
   }
   const portfolioSelected=[...portfolio.values()].sort(candidateSort);
+  // Method attribution is deliberately descriptive: the earliest closed
+  // signal wins regardless of its eventual return. This audit explains
+  // why a standout method can be absent from the conservative portfolio.
+  const countStrategies=list=>Object.fromEntries(PRICE_ONLY_STRATEGIES.map(
+   strategy=>[strategy,list.filter(c=>c.strategy===strategy).length]));
+  const keptByStrategy=countStrategies(portfolioSelected);
+  const droppedByStrategy=Object.fromEntries(PRICE_ONLY_STRATEGIES.map(
+   strategy=>[strategy,0]));
+  const suppressedByRetained=Object.fromEntries(PRICE_ONLY_STRATEGIES.map(
+   strategy=>[strategy,Object.fromEntries(PRICE_ONLY_STRATEGIES.map(
+    dropped=>[dropped,0]))]));
+  let overlapStockDates=0;
+  const allByStockDay=new Map();
+  for(const c of selected){
+   const key=c.code+'|'+c.signalDate;
+   if(!allByStockDay.has(key))allByStockDay.set(key,[]);
+   allByStockDay.get(key).push(c);
+  }
+  for(const [key,choices] of allByStockDay){
+   if(choices.length<2)continue;
+   overlapStockDates++;
+   const retained=portfolio.get(key);
+   for(const c of choices){
+    if(c===retained)continue;
+    droppedByStrategy[c.strategy]++;
+    suppressedByRetained[retained.strategy][c.strategy]++;
+   }
+  }
+  const portfolioSelectionAudit={
+   policy:'EARLIEST_CLOSED_SIGNAL_PER_STOCK_DATE_NOT_MAXIMUM_PROFIT',
+   uniqueStockDates:portfolioSelected.length,
+   overlappingStockDates:overlapStockDates,
+   selectedByStrategy:keptByStrategy,
+   excludedByStrategy:droppedByStrategy,
+   excludedStrategyGivenSelected:suppressedByRetained,
+   deliberatelyNotReturnOptimized:true,
+  };
+  // Per-stock aggregates (never raw provider rows) reveal when a pooled mean
+  // comes from only one symbol, one signal date, or one outsized winner.
+  const byStock=[...codes].sort().map(code=>{
+   const selectedForStock=selected.filter(c=>c.code===code);
+   const portfolioForStock=portfolioSelected.filter(c=>c.code===code);
+   return {code,
+    uniqueStockDateStrategySignals:selectedForStock.length,
+    uniquePortfolioStockDateSignals:portfolioForStock.length,
+    byStrategy:PRICE_ONLY_STRATEGIES.map(strategy=>{
+     const list=selectedForStock.filter(c=>c.strategy===strategy);
+     return {strategy,signals:list.length,
+      horizons:summaryFor(list).map(h=>({
+       tradingDays:h.tradingDays,measured:h.measured,pending:h.pending,
+       budgetExcluded:h.budgetExcluded,winRatePercent:h.winRatePercent,
+       averageReturnPercent:h.averageReturnPercent,
+       medianReturnPercent:h.medianReturnPercent,
+       averageProfitYen100:h.averageProfitYen100,
+       worstProfitYen100:h.worstProfitYen100,
+      }))};
+    }),
+    portfolioByTradingDay:summaryFor(portfolioForStock).map(h=>({
+     tradingDays:h.tradingDays,measured:h.measured,pending:h.pending,
+     averageProfitYen100:h.averageProfitYen100,
+     medianProfitYen100:h.medianProfitYen100,
+    })),
+   };
+  });
   const byStrategy=PRICE_ONLY_STRATEGIES.map(strategy=>{
    const list=selected.filter(x=>x.strategy===strategy);
    return {strategy,uniqueStockDateStrategySignals:list.length,
@@ -222,6 +286,7 @@ export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
    timeframeDuplicatesDropped,uniqueStockDateStrategySignals:selected.length,
    crossStrategyDuplicatesDropped,uniquePortfolioStockDateSignals:portfolioSelected.length,
    byStrategy,portfolioByTradingDay:summaryFor(portfolioSelected),
+   byStock,portfolioSelectionAudit,
    measuredResultsDoNotProveFutureEdge:true,
    historicalAsOfMarketDataWasNotLive:true,
    eligibleForNotifications:false,eligibleForProduction:false,canTriggerTrade:false,
@@ -230,6 +295,7 @@ export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
     'All archives are retrospective and captured after the decision date, not proof of 09:05 live visibility.',
     'Comparative stock selection may contain survivorship and selection bias; no train/test separation.',
     'By-strategy samples can overlap on the same stock/day; portfolioByTradingDay applies one-per-stock/day.',
+    'Earliest-signal portfolio selection may systematically favor a frequently triggered method; it is not a method ranking or a backtested optimal allocation.',
     'Close-only hypothetical exits, no stop-order path or execution/slippage assurance.',
     'No strategy may be promoted based on small, in-sample or duplicated outcome counts.',
    ],
