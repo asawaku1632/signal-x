@@ -26,7 +26,7 @@ export function pinnedFollowupManifest(){
    exitOnlyArchive:filename(code,dates[0],dates.at(-1)),
   })),
   capturePerCodeMaximumDates:20,
-  futureMarketDataNotAvailableYet:true,
+  marketDataAvailabilityNotChecked:true,
   automaticCapture:false,apiRequestsFromThisTool:0,
   existingFilesModified:false,canTriggerTrade:false,canTriggerNotification:false};
 }
