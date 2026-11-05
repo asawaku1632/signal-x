@@ -1,0 +1,29 @@
+name: Four Pattern JQuants Research Bridge
+on:
+  pull_request:
+    paths:
+      - "app/lib/research/fourPatternJQuantsBridge.mjs"
+      - "app/lib/research/fourStrategyShadow.mjs"
+      - "scripts/research/capture-four-pattern-jquants.mjs"
+      - "scripts/research/run-four-patterns-jquants-bundle.mjs"
+      - "tests/fourPatternJQuantsBridge.test.mjs"
+      - "tests/fourPatternJQuantsCapture.test.mjs"
+      - "docs/four-pattern-jquants-bridge.md"
+      - ".gitignore"
+      - ".github/workflows/four-pattern-jquants-bridge-ci.yml"
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit
