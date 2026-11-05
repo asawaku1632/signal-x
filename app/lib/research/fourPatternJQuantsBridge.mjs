@@ -178,23 +178,61 @@ export function convertCapturedFinancialSummary({code, pages}) {
     status:'NO_FINANCIAL_ARCHIVE', fundamentals:[], excluded:0 };
   const {rows,lastReceivedAt}=auditCapturedPages(pages,BRIDGE_LIMITS.maxFinancialPages,
     BRIDGE_LIMITS.maxFinancialRows);
+  // In the provider's historical archive, individual financial documents can
+  // omit fields. Never invent disclosure timestamps or re-use a previous
+  // document's timestamp, especially when investigating corrections.
+  const metadata={
+    providerRows:rows.length, candidateStatements:0,
+    quarantinedMissingOrInvalidDate:0,
+    quarantinedMissingOrInvalidTime:0,
+    quarantinedMissingOrInvalidNumber:0,
+    excludedUnsupportedPeriodType:0,
+    excludedInvalidPeriodEnd:0,
+    excludedUnknownAccountingBasis:0,
+  };
   const list=[], keys=new Set();
   for (const r of rows) {
     if (!codeMatch(r?.Code,code)) fail('FINANCIAL_WRONG_CODE');
-    const disclosedAt=discTimestamp(r), date=r?.CurPerEn;
-    if (!Number.isFinite(disclosedAt) || !r?.DiscNo ||
-        typeof r.DiscNo !== 'string') fail('INVALID_DISCLOSURE_METADATA');
+    if (!['FY','1Q','2Q','3Q'].includes(r?.CurPerType)) {
+      metadata.excludedUnsupportedPeriodType++;
+      continue;
+    }
+    metadata.candidateStatements++;
+    // Fail closed on each malformed record without letting one irrelevant
+    // historical disclosure stop independent price-pattern research.
+    if (!dayOK(r.DiscDate)) {
+      metadata.quarantinedMissingOrInvalidDate++;
+      continue;
+    }
+    if (typeof r.DiscTime !== 'string' ||
+        !/^([01]\\d|2[0-3]):[0-5]\\d:00$/.test(r.DiscTime)) {
+      metadata.quarantinedMissingOrInvalidTime++;
+      continue;
+    }
+    if (typeof r.DiscNo !== 'string' || r.DiscNo.length===0) {
+      metadata.quarantinedMissingOrInvalidNumber++;
+      continue;
+    }
+    const disclosedAt=discTimestamp(r), date=r.CurPerEn;
+    if (!Number.isFinite(disclosedAt)) {
+      metadata.quarantinedMissingOrInvalidTime++;
+      continue;
+    }
     if (Math.floor(disclosedAt/1000) > lastReceivedAt)
       fail('DISCLOSURE_LATER_THAN_ARCHIVE_RECEIPT');
     if (keys.has(r.DiscNo)) fail('DUPLICATE_DISCLOSURE_NUMBER');
     keys.add(r.DiscNo);
-    // Forecast-only / dividend-only rows may legitimately omit period end.
-    if (!['FY','1Q','2Q','3Q'].includes(r.CurPerType)) continue;
-    if (!dayOK(date)) continue;
+    if (!dayOK(date)) {
+      metadata.excludedInvalidPeriodEnd++;
+      continue;
+    }
     const basis=typeof r.DocType==='string'&&/_NonConsolidated(?:_|$)/.test(r.DocType)
       ? 'NONCONSOLIDATED' : typeof r.DocType==='string'&&
         /_Consolidated(?:_|$)/.test(r.DocType) ? 'CONSOLIDATED' : null;
-    if (!basis) continue;
+    if (!basis) {
+      metadata.excludedUnknownAccountingBasis++;
+      continue;
+    }
     const sales=signedNumber(r.Sales), op=signedNumber(r.OP);
     const cfo=signedNumber(r.CFO), equityRatio=signedNumber(r.EqAR);
     list.push({basis,disclosedAt:Math.floor(disclosedAt/1000),
@@ -202,6 +240,10 @@ export function convertCapturedFinancialSummary({code, pages}) {
       no:r.DiscNo, type:r.CurPerType, date,
       sales,op,cfo,equityRatio});
   }
+  const metadataQuarantineCount=
+    metadata.quarantinedMissingOrInvalidDate+
+    metadata.quarantinedMissingOrInvalidTime+
+    metadata.quarantinedMissingOrInvalidNumber;
   list.sort((a,b)=>a.disclosedAt-b.disclosedAt || a.no.localeCompare(b.no));
   const fundamentals=[];
   for (const current of list) {
@@ -228,9 +270,19 @@ export function convertCapturedFinancialSummary({code, pages}) {
       currentDisclosureNo:current.no,priorDisclosureNo:prior.no,
     });
   }
-  return {status:'CAPTURE_GATED_FINANCIAL_ONLY', fundamentals,
-    inputDisclosures:list.length, excluded:list.length-fundamentals.length,
-    captureEpoch:lastReceivedAt, disclosureIsNotProviderAvailability:true};
+  // A malformed candidate could be a correction to an older disclosure.
+  // Disable ALL financial-driven signals until its metadata can be verified;
+  // the independent three price-pattern studies may still proceed.
+  const qualityHold=metadataQuarantineCount>0;
+  return {
+    status:qualityHold?'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED':
+      'CAPTURE_GATED_FINANCIAL_ONLY',
+    fundamentals:qualityHold?[]:fundamentals,
+    inputDisclosures:list.length,excluded:list.length-fundamentals.length,
+    metadataQuarantineCount,metadataCounts:metadata,
+    qualitySignalAllowed:!qualityHold,
+    captureEpoch:lastReceivedAt,disclosureIsNotProviderAvailability:true,
+  };
 }
 export function studyCapturedJQuantsFourPatterns({
   code, minuteDays, dailyDays, financialPages=null, timeframe='30m',
@@ -272,6 +324,8 @@ export function studyCapturedJQuantsFourPatterns({
       verifiedMinuteDays:reconciled.length,
       capturedOriginalMinutes:reconciled.reduce((s,d)=>s+d.minuteBarCount,0),
       financialStatus:finances.status,
+      financialMetadataQuarantineCount:finances.metadataQuarantineCount??0,
+      financialMetadataCounts:finances.metadataCounts??null,
       financialAsOfSnapshots:finances.fundamentals.length,
       financialExcluded:finances.excluded,
       reports, eligibleForProduction:false,eligibleForNotifications:false,
