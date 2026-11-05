@@ -123,12 +123,16 @@ test('invalid minute/daily data emits safe stage, requested day and named reason
  assert.equal(JSON.stringify({reason:safe.message,stage:safe.stage})
   .includes(secret),false);
 });
-test('financial schema fail reports only safe FINANCIAL stage without provider values', () => {
+test('incomplete financial metadata yields aggregate quarantine without unverified quality signal', () => {
  const f=[{requestPaginationKey:null,receivedAt:'2026-11-05T08:00:00Z',
-  response:{data:[{Code:'72030',DiscNo:'999',DiscDate:'invalid',DiscTime:''}]}}];
- assert.throws(()=>validateCapturedFourPatternFinancials({
-  code:'7203',financialPages:f}),e=>e.stage==='FINANCIAL'&&
-  e.tradeDate===null&&e.message==='INVALID_DISCLOSURE_METADATA');
+  response:{data:[{Code:'72030',DocType:'FYFinancialStatements_Consolidated_JGAAP',
+   CurPerType:'FY',DiscNo:'999',DiscDate:'invalid',DiscTime:''}]}}];
+ const result=validateCapturedFourPatternFinancials({code:'7203',financialPages:f});
+ assert.equal(result.status,'FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED');
+ assert.equal(result.usableSnapshots,0);
+ assert.equal(result.metadataQuarantineCount,1);
+ assert.equal(result.metadataCounts.quarantinedMissingOrInvalidDate,1);
+ assert.equal(Object.hasOwn(result,'data'),false);
 });
 test('on first mismatching date the capture stops before additional dates/financial calls',async () => {
  const originalKey=process.env.JQUANTS_API_KEY;
