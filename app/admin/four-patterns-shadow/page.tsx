@@ -38,7 +38,7 @@ export default async function FourPatternsShadowPage({ searchParams }: Props) {
   const summaries = reports.flatMap(item =>
     item.report?.summaries.map(row => ({ code: item.code, ...row })) ?? []);
   const signals = reports.flatMap(item =>
-    item.report?.rows.map(row => ({ code: item.code, ...row })) ?? [])
+    item.report?.rows ?? [])
     .sort((a, b) => b.signalTime - a.signalTime);
 
   return (
