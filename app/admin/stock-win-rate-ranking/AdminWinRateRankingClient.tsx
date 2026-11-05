@@ -161,6 +161,14 @@ export default function AdminWinRateRankingClient() {
           </div>
         </header>
 
+        <Link href="/admin/stock-win-rate-ranking/forward"
+          className="mt-3 block rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm font-black text-indigo-800">
+          🔬 上位5・100株・予算別：1／3／5営業日後の仮想売買を検証 →
+          <span className="mt-1 block text-xs font-normal text-indigo-700">
+            管理者限定・保存済み証拠だけの読み取り研究。実売買実績や未来の利益予測とは別です。
+          </span>
+        </Link>
+
         {loading && <p className="mt-4 rounded-2xl bg-white p-5 text-sm font-bold text-slate-500">勝敗を集計しています…</p>}
         {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-5 text-sm font-bold text-red-700">{error}</p>}
 
