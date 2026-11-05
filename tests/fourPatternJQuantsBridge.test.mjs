@@ -26,6 +26,7 @@ function fixture() {
 }
 const fin=(period,date,discDate,sales,op,cfo,eq='0.45',discNo='1')=>({
   Code:'72030',DiscDate:discDate,DiscTime:'15:00:00',DiscNo:discNo,
+  DocType:'FYFinancialStatements_Consolidated_JGAAP',
   CurPerType:period,CurPerEn:date,Sales:String(sales),OP:String(op),CFO:String(cfo),EqAR:eq,
 });
 const financialPages = () => [{requestPaginationKey:null,receivedAt,response:{data:[
@@ -101,6 +102,9 @@ test('empty CFO, negative prior OP and future-only disclosures cannot create qua
   const negative=financialPages();
   negative[0].response.data[0].OP='-25';
   assert.equal(convertCapturedFinancialSummary({code,pages:negative}).fundamentals.length,0);
+  const mixedBasis=financialPages();
+  mixedBasis[0].response.data[0].DocType='FYFinancialStatements_NonConsolidated_JGAAP';
+  assert.equal(convertCapturedFinancialSummary({code,pages:mixedBasis}).fundamentals.length,0);
   const future=financialPages();
   future[0].response.data[1].DiscDate='2026-11-04';
   assert.throws(()=>convertCapturedFinancialSummary({code,pages:future}),
