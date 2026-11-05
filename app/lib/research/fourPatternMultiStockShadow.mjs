@@ -124,24 +124,34 @@ function summaryFor(candidates){
  * This function does not pretend local archives have verified live availability.
  */
 export function summarizeMultiStockFourPatternArchives(archives){
+ const items=Array.isArray(archives)?archives.map(archive=>({
+  archive,evaluation:evaluateJQuantsFourPatternTradingDays(archive,{timeframe:'BOTH'}),
+ })):[];
+ return summarizeVerifiedMultiStockFourPatternEvaluations(items);
+}
+/**
+ * Pure aggregation of already-evaluated studies. Only the wrapper above reads
+ * raw J-Quants archives and validates them before using this helper.
+ * Exposed for synthetic tests of duplicate handling and outcome aggregation.
+ */
+export function summarizeVerifiedMultiStockFourPatternEvaluations(items){
  const blocked=reason=>({
   version:FOUR_PATTERN_MULTI_STOCK_VERSION,status:'BLOCKED_'+reason,
   eligibleForNotifications:false,eligibleForProduction:false,
   canTriggerTrade:false,byStrategy:[],portfolioByTradingDay:[],
  });
  try{
-  if(!Array.isArray(archives)||archives.length<MULTI_STOCK_LIMITS.minArchives||
-   archives.length>MULTI_STOCK_LIMITS.maxArchives)
+  if(!Array.isArray(items)||items.length<MULTI_STOCK_LIMITS.minArchives||
+   items.length>MULTI_STOCK_LIMITS.maxArchives)
    fail('ARCHIVE_COUNT_OUT_OF_BOUNDS');
   const codes=new Set(),staged=[];
   let referenceDates=null,calendarVersion=null,originalMinuteBars=0;
-  for(const archive of archives){
+  for(const {archive,evaluation:result} of items){
    if(!goodCode(archive?.code)||codes.has(archive.code))
     fail('INVALID_OR_DUPLICATE_STOCK_CODE');
    if(archive.financialPages!==undefined&&archive.financialPages!==null)
     fail('PRICE_ONLY_COHORT_REQUIRES_SKIP_FINANCIAL');
-   const result=evaluateJQuantsFourPatternTradingDays(archive,{timeframe:'BOTH'});
-   if(result.status!==RESULT_OK)
+   if(result?.status!==RESULT_OK)
     fail('ONE_OR_MORE_UNVERIFIED_STOCK_ARCHIVES');
    if(calendarVersion!==null&&calendarVersion!==result.continuousCalendarVersion)
     fail('INCONSISTENT_TSE_CALENDAR_VERSIONS');
