@@ -119,7 +119,8 @@ test('outcome discrepancies between 30m and 60m for same stock/day block compari
  assert.equal(run([a]).status,'BLOCKED_CROSS_TIMEFRAME_OUTCOME_DISAGREEMENT');
 });
 test('invalid horizon metrics and uncompleted numeric P&L are blocked',()=>{
- const s=sig('BREAKOUT_RETEST');
+ const s=sig('BREAKOUT_RETEST','2026-10-29',100,[1000,2000,3000],
+  ['DONE','PENDING','PENDING']);
  s.outcomes[1].profitYen100=12345;
  assert.equal(run([item('3762',[s])]).status,'BLOCKED_UNCOMPLETED_WITH_RETURN');
  const t=sig('HIGHER_LOW');
