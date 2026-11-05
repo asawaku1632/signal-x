@@ -118,7 +118,7 @@ function barSlot(minute, width) {
   const slot = Math.floor(offset / width);
   const bucketMin = start + slot * width;
   const last = morning ? 690 : 930;
-  const endMinute = Math.min(bucketMin + width, last + 1);
+  const endMinute = bucketMin + width >= last ? last + 1 : bucketMin + width;
   return {startMinute:bucketMin, endMinute};
 }
 function clockTime(minutes) {
