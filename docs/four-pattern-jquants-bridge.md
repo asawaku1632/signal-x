@@ -68,3 +68,22 @@ If the financial-summary entitlement is unavailable, the capture command support
     node --test tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourStrategyShadow.test.mjs
 
 These CI tests use mock historical records and never call authenticated provider endpoints. They cannot establish profitable performance or real-time data availability.
+
+
+## 2026-11-05: 財務開示メタデータの欠損に対する隔離対応
+
+銘柄3762で、分足・日足の照合後に FINANCIAL / INVALID_DISCLOSURE_METADATA が報告された。個別の欠損フィールドは生データを公開していないため未確定。
+
+- J-Quants 財務サマリーの開示書類には、対象外の書類や項目欠損が含まれる場合がある。取引判定に利用する FY/1Q/2Q/3Q の候補レコードだけを開示日時・番号の形式確認対象にする。
+- 対象書類の開示日、時刻、開示番号が不正・欠損ならその行を隔離する。日時を開示番号や会計年度終了日から推定しない。
+- 一件でも対象書類の不明な開示メタデータがあれば、訂正開示との関係を安全に判断できないため **財務ベースの QUALITY_PULLBACK シグナル全体を禁止**する。株価ベースの他3手法は独立に研究できる。
+- 問題のデータを黙って「正常」と扱わない。集計した件数と財務品質ステータスを返し、対象書類・金額・開示番号・APIキーは標準出力に表示しない。
+- 未来開示時刻、銘柄コード不一致、開示番号重複、時刻証跡の不整合は引き続き重大なエラーとして取得結果を停止する。
+- 標準プランの財務更新タイミングと実際の取得日時は別物。後から取得した財務データは、過去の時点で利用可能だったと認定しない。
+
+### 再確認
+
+PowerShellで最新 main を取得後、取得済みAPIキーを設定した同じセッションなら、従来の --execute コマンドで実データを再取得できる。出力の financialStatus が FINANCIAL_METADATA_QUARANTINED_QUALITY_DISABLED であれば財務シグナルは無効であり、株価3手法の研究用データだけが照合可能。実際の対象日が2日しかない場合、80本の30分/60分足に届かず勝率は未検証のままとなる。
+
+財務データの正式な項目定義:
+https://jpx-jquants.com/ja/spec/fin-summary
