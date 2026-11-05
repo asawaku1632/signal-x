@@ -6,6 +6,10 @@ on:
       - "app/lib/research/fourStrategyShadow.mjs"
       - "scripts/research/capture-four-pattern-jquants.mjs"
       - "scripts/research/run-four-patterns-jquants-bundle.mjs"
+      - "app/lib/research/fourPatternTradingDayForward.mjs"
+      - "scripts/research/run-four-pattern-trading-days.mjs"
+      - "app/lib/technicalObservation/tseMarketCalendar.ts"
+      - "tests/fourPatternTradingDayForward.test.mjs"
       - "tests/fourPatternJQuantsBridge.test.mjs"
       - "tests/fourPatternJQuantsCapture.test.mjs"
       - "docs/four-pattern-jquants-bridge.md"
@@ -24,6 +28,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs
+      - run: node --test tests/fourStrategyShadow.test.mjs tests/fourPatternJQuantsBridge.test.mjs tests/fourPatternJQuantsCapture.test.mjs tests/fourPatternTradingDayForward.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
