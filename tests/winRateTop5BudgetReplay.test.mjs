@@ -81,7 +81,7 @@ test("future outcome, untraced row and checked-after-decision are not eligible t
   const x=fixture();
   const row=x.rows.find(r=>r.date==="2026-09-01"&&r.code==="2000");
   row.recordedAt=null;
-  assert.equal(replayProvenanceTop5Budget(x).recent[0].code,"2000");
+  assert.notEqual(replayProvenanceTop5Budget(x).recent[0].code,"2000");
 });
 
 test("missing 09:30 price is not filled from another stock or prior close",()=>{
