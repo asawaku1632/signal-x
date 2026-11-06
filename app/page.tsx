@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
 import Image from "next/image";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 
@@ -559,7 +560,7 @@ export default function HomePage() {
                         <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white ${index === 0 ? "bg-amber-400" : index === 1 ? "bg-slate-400" : "bg-amber-700"}`}>{index + 1}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[10px] font-black text-slate-500">{stock.code}</span>
-                          <span className="block truncate text-[11px] font-black text-slate-950">{stock.name}</span>
+                          <span className="flex min-w-0 items-center gap-1"><span className="min-w-0 truncate text-[11px] font-black text-slate-950">{stock.name}</span><AiScoreTierBadge score={stock.score} /></span>
                           <span className="text-[8px] font-bold text-slate-400">AI POWER</span>
                         </span>
                         <span className="text-right">
@@ -696,7 +697,7 @@ export default function HomePage() {
                       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white ${index === 0 ? "bg-amber-400" : index === 1 ? "bg-slate-400" : "bg-amber-700"}`}>{index + 1}</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-black text-slate-500">{stock.code}</p>
-                        <h3 className="truncate text-sm font-black text-[#071a3d] md:text-xs">{stock.name}</h3>
+                        <div className="flex min-w-0 items-center gap-1"><h3 className="min-w-0 truncate text-sm font-black text-[#071a3d] md:text-xs">{stock.name}</h3><AiScoreTierBadge score={stock.score} /></div>
                       </div>
                     </div>
                     <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3">

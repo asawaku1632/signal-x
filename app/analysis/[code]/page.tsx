@@ -8,6 +8,7 @@ import OvernightBuyLimitCard from "@/app/components/analysis/OvernightBuyLimitCa
 import MorningEntryRecheckCard from "@/app/components/analysis/MorningEntryRecheckCard";
 import { formatStars, getEvidenceConfidenceStars } from "@/app/lib/displayMetrics";
 import BottomNav from "@/app/components/BottomNav";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
 import BollingerSignalCard from "@/app/components/bollinger/BollingerSignalCard";
 import type { BollingerSignal } from "@/app/lib/bollingerBands";
 import { getSwingEntryDecision, type SwingEntryDecision } from "@/app/lib/swingDecision";
@@ -845,6 +846,7 @@ export default function AnalysisPage() {
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
             <span className="text-sm font-black text-slate-500 dark:text-slate-300">{signal.code}</span>
             <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100">{signal.name}</h1>
+            <AiScoreTierBadge score={signal.score ?? signal.aiPower ?? null} />
           </div>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5 text-sm">
             <span className="font-bold">参考株価 <strong className="text-lg">{yen(price)}</strong></span>

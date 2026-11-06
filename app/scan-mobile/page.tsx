@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
+import { AI_SCORE_TIER_LEGEND } from "@/app/lib/aiScoreTier";
 import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
 import { rankDailyScanCandidates } from "@/app/lib/scanDailyRanking";
 import type { ScanDetectedPattern } from "@/app/components/scan/DetectedPatternSummary";
@@ -312,6 +314,7 @@ function ScanMobileContent() {
             <p>{marketClosed ? "分析保存" : "最終更新"}：{lastUpdated ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
             <p>監視 {totalStocks || stocks.length} 銘柄、取得 {stocks.length} 件。順位は取得済み候補の範囲内で計算しています。</p>
             {savedDataView && <p className="font-bold text-amber-700 dark:text-amber-300">休場日または当日株価未確認のため、保存データを表示しています。</p>}
+            <p>{AI_SCORE_TIER_LEGEND}</p>
             <p>AI評価は過去の実測勝率ではなく、株価上昇や買い時を保証しません。購入前に当日のチャートと出来高をご確認ください。</p>
           </div>
         </details>
@@ -342,7 +345,7 @@ function CompactStockCard({ stock, rank }: { stock: Stock; rank: number }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stock.code}</p>
-            <h2 className="truncate text-base font-black leading-6">{stock.name}</h2>
+            <div className="flex min-w-0 items-center gap-1.5"><h2 className="min-w-0 truncate text-base font-black leading-6">{stock.name}</h2><AiScoreTierBadge score={stock.score} /></div>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI評価</p>
