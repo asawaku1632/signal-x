@@ -58,3 +58,15 @@ test('manual only, no changes to existing trading or cron code',()=>{
   assert.doesNotMatch(runner,/\/api\/scan|\/api\/ranking|notificationEngine|aiPower|nextAuth/);
   assert.doesNotMatch(api,/export async function PUT|export async function DELETE/);
 });
+
+test('revised source hashes are quarantined without overwriting frozen outcomes',()=>{
+  assert.match(runner,/source_hash IS DISTINCT FROM i\.source_hash/);
+  assert.match(runner,/const revisionKeys=new Set\(/);
+  assert.match(runner,/const safeRows=rows\.filter\(/);
+  assert.match(runner,/JSON\.stringify\(safeRows\)/);
+  assert.match(runner,/SOURCE_REVISIONS_QUARANTINED/);
+  assert.match(runner,/sourceRevisionConflicts:revisionCount/);
+  assert.doesNotMatch(runner,/if\(conflicts\.rowCount\)throw Error\("FROZEN_PRICE_SOURCE_REVISION"\)/);
+  assert.match(page,/sourceRevisionConflicts/);
+  assert.match(page,/上書きせず保留/);
+});

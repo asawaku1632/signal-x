@@ -12,6 +12,7 @@ type Progress={stats:Record<string,{horizons:Record<string,Horizon>}>;
   attempts:Array<{batch_id:number;target_date:string;status:string;new_outcomes:number}>};
 type RunResult={success:boolean;status:string;targetDate?:string;batch?:number;
   newOutcomes?:number;reason?:string;progress?:Progress;
+  sourceRevisionConflicts?:number;sourceRevisionCodes?:string[];
   quality?:Array<{code:string;ok:boolean;reason:string|null;events:number}>};
 function pct(n:number|null,multiply=false){
   return n===null?"30件未満のため非表示":((multiply?n*100:n).toFixed(2)+"%");
@@ -61,10 +62,14 @@ export default function BollingerBatchArchive(){
       <p className="font-black">結果：{answer.status}</p>
       {answer.targetDate&&<p>確定日：{answer.targetDate}</p>}
       {answer.newOutcomes!==undefined&&<p>今回、新規保存した期間別結果：{answer.newOutcomes}件</p>}
+      {(answer.sourceRevisionConflicts??0)>0&&<p className="mt-2 font-semibold text-amber-700 dark:text-amber-300">
+        過去の確定済み結果と取得元データの不一致：{answer.sourceRevisionConflicts}件
+        （対象：{answer.sourceRevisionCodes?.join("・")}）。該当結果は上書きせず保留し、その他の結果だけ保存しました。
+      </p>}
       {answer.quality?.map(q=><p key={q.code}>
         {q.code}：{q.ok?"品質合格":"品質NG "+q.reason} ／ 検出{q.events}件
       </p>)}
-      <p className="mt-1 text-xs">ALREADY_CLAIMED は同じ確定日の処理済みを示し、再取得しません。</p>
+      <p className="mt-1 text-xs">ALREADY_CLAIMED は同じ確定日の処理済みを示し、再取得しません。FAILED の場合も同じ確定日では再実行できません。</p>
     </div>}
     <div className="mt-5 space-y-3">
       <h3 className="font-black">蓄積した比較成績（重複排除）</h3>
