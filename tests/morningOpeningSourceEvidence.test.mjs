@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {auditYahooOpeningAsOf,OPENING_SOURCE_AUDIT_VERSION} from
   "../app/lib/research/morningOpeningSourceEvidence.mjs";
 import {decideAtNineOhFive} from "../app/lib/research/morningFinalCheck.mjs";
+import {summarizeMorningCaptureHealth} from "../app/lib/research/morningCaptureHealth.mjs";
 
 const date="2026-11-06";
 const at=t=>new Date(date+"T"+t+"+09:00");
@@ -128,4 +129,23 @@ test("production runner persists reason and exact source request/receipt without
   assert.match(source,/MORNING_ALREADY_CLAIMED/);
   assert.doesNotMatch(source,/UPDATE public\.daily_stock_results|INSERT INTO public\.paper_trades|sendLine/);
   assert.match(source,/YAHOO_TIMEOUT_MS=8000/);
+});
+
+test("dashboard counts both legacy and new precise missing opening slots",()=>{
+  const observations=[
+    {code:"1001",label:"UNAVAILABLE",quoteReason:"MISSING_CANDLES"},
+    {code:"1002",label:"UNAVAILABLE",quoteReason:"MISSING_0900_BAR"},
+    {code:"1003",label:"UNAVAILABLE",quoteReason:"MISSING_0905_BAR"},
+    {code:"1004",label:"UNAVAILABLE",quoteReason:"MISSING_BOTH_OPENING_SLOTS"},
+    {code:"1005",label:"UNAVAILABLE",quoteReason:"INVALID_0900_OHLCV"},
+  ];
+  const summary=summarizeMorningCaptureHealth([{
+    trade_date:"2026-11-06",morning_observations:observations,
+  }]);
+  assert.equal(summary.slots,5);
+  assert.equal(summary.available,0);
+  assert.equal(summary.unavailable,5);
+  assert.equal(summary.missing,4);
+  assert.equal(summary.status,"NO_USABLE_MORNING_DECISIONS");
+  assert.equal(summary.reasons.length,5);
 });
