@@ -23,14 +23,16 @@ test("2026-10-13 normal trading day retains the original labels", () => {
   assert.equal(labels.hotFilter, "今日の最有力");
 });
 
-test("mobile scan screen passes the server's holiday flag into headline, featured card and summary", () => {
+test("mobile compact ranking keeps market closure and quote-date checks", () => {
   const source = load("app/scan-mobile/page.tsx");
   assert.match(source, /setMarketClosed\(json\?\.marketClosed === true\)/);
-  assert.match(source, /const displayLabels = scanDisplayLabels\(marketClosed\)/);
+  assert.match(source, /setMarketDateJst\(typeof json\?\.marketDateJst/);
+  assert.match(source, /const savedDataView = marketClosed \|\| !quoteIsCurrent/);
+  assert.match(source, /const displayLabels = scanDisplayLabels\(savedDataView\)/);
+  assert.match(source, /保存データの注目 TOP5/);
+  assert.match(source, /今日の注目 TOP5/);
   assert.match(source, /\{displayLabels\.description\}/);
-  assert.match(source, /<FeaturedStock[^\n]*marketClosed=\{marketClosed\}/);
-  assert.match(source, /\{displayLabels\.strongest\}/);
-  assert.match(source, /\{displayLabels\.quote\}/);
+  assert.match(source, /株価基準日/);
   assert.match(source, /\{marketClosed \? "分析保存" : "最終更新"\}/);
   assert.match(source, /<option value="hot">\{displayLabels\.hotFilter\}<\/option>/);
 });
