@@ -6,6 +6,7 @@ import {
   MORNING_FINAL_POLICY,gatePhase,selectFrozenCohort,decideAtNineOhFive,
   compareClosingResults
 } from "./morningFinalCheck.mjs";
+import {auditYahooOpeningAsOf,OPENING_SOURCE_AUDIT_VERSION} from "./morningOpeningSourceEvidence.mjs";
 
 type DbSignal={code:string;name:string;score:number|string;price:number|string};
 type Frozen={code:string;name:string;score:number;referencePrice:number;rank:number};
@@ -28,17 +29,9 @@ function quoteFailureReason(error:unknown):string {
   return "UPSTREAM_FETCH_ERROR";
 }
 
-function asPrice(value:unknown):number|null {
-  if(value===null||value===undefined||value==="")return null;
-  const n=Number(value);
-  return Number.isFinite(n)&&n>0?n:null;
-}
-function asVolume(value:unknown):number|null {
-  if(value===null||value===undefined||value==="")return null;
-  const n=Number(value);
-  return Number.isFinite(n)&&n>=0?n:null;
-}
-async function openingBars(code:string):Promise<Bar[]> {
+// Use only the raw 09:00 OHLCV and 09:05 OPEN if they were already
+// returned in the contemporaneous 09:08 request. No retry or later backfill.
+async function openingBars(code:string,tradeDate:string,requestedAt:Date) {
   if(!/^[0-9]{4}$/.test(code))throw Error("INVALID_CODE");
   const path="https://query1.finance.yahoo.com/v8/finance/chart/"+
     encodeURIComponent(code+".T")+"?range=1d&interval=5m";
@@ -46,16 +39,8 @@ async function openingBars(code:string):Promise<Bar[]> {
     signal:AbortSignal.timeout(YAHOO_TIMEOUT_MS)});
   if(!response.ok)throw Error("OPENING_QUOTE_UNAVAILABLE");
   const payload=await response.json();
-  const data=payload?.chart?.result?.[0];
-  const times:number[]=data?.timestamp;
-  const q=data?.indicators?.quote?.[0];
-  if(!Array.isArray(times)||!q)throw Error("MISSING_FIVE_MINUTE_CANDLES");
-  // Parse only the needed price fields; later-day fields are never passed to the classifier.
-  return times.slice(0,75).map((t,i)=>({
-    time:Number(t),open:asPrice(q.open?.[i]),high:asPrice(q.high?.[i]),
-    low:asPrice(q.low?.[i]),close:asPrice(q.close?.[i]),
-    volume:asVolume(q.volume?.[i])
-  }));
+  const receivedAt=new Date();
+  return auditYahooOpeningAsOf({payload,tradeDate,requestedAt,receivedAt});
 }
 
 export async function runMorningFinalCheck(phase:string,now=new Date()) {
@@ -103,15 +88,29 @@ export async function runMorningFinalCheck(phase:string,now=new Date()) {
     // One irrevocable claim BEFORE network calls: at most 5 calls/day, no repeat or backfill.
     try {
       const snapshots=await Promise.all(run.cohort.slice(0,MAX_CODES).map(async c=>{
+        const requestedAt=new Date();
         try {
-          const bars=await openingBars(c.code);
-          const observation=decideAtNineOhFive(c,bars,date,new Date());
-          return {...observation,quoteStatus:observation.label==="UNAVAILABLE"?"UNAVAILABLE":"OBSERVED",
-            quoteReason:observation.label==="UNAVAILABLE"?"INVALID_OR_MISSING_OPENING_BAR":null,
+          const {bars,evidence}=await openingBars(c.code,date,requestedAt);
+          const observation=decideAtNineOhFive(c,bars,date,new Date(evidence.receivedAt??requestedAt));
+          const usable=evidence.status==="AVAILABLE_AS_OF_RECEIPT"&&
+            observation.label!=="UNAVAILABLE";
+          return {...observation,quoteStatus:usable?"OBSERVED":"UNAVAILABLE",
+            quoteReason:usable?null:(evidence.reason??"CLASSIFIER_REJECTED"),
+            quoteEvidence:evidence,
             source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
         }catch(error) {
-          const unavailable=decideAtNineOhFive(c,[],date,new Date());
-          return {...unavailable,quoteStatus:"UNAVAILABLE",quoteReason:quoteFailureReason(error),
+          const receivedAt=new Date();
+          const reason=quoteFailureReason(error);
+          const unavailable=decideAtNineOhFive(c,[],date,receivedAt);
+          return {...unavailable,quoteStatus:"UNAVAILABLE",quoteReason:reason,
+            quoteEvidence:{
+              version:OPENING_SOURCE_AUDIT_VERSION,source:"YAHOO_V8_CHART_5M",
+              tradeDate:date,requestedAt:requestedAt.toISOString(),
+              receivedAt:receivedAt.toISOString(),requiredSlots:["09:00","09:05"],
+              observedSlots:[],missingSlots:["09:00","09:05"],
+              status:"UNAVAILABLE",reason,executableFillVerified:false,
+              officialSourceVerified:false,
+            },
             source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
         }
       }));
