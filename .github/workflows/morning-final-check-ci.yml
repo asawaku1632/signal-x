@@ -10,6 +10,8 @@ on:
       - "tests/morningMarketForward.test.mjs"
       - "supabase/migrations/20261021_create_morning_market_forward_runs.sql"
       - "app/lib/research/morningFinalCheckRunner.ts"
+      - "app/lib/research/morningOpeningSourceEvidence.mjs"
+      - "tests/morningOpeningSourceEvidence.test.mjs"
       - "app/admin/morning-final-check/**"
       - "app/admin/learning-hub/page.tsx"
       - "app/api/cron/morning-final-check/**"
@@ -25,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/morningFinalCheck.test.mjs tests/nightMorningWatch.test.mjs tests/morningMarketForward.test.mjs tests/morningExternalContext.test.mjs
+      - run: node --test tests/morningFinalCheck.test.mjs tests/morningOpeningSourceEvidence.test.mjs tests/nightMorningWatch.test.mjs tests/morningMarketForward.test.mjs tests/morningExternalContext.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
