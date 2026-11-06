@@ -35,8 +35,9 @@ test("removal retains server DELETE and requires confirmation to prevent acciden
 
 test("unavailable quotes are not shown as real zero prices, scores, or changes", () => {
   assert.match(source, /const hasQuote = Number\.isFinite\(stock\.price\) && stock\.price > 0/);
-  assert.match(source, /const power = hasQuote && Number\.isFinite\(rawPower\) \? rawPower : null/);
-  assert.match(source, /power === null \? "未取得"/);
+  assert.match(source, /const rawPower = stock\.score \?\? stock\.aiPower/);
+  assert.match(source, /typeof rawPower === "number"/);
+  assert.match(source, /<AiScoreTierBadge score=\{power\} \/>/);
   assert.match(source, /\{hasQuote \? yen\(stock\.price\) : "—"\}/);
   assert.match(source, /\{hasQuote \? yen\(stock\.price \* 100\) : "—"\}/);
   assert.match(source, /\{change === null \? "—"/);
