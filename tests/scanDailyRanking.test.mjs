@@ -73,8 +73,9 @@ test("mobile page starts with a compact, budget-filtered TOP5 instead of giant c
   assert.match(source, /100株必要額/);
   assert.match(source, /参考株価/);
   assert.match(source, /className="mt-2 space-y-2"/);
+  assert.match(source, /mt-3 grid grid-cols-4 gap-1\.5/);
   assert.doesNotMatch(source, /bg-gradient-to-r|text-5xl|AI勝率|380000|38万円/);
-  assert.match(source, /quickBudgetValues: BudgetFilter\[\] = \[100000, 300000, 500000, 1000000, "all"\]/);
+  assert.match(source, /quickBudgetValues: BudgetFilter\[\] = \[100000, 300000, 500000, 1000000\]/);
   const topIndex = source.indexOf('topFive.map((stock, index)');
   const detailsIndex = source.indexOf('<details className="mt-4');
   assert.ok(detailsIndex > topIndex, "verbose analysis details must remain below TOP5");
