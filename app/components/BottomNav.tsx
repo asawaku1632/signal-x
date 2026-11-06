@@ -35,10 +35,10 @@ const publicNavItems: NavItem[] = [
     matchPaths: ["/scan-mobile", "/scan"],
   },
   {
-    href: "/ai-analysis",
-    icon: "🧠",
-    label: "AI分析",
-    matchPaths: ["/ai-analysis", "/analysis"],
+    href: "/ranking",
+    icon: "🏅",
+    label: "ランキング",
+    matchPaths: ["/ranking", "/analysis"],
   },
   {
     href: "/learning/patterns",
