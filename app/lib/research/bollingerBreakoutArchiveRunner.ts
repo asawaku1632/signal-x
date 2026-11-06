@@ -138,18 +138,22 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
     try{
       await client.query("BEGIN");
       // Freeze the first graded result; later price revisions trigger fail-closed review.
+      // A provider revision must never overwrite a frozen outcome. Quarantine
+      // only the conflicting horizons so unrelated valid outcomes can progress.
       const conflicts=await client.query<{code:string;signal_time:string;horizon:number}>(`
         WITH incoming AS (
           SELECT * FROM jsonb_to_recordset($1::jsonb) AS x (
             detector_version text,code text,signal_time bigint,horizon smallint,source_hash text)
         )
-        SELECT prior.code,prior.signal_time,prior.horizon
+        SELECT prior.code,prior.signal_time::text,prior.horizon
         FROM public.bb_breakout_shadow_outcomes prior JOIN incoming i
         ON prior.detector_version=i.detector_version AND prior.code=i.code
         AND prior.signal_time=i.signal_time AND prior.horizon=i.horizon
-        WHERE prior.source_hash<>i.source_hash
-        LIMIT 1`,[JSON.stringify(rows)]);
-      if(conflicts.rowCount)throw Error("FROZEN_PRICE_SOURCE_REVISION");
+        WHERE prior.source_hash IS DISTINCT FROM i.source_hash`,[JSON.stringify(rows)]);
+      const revisionKeys=new Set(conflicts.rows.map(r=>[r.code,r.signal_time,r.horizon].join(":")));
+      const safeRows=rows.filter(r=>!revisionKeys.has([r.code,String(r.signal_time),r.horizon].join(":")));
+      const revisionCount=conflicts.rows.length;
+      const revisionCodes=[...new Set(conflicts.rows.map(r=>r.code))].sort();
       const saved=await client.query(`
         INSERT INTO public.bb_breakout_shadow_outcomes
           (detector_version,code,signal_time,horizon,group_key,signal_close,
@@ -165,16 +169,19 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
           next_day_return_inside boolean,source_hash text,
           calendar_version text,batch_id smallint,first_target_date date)
         ON CONFLICT (detector_version,code,signal_time,horizon) DO NOTHING`,
-        [JSON.stringify(rows)]);
+        [JSON.stringify(safeRows)]);
       inserted=saved.rowCount??0;
       await client.query(`UPDATE public.bb_breakout_shadow_batch_attempts
         SET status='COMPLETED',new_outcomes=$3,finished_at=now(),note=$4
         WHERE batch_id=$1 AND target_date=$2::date AND status='CLAIMED'`,
-        [batch,target,inserted,"COMPLETE_QUALITY; FROZEN_RETROSPECTIVE"]);
+        [batch,target,inserted,revisionCount
+          ?`COMPLETE_QUALITY; SOURCE_REVISIONS_QUARANTINED=${revisionCount}; CODES=${revisionCodes.join(",")}`
+          :"COMPLETE_QUALITY; FROZEN_RETROSPECTIVE"]);
       await client.query("COMMIT");
     }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
     return {status:"COMPLETED",batch,targetDate:target,codes,
       quality:report.quality,newOutcomes:inserted,
+      sourceRevisionConflicts:revisionCount,sourceRevisionCodes:revisionCodes,
       progress:await getBollingerBatchProgress()};
   }catch(err){
     const reason=err instanceof Error?err.message:"STUDY_FAILED";
