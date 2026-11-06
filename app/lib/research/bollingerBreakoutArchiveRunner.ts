@@ -135,6 +135,8 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
       })));
     const client=await pool.connect();
     let inserted=0;
+    let revisionCount=0;
+    let revisionCodes:string[]=[];
     try{
       await client.query("BEGIN");
       // Freeze the first graded result; later price revisions trigger fail-closed review.
@@ -152,8 +154,8 @@ export async function runBollingerBatch(batch:BbBatchId,now=new Date()){
         WHERE prior.source_hash IS DISTINCT FROM i.source_hash`,[JSON.stringify(rows)]);
       const revisionKeys=new Set(conflicts.rows.map(r=>[r.code,r.signal_time,r.horizon].join(":")));
       const safeRows=rows.filter(r=>!revisionKeys.has([r.code,String(r.signal_time),r.horizon].join(":")));
-      const revisionCount=conflicts.rows.length;
-      const revisionCodes=[...new Set(conflicts.rows.map(r=>r.code))].sort();
+      revisionCount=conflicts.rows.length;
+      revisionCodes=[...new Set(conflicts.rows.map(r=>r.code))].sort();
       const saved=await client.query(`
         INSERT INTO public.bb_breakout_shadow_outcomes
           (detector_version,code,signal_time,horizon,group_key,signal_close,
