@@ -101,7 +101,6 @@ function ScanMobileContent() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [marketClosed, setMarketClosed] = useState(false);
   const [marketDateJst, setMarketDateJst] = useState<string | null>(null);
-  const displayLabels = scanDisplayLabels(marketClosed);
   const [quoteDateRange, setQuoteDateRange] = useState<{ oldest: string | null; latest: string | null }>({
     oldest: null, latest: null,
   });
@@ -178,6 +177,7 @@ function ScanMobileContent() {
     marketDateJst && quoteDateRange.latest && marketDateJst === quoteDateRange.latest,
   );
   const savedDataView = marketClosed || !quoteIsCurrent;
+  const displayLabels = scanDisplayLabels(savedDataView);
   const activeBudget = budgetOptions.find((item) => item.value === budgetFilter);
   const activeSort = sortOptions.find((item) => item.value === sortMode);
 
