@@ -154,9 +154,6 @@ export default function FavoritesPage() {
           code: String(favorite.code),
           name: favorite.name,
           price: 0,
-          score: 0,
-          aiPower: 0,
-          changePercent: 0,
           reason: "最新データを取得できませんでした",
         } satisfies Stock;
       });
@@ -224,217 +221,173 @@ export default function FavoritesPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f7f9fc] p-4 text-slate-900">
-        <div className="mx-auto max-w-md">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="font-bold text-slate-500">
-              お気に入りを読み込み中...
-            </p>
-          </div>
+      <main className="min-h-screen bg-slate-50 p-4 text-slate-900">
+        <div className="mx-auto max-w-md rounded-2xl bg-white p-5 text-sm font-bold text-slate-500">
+          お気に入りを読み込み中…
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] pb-24 text-slate-900">
-      <div className="mx-auto max-w-md px-4 pt-4">
-        <header className="mb-4 flex items-center justify-between">
-          <Link
-            href="/dashboard"
-            aria-label="ホームへ戻る"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-2xl shadow"
-          >
-            ‹
+    <main className="min-h-screen bg-slate-50 pb-28 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto w-full max-w-2xl px-3 pb-7 pt-3 sm:px-5">
+        <header className="flex items-center justify-between gap-3">
+          <Link href="/dashboard" aria-label="SIGNALXホーム" className="flex items-center gap-2">
+            <span className="text-3xl font-black italic text-blue-600 dark:text-blue-400">X</span>
+            <span className="text-base font-black tracking-tight">SIGNAL<span className="text-blue-600 dark:text-blue-400">X</span></span>
           </Link>
-
-          <div className="text-center">
-            <div className="text-3xl font-black">
-              SIGNAL<span className="text-blue-600">X</span>
-            </div>
-            <div className="text-xs font-black tracking-[0.22em] text-slate-500">
-              FAVORITES
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void loadFavorites(true)}
-            disabled={refreshing}
+          <button type="button" onClick={() => void loadFavorites(true)} disabled={refreshing}
             aria-label="お気に入りを再読み込み"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg shadow disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {refreshing ? "…" : "↻"}
+            className="min-h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold shadow-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900">
+            {refreshing ? "更新中…" : "更新 ↻"}
           </button>
         </header>
 
-        <section className="mb-4 rounded-[24px] border border-yellow-200 bg-gradient-to-br from-white to-yellow-50 p-4 shadow-sm">
-          <p className="text-sm font-black text-yellow-600">
-            ⭐ お気に入り
-          </p>
-
-          <div className="mt-2 flex items-end justify-between">
-            <div>
-              <h1 className="text-4xl font-black">{favorites.length}</h1>
-              <p className="text-sm font-bold text-slate-500">
-                登録銘柄をAIが監視
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-500">
-                監視状態
-              </p>
-              <p className="text-xl font-black text-green-600">
-                {loginRequired ? "OFF" : "ON"}
-              </p>
-            </div>
+        <section className="mb-3 mt-3" aria-label="お気に入りの概要">
+          <div className="flex items-end justify-between gap-3">
+            <h1 className="text-xl font-black leading-tight sm:text-2xl">⭐ お気に入り</h1>
+            <span className="shrink-0 text-sm font-bold text-slate-600 dark:text-slate-300">
+              {favorites.length}銘柄
+            </span>
           </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            保存スキャンのAI評価・参考株価で比較
+          </p>
+          {scanStatus === "stale" && (
+            <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+              前回の保存データを表示中
+            </p>
+          )}
         </section>
 
-        {errorMessage ? (
-          <section className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-black text-red-700">
-              {errorMessage}
-            </p>
-            <button
-              type="button"
-              onClick={() => void loadFavorites()}
-              className="mt-3 rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white"
-            >
-              もう一度読み込む
+        {errorMessage && (
+          <section role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            <p className="font-bold">{errorMessage}</p>
+            <button type="button" onClick={() => void loadFavorites()}
+              className="mt-2 min-h-10 rounded-xl bg-red-600 px-4 font-bold text-white">
+              再読み込み
             </button>
           </section>
-        ) : null}
+        )}
 
         {loginRequired ? (
-          <section className="rounded-[24px] border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <p className="mb-3 text-4xl">🔐</p>
-            <h2 className="text-xl font-black">ログインが必要です</h2>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-              Googleアカウントでログインすると、スマホとパソコンで
-              お気に入りが同期されます。
-            </p>
-
-            <Link
-              href="/login"
-              className="mt-4 block rounded-2xl bg-blue-600 py-3 font-black text-white"
-            >
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 text-center dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-lg font-black">ログインが必要です</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">ログインするとお気に入りを同期できます。</p>
+            <Link href="/login" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white">
               ログインする
             </Link>
           </section>
         ) : favorites.length === 0 ? (
-          <section className="rounded-[24px] border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <p className="mb-3 text-4xl">☆</p>
-            <h2 className="text-xl font-black">
-              お気に入りはまだありません
-            </h2>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-              分析ページ右上の☆を押すと、ここに登録されます。
-            </p>
-
-            <Link
-              href="/today-market"
-              className="mt-4 block rounded-2xl bg-blue-600 py-3 font-black text-white"
-            >
-              今日の市場から探す
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 text-center dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-lg font-black">お気に入りはまだありません</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">銘柄の個別解析から☆で追加できます。</p>
+            <Link href="/scan-mobile" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white">
+              注目株を探す
             </Link>
           </section>
         ) : (
-          <section className="space-y-3">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
-              株価はYahoo Financeを元にした保存済みスキャンの参考価格です。証券会社のリアルタイム株価とは異なる場合があります。
-              {scanStatus === "stale" ? <p className="mt-1 text-red-700">⚠ スキャンの保存データを表示中（更新待ち）</p> : null}
-              {scanUpdatedAt ? <p className="mt-1">スキャン保存: {new Date(scanUpdatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p> : null}
-            </div>
+          <section aria-label="お気に入り銘柄一覧" className="space-y-2">
             {favorites.map((stock) => {
-              const power = getPower(stock);
-              const judge = getJudge(power);
+              const hasQuote = Number.isFinite(stock.price) && stock.price > 0;
+              const rawPower = getPower(stock);
+              const power = hasQuote && Number.isFinite(rawPower) ? rawPower : null;
+              const judge = power === null ? "未取得" : getJudge(power);
+              const judgeColor = power === null
+                ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                : getJudgeColor(power);
               const isRemoving = removingCode === stock.code;
+              const change = hasQuote && typeof stock.changePercent === "number" &&
+                Number.isFinite(stock.changePercent) ? stock.changePercent : null;
+              const changeTone = change === null ? "text-slate-500"
+                : change > 0 ? "text-emerald-700 dark:text-emerald-400"
+                : change < 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-600 dark:text-slate-300";
+              const quoteOld = quoteIsFromEarlierDay(stock.latestBarTimestamp);
+              const href = "/analysis/" + encodeURIComponent(stock.code);
 
               return (
-                <div
-                  key={stock.code}
-                  className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <Link
-                      href={`/analysis/${stock.code}`}
-                      className="min-w-0 flex-1"
-                    >
+                <article key={stock.code} data-testid="favorite-compact-stock-card"
+                  className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex items-center gap-2 px-3.5 pt-3">
+                    <Link href={href} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-black">
-                          {stock.code}
-                        </h2>
-
-                        <span
-                          className={`rounded-lg px-2 py-1 text-xs font-black ${getJudgeColor(
-                            power
-                          )}`}
-                        >
-                          {judge}
-                        </span>
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stock.code}</span>
+                        <span className={"rounded-md px-2 py-0.5 text-[11px] font-bold " + judgeColor}>{judge}</span>
                       </div>
-
-                      <p className="truncate text-lg font-black">
-                        {stock.name}
-                      </p>
-
-                      <p className="mt-1 truncate text-xs font-bold text-slate-500">
-                        {stock.reason || "AI理由なし"}
-                      </p>
+                      <h2 className="mt-0.5 truncate text-base font-black leading-6">{stock.name}</h2>
                     </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => void removeFavorite(stock.code)}
-                      disabled={isRemoving || removingCode !== null}
-                      aria-label={`${stock.name}をお気に入りから削除`}
-                      className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-400 text-xl font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
+                    <div className="shrink-0 text-right">
+                      <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI評価</p>
+                      <p className="text-xl font-black leading-6 tabular-nums text-blue-600 dark:text-blue-400">
+                        {power === null ? "—" : power.toFixed(Number.isInteger(power) ? 0 : 1)}
+                      </p>
+                    </div>
+                    <button type="button"
+                      onClick={() => {
+                        if (window.confirm(stock.name + " をお気に入りから削除しますか？")) {
+                          void removeFavorite(stock.code);
+                        }
+                      }}
+                      disabled={removingCode !== null}
+                      aria-label={stock.name + "をお気に入りから削除"}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-yellow-400 text-xl font-black text-white disabled:opacity-50">
                       {isRemoving ? "…" : "★"}
                     </button>
                   </div>
 
-                  <p className="mt-2 text-[11px] font-bold text-slate-500">株価データ: {quoteAsOf(stock.latestBarTimestamp)}（日本時間）</p>
-                  {quoteIsFromEarlierDay(stock.latestBarTimestamp) ? <p className="text-[11px] font-bold text-amber-700">⚠ 本日分ではない参考株価です</p> : null}
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Mini label="AI" value={String(power)} />
-                    <Mini label="参考株価" value={yen(stock.price)} />
-                    <Mini
-                      label="スキャン変化率"
-                      value={`${stock.changePercent ?? 0}%`}
-                    />
-                  </div>
-
-                  <Link
-                    href={`/analysis/${stock.code}`}
-                    className="mt-3 block rounded-2xl bg-slate-900 py-3 text-center font-black text-white"
-                  >
-                    🔍 個別解析を見る
+                  <Link href={href} aria-label={stock.code + " " + stock.name + "の個別解析を見る"}
+                    className="block px-3.5 pb-3 pt-2">
+                    <dl className="grid grid-cols-3 gap-1 rounded-xl bg-slate-50 px-1 py-2.5 dark:bg-slate-800">
+                      <div className="min-w-0 text-center">
+                        <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">参考株価</dt>
+                        <dd className="mt-0.5 truncate text-[13px] font-black tabular-nums">
+                          {hasQuote ? yen(stock.price) : "—"}
+                        </dd>
+                      </div>
+                      <div className="min-w-0 border-x border-slate-200 text-center dark:border-slate-700">
+                        <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">100株必要額</dt>
+                        <dd className="mt-0.5 truncate text-[13px] font-black tabular-nums">
+                          {hasQuote ? yen(stock.price * 100) : "—"}
+                        </dd>
+                      </div>
+                      <div className="min-w-0 text-center">
+                        <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">変化率</dt>
+                        <dd className={"mt-0.5 truncate text-[13px] font-black tabular-nums " + changeTone}>
+                          {change === null ? "—" : (change > 0 ? "+" : "") + change.toFixed(2) + "%"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-xs text-slate-600 dark:text-slate-300">
+                        {stock.reason || "AI理由なし"}
+                      </p>
+                      <span className="shrink-0 text-xs font-bold text-blue-700 dark:text-blue-300">詳しく ›</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      株価時刻 {quoteAsOf(stock.latestBarTimestamp)}
+                      {quoteOld ? " ・過去日データ" : null}
+                    </p>
                   </Link>
-                </div>
+                </article>
               );
             })}
           </section>
         )}
-      </div>
 
-      <BottomNav />
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="cursor-pointer font-bold text-slate-700 dark:text-slate-200">
+            データの日時・参考株価について
+          </summary>
+          <div className="mt-2 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
+            <p>株価はYahoo Financeを元にした保存済みスキャンの参考価格です。証券会社のリアルタイム株価とは異なる場合があります。</p>
+            <p>スキャン保存：{scanUpdatedAt ? new Date(scanUpdatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
+            <p>AI評価は実測の勝率ではありません。売買前に最新株価とチャートを確認してください。</p>
+          </div>
+        </details>
+
+        <BottomNav />
+      </div>
     </main>
-  );
-}
-function Mini({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-center">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-1 break-words text-base font-black">{value}</p>
-    </div>
   );
 }

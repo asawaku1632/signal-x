@@ -9,7 +9,7 @@
     "lint": "eslint",
     "audit:patterns": "node scripts/audit-chart-pattern-catalog.mjs",
     "test:next-session": "node --experimental-strip-types --test scripts/research/next-session-budget-watch.test.mjs scripts/research/next-session-evidence-forward.test.mjs scripts/research/budget-universe-tdnet.test.mjs scripts/research/next-session-jpx-coverage.test.mjs scripts/research/morning-probe-shadow.test.mjs scripts/research/morning-probe-archive.test.mjs",
-    "test:ranking": "node --experimental-strip-types --test tests/adminStockWinRateRanking.test.mjs tests/stockWinRateMath.test.mjs tests/winRateTop5BudgetReplay.test.mjs tests/scanDailyRanking.test.mjs",
+    "test:ranking": "node --experimental-strip-types --test tests/adminStockWinRateRanking.test.mjs tests/stockWinRateMath.test.mjs tests/winRateTop5BudgetReplay.test.mjs tests/scanDailyRanking.test.mjs tests/favoritesCompactLayout.test.mjs",
     "research:morning-probes": "node scripts/research/report-morning-probe-archives.mjs"
   },
   "dependencies": {
