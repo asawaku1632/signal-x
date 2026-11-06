@@ -26,7 +26,7 @@ type Stock = {
 };
 
 type SignalFilter = "hot" | "strong" | "market-hot" | "market-watch" | "all";
-type BudgetFilter = 10000 | 100000 | 300000 | 380000 | 500000 | 1000000 | "all";
+type BudgetFilter = 10000 | 100000 | 300000 | 500000 | 1000000 | "all";
 type SortMode = "score" | "change" | "down" | "cheap" | "expensive" | "money";
 type FetchError = "api" | "timeout" | null;
 
@@ -34,7 +34,6 @@ const budgetOptions: { label: string; value: BudgetFilter }[] = [
   { label: "1万円以内", value: 10000 },
   { label: "10万円以内", value: 100000 },
   { label: "30万円以内", value: 300000 },
-  { label: "38万円以内", value: 380000 },
   { label: "50万円以内", value: 500000 },
   { label: "100万円以内", value: 1000000 },
   { label: "制限なし", value: "all" },
@@ -379,7 +378,7 @@ function ScanMobileContent() {
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2" aria-label="予算で絞り込む">
-            {budgetOptions.filter((option) => [100000, 300000, 380000, 500000, "all"].includes(option.value)).map((option) => (
+            {budgetOptions.filter((option) => [100000, 300000, 500000, 1000000, "all"].includes(option.value)).map((option) => (
               <button key={option.label} type="button" aria-pressed={budgetFilter === option.value} onClick={() => setBudgetFilter(option.value)} className={`min-h-9 rounded-full border px-3 text-[11px] font-black transition ${budgetFilter === option.value ? "border-blue-600 bg-blue-600 text-white dark:border-blue-400 dark:bg-blue-500" : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
                 {option.value === "all" ? "予算なし" : option.label}
               </button>
