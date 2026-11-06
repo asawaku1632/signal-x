@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useSearchParams } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
 import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
+import { rankDailyScanCandidates } from "@/app/lib/scanDailyRanking";
 import type { ScanDetectedPattern } from "@/app/components/scan/DetectedPatternSummary";
 
 type Stock = {
@@ -183,7 +184,9 @@ function ScanMobileContent() {
   const filterParam = searchParams.get("filter");
   const budgetParam = searchParams.get("budget");
   const initialSignalFilter: SignalFilter =
-    filterParam === "market-hot" || filterParam === "market-watch" ? filterParam : "strong";
+    filterParam === "market-hot" || filterParam === "market-watch" ||
+    filterParam === "hot" || filterParam === "strong" || filterParam === "all"
+      ? filterParam : "strong";
   const initialBudget: BudgetFilter =
     budgetParam === "all" ? "all" : ((Number(budgetParam) || 100000) as BudgetFilter);
 
@@ -192,6 +195,7 @@ function ScanMobileContent() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [marketClosed, setMarketClosed] = useState(false);
+  const [marketDateJst, setMarketDateJst] = useState<string | null>(null);
   const displayLabels = scanDisplayLabels(marketClosed);
   const [quoteDateRange, setQuoteDateRange] = useState<{ oldest: string | null; latest: string | null }>({ oldest: null, latest: null });
   const [signalFilter, setSignalFilter] = useState<SignalFilter>(initialSignalFilter);
@@ -236,6 +240,7 @@ function ScanMobileContent() {
       const savedAt = typeof json?.updatedAt === "string" ? new Date(json.updatedAt) : null;
       setLastUpdated(savedAt && Number.isFinite(savedAt.getTime()) ? savedAt : null);
       setMarketClosed(json?.marketClosed === true);
+      setMarketDateJst(typeof json?.marketDateJst === "string" ? json.marketDateJst : null);
       setQuoteDateRange({
         oldest: typeof json?.oldestQuoteDateJst === "string" ? json.oldestQuoteDateJst : null,
         latest: typeof json?.latestQuoteDateJst === "string" ? json.latestQuoteDateJst : null,
@@ -275,63 +280,33 @@ function ScanMobileContent() {
     }
   }
 
-  const rankedStocks = useMemo(
-    () => [...stocks].sort((a, b) =>
-      b.score - a.score ||
-      b.changePercent - a.changePercent ||
-      b.volumeRatio - a.volumeRatio ||
-      a.code.localeCompare(b.code, "ja", { numeric: true }),
-    ),
-    [stocks],
-  );
-  const hotSignals = useMemo(() => rankedStocks.slice(0, HOT_TOP_LIMIT), [rankedStocks]);
-  const strongSignals = useMemo(() => rankedStocks.slice(0, STRONG_TOP_LIMIT), [rankedStocks]);
-  const hotSignalCodes = useMemo(() => new Set(hotSignals.map((stock) => stock.code)), [hotSignals]);
-  const strongSignalCodes = useMemo(() => new Set(strongSignals.map((stock) => stock.code)), [strongSignals]);
   const rawHotCount = useMemo(() => stocks.filter((stock) => stock.score >= 95).length, [stocks]);
   const rawStrongCount = useMemo(() => stocks.filter((stock) => stock.score >= 85).length, [stocks]);
 
-  const filteredStocks = useMemo(() => {
-    const result = stocks.filter((stock) => {
-      const signalOk = signalFilter === "hot"
-        ? hotSignalCodes.has(stock.code)
-        : signalFilter === "strong"
-          ? strongSignalCodes.has(stock.code)
-          : signalFilter === "market-hot"
-            ? stock.score >= 75
-            : signalFilter === "market-watch"
-              ? stock.score >= 65 && stock.score < 75
-              : true;
-      return signalOk && (budgetFilter === "all" || stock.price * 100 <= budgetFilter);
-    });
-    if (sortMode === "score") result.sort((a, b) => b.score - a.score);
-    if (sortMode === "change") result.sort((a, b) => b.changePercent - a.changePercent);
-    if (sortMode === "down") result.sort((a, b) => a.changePercent - b.changePercent);
-    if (sortMode === "cheap") result.sort((a, b) => a.price - b.price);
-    if (sortMode === "expensive") result.sort((a, b) => b.price - a.price);
-    if (sortMode === "money") result.sort((a, b) => a.price * 100 - b.price * 100);
-    return result;
-  }, [stocks, signalFilter, budgetFilter, sortMode, hotSignalCodes, strongSignalCodes]);
+  // Select affordable candidates first. The scan API supplies up to 100
+  // highest-scored saved records, so this is NOT a full-universe ranking.
+  const filteredStocks = useMemo(
+    () => rankDailyScanCandidates(stocks, {
+      budget: budgetFilter,
+      filter: signalFilter,
+      sort: sortMode,
+    }),
+    [stocks, budgetFilter, signalFilter, sortMode],
+  );
 
-  const bestSignalMetrics = useMemo(() => {
-    const candidates = filteredStocks
-      .map(getBestSignalMetrics)
-      .filter((candidate): candidate is NonNullable<ReturnType<typeof getBestSignalMetrics>> => candidate !== null)
-      .sort((a, b) => b.stock.score - a.stock.score);
-    return candidates.find(({ expectedProfit, riskRewardRatio }) => riskRewardRatio >= 1.2 && expectedProfit >= 500)
-      ?? candidates.find(({ expectedProfit, riskRewardRatio }) => riskRewardRatio >= 1 && expectedProfit >= 300)
-      ?? null;
-  }, [filteredStocks]);
-
-  const bestSignal = bestSignalMetrics?.stock ?? filteredStocks[0];
+  // Rank 1 must be the first item in the displayed order; do not silently
+  // promote another stock based on an unvalidated profit simulation.
+  const bestSignal = filteredStocks[0] ?? null;
+  const bestSignalMetrics = bestSignal ? getBestSignalMetrics(bestSignal) : null;
   const market = getMarketJudge(rawHotCount, rawStrongCount);
-  const podiumStocks = bestSignal
-    ? [bestSignal, ...filteredStocks.filter((stock) => stock.code !== bestSignal.code)].slice(0, 3)
-    : [];
-  const podiumCodes = new Set(podiumStocks.map((stock) => stock.code));
-  const rankingStocks = filteredStocks.filter((stock) => !podiumCodes.has(stock.code));
-  const visibleStocks = rankingStocks.slice(0, showAll ? 17 : 5);
-  const candidateCount = strongSignals.length;
+  const podiumStocks = filteredStocks.slice(0, 5);
+  const rankingStocks = filteredStocks.slice(5);
+  const visibleStocks = rankingStocks.slice(0, showAll ? 15 : 5);
+  const candidateCount = filteredStocks.length;
+  const quoteIsCurrent = Boolean(
+    marketDateJst && quoteDateRange.latest && marketDateJst === quoteDateRange.latest,
+  );
+  const savedDataView = marketClosed || !quoteIsCurrent;
 
   const selectClass = "min-h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 pr-8 text-xs font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:focus:ring-blue-900";
 
@@ -352,8 +327,9 @@ function ScanMobileContent() {
             </button>
           </div>
           <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-800">
-            <h1 className="text-xl font-black tracking-tight sm:text-2xl">AIスキャン</h1>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl">{savedDataView ? "保存データの注目ランキング" : "本日の注目ランキング"}</h1>
             <p className="mt-0.5 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">{displayLabels.description}</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-500 dark:text-slate-400">保存済みAIスキャンの候補比較です。買い推奨・将来の勝率保証ではありません。</p>
           </div>
         </header>
 
@@ -366,40 +342,29 @@ function ScanMobileContent() {
           marketClosed={marketClosed}
         />
         {stocks.length > 0 && (
-          <div className={`mt-3 rounded-xl border px-3 py-3 text-xs font-bold leading-6 ${marketClosed
+          <div className={`mt-3 rounded-xl border px-3 py-2.5 text-xs font-bold leading-5 ${savedDataView
             ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
             : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"}`}>
-            {marketClosed && <p>📅 東証休場日：前営業日の保存データを表示中。休場日は全銘柄の再スキャンを行いません。</p>}
-            <p>AI分析結果の保存日時：{lastUpdated ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
-            <p>株価データの最終日：{quoteDateRange.latest
-              ? quoteDateRange.oldest && quoteDateRange.oldest !== quoteDateRange.latest
+            {marketClosed ? (
+              <p>📅 東証休場日：前営業日の保存データを表示中</p>
+            ) : !quoteIsCurrent ? (
+              <p>⚠ 株価の日付が当日と確認できないため、保存データの候補として表示中</p>
+            ) : null}
+            <p>株価基準日：{quoteDateRange.latest ?? "未確認"} ・分析保存：{lastUpdated
+              ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+              : "不明"}（日本時間）</p>
+            <details className="mt-1">
+              <summary className="cursor-pointer text-[11px] font-bold text-blue-700 dark:text-blue-300">データの日時について</summary>
+              <p className="mt-1 font-normal">株価データの範囲：{quoteDateRange.oldest && quoteDateRange.latest
                 ? `${quoteDateRange.oldest}〜${quoteDateRange.latest}`
-                : quoteDateRange.latest
-              : "元データの日時は未取得"}（日本時間）</p>
-            <p className="font-normal">株価日付とAI分析の保存日時は異なる場合があります。保存日時は新しい株価の取得を意味しません。</p>
+                : "未確認"}。保存日時は新しい株価の取得を意味しません。</p>
+            </details>
           </div>
         )}
 
+
         {fetchError && stocks.length > 0 && (
           <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} compact />
-        )}
-
-        {loading && stocks.length === 0 ? (
-          <ScanLoadingCard />
-        ) : fetchError && stocks.length === 0 ? (
-          <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} />
-        ) : bestSignal ? (
-          <FeaturedStock stock={bestSignal} metrics={bestSignalMetrics} onFavorite={() => void addFavorite(bestSignal.code, bestSignal.name)} totalStocks={totalStocks || stocks.length} marketClosed={marketClosed} />
-        ) : (
-          <EmptyResult onChangeConditions={() => setFiltersOpen(true)} />
-        )}
-
-        {podiumStocks.length > 1 && (
-          <section className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="上位候補">
-            {podiumStocks.slice(1).map((stock, index) => (
-              <PodiumStockCard key={stock.code} stock={stock} rank={index + 2} />
-            ))}
-          </section>
         )}
 
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
@@ -412,6 +377,13 @@ function ScanMobileContent() {
               {filtersOpen ? "閉じる" : "条件を変更"}
             </button>
           </div>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="予算で絞り込む">
+            {budgetOptions.filter((option) => [100000, 300000, 500000, 1000000, "all"].includes(option.value)).map((option) => (
+              <button key={option.label} type="button" aria-pressed={budgetFilter === option.value} onClick={() => setBudgetFilter(option.value)} className={`min-h-9 rounded-full border px-3 text-[11px] font-black transition ${budgetFilter === option.value ? "border-blue-600 bg-blue-600 text-white dark:border-blue-400 dark:bg-blue-500" : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
+                {option.value === "all" ? "予算なし" : option.label}
+              </button>
+            ))}
+          </div>
           {filtersOpen && (
             <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-3">
               <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400">候補条件</span><select value={signalFilter} onChange={(event) => setSignalFilter(event.target.value as SignalFilter)} className={selectClass}><option value="strong">買い候補</option><option value="hot">{displayLabels.hotFilter}</option><option value="all">すべて</option><option value="market-hot">市場の激熱候補</option><option value="market-watch">市場の注目候補</option></select></label>
@@ -421,14 +393,42 @@ function ScanMobileContent() {
           )}
         </section>
 
+        <section className="mt-4 rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-600 p-4 text-white shadow-sm sm:p-5" aria-label="本日の注目上位5銘柄">
+          <p className="text-[10px] font-black tracking-[0.18em] text-blue-100">DAILY WATCHLIST · TOP 5</p>
+          <div className="mt-1 flex items-end justify-between gap-3">
+            <h2 className="text-xl font-black">{savedDataView ? "保存済み注目 TOP5" : "本日の注目 TOP5"}</h2>
+            <span className="text-xs font-black">{Math.min(5, filteredStocks.length)}銘柄</span>
+          </div>
+          <p className="mt-2 text-[11px] font-medium leading-5 text-blue-100">100株単位の予算に合う候補を{sortLabel(sortMode)}で表示。高評価でも購入判断には9:05以降の値動き確認が必要です。</p>
+          <p className="mt-2 text-[10px] text-blue-100">株価基準日 {quoteDateRange.latest ?? "未確認"} ・取得した{stocks.length}件から選定（市場全体の順位ではありません）</p>
+        </section>
+
+        {loading && stocks.length === 0 ? (
+          <ScanLoadingCard />
+        ) : fetchError && stocks.length === 0 ? (
+          <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} />
+        ) : bestSignal ? (
+          <FeaturedStock stock={bestSignal} metrics={bestSignalMetrics} onFavorite={() => void addFavorite(bestSignal.code, bestSignal.name)} rankedCount={filteredStocks.length} marketClosed={marketClosed} />
+        ) : (
+          <EmptyResult onChangeConditions={() => setFiltersOpen(true)} />
+        )}
+
+        {podiumStocks.length > 1 && (
+          <section className="mt-3 grid gap-3 sm:grid-cols-2" aria-label="上位候補">
+            {podiumStocks.slice(1).map((stock, index) => (
+              <PodiumStockCard key={stock.code} stock={stock} rank={index + 2} />
+            ))}
+          </section>
+        )}
+
         <section ref={rankingRef} className="mt-6 scroll-mt-5">
           <div className="mb-3 flex items-end justify-between gap-3">
-            <div><p className="text-[10px] font-black tracking-[0.16em] text-blue-600 dark:text-blue-400">CANDIDATES</p><h2 className="mt-1 text-xl font-black">候補ランキング</h2></div>
+            <div><p className="text-[10px] font-black tracking-[0.16em] text-blue-600 dark:text-blue-400">CANDIDATES</p><h2 className="mt-1 text-xl font-black">6位以降の候補</h2></div>
             <span className="text-xs font-bold text-slate-400">{filteredStocks.length}銘柄</span>
           </div>
           <div className="space-y-3">
             {visibleStocks.length ? visibleStocks.map((stock, index) => <RankingCard key={stock.code} stock={stock} rank={index + podiumStocks.length + 1} />) : <p className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">ほかに表示できる候補はありません</p>}
-            {filteredStocks.length > 6 && <button type="button" onClick={() => setShowAll((value) => !value)} className="min-h-12 w-full rounded-2xl border border-blue-200 bg-white text-sm font-black text-blue-700 shadow-sm hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950">{showAll ? "表示を戻す" : "さらに表示（最大20位）"} <span aria-hidden>⌄</span></button>}
+            {filteredStocks.length > 10 && <button type="button" onClick={() => setShowAll((value) => !value)} className="min-h-12 w-full rounded-2xl border border-blue-200 bg-white text-sm font-black text-blue-700 shadow-sm hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-blue-950">{showAll ? "表示を戻す" : "さらに表示（最大20位）"} <span aria-hidden>⌄</span></button>}
           </div>
         </section>
 
@@ -485,7 +485,7 @@ function EmptyResult({ onChangeConditions }: { onChangeConditions: () => void })
   return <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900"><p className="text-base font-black">条件に合う候補がありません</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">条件を変更して再検索してください</p><button type="button" onClick={onChangeConditions} className="mt-4 min-h-10 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-black text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">条件を変更</button></section>;
 }
 
-function FeaturedStock({ stock, metrics, onFavorite, totalStocks, marketClosed }: { stock: Stock; metrics: ReturnType<typeof getBestSignalMetrics>; onFavorite: () => void; totalStocks: number; marketClosed: boolean }) {
+function FeaturedStock({ stock, metrics, onFavorite, rankedCount, marketClosed }: { stock: Stock; metrics: ReturnType<typeof getBestSignalMetrics>; onFavorite: () => void; rankedCount: number; marketClosed: boolean }) {
   const displayLabels = scanDisplayLabels(marketClosed);
   const takeProfit = metrics?.takeProfit ?? stock.takeProfit;
   const stopLoss = metrics?.stopLoss ?? stock.stopLoss;
@@ -494,9 +494,6 @@ function FeaturedStock({ stock, metrics, onFavorite, totalStocks, marketClosed }
   const rr = riskReward({ ...stock, takeProfit, stopLoss });
   const rsiText = Number.isFinite(stock.rsi) ? Math.round(stock.rsi).toString() : "—";
   const requiredMoneyText = Number.isFinite(stock.price) ? yen(stock.price * 100) : "—";
-  const aiWinRateText = Number.isFinite(stock.score)
-    ? `${Math.min(95, Math.max(45, Math.round(stock.score * 0.75 + 12)))}%`
-    : "—";
   const expectedProfitText = metrics && Number.isFinite(metrics.expectedProfit)
     ? `${metrics.expectedProfit > 0 ? "+" : ""}${yen(metrics.expectedProfit)}`
     : "—";
@@ -517,13 +514,13 @@ function FeaturedStock({ stock, metrics, onFavorite, totalStocks, marketClosed }
       <Link href={`/analysis/${stock.code}`} aria-label={`${stock.code} ${stock.name}の個別解析を見る`} className="absolute inset-0 z-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-blue-500" />
       <div className="pointer-events-none relative z-10">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0"><p className="text-[10px] font-black tracking-[0.12em] text-amber-700 dark:text-amber-400">🥇 {displayLabels.strongest}</p><p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">約{totalStocks.toLocaleString()}銘柄からAIランキング1位</p></div>
+          <div className="min-w-0"><p className="text-[10px] font-black tracking-[0.12em] text-amber-700 dark:text-amber-400">🥇 {displayLabels.strongest}</p><p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">予算と選択条件に合う{rankedCount}銘柄の表示順位1位</p></div>
           <button type="button" onClick={onFavorite} className="pointer-events-auto relative z-20 -mr-1 -mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-2xl text-amber-500 dark:border-amber-800 dark:bg-amber-950" aria-label={`${stock.name}をお気に入りに追加`}>☆</button>
         </div>
         <div className="mt-2 flex min-w-0 items-center gap-2"><span className="shrink-0 text-sm font-black text-slate-500 dark:text-slate-400">{stock.code}</span><h2 className="min-w-0 flex-1 truncate text-xl font-black">{stock.name}</h2><span className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-black text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300">{getSignal(stock.score)}</span></div>
 
         <div className="mt-3 grid grid-cols-[1.15fr_.85fr] gap-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
-          <div><p className="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:text-slate-400">AI POWER</p><p data-testid="scan-mobile-ai-power" className="mt-0.5 text-5xl font-black leading-none tracking-tight text-blue-600 dark:text-blue-400">{scoreText(stock.score)}</p><p className="mt-1.5 text-[8px] font-bold text-slate-400"><span className="mr-1">補助評価</span>{getRank(stock.score)}ランク・{"★".repeat(stars)}・AI勝率 {aiWinRateText}</p></div>
+          <div><p className="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:text-slate-400">AI POWER</p><p data-testid="scan-mobile-ai-power" className="mt-0.5 text-5xl font-black leading-none tracking-tight text-blue-600 dark:text-blue-400">{scoreText(stock.score)}</p><p className="mt-1.5 text-[8px] font-bold text-slate-400"><span className="mr-1">補助評価</span>{getRank(stock.score)}ランク・{"★".repeat(stars)}・AI評価（実測勝率ではありません）</p></div>
           <dl className="space-y-1.5 text-xs"><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">{displayLabels.quote}</dt><dd className="font-black">{yen(stock.price)}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">変化率</dt><dd className={`font-black ${changePercentTone}`}>{changePercentText}</dd></div><div className="flex justify-between gap-2"><dt className="text-slate-500 dark:text-slate-400">必要資金</dt><dd className="font-black text-orange-600 dark:text-orange-400">{requiredMoneyText}</dd></div></dl>
         </div>
 
@@ -532,7 +529,7 @@ function FeaturedStock({ stock, metrics, onFavorite, totalStocks, marketClosed }
           {reasons.length ? <><ul className="mt-1.5 space-y-1">{reasons.slice(0, 3).map((reason) => <li key={reason} className="flex gap-2 text-xs font-bold leading-5 text-slate-700 dark:text-slate-200"><span className="text-emerald-600 dark:text-emerald-400">✓</span><span>{reason}</span></li>)}</ul>{reasons.length > 3 && <details className="pointer-events-auto relative z-20 mt-1"><summary className="cursor-pointer py-1 text-xs font-black text-blue-600 dark:text-blue-400">＋ほか{reasons.length - 3}件</summary><ul className="mt-1 space-y-1 border-t border-slate-100 pt-2 dark:border-slate-800">{reasons.slice(3).map((reason) => <li key={reason} className="flex gap-2 text-xs leading-5 text-slate-600 dark:text-slate-300"><span className="text-emerald-600 dark:text-emerald-400">✓</span><span>{reason}</span></li>)}</ul></details>}</> : <p className="mt-1 text-xs text-slate-400">—</p>}
         </section>
 
-        <dl data-testid="scan-mobile-trade-metrics" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-xl border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-slate-800"><CompactTradeRow label="利益目安" value={yen(takeProfit)} tone="text-emerald-600 dark:text-emerald-400" /><CompactTradeRow label="損失目安" value={yen(stopLoss)} tone="text-red-600 dark:text-red-400" /><CompactTradeRow label="期待利益" value={expectedProfitText} tone="text-emerald-600 dark:text-emerald-400" /><CompactTradeRow label="想定損失" value={expectedLossText} tone="text-red-600 dark:text-red-400" /><CompactTradeRow label="損益比" value={rr} tone="text-blue-600 dark:text-blue-400" /><CompactTradeRow label="RSI" value={rsiText} tone="text-slate-700 dark:text-slate-200" /></dl>
+        <dl data-testid="scan-mobile-trade-metrics" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-xl border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-slate-800"><CompactTradeRow label="利益目安" value={yen(takeProfit)} tone="text-emerald-600 dark:text-emerald-400" /><CompactTradeRow label="損失目安" value={yen(stopLoss)} tone="text-red-600 dark:text-red-400" /><CompactTradeRow label="試算利益" value={expectedProfitText} tone="text-emerald-600 dark:text-emerald-400" /><CompactTradeRow label="想定損失" value={expectedLossText} tone="text-red-600 dark:text-red-400" /><CompactTradeRow label="損益比" value={rr} tone="text-blue-600 dark:text-blue-400" /><CompactTradeRow label="RSI" value={rsiText} tone="text-slate-700 dark:text-slate-200" /></dl>
         <p className="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">候補抽出結果です。売買前に個別解析をご確認ください</p>
         <div className="mt-2.5 grid gap-2"><span className="flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition group-hover:bg-blue-700 dark:bg-blue-500 dark:group-hover:bg-blue-400">個別解析を見る →</span><Link href={`/chart/${stock.code}`} className="pointer-events-auto relative z-20 flex min-h-9 items-center justify-center text-xs font-black text-slate-500 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-300">チャートを見る →</Link></div>
       </div>

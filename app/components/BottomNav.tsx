@@ -30,8 +30,8 @@ const publicNavItems: NavItem[] = [
   },
   {
     href: "/scan-mobile",
-    icon: "🔍",
-    label: "スキャン",
+    icon: "🏆",
+    label: "注目株",
     matchPaths: ["/scan-mobile", "/scan"],
   },
   {
