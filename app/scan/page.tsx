@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
+import { getAiScoreTier } from "@/app/lib/aiScoreTier";
 import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -97,11 +99,7 @@ function normalizeStocks(input: ApiStock[]): Stock[] {
 }
 
 function getSignal(score: number) {
-  if (score >= 95) return "大本命";
-  if (score >= 85) return "激熱";
-  if (score >= 70) return "買い候補";
-  if (score >= 50) return "静観";
-  return "見送り";
+  return getAiScoreTier(score).label;
 }
 
 function getRank(score: number) {
@@ -287,7 +285,7 @@ export default function ScanPage() {
               {additionalBollingerStocks.map((stock) => (
                 <Link key={stock.code} href={`/analysis/${stock.code}`} className="min-w-0 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md">
                   <div className="mb-2 flex min-w-0 items-baseline justify-between gap-2 px-1">
-                    <p className="truncate text-sm font-black text-slate-900">{stock.name}</p>
+                    <p className="flex min-w-0 items-center gap-1"><span className="min-w-0 truncate text-sm font-black text-slate-900">{stock.name}</span><AiScoreTierBadge score={stock.score} /></p>
                     <p className="shrink-0 text-xs font-bold text-slate-500">{stock.code}</p>
                   </div>
                   <BollingerSignalCard signal={stock.bollinger} variant="compact" />
@@ -319,7 +317,7 @@ export default function ScanPage() {
                   <Link key={stock.code} href={`/analysis/${stock.code}`} className="group grid min-h-16 grid-cols-[44px_72px_minmax(0,1fr)_68px_82px_22px] items-center gap-2 px-3 py-3 transition hover:bg-blue-50/60 focus-visible:bg-blue-50 sm:grid-cols-[56px_90px_minmax(0,1fr)_90px_110px_24px] sm:px-5">
                     <span className="text-sm font-black text-slate-400">{index + 4}</span>
                     <span className="text-xs font-bold text-slate-500 sm:text-sm">{stock.code}</span>
-                    <span className="truncate text-sm font-black text-slate-900">{stock.name}</span>
+                    <span className="flex min-w-0 items-center gap-1"><span className="min-w-0 truncate text-sm font-black text-slate-900">{stock.name}</span><AiScoreTierBadge score={stock.score} /></span>
                     <span className="text-right text-lg font-black text-blue-600">{Math.round(stock.score)}</span>
                     <span className="text-right text-sm font-bold tabular-nums text-slate-700">{yen(stock.price)}</span>
                     <span className="text-lg text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500" aria-hidden>›</span>
@@ -354,7 +352,7 @@ function TopPickCard({ stock, marketClosed }: { stock: Stock; marketClosed: bool
             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-500 text-4xl shadow-[0_10px_25px_rgba(217,154,22,0.3)]" aria-label="1位ゴールドメダル">🥇</span>
             <div className="min-w-0">
               <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black tracking-[0.16em] text-amber-800">{displayLabels.strongest}</div>
-              <h2 className="mt-2 truncate text-2xl font-black tracking-tight sm:text-3xl">{stock.name}</h2>
+              <div className="mt-2 flex min-w-0 items-center gap-2"><h2 className="min-w-0 truncate text-2xl font-black tracking-tight sm:text-3xl">{stock.name}</h2><AiScoreTierBadge score={stock.score} /></div>
               <p className="mt-1 text-sm font-bold text-slate-500">{stock.code} ・ {displayLabels.quote} {yen(stock.price)}</p>
             </div>
           </div>
@@ -406,7 +404,7 @@ function PodiumStockCard({ stock, rank }: { stock: Stock; rank: number }) {
   return (
     <Link href={`/analysis/${stock.code}`} className={`group flex items-center gap-4 rounded-[24px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isSecond ? "border-slate-300 bg-gradient-to-br from-slate-50 to-white" : "border-orange-200 bg-gradient-to-br from-orange-50 to-white"}`}>
       <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-full text-3xl shadow-inner ${isSecond ? "bg-gradient-to-br from-slate-200 to-slate-400" : "bg-gradient-to-br from-orange-200 to-orange-500"}`} aria-label={`${rank}位メダル`}>{isSecond ? "🥈" : "🥉"}</span>
-      <div className="min-w-0 flex-1"><p className={`text-xs font-black tracking-[0.14em] ${isSecond ? "text-slate-600" : "text-orange-700"}`}>第{rank}位</p><h3 className="mt-1 truncate text-xl font-black">{stock.name}</h3><p className="mt-1 text-xs font-bold text-slate-500">{stock.code} ・ {yen(stock.price)}</p></div>
+      <div className="min-w-0 flex-1"><p className={`text-xs font-black tracking-[0.14em] ${isSecond ? "text-slate-600" : "text-orange-700"}`}>第{rank}位</p><div className="mt-1 flex min-w-0 items-center gap-1.5"><h3 className="min-w-0 truncate text-xl font-black">{stock.name}</h3><AiScoreTierBadge score={stock.score} /></div><p className="mt-1 text-xs font-bold text-slate-500">{stock.code} ・ {yen(stock.price)}</p></div>
       <div className="text-right"><p className="text-[10px] font-black text-slate-400">AI評価</p><p className="text-3xl font-black text-blue-600">{Math.round(stock.score)}</p></div>
     </Link>
   );
