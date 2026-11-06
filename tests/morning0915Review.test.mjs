@@ -108,7 +108,8 @@ test("incoming 09:15 unfinished/future bars cannot affect completed-bucket decis
   assert.equal(inspect0915CompletedBars(tampered,day,"3762").state,"UNAVAILABLE");
 });
 test("the 09:20 observation cannot be relabeled as available at 09:15",()=>{
-  const p=goodProbe({requestedAt:at("09:20:10"),receivedAt:at("09:20:20")});
+  const p=goodProbe({requestedAt:at("09:20:10"),receivedAt:at("09:20:20"),
+    bars:[...candles,candle("09:15",101.2,101.5,1100)]});
   assert.equal(p.status,"AVAILABLE_AS_OF_RECEIPT");
   const r=review({probe:p});
   assert.equal(r.sourceSlot,"09:20");
