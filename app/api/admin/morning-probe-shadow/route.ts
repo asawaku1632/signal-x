@@ -4,6 +4,8 @@ import pool from "@/app/lib/postgres";
 import {isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {MORNING_FINAL_POLICY} from "@/app/lib/research/morningFinalCheck.mjs";
 import {isJpxStockCode} from "@/app/lib/research/jpxStockCode.mjs";
+import {MARKET_FORWARD_POLICY} from "@/app/lib/research/morningMarketForward.mjs";
+import {assess0915ShadowReview,summarize0915ShadowReviews} from "@/app/lib/research/morning0915Review.mjs";
 import {sealMorningProbeArchive} from "@/app/lib/research/morningProbeArchive.mjs";
 import {
   evaluateMorningProbe,probeSlotAt,summarizeMorningProbes,MORNING_PROBE_POLICY
@@ -19,6 +21,8 @@ type Run={trade_date:string;prior_date:string;cohort:Candidate[];
   frozen_at:string};
 type Candle={time:number;open:number|null;high:number|null;low:number|null;
   close:number|null;volume:number|null};
+type MarketSnapshot={trade_date:string;policy_version:string;state:string;
+  captured_at:string;source:string;quotes:Record<string,unknown>};
 
 /**
  * EXPLICIT OWNER-INITIATED POST ONLY. No schedule/cron, DB write, order, ranking update
@@ -62,6 +66,21 @@ export async function POST(request:Request){
       return NextResponse.json({policy:MORNING_PROBE_POLICY,
         status:"VALID_FROZEN_COHORT_UNAVAILABLE",date:slot.date,
         networkCalls:0},{status:409,headers});
+
+    // One read-only, pre-open US market reference check. Missing/duplicate rows
+    // cannot be treated as a positive macro signal. This never calls a broker.
+    let marketRow:MarketSnapshot|null=null;
+    try {
+      const market=await pool.query<MarketSnapshot>(
+        "SELECT trade_date::text,policy_version,state,captured_at::text,source,quotes "+
+        "FROM public.morning_market_forward_runs "+
+        "WHERE trade_date=$1::date AND policy_version=$2 LIMIT 2",
+        [slot.date,MARKET_FORWARD_POLICY]);
+      marketRow=market.rows.length===1?market.rows[0]:null;
+    }catch {
+      // Provider readiness can still be measured; never claim market safety.
+      marketRow=null;
+    }
 
     const probes=await Promise.all(run.cohort.map(async candidate=>{
       const requestTime=new Date();
@@ -124,11 +143,18 @@ export async function POST(request:Request){
       cohortFrozenAt:new Date(freezeAt).toISOString(),
       frozenCodes:run.cohort.map(c=>c.code),probes,
     };
+    const reviews=run.cohort.map(candidate=>assess0915ShadowReview({
+      tradeDate:slot.date,candidate,
+      probe:probes.find(p=>p.code===candidate.code)??null,
+      marketRow,
+    }));
+    const reviewSummary=summarize0915ShadowReviews(reviews);
     const archive=sealMorningProbeArchive(batch);
     return NextResponse.json({
       ...batch,
       networkCalls:probes.filter(p=>!("networkStatus" in p && p.networkStatus==="NOT_REQUESTED")).length,
       coverage:summarizeMorningProbes(probes),
+      reviews,reviewSummary,
       archive,
       warning:"NOT_A_LIVE_BUY_SIGNAL_AND_NOT_A_FILLABLE_5M_OPEN"},
       {headers});
