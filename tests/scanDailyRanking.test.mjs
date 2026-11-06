@@ -59,7 +59,7 @@ test("price sort changes displayed ranks without changing budget eligibility", (
     stock("2003", 84, 4000),
   ];
   const result = rankDailyScanCandidates(rows, {
-    budget: 380000, filter: "all", sort: "cheap",
+    budget: 300000, filter: "all", sort: "cheap",
   });
   assert.deepEqual(result.map((item) => item.code), ["2001", "2002", "2000"]);
 });
@@ -72,4 +72,6 @@ test("mobile rank-1 card matches the first ranked stock and does not invent AI w
   assert.match(source, /DAILY WATCHLIST · TOP 5/);
   assert.match(source, /株価基準日/);
   assert.doesNotMatch(source, /aiWinRateText|AI勝率 \{/);
+  assert.doesNotMatch(source, /38万円|380000/);
+  assert.match(source, /\[100000, 300000, 500000, 1000000, "all"\]/);
 });
