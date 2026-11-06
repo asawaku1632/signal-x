@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
 import { scanDisplayLabels } from "@/app/lib/scanDisplayLabels";
 import { rankDailyScanCandidates } from "@/app/lib/scanDailyRanking";
 import type { ScanDetectedPattern } from "@/app/components/scan/DetectedPatternSummary";
@@ -342,7 +343,7 @@ function CompactStockCard({ stock, rank }: { stock: Stock; rank: number }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stock.code}</p>
-            <h2 className="truncate text-base font-black leading-6">{stock.name}</h2>
+            <div className="flex min-w-0 items-center gap-1.5"><h2 className="min-w-0 truncate text-base font-black leading-6">{stock.name}</h2><AiScoreTierBadge score={stock.score} /></div>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI評価</p>
