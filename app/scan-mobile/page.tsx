@@ -33,7 +33,7 @@ const budgetOptions: { label: string; shortLabel: string; value: BudgetFilter }[
   { label: "制限なし", shortLabel: "制限なし", value: "all" },
 ];
 
-const quickBudgetValues: BudgetFilter[] = [100000, 300000, 500000, 1000000, "all"];
+const quickBudgetValues: BudgetFilter[] = [100000, 300000, 500000, 1000000];
 const sortOptions: { label: string; value: SortMode }[] = [
   { label: "AI評価順", value: "score" },
   { label: "上昇率順", value: "change" },
@@ -204,7 +204,7 @@ function ScanMobileContent() {
                 {savedDataView ? "保存データの注目 TOP5" : "今日の注目 TOP5"}
               </h1>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                株価基準日 {quoteDateRange.latest ?? "確認中"} ・AI評価順の参考候補
+                株価基準日 {quoteDateRange.latest ?? "確認中"} ・保存AI評価の参考候補
               </p>
             </div>
             <span className="shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -212,11 +212,11 @@ function ScanMobileContent() {
             </span>
           </div>
 
-          <div className="-mx-3 mt-3 flex gap-2 overflow-x-auto px-3 pb-2 sm:mx-0 sm:px-0" aria-label="予算で絞り込む">
+          <div className="mt-3 grid grid-cols-4 gap-1.5" aria-label="予算で絞り込む">
             {budgetOptions.filter((option) => quickBudgetValues.includes(option.value)).map((option) => (
               <button key={option.label} type="button" aria-pressed={budgetFilter === option.value}
                 onClick={() => { setBudgetFilter(option.value); setShowMore(false); }}
-                className={"min-h-10 shrink-0 rounded-full border px-4 text-sm font-bold transition " +
+                className={"min-h-10 rounded-xl border px-1 text-sm font-bold transition " +
                   (budgetFilter === option.value
                     ? "border-blue-600 bg-blue-600 text-white"
                     : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200")}>
