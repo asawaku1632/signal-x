@@ -70,13 +70,12 @@ export function inspect0915CompletedBars(probe,tradeDate,code){
   if(!Number.isFinite(requested)||!Number.isFinite(received)||received<requested)
     return unavailable("INVALID_REQUEST_RECEIPT_ORDER");
   const requestedJst=jstParts(requested),receivedJst=jstParts(received);
+  const slotMinute=Number(probe.probeSlot?.slice(0,2))*60+
+    Number(probe.probeSlot?.slice(3));
   if(!slots.has(probe.probeSlot)||requestedJst.date!==tradeDate||
-     receivedJst.date!==tradeDate||requestedJst.hhmm.slice(0,4)!==probe.probeSlot.slice(0,4)||
-     Math.floor(requestedJst.minute/5)!==Math.floor(receivedJst.minute/5)||
-     requestedJst.hhmm.slice(0,2)!==probe.probeSlot.slice(0,2)||
-     receivedJst.minute < 555 || receivedJst.minute>=575 ||
-     Math.floor(receivedJst.minute/5)!==Math.floor(Number(probe.probeSlot.slice(0,2))*60+
-       Number(probe.probeSlot.slice(3)))/5))
+     receivedJst.date!==tradeDate||
+     requestedJst.minute<slotMinute||requestedJst.minute>=slotMinute+5||
+     receivedJst.minute<slotMinute||receivedJst.minute>=slotMinute+5)
     return unavailable("OUTSIDE_OR_ROLLED_CAPTURE_SLOT");
   if(!Array.isArray(probe.observedBars)||probe.observedBars.length<3||
      probe.observedBars.length>7)return unavailable("INCONSISTENT_BAR_COUNT");
