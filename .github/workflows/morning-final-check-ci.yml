@@ -11,6 +11,7 @@ on:
       - "supabase/migrations/20261021_create_morning_market_forward_runs.sql"
       - "app/lib/research/morningFinalCheckRunner.ts"
       - "app/lib/research/morningOpeningSourceEvidence.mjs"
+      - "app/lib/research/morningCaptureHealth.mjs"
       - "tests/morningOpeningSourceEvidence.test.mjs"
       - "app/admin/morning-final-check/**"
       - "app/admin/learning-hub/page.tsx"
