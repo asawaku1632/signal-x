@@ -10,8 +10,8 @@ const at=t=>new Date(date+"T"+t+"+09:00");
 const ts=t=>Math.floor(at(t).getTime()/1000);
 const times=["09:00:00","09:05:00","09:10:00"].map(ts);
 const quote=()=>({
-  open:[100,100.5,200], high:[102,500,1000], low:[99,1,0.01],
-  close:[101,1,900],volume:[8000,999999,999999],
+  open:[100,100.5,200], high:[100.8,500,1000], low:[99.5,1,0.01],
+  close:[100.4,1,900],volume:[8000,999999,999999],
 });
 const response=(overrides={})=>({
   chart:{result:[{timestamp:times,meta:{exchangeTimezoneName:"Asia/Tokyo"},
