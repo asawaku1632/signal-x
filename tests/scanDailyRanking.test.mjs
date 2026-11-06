@@ -64,14 +64,18 @@ test("price sort changes displayed ranks without changing budget eligibility", (
   assert.deepEqual(result.map((item) => item.code), ["2001", "2002", "2000"]);
 });
 
-test("mobile rank-1 card matches the first ranked stock and does not invent AI win rate", () => {
+test("mobile page starts with a compact, budget-filtered TOP5 instead of giant cards", () => {
   const source = readFileSync(new URL("../app/scan-mobile/page.tsx", import.meta.url), "utf8");
-  assert.match(source, /const bestSignal = filteredStocks\[0\] \?\? null;/);
-  assert.match(source, /const podiumStocks = filteredStocks\.slice\(0, 5\)/);
+  assert.match(source, /const topFive = filteredStocks\.slice\(0, 5\)/);
+  assert.match(source, /topFive\.map\(\(stock, index\)/);
   assert.match(source, /rankDailyScanCandidates\(stocks,/);
-  assert.match(source, /DAILY WATCHLIST · TOP 5/);
   assert.match(source, /株価基準日/);
-  assert.doesNotMatch(source, /aiWinRateText|AI勝率 \{/);
-  assert.doesNotMatch(source, /38万円|380000/);
-  assert.match(source, /\[100000, 300000, 500000, 1000000, "all"\]/);
+  assert.match(source, /100株必要額/);
+  assert.match(source, /参考株価/);
+  assert.match(source, /className="mt-2 space-y-2"/);
+  assert.doesNotMatch(source, /bg-gradient-to-r|text-5xl|AI勝率|380000|38万円/);
+  assert.match(source, /quickBudgetValues: BudgetFilter\[\] = \[100000, 300000, 500000, 1000000, "all"\]/);
+  const topIndex = source.indexOf('topFive.map((stock, index)');
+  const detailsIndex = source.indexOf('<details className="mt-4');
+  assert.ok(detailsIndex > topIndex, "verbose analysis details must remain below TOP5");
 });
