@@ -196,6 +196,7 @@ function ScanMobileContent() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [marketClosed, setMarketClosed] = useState(false);
+  const [marketDateJst, setMarketDateJst] = useState<string | null>(null);
   const displayLabels = scanDisplayLabels(marketClosed);
   const [quoteDateRange, setQuoteDateRange] = useState<{ oldest: string | null; latest: string | null }>({ oldest: null, latest: null });
   const [signalFilter, setSignalFilter] = useState<SignalFilter>(initialSignalFilter);
@@ -240,6 +241,7 @@ function ScanMobileContent() {
       const savedAt = typeof json?.updatedAt === "string" ? new Date(json.updatedAt) : null;
       setLastUpdated(savedAt && Number.isFinite(savedAt.getTime()) ? savedAt : null);
       setMarketClosed(json?.marketClosed === true);
+      setMarketDateJst(typeof json?.marketDateJst === "string" ? json.marketDateJst : null);
       setQuoteDateRange({
         oldest: typeof json?.oldestQuoteDateJst === "string" ? json.oldestQuoteDateJst : null,
         latest: typeof json?.latestQuoteDateJst === "string" ? json.latestQuoteDateJst : null,
@@ -302,6 +304,10 @@ function ScanMobileContent() {
   const rankingStocks = filteredStocks.slice(5);
   const visibleStocks = rankingStocks.slice(0, showAll ? 15 : 5);
   const candidateCount = filteredStocks.length;
+  const quoteIsCurrent = Boolean(
+    marketDateJst && quoteDateRange.latest && marketDateJst === quoteDateRange.latest,
+  );
+  const savedDataView = marketClosed || !quoteIsCurrent;
 
   const selectClass = "min-h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 pr-8 text-xs font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:focus:ring-blue-900";
 
@@ -322,9 +328,9 @@ function ScanMobileContent() {
             </button>
           </div>
           <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-800">
-            <h1 className="text-xl font-black tracking-tight sm:text-2xl">{marketClosed ? "保存データの注目ランキング" : "本日の注目ランキング"}</h1>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl">{savedDataView ? "保存データの注目ランキング" : "本日の注目ランキング"}</h1>
             <p className="mt-0.5 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">{displayLabels.description}</p>
-            <p className="mt-1 text-[10px] leading-4 text-slate-500 dark:text-slate-400">AI POWERによる候補順位です。買い推奨・将来の勝率保証ではありません。</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-500 dark:text-slate-400">保存済みAIスキャンの候補比較です。買い推奨・将来の勝率保証ではありません。</p>
           </div>
         </header>
 
@@ -337,19 +343,26 @@ function ScanMobileContent() {
           marketClosed={marketClosed}
         />
         {stocks.length > 0 && (
-          <div className={`mt-3 rounded-xl border px-3 py-3 text-xs font-bold leading-6 ${marketClosed
+          <div className={`mt-3 rounded-xl border px-3 py-2.5 text-xs font-bold leading-5 ${savedDataView
             ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
             : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"}`}>
-            {marketClosed && <p>📅 東証休場日：前営業日の保存データを表示中。休場日は全銘柄の再スキャンを行いません。</p>}
-            <p>AI分析結果の保存日時：{lastUpdated ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
-            <p>株価データの最終日：{quoteDateRange.latest
-              ? quoteDateRange.oldest && quoteDateRange.oldest !== quoteDateRange.latest
+            {marketClosed ? (
+              <p>📅 東証休場日：前営業日の保存データを表示中</p>
+            ) : !quoteIsCurrent ? (
+              <p>⚠ 株価の日付が当日と確認できないため、保存データの候補として表示中</p>
+            ) : null}
+            <p>株価基準日：{quoteDateRange.latest ?? "未確認"} ・分析保存：{lastUpdated
+              ? lastUpdated.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+              : "不明"}（日本時間）</p>
+            <details className="mt-1">
+              <summary className="cursor-pointer text-[11px] font-bold text-blue-700 dark:text-blue-300">データの日時について</summary>
+              <p className="mt-1 font-normal">株価データの範囲：{quoteDateRange.oldest && quoteDateRange.latest
                 ? `${quoteDateRange.oldest}〜${quoteDateRange.latest}`
-                : quoteDateRange.latest
-              : "元データの日時は未取得"}（日本時間）</p>
-            <p className="font-normal">株価日付とAI分析の保存日時は異なる場合があります。保存日時は新しい株価の取得を意味しません。</p>
+                : "未確認"}。保存日時は新しい株価の取得を意味しません。</p>
+            </details>
           </div>
         )}
+
 
         {fetchError && stocks.length > 0 && (
           <FetchWarning kind={fetchError} onRetry={() => void fetchStocks()} compact />
@@ -384,7 +397,7 @@ function ScanMobileContent() {
         <section className="mt-4 rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-600 p-4 text-white shadow-sm sm:p-5" aria-label="本日の注目上位5銘柄">
           <p className="text-[10px] font-black tracking-[0.18em] text-blue-100">DAILY WATCHLIST · TOP 5</p>
           <div className="mt-1 flex items-end justify-between gap-3">
-            <h2 className="text-xl font-black">{marketClosed ? "保存済み注目 TOP5" : "本日の注目 TOP5"}</h2>
+            <h2 className="text-xl font-black">{savedDataView ? "保存済み注目 TOP5" : "本日の注目 TOP5"}</h2>
             <span className="text-xs font-black">{Math.min(5, filteredStocks.length)}銘柄</span>
           </div>
           <p className="mt-2 text-[11px] font-medium leading-5 text-blue-100">100株単位の予算に合う候補を{sortLabel(sortMode)}で表示。高評価でも購入判断には9:05以降の値動き確認が必要です。</p>
@@ -408,8 +421,6 @@ function ScanMobileContent() {
             ))}
           </section>
         )}
-
-
 
         <section ref={rankingRef} className="mt-6 scroll-mt-5">
           <div className="mb-3 flex items-end justify-between gap-3">
