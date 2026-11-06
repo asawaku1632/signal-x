@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import BottomNav from "@/app/components/BottomNav";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
+import { AI_SCORE_TIER_LEGEND } from "@/app/lib/aiScoreTier";
 
 type FavoriteRecord = {
   code: string;
@@ -55,26 +57,6 @@ function quoteIsFromEarlierDay(timestamp?: number | null) {
   if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) return false;
   const options: Intl.DateTimeFormatOptions = { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" };
   return new Date(timestamp * 1000).toLocaleDateString("ja-JP", options) !== new Date().toLocaleDateString("ja-JP", options);
-}
-
-function getPower(stock: Stock) {
-  return Number(stock.score ?? stock.aiPower ?? 0);
-}
-
-function getJudge(power: number) {
-  if (power >= 95) return "大本命";
-  if (power >= 85) return "買い候補";
-  if (power >= 75) return "押し目待ち";
-  if (power >= 65) return "様子見";
-  return "見送り";
-}
-
-function getJudgeColor(power: number) {
-  if (power >= 95) return "bg-yellow-100 text-yellow-800";
-  if (power >= 85) return "bg-green-100 text-green-700";
-  if (power >= 75) return "bg-blue-100 text-blue-700";
-  if (power >= 65) return "bg-yellow-100 text-yellow-700";
-  return "bg-red-100 text-red-700";
 }
 
 export default function FavoritesPage() {
@@ -291,12 +273,9 @@ export default function FavoritesPage() {
           <section aria-label="お気に入り銘柄一覧" className="space-y-2">
             {favorites.map((stock) => {
               const hasQuote = Number.isFinite(stock.price) && stock.price > 0;
-              const rawPower = getPower(stock);
-              const power = hasQuote && Number.isFinite(rawPower) ? rawPower : null;
-              const judge = power === null ? "未取得" : getJudge(power);
-              const judgeColor = power === null
-                ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                : getJudgeColor(power);
+              const rawPower = stock.score ?? stock.aiPower;
+              const power = hasQuote && typeof rawPower === "number" &&
+                Number.isFinite(rawPower) && rawPower >= 0 && rawPower <= 100 ? rawPower : null;
               const isRemoving = removingCode === stock.code;
               const change = hasQuote && typeof stock.changePercent === "number" &&
                 Number.isFinite(stock.changePercent) ? stock.changePercent : null;
@@ -313,9 +292,11 @@ export default function FavoritesPage() {
                     <Link href={href} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stock.code}</span>
-                        <span className={"rounded-md px-2 py-0.5 text-[11px] font-bold " + judgeColor}>{judge}</span>
                       </div>
-                      <h2 className="mt-0.5 truncate text-base font-black leading-6">{stock.name}</h2>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                        <h2 className="min-w-0 truncate text-base font-black leading-6">{stock.name}</h2>
+                        <AiScoreTierBadge score={power} />
+                      </div>
                     </Link>
                     <div className="shrink-0 text-right">
                       <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">AI評価</p>
@@ -382,6 +363,7 @@ export default function FavoritesPage() {
           <div className="mt-2 space-y-1 text-xs leading-6 text-slate-600 dark:text-slate-300">
             <p>株価はYahoo Financeを元にした保存済みスキャンの参考価格です。証券会社のリアルタイム株価とは異なる場合があります。</p>
             <p>スキャン保存：{scanUpdatedAt ? new Date(scanUpdatedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "不明"}（日本時間）</p>
+            <p>{AI_SCORE_TIER_LEGEND}</p>
             <p>AI評価は実測の勝率ではありません。売買前に最新株価とチャートを確認してください。</p>
           </div>
         </details>
