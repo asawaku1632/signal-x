@@ -107,8 +107,8 @@ export function inspect0915CompletedBars(probe,tradeDate,code){
     eligibleForRealOrders:false};
 }
 
-export function assess0915ShadowReview({tradeDate,candidate,probe,marketRow,
-  budgetYen=380000,shares=100}={}){
+export function assess0915ShadowReview(input){
+  const {tradeDate,candidate,probe,marketRow,budgetYen=380000,shares=100}=input??{};
   if(!isDate(tradeDate))throw Error("INVALID_TRADE_DATE");
   const code=String(candidate?.code??"");
   if(!/^[0-9A-Z]{4}$/.test(code))throw Error("INVALID_FROZEN_CANDIDATE");
