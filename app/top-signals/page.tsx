@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import AiScoreTierBadge from "@/app/components/stock/AiScoreTierBadge";
+import { AI_SCORE_TIER_LEGEND } from "@/app/lib/aiScoreTier";
 import { useEffect, useState } from "react";
 
 type Stock = {
@@ -21,23 +23,6 @@ type ScanResponse = {
 
 const INITIAL_RANKING_COUNT = 10;
 const MAX_RANKING_COUNT = 30;
-
-function judgeLabel(score: number) {
-  if (score >= 85) return "激熱";
-  if (score >= 70) return "本命";
-  if (score >= 50) return "静観";
-  return "見送り";
-}
-
-function judgeStyle(score: number) {
-  if (score >= 85) {
-    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300";
-  }
-  if (score >= 70) {
-    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300";
-  }
-  return "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
-}
 
 function rankStyle(index: number) {
   if (index === 0) {
@@ -162,6 +147,8 @@ export default function TopSignalsPage() {
           </p>
         )}
 
+        <p className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{AI_SCORE_TIER_LEGEND}</p>
+
         {!loading && !error && stocks.length > 0 && (
           <section className="space-y-3" aria-label="AI注目銘柄ランキング">
             {visibleStocks.map((stock, index) => {
@@ -195,9 +182,8 @@ export default function TopSignalsPage() {
                           <span className="shrink-0 text-sm font-black text-slate-700 dark:text-slate-200">
                             {stock.code}
                           </span>
-                          <h2 className="min-w-0 truncate text-base font-black sm:text-lg">
-                            {stock.name}
-                          </h2>
+                          <h2 className="min-w-0 truncate text-base font-black sm:text-lg">{stock.name}</h2>
+                          <AiScoreTierBadge score={stock.score} />
                         </div>
                         {index === 0 && (
                           <p className="mt-1 text-[10px] font-black tracking-wide text-amber-700 dark:text-amber-400">
@@ -205,9 +191,7 @@ export default function TopSignalsPage() {
                           </p>
                         )}
                       </div>
-                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${judgeStyle(stock.score)}`}>
-                        {judgeLabel(stock.score)}
-                      </span>
+
                     </div>
 
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
