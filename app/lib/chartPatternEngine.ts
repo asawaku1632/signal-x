@@ -3268,3 +3268,42 @@ export function detectChartPatterns(
 
   return optimizeDetectedPatterns(patterns);
 }
+
+/** Completed structural breaks for owner event monitoring; no optimizer or scoring changes. */
+export function detectOwnerStructureBreaks(raw: PatternCandle[]) {
+ const candles=raw.filter(c=>[c.time,c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite)).slice(-150);
+ if(candles.length<30)return [];
+ const volumeRatio=getVolumeRatio(candles),{lows}=detectPivots(candles);
+ const candidates:DetectedChartPattern[]=[];
+ detectInverseHeadAndShoulders(candles,lows,volumeRatio,candidates);
+ detectTrianglePatterns(candles,volumeRatio,candidates);
+ detectBullFlagBreakout(candles,volumeRatio,candidates);
+ detectBullPennantBreakout(candles,volumeRatio,candidates);
+ detectConfirmedBoxBreakout(candles,volumeRatio,candidates);
+ const last=candles.at(-1)!;
+ const results:Array<DetectedChartPattern&{level:number;points:Array<{time:number;price:number;label:string}>}>=[];
+ for(const p of candidates){
+  if(p.direction!=="BUY")continue;
+  let level:number|undefined;
+  let points:Array<{time:number;price:number;label:string}>=[];
+  if(p.name==="逆三尊"&&lows.length>=3){
+   const [left,head,right]=lows.slice(-3);
+   level=(Math.max(...candles.slice(left.index,head.index+1).map(c=>c.high))+Math.max(...candles.slice(head.index,right.index+1).map(c=>c.high)))/2;
+   points=[{time:candles[left.index].time,price:left.price,label:"左肩"},{time:candles[head.index].time,price:head.price,label:"頭"},{time:candles[right.index].time,price:right.price,label:"右肩"}];
+  }else if(p.name==="上昇三角持ち合い"||p.name==="対称三角持ち合い"){
+   const recent=candles.slice(-30),line=calculateRegressionLine(recent.map(c=>c.high));
+   if(line)level=line.endValue;
+   points=[{time:recent[0].time,price:recent[0].close,label:"収束範囲の開始"}];
+  }else if(p.name==="フラッグブレイク"||p.name==="ペナント上抜け"){
+   const recent=candles.slice(-23),line=calculateRegressionLine(recent.slice(12,-1).map(c=>c.high));
+   if(line)level=getProjectedValue(line);
+   points=[{time:recent[0].time,price:recent[0].close,label:"ポール開始"},{time:recent[12].time,price:recent[12].close,label:"調整開始"}];
+  }else if(p.name==="ボックス上抜け"){
+   const box=candles.slice(-21,-1);
+   level=Math.max(...box.map(c=>c.high));
+   points=[{time:box[0].time,price:box[0].close,label:"ボックス範囲の開始"}];
+  }
+  if(level&&last.close>level*1.003)results.push({...p,level,points});
+ }
+ return results;
+}
