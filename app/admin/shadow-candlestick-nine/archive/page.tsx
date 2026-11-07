@@ -211,6 +211,10 @@ export default async function ShadowCandleArchivePage() {
         <Link href="/admin/shadow-candlestick-nine/batch" prefetch={false}
           className="text-sm font-black text-blue-700">← 5銘柄比較へ戻る</Link>
         <h1 className="mt-4 text-2xl font-black">💾 ローソク足研究の保存履歴</h1>
+        <Link href="/admin/shadow-candlestick-nine" prefetch={false}
+          className="mt-3 flex min-h-12 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3 text-sm font-black text-amber-900">
+          🟡 銘柄コードを入力して「買う前の注意」を研究チェック
+        </Link>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           本人が保存した結果と、明示的に有効化された研究用の定期取得結果を集計します。
           同じ銘柄・検出日・パターンの記録は重複して数えません。
