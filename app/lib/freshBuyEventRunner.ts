@@ -1,12 +1,12 @@
 import "server-only";
 import pool from "@/app/lib/postgres";
 import {pushWebToUser} from "@/app/lib/push/userPush";
-import {evaluateFreshBuy} from "@/app/lib/freshBuyEvent.mjs";
+import {evaluateFreshBuyWithStructures} from "@/app/lib/freshStructureBuy";
 type Bar={time:number;open:number;high:number;low:number;close:number;volume:number};
 type Signal={kind:string;label:string;level:number;volumeRatio:number};
 type Event={bar_time:string;reference_price:string;signals:Signal[]};
 export async function captureAndNotifyFreshBuy(owner:string,stock:{code:string;name:string},bars:Bar[],tradeDate:string){
- const observation=evaluateFreshBuy(bars,Date.now(),tradeDate);
+ const observation=evaluateFreshBuyWithStructures(bars,Date.now(),tradeDate);
  if(observation.matched)await pool.query(`INSERT INTO public.owner_new_buy_events
   (owner_email,code,trade_date,name,bar_time,reference_price,signals,evidence)
   VALUES($1,$2,$3::date,$4,$5,$6,$7::jsonb,$8::jsonb) ON CONFLICT(owner_email,code,trade_date) DO NOTHING`,
