@@ -35,8 +35,11 @@ export default async function Page({searchParams}:{searchParams:Promise<{code?:s
  const {rows}=await pool.query<Event>(`SELECT code,name,trade_date::text,bar_time::text,reference_price::text,detected_at::text,state,signals,evidence
  FROM public.owner_new_buy_events WHERE owner_email=$1 AND ($2::text IS NULL OR code=$2)
  AND ($3::text IS NULL OR trade_date::text=$3) ORDER BY trade_date DESC,detected_at DESC LIMIT 30`,[email,code??null,date??null]);
+ const outcomes=rows.length?(await pool.query<{code:string;trade_date:string;horizon:number;target_date:string;status:string;return_pct:number|null;close_price:number|null}>(`SELECT code,trade_date::text,horizon,target_date::text,status,return_pct::float8,close_price::float8 FROM public.owner_new_buy_outcomes WHERE owner_email=$1 AND (code,trade_date) IN (SELECT p.code,p.trade_date::date FROM jsonb_to_recordset($2::jsonb) p(code text,trade_date text))`,[email,JSON.stringify(rows.map(e=>({code:e.code,trade_date:e.trade_date})))])).rows:[];
+ const outcomeMap=new Map(outcomes.map(o=>[o.code+"/"+o.trade_date+"/"+o.horizon,o]));
  return <main className="mx-auto max-w-3xl space-y-4 px-3 py-5 pb-24">
  <Link href="/admin/uptrend-watch" className="text-sm font-bold text-blue-700">← 上昇監視・通知</Link>
+ <Link href="/admin/new-buy-performance" className="block text-sm font-bold text-blue-700">📊 8系統・1/3/5営業日後の成績比較 →</Link>
  <h1 className="text-xl font-black">🟢 新規の買い条件・成立記録</h1>
  <p className="text-sm leading-6">本人用・試験運用。高値突破・押し目反発・BB上方向拡大・三角持ち合い上抜け・ボックス上抜け・フラッグ・ペナント・逆三尊を、確定5分足で新しく確認した記録です。参考価格・時刻・理由・判定に使った最大150本を固定保存します。約定価格とは異なります。</p>
  <p className="text-xs leading-5">対象は既存の夜間上昇候補。5分ごとに最大160銘柄ずつ巡回します。同じ銘柄の新規成立通知は1日1回。未確定足と古い足は通知せず、送信待ちが20分を超えると配信を止めます。</p>
@@ -49,6 +52,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{code?:s
  <p className="text-sm">足の確定時刻 {displayTime(Number(e.bar_time)+300)}</p>
  <p className="text-xs">取得・判定 {displayTime(e.detected_at)} ／ 通知：{e.state==="SENT"?"送信済み":e.state==="CLAIMED"?"送信状況確認中":e.state==="EXPIRED"?"時間切れ・配信なし":"受信設定・送信待ち"}</p>
  {e.signals.map(s=><div key={s.kind} className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm"><p className="font-bold">{s.label}</p><p>突破基準 {s.level.toFixed(2)}円 ／ 出来高は直前20本平均の{s.volumeRatio.toFixed(2)}倍</p>{s.reasons?.map((reason,i)=><p key={i} className="text-xs">・{reason}</p>)}</div>)}
+ <div className="mt-3 grid grid-cols-3 gap-2">{[1,3,5].map(h=>{const o=outcomeMap.get(e.code+"/"+e.trade_date+"/"+h);return <div key={h} className="rounded-lg bg-slate-50 p-2 text-xs"><p className="font-bold">{h}営業日後</p><p>{o?.target_date??"日程確定待ち"}</p><p className="mt-1 font-bold">{o?.status==="COMPLETE"&&o.return_pct!==null?`${o.return_pct>=0?"+":""}${o.return_pct.toFixed(2)}%` :o?.status==="DATA_MISSING"?"価格取得待ち":o?.status==="CORPORATE_ACTION_REVIEW"?"分割等・要確認":o?.status==="INVALID_EVENT"?"記録要確認":"追跡待ち"}</p>{o?.status==="COMPLETE"&&<p>終値 {o.close_price?.toLocaleString("ja-JP")}円</p>}</div>;})}</div>
+ <p className="mt-1 text-xs">成立時の参考価格から各営業日の終値まで。費用控除前です。</p>
  <EventChart event={e}/>
  <p className="mt-2 text-xs">紫丸＝新規成立を確認した足。青丸＝形状判定に使った肩・頭・調整範囲など。破線＝当時の突破基準。最新価格で再計算せず、保存した判定入力を表示しています。</p>
  </article>)}
