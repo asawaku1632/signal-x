@@ -39,19 +39,20 @@ export async function GET(request:Request) {
       FROM signals s JOIN public.daily_stock_results d
         ON d.code=s.code AND d.date=s.signal_date::text
       WHERE s.code ~ '^[0-9][0-9A-Z][0-9][0-9A-Z]$'
-      GROUP BY s.code ORDER BY max(d.score) DESC,s.code LIMIT 20
+      GROUP BY s.code
     )
     INSERT INTO public.owner_uptrend_watch(owner_email,code,signal_date,name,reasons)
     SELECT $1,code,signal_date,name,reasons FROM candidates
     ON CONFLICT(owner_email,code,signal_date) DO NOTHING
   `,[owner,priorDates,session.date]);
   const {rows}=await pool.query<{code:string;name:string;signal_date:string}>(`
-    SELECT DISTINCT ON (w.code) w.code,w.name,w.signal_date::text FROM public.owner_uptrend_watch w
+    SELECT * FROM (SELECT DISTINCT ON (w.code) w.code,w.name,w.signal_date::text,w.observation FROM public.owner_uptrend_watch w
     WHERE owner_email=$1 AND signal_date=ANY($2::date[]) AND state='WAITING'
       AND NOT EXISTS(SELECT 1 FROM public.owner_uptrend_watch sent
         WHERE sent.owner_email=w.owner_email AND sent.code=w.code AND sent.state IN ('SENT','CLAIMED')
           AND sent.signal_date>= $3::date)
-    ORDER BY w.code,w.signal_date DESC LIMIT 20
+    ORDER BY w.code,w.signal_date DESC) pending
+    ORDER BY COALESCE((observation->>'checkedAt')::timestamptz,'epoch'::timestamptz),code LIMIT 20
   `,[owner,priorDates,priorDates[1]]);
   const outcomes:Record<string,unknown>[]=[];
   for(let start=0;start<rows.length;start+=4){
@@ -71,7 +72,7 @@ export async function GET(request:Request) {
         const observation=evaluateUptrend(bars,Date.now(),session.date);
         await pool.query(`UPDATE public.owner_uptrend_watch SET observation=$4::jsonb
           WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state='WAITING'`,
-          [owner,stock.code,stock.signal_date,JSON.stringify(observation)]);
+          [owner,stock.code,stock.signal_date,JSON.stringify({...observation,checkedAt:new Date().toISOString()})]);
         if(!observation.matched){outcomes.push({code:stock.code,state:observation.reason});return;}
         // Claim before delivery. An ambiguous delivery stays claimed for manual audit.
         const claim=await pool.query(`UPDATE public.owner_uptrend_watch w
@@ -93,7 +94,11 @@ export async function GET(request:Request) {
           [owner,stock.code,stock.signal_date,delivery.ok?"SENT":delivery.reason==="NO_SUBSCRIPTION"||delivery.reason==="PREFERENCE_DISABLED"?"WAITING":"CLAIMED"]);
         outcomes.push({code:stock.code,state:delivery.ok?"SENT":delivery.reason||"DELIVERY_FAILED"});
       }catch(error){
-        outcomes.push({code:stock.code,state:error instanceof Error?error.message:"CAPTURE_FAILED"});
+        const reason=error instanceof Error?error.message:"CAPTURE_FAILED";
+        await pool.query(`UPDATE public.owner_uptrend_watch SET observation=$4::jsonb
+          WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state=\'WAITING\'`,
+          [owner,stock.code,stock.signal_date,JSON.stringify({reason,checkedAt:new Date().toISOString()})]);
+        outcomes.push({code:stock.code,state:reason});
       }
     }));
   }
