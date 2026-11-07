@@ -88,11 +88,23 @@ export async function runMsbScaleDaily(now:Date, invocationStartedMs:number):Pro
       return {status:"PARTIAL",dateJst:day,batchesCompleted,stocksAdded,
         reason:"ALREADY_CLAIMED",stoppedAtBatch:batchNo};
 
-    const loaded=await fetchCohort(codes); // ≤5 symbols; ≤3 concurrent requests
-    const saved=await archiveClaimedMsbBatch(day,codes,loaded,batchNo);
-    if(!saved.success)
+    try {
+      const loaded=await fetchCohort(codes); // ≤5 symbols; ≤3 concurrent requests
+      const saved=await archiveClaimedMsbBatch(day,codes,loaded,batchNo);
+      if(!saved.success)
+        return {status:"FAILED",dateJst:day,batchesCompleted,stocksAdded,
+          reason:saved.reason??"BATCH_SAVE_FAILED",stoppedAtBatch:batchNo};
+    } catch(error) {
+      console.error("MSB scale batch unavailable",error);
+      // Even unexpected exceptions become visible to the owner; never retry
+      // the claimed batch or proceed to the next five stocks that day.
+      await pool.query(
+        "UPDATE public.msb_volume_scale_batches SET status='FAILED',note='RUN_ERROR',finished_at=now() "+
+        "WHERE trade_date=$1::date AND batch_no=$2 AND status='CLAIMED'",[day,batchNo]
+      ).catch(e=>console.error("MSB scale batch failure recording unavailable",e));
       return {status:"FAILED",dateJst:day,batchesCompleted,stocksAdded,
-        reason:saved.reason??"BATCH_SAVE_FAILED",stoppedAtBatch:batchNo};
+        reason:"RUN_ERROR",stoppedAtBatch:batchNo};
+    }
 
     batchesCompleted++;
     stocksAdded+=codes.length;
