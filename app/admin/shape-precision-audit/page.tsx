@@ -427,8 +427,8 @@ export default async function ShapePrecisionAuditPage({ searchParams }: Props) {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {selectedId === doubleBottomId && (
-                      <Link prefetch={false} href={`/admin/shape-precision-audit/replay?code=${encodeURIComponent(stock.code)}&at=${encodeURIComponent(snapshot.updatedAt ?? "")}`}
+                    {(
+                      <Link prefetch={false} href={`/admin/shape-precision-audit/replay?code=${encodeURIComponent(stock.code)}&at=${encodeURIComponent(snapshot.updatedAt ?? "")}&pattern=${encodeURIComponent(selectedId)}`}
                         className="grid min-h-11 place-items-center rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-900">参考日足で照合</Link>
                     )}
                     <Link href={`/chart/${stock.code}`} className="grid min-h-11 place-items-center rounded-xl bg-blue-700 px-3 text-xs font-black text-white">チャート</Link>
