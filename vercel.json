@@ -191,6 +191,18 @@
     {
       "path": "/api/cron/favorite-downtrend",
       "schedule": "0-30/5 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/owner-night-jquants?phase=capture",
+      "schedule": "10 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/owner-night-jquants?phase=capture",
+      "schedule": "0,40 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/owner-night-jquants?phase=notify",
+      "schedule": "50,55 10 * * 1-5"
     }
   ]
 }
