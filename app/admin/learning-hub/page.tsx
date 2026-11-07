@@ -50,6 +50,7 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
     id: "research", title: "② 爆益前兆・研究モデル",
     subtitle: "どんな条件のときに上がりやすいか探す",
     items: [
+      { href: "/admin/uptrend-watch", icon: "📈", title: "上昇傾向の通知", tag: "本人専用", detail: "前日までの形状を場中に確認し、上昇条件が揃った銘柄を通知" },
       {
         href: "/admin/research-allstars", icon: "🏆",
         title: "研究オールスター", tag: "本人専用・厳選研究",
