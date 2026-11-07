@@ -3,6 +3,7 @@ import type {ReactNode} from "react";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
 import {SCAN_SNAPSHOT_KEY} from "@/app/lib/scanSnapshot";
+import {shapeDirectionGuide} from "@/app/lib/research/shapeReferenceMarks.mjs";
 import {chartPatternCatalog} from "@/app/lib/chartPatternCatalog";
 export const dynamic="force-dynamic";
 export default async function AnalysisLayout({children,params}:{children:ReactNode;params:Promise<{code:string}>;}){
@@ -32,10 +33,10 @@ export default async function AnalysisLayout({children,params}:{children:ReactNo
     <summary className="min-h-8 cursor-pointer font-black">🔬 参考日足で形を照合（{patternIds.length}種類）<span className="ml-2 text-[10px] font-medium">本人専用・開く</span></summary>
     <p className="mt-1 text-xs">保存された形を選んで、参考チャート・条件・その後を確認</p>
     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-     {patternIds.map(id=>{const p=chartPatternCatalog.find(p=>p.id===id)!;return <Link key={id} prefetch={false}
+     {patternIds.map(id=>{const p=chartPatternCatalog.find(p=>p.id===id)!;const guide=shapeDirectionGuide(p.direction);return <Link key={id} prefetch={false}
       href={"/admin/shape-precision-audit/replay?code="+encodeURIComponent(code)+"&at="+encodeURIComponent(at!)+"&pattern="+encodeURIComponent(id)}
       className="flex min-h-11 items-center justify-between rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold dark:border-amber-800 dark:bg-slate-800">
-      <span>{p.name}</span><span aria-hidden="true">→</span>
+      <span className="flex min-w-0 flex-wrap items-center gap-2"><span className={"rounded-full px-2 py-1 text-[10px] "+guide.badge}>{guide.short}</span><span>{p.name}</span></span><span aria-hidden="true">→</span>
      </Link>;})}
     </div>
    </details>:<p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">🔬 日足照合：{unavailable?"保存記録を取得できませんでした。":"この銘柄の形状保存記録は現在ありません。"}</p>}
