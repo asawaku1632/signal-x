@@ -10,7 +10,7 @@ import {
 export const dynamic="force-dynamic";
 export const revalidate=0;
 type Evidence={
-  totalRecorded:number;validBeforeBenchmark:number;excludedDueToBenchmark:number;
+  totalRecorded:number;completedRecorded:number;validBeforeBenchmark:number;excludedDueToBenchmark:number;
   days:number;cases:number;codes:number;months:number;
   positiveRate:number|null;average5:number|null;severeLossRate:number|null;
   worst5:number|null;relativeToUniverse:number|null;
@@ -24,7 +24,8 @@ function EvidenceCard({data,label}:{data:Evidence;label:string}){
  return <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
    <p className="text-sm font-black text-slate-900">{label}</p>
    <p className="mt-1 text-[11px] text-slate-500">
-     比較できた {data.cases}件 ・ {data.days}判定日 ・ {data.codes}銘柄
+     記録 {data.totalRecorded}件 → 追跡完了 {data.completedRecorded}件 → 同日比較 {data.cases}件
+     <br />比較対象 {data.days}判定日 ・ {data.codes}銘柄
    </p>
    {data.days?<div className="mt-2 grid grid-cols-2 gap-2">
      <div className="rounded-lg bg-white p-2">
@@ -62,7 +63,7 @@ function StudyCard({entry,open=false}:{entry:Entry;open?:boolean}){
         </div>
         <span aria-hidden="true" className="text-slate-500">⌄</span>
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">最後の判定 {entry.latest??"未記録"} ／ 元データ {entry.discovery.cases}</p>
+      <p className="mt-2 text-[11px] text-slate-500">最後の判定 {entry.latest??"未記録"} ／ 一次検証の記録 {entry.discovery.totalRecorded}件</p>
     </summary>
     <div className="space-y-3 border-t border-slate-200 p-3">
       <p className="text-xs leading-5 text-slate-700">{entry.method}</p>
