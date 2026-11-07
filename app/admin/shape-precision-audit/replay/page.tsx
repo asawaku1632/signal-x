@@ -11,6 +11,7 @@ import {
   doubleBottomStageLabel,
 } from "@/app/lib/research/doubleBottomEvidence";
 
+import {shapeDirectionGuide,shapeConditionMarks} from "@/app/lib/research/shapeReferenceMarks.mjs";
 import {shapeReplayPolicy,shapeReferenceCandles,closedReferenceCandles} from "@/app/lib/research/shapeReplayTiming.mjs";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ type Evidence = {
   barTimestamp: number | null;
   dataSource: string;
 };
+type ConditionMark={index:number;time:number;label:string;kind:string};
 type ReplayResult = {
   low1: { price: number; index: number };
   low2: { price: number; index: number };
@@ -188,10 +190,12 @@ function yen(value: number | null) {
   return value === null ? "—" : Math.round(value).toLocaleString("ja-JP") + "円";
 }
 
-function CandleChart({ candles, replay }: { candles: Candle[]; replay: ReplayResult | null }) {
-  const tail = candles.slice(-40);
+function CandleChart({ candles, replay, marks }: { candles: Candle[]; replay: ReplayResult | null; marks:ConditionMark[] }) {
+  const anchors=[...marks.map(mark=>mark.index),...(replay?[replay.low1.index,replay.low2.index]:[])];
+  const firstVisible=Math.max(0,Math.min(Math.max(0,candles.length-40),...anchors.map(index=>index-2)));
+  const tail=candles.slice(firstVisible);
   if (!tail.length) return null;
-  const width = 720;
+  const width = Math.max(720,tail.length*15+67);
   const height = 280;
   const left = 55;
   const right = 12;
@@ -206,7 +210,8 @@ function CandleChart({ candles, replay }: { candles: Candle[]; replay: ReplayRes
   const firstIndex = candles.length - tail.length;
 
   return (
-    <svg viewBox="0 0 720 280" role="img"
+    <svg viewBox={`0 0 ${width} 280`} role="img"
+      style={tail.length>40?{minWidth:width}:undefined}
       aria-label="表示対象日までの参考日足。緑が陽線、赤が陰線。"
       className="h-auto w-full rounded-xl bg-white">
       {[0, 1, 2, 3, 4].map((i) => {
@@ -235,11 +240,18 @@ function CandleChart({ candles, replay }: { candles: Candle[]; replay: ReplayRes
         const bodyHeight = Math.max(1.8, Math.abs(y(c.open) - y(c.close)));
         const absoluteIndex = firstIndex + i;
         const lowMark = replay && [replay.low1.index, replay.low2.index].includes(absoluteIndex);
+        const mark=marks.find(mark=>mark.index===absoluteIndex);
         return (
           <g key={c.time}>
             <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth="2"/>
             <rect x={xx - columnWidth / 2} y={bodyTop} width={columnWidth} height={bodyHeight} fill={color}/>
             {lowMark && <circle cx={xx} cy={y(c.low) + 5} r="6" fill="none" stroke="#2563eb" strokeWidth="2"/>}
+            {mark&&<g>
+              <circle cx={xx} cy={y(c.close)} r="6" fill="white" stroke="#7c3aed" strokeWidth="2.5"/>
+              <text x={xx>width-105?width-right-4:xx}
+                y={Math.max(top+14+(mark.kind==="end"?16:0),y(c.high)-12)}
+                textAnchor={xx>width-105?"end":"middle"} fontSize="11" fontWeight="bold" fill="#6d28d9">{mark.label}</text>
+            </g>}
             {i % 10 === 0 && <text x={xx} y={height - 12} textAnchor="middle" fontSize="11" fill="#475569">{jstDate(c.time).slice(5)}</text>}
           </g>
         );
@@ -289,6 +301,12 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
   const referenceMatches=error||dailyUnsupported?[]:detectChartPatterns(candles).filter(p=>selected.engineNames.includes(p.name));
   const latestMatches=fetched.error||dailyUnsupported?[]:detectChartPatterns(closed).filter(p=>selected.engineNames.includes(p.name));
   const volumeMissing=candles.some(c=>c.volume===undefined);
+  const direction=referenceMatches[0]?.direction??selected.direction;
+  const guide=shapeDirectionGuide(direction);
+  const conditionMatches=isDoubleBottom?Boolean(replay):referenceMatches.length>0;
+  const conditionHistory=error||dailyUnsupported?{marks:[],active:false,historyLimited:false}:shapeConditionMarks(candles,(prefix:Candle[])=>
+    isDoubleBottom?Boolean(inspectEarlierDailyCandles(prefix)):detectChartPatterns(prefix).some(p=>selected.engineNames.includes(p.name)));
+  const conditionMarks=conditionHistory.marks as ConditionMark[];
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
@@ -297,6 +315,13 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <h1 className="mt-4 text-2xl font-black">🔬 参考日足で照合</h1>
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
         <p className="mt-1 text-sm font-black text-blue-800">照合する形：{selected.name}</p>
+        <section className={"mt-4 rounded-2xl border p-4 "+guide.classes}>
+          <p className="text-xs font-bold">図鑑のように見分ける・この形の分類</p>
+          <h2 className="mt-1 text-xl font-black">{guide.label}</h2>
+          <p className="mt-2 text-sm leading-6">{guide.description}</p>
+          <p className="mt-2 text-sm font-black">今回の日足：{error?"取得待ち":dailyUnsupported?"分足専用のため照合対象外":conditionMatches?"条件一致あり":"条件一致なし・今の形は未確認"}</p>
+          <p className="mt-2 text-xs leading-5">形の向きの分類です。「今すぐ買う・売る」という注文の指示ではありません。元の保存判定と今回の日足の判定は分けて見てください。</p>
+        </section>
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
           <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
           <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
@@ -310,14 +335,24 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         </section>
 
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-black">保存時点までの参考日足（最大40本表示）</h2>
+          <h2 className="text-lg font-black">保存時点までの参考日足と目印</h2>
           {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : (
             <>
               <p className="mt-2 text-xs text-slate-600">参考データ最終日：{last ? jstDate(last.time) : "—"} ／日足OHLC {candles.length}本</p>
-              <div className="mt-3 overflow-hidden rounded-xl border border-slate-100">
-                <CandleChart candles={candles} replay={replay}/>
+              <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
+                <CandleChart candles={candles} replay={replay} marks={conditionMarks}/>
               </div>
-              {isDoubleBottom?<p className="mt-2 text-xs text-slate-600">青丸：参考日足で見つけた底候補。橙破線：参考ネックライン。</p>:<p className="mt-2 text-xs text-slate-600">実際の参考日足を表示。選択した形の判定理由は下に表示します。形の位置を示す丸・ラインは、この形ではまだ表示しません。</p>}
+              {isDoubleBottom?<p className="mt-2 text-xs text-slate-600">青丸：参考日足で見つけた底候補。橙破線：参考ネックライン。</p>:<p className="mt-2 text-xs text-slate-600">実際の参考日足を表示。紫の丸は選択した形の条件一致を確認した足です。</p>}
+              <div className="mt-3 rounded-xl bg-violet-50 p-3 text-xs leading-6 text-violet-950">
+                <p className="font-bold">紫の丸：① 一致開始 → ② 判定足／最終一致</p>
+                <p>各日までのデータだけで順に判定し、直近で条件一致した区間に目印を付けています。形を作り始めた底・天井そのものを示す印とは異なります。</p>
+                {conditionMarks.length?<div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                  {conditionMarks.map(mark=><p key={mark.index} className="rounded-lg bg-white px-2 py-1 font-bold">{mark.label}：{jstDate(mark.time)} ／ 終値 {yen(candles[mark.index].close)}</p>)}
+                </div>:<p className="font-bold">{dailyUnsupported?"分足専用のため日足には一致の目印を付けません。":"取得範囲内に条件一致の足がないため、紫の目印はありません。"}</p>}
+                {conditionMarks.length>0&&!conditionHistory.active&&<p className="font-bold">目印は過去の一致区間です。照合対象の最終日では条件が外れています。</p>}
+                {conditionHistory.historyLimited&&<p>取得範囲の最初から一致しています。さらに前の一致開始日は確認できません。</p>}
+                <p>長い期間の図は左右に動かして確認できます。</p>
+              </div>
             </>
           )}
         </section>
