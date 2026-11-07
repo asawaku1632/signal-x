@@ -11,6 +11,72 @@ type Report = { success: boolean; items: Item[]; summary: Summary[]; count: numb
 const changeLabel = (change: number) =>
   change < 0 ? "下落" : change > 0 ? "上昇" : "変わらず";
 
+
+const reasonGroups = [
+  { label: "AI低下のみ", matches: (item: Item) =>
+    item.reasons.length === 1 && /^AI POWERが .*まで低下$/.test(item.reasons[0]) },
+  { label: "複数理由", matches: (item: Item) => new Set(item.reasons).size > 1 },
+];
+
+function yen(value: number | null) {
+  if (value === null) return "—";
+  const rounded = Math.round(value);
+  return (rounded > 0 ? "+" : "") + rounded.toLocaleString("ja-JP") + "円";
+}
+
+function ExitReasonComparison({ items }: { items: Item[] }) {
+  return (
+    <section className="mt-4 rounded-2xl border bg-white p-3">
+      <h2 className="text-sm font-black">撤退理由別の比較</h2>
+      <p className="mt-1 text-xs leading-5 text-slate-600">
+        判定価格からの差を100株で換算。各期限で最も下落した記録の銘柄を外した平均も表示します。
+      </p>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full whitespace-nowrap text-right text-xs tabular-nums">
+          <caption className="sr-only">撤退理由別の保存株価の比較</caption>
+          <thead><tr className="border-b">
+            <th scope="col" className="pr-2 text-left">理由・日後</th>
+            <th scope="col" className="px-1">完了／対象</th>
+            <th scope="col" className="px-1">中央値</th>
+            <th scope="col" className="pl-1">最悪銘柄除外平均</th>
+          </tr></thead>
+          <tbody>{reasonGroups.flatMap(({ label, matches }) => {
+            const group = items.filter(matches);
+            return [1, 3, 5, 10].map(days => {
+              const outcomes = group.flatMap(item => {
+                const price = item.outcomes.find(outcome => outcome.days === days)?.price;
+                if (price == null || !Number.isFinite(price) || price <= 0 ||
+                    !Number.isFinite(item.signalPrice) || item.signalPrice <= 0) return [];
+                return [{ code: item.code, difference: (price - item.signalPrice) * 100 }];
+              }).sort((left, right) => left.difference - right.difference || left.code.localeCompare(right.code));
+              const count = outcomes.length;
+              const median = count
+                ? (outcomes[Math.floor((count - 1) / 2)].difference + outcomes[Math.floor(count / 2)].difference) / 2
+                : null;
+              const worst = outcomes[0];
+              const remaining = worst && worst.difference < 0
+                ? outcomes.filter(outcome => outcome.code !== worst.code)
+                : outcomes;
+              const mean = remaining.length
+                ? remaining.reduce((sum, outcome) => sum + outcome.difference, 0) / remaining.length
+                : null;
+              return <tr key={label + days} className="border-b border-slate-100">
+                <th scope="row" className="py-2 pr-2 text-left">{label}・{days}日</th>
+                <td className="px-1">{count}／{group.length}</td>
+                <td className="px-1">{yen(median)}</td>
+                <td className="pl-1">{yen(mean)}</td>
+              </tr>;
+            });
+          })}</tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        下落がない期限は全件の平均。単一の価格理由などは上の全体集計で確認できます。
+      </p>
+    </section>
+  );
+}
+
 export default function SwingExitCheckPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
@@ -50,6 +116,7 @@ export default function SwingExitCheckPage() {
             </div>)}
           </div>
         </section>
+        {report.items.length > 0 && <ExitReasonComparison items={report.items} />}
         {report.items.length === 0 && <div className="mt-6 rounded-2xl border border-dashed p-6 text-center text-sm text-slate-500">
           まだ撤退候補の記録はありません。疑似保有中の銘柄が撤退候補と判定されると記録が始まります。
         </div>}
