@@ -38,17 +38,28 @@ function asVolume(value:unknown):number|null {
   const n=Number(value);
   return Number.isFinite(n)&&n>=0?n:null;
 }
-async function openingBars(code:string):Promise<Bar[]> {
+async function openingBars(code:string, diagnostics:{receivedAt?:string;httpStatus?:number;payloadState?:string;barCount?:number;firstBarTime?:number;lastBarTime?:number}):Promise<Bar[]> {
   if(!/^[0-9]{4}$/.test(code))throw Error("INVALID_CODE");
   const path="https://query1.finance.yahoo.com/v8/finance/chart/"+
     encodeURIComponent(code+".T")+"?range=1d&interval=5m";
   const response=await fetch(path,{cache:"no-store",headers:{"User-Agent":"Mozilla/5.0"},
     signal:AbortSignal.timeout(YAHOO_TIMEOUT_MS)});
+  diagnostics.receivedAt=new Date().toISOString();
+  diagnostics.httpStatus=response.status;
   if(!response.ok)throw Error("OPENING_QUOTE_UNAVAILABLE");
+  diagnostics.payloadState="INVALID_JSON";
   const payload=await response.json();
   const data=payload?.chart?.result?.[0];
   const times:number[]=data?.timestamp;
   const q=data?.indicators?.quote?.[0];
+  diagnostics.payloadState=payload?.chart?.error?"CHART_ERROR":
+    !data?"NO_CHART_RESULT":!Array.isArray(times)||!times.length?"NO_TIMESTAMPS":
+    !q?"NO_QUOTE_FIELDS":"BARS_RECEIVED";
+  if(Array.isArray(times)){
+    diagnostics.barCount=times.length;
+    diagnostics.firstBarTime=times[0];
+    diagnostics.lastBarTime=times.at(-1);
+  }
   if(!Array.isArray(times)||!q)throw Error("MISSING_FIVE_MINUTE_CANDLES");
   // Parse only the needed price fields; later-day fields are never passed to the classifier.
   return times.slice(0,75).map((t,i)=>({
@@ -103,16 +114,18 @@ export async function runMorningFinalCheck(phase:string,now=new Date()) {
     // One irrevocable claim BEFORE network calls: at most 5 calls/day, no repeat or backfill.
     try {
       const snapshots=await Promise.all(run.cohort.slice(0,MAX_CODES).map(async c=>{
+        const quoteDiagnostics:Parameters<typeof openingBars>[1]={};
+        const quoteRequestedAt=new Date().toISOString();
         try {
-          const bars=await openingBars(c.code);
+          const bars=await openingBars(c.code,quoteDiagnostics);
           const observation=decideAtNineOhFive(c,bars,date,new Date());
           return {...observation,quoteStatus:observation.label==="UNAVAILABLE"?"UNAVAILABLE":"OBSERVED",
             quoteReason:observation.label==="UNAVAILABLE"?"INVALID_OR_MISSING_OPENING_BAR":null,
-            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
+            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false,quoteRequestedAt,quoteDiagnostics};
         }catch(error) {
           const unavailable=decideAtNineOhFive(c,[],date,new Date());
           return {...unavailable,quoteStatus:"UNAVAILABLE",quoteReason:quoteFailureReason(error),
-            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false};
+            source:"YAHOO_FIVE_MINUTE",exchangeHaltVerified:false,quoteRequestedAt,quoteDiagnostics};
         }
       }));
       const observed=snapshots.filter(s=>s.label!=="UNAVAILABLE").length;
