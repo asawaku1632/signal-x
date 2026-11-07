@@ -24,15 +24,24 @@ export async function GET(request:Request) {
   }
   if(priorDates.length!==2)return NextResponse.json({success:false,error:"CALENDAR_UNAVAILABLE"},{status:503});
   await pool.query(`
-    WITH signals AS (
+    WITH official AS (
+      SELECT trade_date,candidates FROM public.owner_night_jquants
+      WHERE owner_email=$1 AND trade_date=ANY($2::date[]) AND state IN ('READY','CLAIMED','NOTIFIED')
+        AND analyzed_at < (($3::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
+    ), signals AS (
       SELECT code,trade_date signal_date,'ローソク足の上昇形' reason
       FROM public.pattern_forward_observations
       WHERE direction='BUY' AND trade_date=ANY($2::date[])
+        AND NOT EXISTS(SELECT 1 FROM official o WHERE o.trade_date=pattern_forward_observations.trade_date)
         AND created_at < (($3::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
       UNION ALL
       SELECT code,signal_date,'BB上側トレンド' FROM public.bb_signal_events
       WHERE upper_regime='UPPER_TREND' AND signal_date=ANY($2::date[])
+        AND NOT EXISTS(SELECT 1 FROM official o WHERE o.trade_date=bb_signal_events.signal_date)
         AND created_at < (($3::date)::timestamp AT TIME ZONE 'Asia/Tokyo')
+      UNION ALL
+      SELECT candidate->>'code',o.trade_date,'J-Quants日足の上昇候補'
+      FROM official o CROSS JOIN LATERAL jsonb_array_elements(o.candidates) candidate
     ), candidates AS (
       SELECT s.code,max(s.signal_date) signal_date,max(d.name) name,
         jsonb_agg(DISTINCT s.reason) reasons,max(d.score) score
