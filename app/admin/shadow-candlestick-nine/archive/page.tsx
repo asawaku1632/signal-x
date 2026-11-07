@@ -40,6 +40,50 @@ function signed(value: number | null) {
   return value === null ? "—" : (value > 0 ? "+" : "") + value.toFixed(2) + "%";
 }
 
+
+async function ArchiveTimingEvidence() {
+  try {
+    const {rows} = await pool.query<{total:number; replay:number; incomplete:number}>(`
+      WITH source AS (
+        SELECT detector_version,created_at,e FROM public.shadow_candle_research_runs
+        CROSS JOIN LATERAL jsonb_array_elements(events) e
+        WHERE detector_version=$1
+      ), first_seen AS (
+        SELECT DISTINCT ON(detector_version,e->>'code',e->>'tradeDate',e->>'patternId')
+          * FROM source
+        ORDER BY detector_version,e->>'code',e->>'tradeDate',e->>'patternId',created_at
+      ), classified AS (
+        SELECT EXISTS(
+          SELECT 1 FROM jsonb_array_elements(e->'outcomes') o
+          WHERE o->>'days'='5' AND o->>'directionalReturn' IS NOT NULL
+        ) AS had_fifth_result FROM first_seen
+      )
+      SELECT count(*)::int total,
+        count(*) FILTER(WHERE had_fifth_result)::int replay,
+        count(*) FILTER(WHERE NOT had_fifth_result)::int incomplete
+      FROM classified
+    `,[SHADOW_CANDLE_DETECTOR_VERSION]);
+    const row=rows[0];
+    return <section className="mt-4 rounded-2xl border bg-white p-4">
+      <h2 className="text-sm font-black">最初に保存した時点の追跡状況</h2>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+        {[["検出記録",row.total],["5日後結果あり",row.replay],["5日後結果なし",row.incomplete]].map(([label,value]) =>
+          <div key={label} className="rounded-xl bg-slate-50 p-2">
+            <p>{label}</p><p className="mt-1 text-lg font-black">{value}件</p>
+          </div>)}
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        同じ銘柄・検出日・形状は最初の保存を使用。
+        「5日後結果なし」には直近の検出と価格欠損が含まれます。
+        前向き検証として評価するには、保存時刻と対象取引日を照合し、その後の結果を追跡する必要があります。
+      </p>
+    </section>;
+  } catch(error) {
+    console.error("candle evidence timing unavailable",error);
+    return <p role="status" className="mt-4 text-sm">保存時点の追跡状況を取得できませんでした。</p>;
+  }
+}
+
 export default async function ShadowCandleArchivePage() {
   const { isOwner } = await getLearningOwnerSession();
   if (!isOwner) notFound();
@@ -93,6 +137,7 @@ export default async function ShadowCandleArchivePage() {
           AI POWER・LINE通知・本番の学習には一切反映しません。
         </p>
 
+        <ArchiveTimingEvidence />
         <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6">
           <p className="font-black">
             🔒 本人限定・SHADOW ONLY・自動研究：{autoEnabled ? "有効" : "停止中"}
