@@ -225,7 +225,7 @@ export default function PushNotificationButton() {
         return;
       }
       if (response.status === 429) {
-        setMessage("送信制限中です。1分以上空けてからテストしてください。");
+        setMessage("送信制限中です。1分以上空けてください（最大10回／時間）。");
         return;
       }
       if (!response.ok || !result.acceptedByPushService) throw new Error("Test push failed");
@@ -266,7 +266,7 @@ export default function PushNotificationButton() {
           </button>
         )}
       </div>
-      {state === "subscribed" && (
+      {(state === "subscribed" || state === "permitted") && (
         <button type="button" onClick={() => void testDeviceDisplay()} disabled={busy}
           className="mt-2 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 disabled:opacity-50">
           端末表示テスト（サーバーを使わずに表示）
