@@ -203,6 +203,14 @@
     {
       "path": "/api/cron/owner-night-jquants?phase=notify",
       "schedule": "50,55 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/new-buy-outcomes",
+      "schedule": "30 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/new-buy-outcomes",
+      "schedule": "10,50 10 * * 1-5"
     }
   ]
 }
