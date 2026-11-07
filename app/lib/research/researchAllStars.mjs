@@ -53,7 +53,7 @@ export function normaliseDaily(raw) {
  const worst=raw.worst_return==null?null:Number(raw.worst_return);
  if(!whole(total)||!whole(done)||!whole(up)||!whole(loss)||
   done>total||up>done||loss>done||!STUDIES.some(s=>s.key===raw.study_key)||
-  !Array.isArray(raw.codes)||raw.codes.some(s=>!/^[0-9]{4}$/.test(String(s))))return null;
+  !Array.isArray(raw.codes)||raw.codes.some(s=>!/^[0-9][0-9A-Z][0-9][0-9A-Z]$/.test(String(s))))return null;
  return {
   key:String(raw.study_key),date:String(raw.trade_date),total,done,up,deepLoss:loss,
   codes:[...new Set(raw.codes.map(String))],
@@ -77,6 +77,7 @@ function phase(rows) {
  const months=new Set(paired.map(r=>r.date.slice(0,7)));
  return {
   totalRecorded:unique.reduce((s,r)=>s+r.total,0),
+  completedRecorded:unique.reduce((s,r)=>s+r.done,0),
   validBeforeBenchmark:complete.length,
   excludedDueToBenchmark:complete.length-paired.length,
   days:paired.length,cases:n,codes:codes.size,months:months.size,
