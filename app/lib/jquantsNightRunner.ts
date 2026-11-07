@@ -12,7 +12,7 @@ type Ma75={status:string;value?:number;previous?:number;rising?:boolean;above?:b
 type Candidate={code:string;name:string;price:number;reasons:string[];bbTrend:boolean;volumeRatio:number;ma75:Ma75};
 type NightRun={state:string;candidates:Candidate[];universe_count:number;evaluated_count:number;excluded_count:number;note:string|null};
 
-async function fetchDay(date:string,key:string,deadline:number) {
+export async function fetchDay(date:string,key:string,deadline:number) {
   const rows:Record<string,unknown>[]=[];
   let cursor:string|undefined;
   const seen=new Set<string>();
