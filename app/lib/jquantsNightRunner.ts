@@ -7,7 +7,9 @@ import {evaluateDailyBollingerSignal} from "@/app/lib/bollingerBands";
 import {pushWebToUser} from "@/app/lib/push/userPush";
 import {jquantsCode,jquantsDailyCandle} from "@/app/lib/jquantsNightData.mjs";
 
-type Candidate={code:string;name:string;price:number;reasons:string[];bbTrend:boolean;volumeRatio:number};
+import {evaluateNightMa75} from "@/app/lib/nightMa75.mjs";
+type Ma75={status:string;value?:number;previous?:number;rising?:boolean;above?:boolean;breakout?:boolean;distancePercent?:number};
+type Candidate={code:string;name:string;price:number;reasons:string[];bbTrend:boolean;volumeRatio:number;ma75:Ma75};
 type NightRun={state:string;candidates:Candidate[];universe_count:number;evaluated_count:number;excluded_count:number;note:string|null};
 
 async function fetchDay(date:string,key:string,deadline:number) {
@@ -53,16 +55,22 @@ export async function captureJquantsNight(owner:string,date:string) {
       throw Error("UNIVERSE_953_NOT_READY");
     const names=new Map(universe.map(row=>[row.code,row.name]));
     const dates:string[]=[];
-    for(let offset=0;offset<90&&dates.length<40;offset++){
+    for(let offset=0;offset<190&&dates.length<85;offset++){
       const day=new Date(Date.parse(date+"T00:00:00Z")-offset*86400000).toISOString().slice(0,10);
       if(isTseTradingDate(day))dates.push(day);
     }
-    if(dates.length!==40)throw Error("JQUANTS_HISTORY_CALENDAR_UNAVAILABLE");
+    if(dates.length!==85)throw Error("JQUANTS_HISTORY_CALENDAR_UNAVAILABLE");
     const candles=new Map<string,PatternCandle[]>(universe.map(row=>[row.code,[]]));
     const latestSeen=new Set<string>();
     const deadline=Date.now()+210000;
-    for(const day of dates.reverse()){
-      const rows=await fetchDay(day,key,deadline);
+    const chronologicalDates=[...dates].reverse();
+    const expectedTimes=chronologicalDates.map(day=>Date.parse(day+"T15:30:00+09:00")/1000);
+    const requiredDates=[...dates.slice(0,40)].reverse();
+    // Capture the original 40-session analysis first; extra MA75 history is optional.
+    for(const day of [...requiredDates,...dates.slice(40)]){
+      let rows:Record<string,unknown>[];
+      try { rows=await fetchDay(day,key,deadline); }
+      catch(error){ if(requiredDates.includes(day))throw error; break; }
       const dayCodes=new Set<string>();
       for(const row of rows){
         const code=jquantsCode(row.Code);
@@ -78,7 +86,9 @@ export async function captureJquantsNight(owner:string,date:string) {
     if(latestSeen.size!==953)throw Error("JQUANTS_TODAY_INCOMPLETE");
     let evaluated=0;
     const candidates:Candidate[]=[];
-    for(const [code,bars] of candles){
+    for(const [code,history] of candles){
+      history.sort((a,b)=>a.time-b.time);
+      const bars=history.filter(bar=>bar.time>=expectedTimes[45]);
       if(bars.length<25||bars.at(-1)?.time!==Date.parse(date+"T15:30:00+09:00")/1000)continue;
       evaluated++;
       const patterns=detectChartPatterns(bars);
@@ -94,14 +104,15 @@ export async function captureJquantsNight(owner:string,date:string) {
       const previous=bars.slice(-21,-1);
       const averageVolume=previous.reduce((sum,bar)=>sum+(bar.volume??0),0)/previous.length;
       candidates.push({code,name:names.get(code)!,price:last.close,reasons,bbTrend,
-        volumeRatio:averageVolume>0?(last.volume??0)/averageVolume:0});
+        volumeRatio:averageVolume>0?(last.volume??0)/averageVolume:0,
+        ma75:evaluateNightMa75(history,expectedTimes)});
     }
     candidates.sort((a,b)=>
       Number(b.bbTrend&&b.reasons.length>1)-Number(a.bbTrend&&a.reasons.length>1)||
       b.volumeRatio-a.volumeRatio||a.code.localeCompare(b.code));
     await pool.query(`UPDATE public.owner_night_jquants SET state='READY',updated_at=now(),
       analyzed_at=now(),universe_count=953,evaluated_count=$4,excluded_count=$5,
-      candidates=$6::jsonb,note='JQUANTS_DAILY_40_SESSIONS_V1'
+      candidates=$6::jsonb,note='JQUANTS_DAILY_40_SESSIONS_MA75_CONTEXT_V2'
       WHERE owner_email=$1 AND trade_date=$2::date AND run_id=$3::uuid AND state='FETCHING'`,
       [owner,date,runId,evaluated,953-evaluated,JSON.stringify(candidates)]);
   }catch(error){
