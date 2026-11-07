@@ -1,3 +1,4 @@
+import pool from "@/app/lib/postgres";
 import { getAdminSession } from "@/app/lib/admin";
 import { chartPatternCatalog } from "@/app/lib/chartPatternCatalog";
 import {
@@ -23,6 +24,83 @@ function statusLabel(status: PatternForwardStats["validationStatus"] | "NOT_SEEN
   if (status === "OBSERVATION_ONLY") return "⚪ 観察";
   if (status === "COLLECTING") return "🟡 収集中";
   return "未発生";
+}
+
+
+type PeriodResult = {
+  cohort: string; phase: string; cases: number; days: number; codes: number;
+  first_date: string; last_date: string; mean: number; median: number; excess: number; deep_loss: number;
+};
+
+async function PatternPeriodComparison() {
+  try {
+    const {rows} = await pool.query<PeriodResult>(`
+WITH base AS (
+ SELECT trade_date,code,ceil(entry_price/500) band,return_5d r
+ FROM public.swing_universe_observations
+ WHERE rule_version='ai_power_only_v1' AND entry_price>0 AND entry_price<=5000 AND return_5d IS NOT NULL
+), bench AS (
+ SELECT trade_date,band,count(*) n,sum(r) total FROM base GROUP BY 1,2
+), patterns AS (
+ SELECT trade_date,code,bool_or(pattern_id='pattern018') high_break,
+ bool_or(pattern_id='pattern043') volume_break
+ FROM public.pattern_forward_observations
+ WHERE direction='BUY' AND pattern_id IN ('pattern018','pattern043')
+ AND created_at < ((trade_date+1)::timestamp AT TIME ZONE 'Asia/Tokyo')
+ GROUP BY 1,2
+), cases AS (
+ SELECT b.*,CASE WHEN p.high_break AND p.volume_break THEN 'BOTH'
+ WHEN p.high_break THEN 'HIGH' ELSE 'VOLUME' END cohort,
+ b.r-(g.total-b.r)/(g.n-1) excess
+ FROM base b JOIN bench g USING(trade_date,band)
+ JOIN patterns p USING(trade_date,code) WHERE g.n>1
+)
+SELECT cohort,CASE WHEN trade_date<'2026-10-20' THEN 'EARLY' ELSE 'LATE' END phase,
+ count(*)::int cases,count(DISTINCT trade_date)::int days,count(DISTINCT code)::int codes,
+ min(trade_date)::text first_date,max(trade_date)::text last_date,
+ avg(r)::float8 mean,percentile_cont(.5) WITHIN GROUP(ORDER BY r)::float8 median,
+ avg(excess)::float8 excess,
+ count(*) FILTER(WHERE r<=-5)::int deep_loss
+FROM cases GROUP BY 1,2 ORDER BY 1,2
+    `);
+    const labels: Record<string,string> = {BOTH:"高値更新＋出来高急増",HIGH:"高値更新のみ",VOLUME:"出来高急増のみ"};
+    return <section className="mt-5 rounded-2xl border bg-white p-3">
+      <h2 className="text-base font-black">ブレイク形状・期間別の再現性</h2>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        100株50万円以内。判定日中に保存された買い形状を、銘柄・日ごとに集計。
+        5日後の保存価格による騰落率を、同日の同価格帯（株価500円刻み）の他銘柄と比較します。
+        費用控除前。2026年10月20日で分けた探索的な比較です。
+      </p>
+      {rows.length === 0 ? <p className="mt-3 text-sm">比較可能な記録はまだありません。</p> :
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full whitespace-nowrap text-right text-xs tabular-nums">
+          <caption className="sr-only">買い形状別の5日後成績と期間差</caption>
+          <thead><tr className="border-b">
+            {["形状・期間","件／日／銘柄","平均","中央値","比較対象との差","−5%以下"].map(label =>
+              <th scope="col" key={label} className="px-2 py-2">{label}</th>)}
+          </tr></thead>
+          <tbody>{rows.map(row => <tr key={row.cohort + row.phase} className="border-b border-slate-100">
+            <th scope="row" className="px-2 py-2 text-left">
+              {labels[row.cohort] ?? row.cohort}・{row.phase === "EARLY" ? "前半" : "後半"}
+              <span className="block text-[10px] font-normal text-slate-500">{row.first_date}〜{row.last_date}</span>
+            </th>
+            <td className="px-2">{row.cases}／{row.days}／{row.codes}</td>
+            <td className="px-2">{signed(row.mean)}</td>
+            <td className="px-2">{signed(row.median)}</td>
+            <td className="px-2">{row.excess > 0 ? "+" : ""}{row.excess.toFixed(2)}pt</td>
+            <td className="px-2">{row.deep_loss}／{row.cases}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        5日後価格が揃った記録だけが対象。同じ銘柄の別日検出は別件です。
+        朝9:15からの損益は別途検証が必要です。
+      </p>
+    </section>;
+  } catch(error) {
+    console.error("Pattern period comparison unavailable",error);
+    return <p role="status" className="mt-4 text-sm">期間別比較を取得できませんでした。</p>;
+  }
 }
 
 export default async function PatternPerformancePage() {
@@ -66,6 +144,8 @@ export default async function PatternPerformancePage() {
           </div>
         ))}
       </section>
+
+      <PatternPeriodComparison />
 
       <section style={{ marginTop: 18, overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 16, background: "#fff" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
