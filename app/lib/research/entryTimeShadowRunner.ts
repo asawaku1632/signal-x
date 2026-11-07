@@ -77,7 +77,10 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
     GROUP BY code
     ORDER BY max(research_score) DESC NULLS LAST, code
     LIMIT 5
-  `,[priorDate,date]);
+  `,[priorDate,date]).catch((error: unknown)=>{
+    console.warn("optional Momentum cohort unavailable",error);
+    return {rows:[] as {code:string}[]};
+  });
   // A claim caps the additional research requests at five per session.
   const claim=await pool.query<{trade_date:string}>(
     "INSERT INTO public.entry_time_shadow_runs (trade_date,prior_date,policy_version,cohort,results) VALUES ($1::date,$2::date,$3,$4::jsonb,$5::jsonb) ON CONFLICT (trade_date) DO NOTHING RETURNING trade_date::text",
@@ -85,9 +88,17 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
   );
   if(!claim.rows.length) return {success:true,skipped:true,date,reason:"ALREADY_CLAIMED"};
   try {
+    const candleRequests=new Map<string,Promise<Candle[]>>();
+    const candlesFor=(code:string)=>{
+      const existing=candleRequests.get(code);
+      if(existing) return existing;
+      const request=yahooIntraday(code);
+      candleRequests.set(code,request);
+      return request;
+    };
     const results=await Promise.all(cohort.slice(0,MAX_CODES).map(async signal=>{
       try {
-        const candles=await yahooIntraday(signal.code);
+        const candles=await candlesFor(signal.code);
         const original=evaluateEntryTimes(date,signal,candles);
         // Optional entry-price record: reuse the SAME Yahoo response and frozen
         // candidate. Missing 09:15 or a helper failure stays missing; never
@@ -117,7 +128,7 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
     }));
     const momentumAnchors=await Promise.all(momentumCodes.map(async ({code})=>{
       try {
-        const candles=await yahooIntraday(code);
+        const candles=await candlesFor(code);
         const anchors=captureHoldingEntryAnchors(date,code,candles);
         const price=anchors?.entries.find(entry=>entry.time==="09:15")?.price??null;
         return {code,price,reason:price===null?"MISSING_0915_BAR":null};
