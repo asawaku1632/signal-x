@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
+import {chartPatternCatalog,getChartPatternCatalogItem} from "@/app/lib/chartPatternCatalog";
+import {detectChartPatterns} from "@/app/lib/chartPatternEngine";
 import { SCAN_SNAPSHOT_KEY } from "@/app/lib/scanSnapshot";
 import {
   classifyDoubleBottomReasons,
@@ -20,6 +22,7 @@ type Candle = {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 };
 type Evidence = {
   code: string;
@@ -51,7 +54,7 @@ function jstDate(value: number | string) {
   return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
-async function loadEvidence(code: string, at: string): Promise<Evidence | null> {
+async function loadEvidence(code: string, at: string, patternId: string): Promise<Evidence | null> {
   const result = await pool.query<{
     timestamp: Date | string;
     payload: unknown;
@@ -67,10 +70,10 @@ async function loadEvidence(code: string, at: string): Promise<Evidence | null> 
         SELECT 1 FROM jsonb_array_elements(
           CASE WHEN jsonb_typeof(x.value->'patternObservations')='array'
           THEN x.value->'patternObservations' ELSE '[]'::jsonb END
-        ) p(value) WHERE p.value->>'id'='pattern002'
+        ) p(value) WHERE p.value->>'id'=$3
       )
     LIMIT 1
-  `, [SCAN_SNAPSHOT_KEY, code]);
+  `, [SCAN_SNAPSHOT_KEY, code, patternId]);
   const row = result.rows[0];
   if (!row || !row.payload || typeof row.payload !== "object") return null;
 
@@ -79,7 +82,7 @@ async function loadEvidence(code: string, at: string): Promise<Evidence | null> 
   if (timestamp !== at) return null;
   const stock = row.payload as Record<string, unknown>;
   const displayed = Array.isArray(stock.detectedPatterns)
-    ? stock.detectedPatterns.find((p) => p && typeof p === "object" && p.id === "pattern002") as Record<string, unknown> | undefined
+    ? stock.detectedPatterns.find((p) => p && typeof p === "object" && p.id === patternId) as Record<string, unknown> | undefined
     : undefined;
   const reasons = Array.isArray(displayed?.reasons)
     ? displayed.reasons.filter((x): x is string => typeof x === "string")
@@ -97,14 +100,14 @@ async function loadEvidence(code: string, at: string): Promise<Evidence | null> 
 
 // One explicitly selected stock, one Yahoo daily OHLC request, no background
 // scans, no database writes, and no automatic retries.
-async function fetchDailyCandles(code: string, _scanTimestamp: string): Promise<{
+async function fetchDailyCandles(code: string, longHistory: boolean): Promise<{
   candles: Candle[];
   error: string | null;
 }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4500);
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=3mo&interval=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=${longHistory?"1y":"3mo"}&interval=1d`;
     const response = await fetch(url, {
       cache: "no-store",
       signal: controller.signal,
@@ -115,7 +118,7 @@ async function fetchDailyCandles(code: string, _scanTimestamp: string): Promise<
     if (!data || typeof data !== "object") throw new Error("invalid chart response");
     const chart = (data as Record<string, unknown>).chart as { result?: Array<{
       timestamp?: number[];
-      indicators?: { quote?: Array<{ open?: unknown[]; high?: unknown[]; low?: unknown[]; close?: unknown[] }> };
+      indicators?: { quote?: Array<{ open?: unknown[]; high?: unknown[]; low?: unknown[]; close?: unknown[]; volume?: unknown[] }> };
     }> } | undefined;
     const result = chart?.result?.[0];
     const timestamps = result?.timestamp ?? [];
@@ -127,8 +130,10 @@ async function fetchDailyCandles(code: string, _scanTimestamp: string): Promise<
       const close = num(quote?.close?.[i]);
       if (!open || !high || !low || !close || !Number.isFinite(time) ||
         high < Math.max(open, close, low) || low > Math.min(open, close, high)) return [];
-      return [{ time, open, high, low, close }];
-    }).slice(-90);
+      const v=quote?.volume?.[i];
+      const volume=typeof v==="number"&&Number.isFinite(v)&&v>=0?v:undefined;
+      return [{ time, open, high, low, close, volume }];
+    }).slice(longHistory?-150:-90);
     return {
       candles,
       error: candles.length < 7
@@ -243,7 +248,7 @@ function CandleChart({ candles, replay }: { candles: Candle[]; replay: ReplayRes
   );
 }
 
-type Props = { searchParams: Promise<{ code?: string; at?: string }> };
+type Props = { searchParams: Promise<{ code?: string; at?: string; pattern?: string }> };
 
 export default async function PrivateShapeReplayPage({ searchParams }: Props) {
   const { isOwner } = await getLearningOwnerSession();
@@ -252,10 +257,14 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
   const args = await searchParams;
   const code = args.code ?? "";
   const at = args.at ?? "";
+  const patternId=args.pattern??"pattern002";
+  const selected=getChartPatternCatalogItem(patternId);
+  if(!selected)notFound();
+  const isDoubleBottom=patternId==="pattern002";
   if (!/^[0-9A-Za-z]{4,5}$/.test(code) ||
     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(at)) notFound();
 
-  const evidence = await loadEvidence(code, at);
+  const evidence = await loadEvidence(code, at, patternId);
   if (!evidence) {
     return (
       <main className="mx-auto max-w-xl p-5">
@@ -265,7 +274,7 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
       </main>
     );
   }
-  const fetched = await fetchDailyCandles(code, evidence.timestamp);
+  const fetched = await fetchDailyCandles(code, !isDoubleBottom);
   const policy=shapeReplayPolicy(evidence.timestamp,evidence.barTimestamp,evidence.dataSource)!;
   const closed=closedReferenceCandles(fetched.candles,Date.now()) as Candle[];
   const candles=shapeReferenceCandles(closed,policy) as Candle[];
@@ -273,9 +282,13 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
   const latest=closed.at(-1)??null;
   const followup=closed.filter(c=>jstDate(c.time)>jstDate(evidence.timestamp));
   const retrievedAt=new Date().toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"});
-  const replay = error ? null : inspectEarlierDailyCandles(candles);
+  const replay = error||!isDoubleBottom ? null : inspectEarlierDailyCandles(candles);
   const last = candles[candles.length - 1] ?? null;
   const originalStage = classifyDoubleBottomReasons(evidence.reasons);
+  const dailyUnsupported=patternId==="pattern028";
+  const referenceMatches=error||dailyUnsupported?[]:detectChartPatterns(candles).filter(p=>selected.engineNames.includes(p.name));
+  const latestMatches=fetched.error||dailyUnsupported?[]:detectChartPatterns(closed).filter(p=>selected.engineNames.includes(p.name));
+  const volumeMissing=candles.some(c=>c.volume===undefined);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
@@ -283,11 +296,13 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <Link href="/admin/shape-precision-audit" className="text-sm font-black text-blue-700">← 検出精度監査へ戻る</Link>
         <h1 className="mt-4 text-2xl font-black">🔬 参考日足で照合</h1>
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
+        <p className="mt-1 text-sm font-black text-blue-800">照合する形：{selected.name}</p>
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
           <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
           <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
           <p>判定元の最終足：{policy.barTimestamp?new Date(policy.barTimestamp*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"時刻未保存"} ／ 保存価格 {yen(evidence.scanPrice)}</p>
-          <p>保存された判定：{doubleBottomStageLabel(originalStage)}</p>
+          <p>保存された判定：{isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
+            {!isDoubleBottom&&evidence.reasons?.length?<span className="block text-xs">{evidence.reasons.join(" ／ ")}</span>:null}</p>
           <p>{policy.includeAnchor
             ?policy.anchor+"の大引けまでの足を保存データで確認できるため、同日の日足も照合対象に含めます。"
             :policy.anchor+"当日の完成日足を使えたと確認できないため、その日より前の日足で照合します。"}</p>
@@ -302,12 +317,12 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-100">
                 <CandleChart candles={candles} replay={replay}/>
               </div>
-              <p className="mt-2 text-xs text-slate-600">青丸：参考データから見つけた安値候補（画面範囲内のみ）。橙破線：参考ネックライン。</p>
+              {isDoubleBottom?<p className="mt-2 text-xs text-slate-600">青丸：参考日足で見つけた底候補。橙破線：参考ネックライン。</p>:<p className="mt-2 text-xs text-slate-600">実際の参考日足を表示。選択した形の判定理由は下に表示します。形の位置を示す丸・ラインは、この形ではまだ表示しません。</p>}
             </>
           )}
         </section>
 
-        {!error && (
+        {!error && isDoubleBottom && (
           <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="font-black">日足で見た形の確認</h2>
             {!replay ? <p className="mt-2 text-sm leading-6">対象日までの日足では、安値2つの基本条件に一致しませんでした。元の足種が異なる場合、その判定との直接比較はできません。</p> : (
@@ -331,6 +346,20 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
             </p>
           </section>
         )}
+        {!isDoubleBottom&&<section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6">
+          <h2 className="font-black">{selected.name}・日足での確認</h2>
+          <p className="mt-2">{selected.summary}</p>
+          <p className="mt-2 font-bold">{error?"日足取得待ち":dailyUnsupported?"この形は分足専用のため、日足照合の対象外です。":referenceMatches.length?"対象日までの参考日足で条件一致":"対象日までの参考日足では条件一致なし"}</p>
+          {referenceMatches.map(p=><div key={p.id} className="mt-2 rounded-lg bg-blue-50 p-3">
+            <p className="font-bold">{p.name} ／ {p.direction==="BUY"?"上昇方向":p.direction==="SELL"?"下落方向":"方向未確定"}</p>
+            {p.reasons.map((reason,i)=><p key={i}>・{reason}</p>)}
+          </div>)}
+          <details className="mt-3"><summary className="cursor-pointer font-bold">この形で確認する条件</summary>
+            <ul className="mt-2 list-disc pl-5">{selected.formation.map(item=><li key={item}>{item}</li>)}</ul>
+          </details>
+          <p className="mt-2 text-xs text-slate-600">元の{policy.sourceLabel}判定と足種が違う場合、一致しなくても誤検出の確定にはなりません。
+            {volumeMissing?"出来高に欠損があり、出来高条件を含む形の照合は制限されます。":""}</p>
+        </section>}
         {!fetched.error&&<section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6">
           <h2 className="font-black">その後・直近の日足はどうなった？</h2>
           <p>取得日時 {retrievedAt} ／ 最新の対象日 {latest?jstDate(latest.time):"—"}</p>
@@ -338,7 +367,7 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
           {latest&&replay&&<p className="mt-2 font-bold">照合したネックライン {yen(replay.neckline)}に対し、
             {latest.close>replay.neckline?"終値は上":latest.close===replay.neckline?"終値は同値":"終値は下"}です。
             {latest.close<replay.low2.price?"第2の安値も下回っています。":""}</p>}
-          <p className="mt-1 text-xs text-slate-600">元の参考ネックラインを固定して比較しています。新しいダブルボトムの成立や、場中の上昇継続を判定した表示ではありません。</p>
+          {isDoubleBottom?<p className="mt-1 text-xs text-slate-600">元の参考ネックラインを固定して比較しています。新しいダブルボトムの成立や、場中の上昇継続を判定した表示ではありません。</p>:<p className="mt-2 font-bold">直近の日足：{dailyUnsupported?"分足専用のため判定対象外":latestMatches.length?selected.name+"の条件一致":selected.name+"の条件一致なし"}<span className="block text-xs font-normal text-slate-600">直近の日足での別判定です。元の形が連続して維持されたことを示すものではありません。</span></p>}
           <div className="mt-3 grid grid-cols-3 gap-2">{[1,3,5].map(n=>{
             const c=followup[n-1];
             return <div key={n} className="rounded-lg bg-slate-50 p-2">
