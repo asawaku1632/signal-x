@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
 import {getMsbAutoEnabled} from "@/app/lib/research/msbAutoSwitch";
 import {setMsbAutoEnabled} from "./actions";
+import {setMsbScaleEnabled} from "./scale-actions";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { SWING_SHADOW_VERSION } from "@/app/lib/research/msbMaSwing";
 import { VOLUME_SENSITIVITY_VERSION } from "@/app/lib/research/msbMaVolumeSensitivity";
@@ -13,8 +14,10 @@ import {
 export const dynamic="force-dynamic";
 export const revalidate=0;
 export const runtime="nodejs";
-type Props={searchParams:Promise<{save?:string;auto?:string}>};
+type Props={searchParams:Promise<{save?:string;auto?:string;scale?:string}>};
 type AutoDay={trade_date:string;mode:string;status:string;codes:string[];note:string|null};
+type ScaleControl={enabled:boolean;extra_batches:number};
+type ScaleDay={trade_date:string; batches:number; completed:number; added:number; failed:number};
 type Run={codes:string[];created_at:string;first_bar_date:string;last_bar_date:string;base_count:number;ob_count:number};
 const yen=(n:number|null)=>n===null?"—":(n>0?"+":"")+Math.round(n).toLocaleString("ja-JP")+"円";
 const pct=(n:number|null)=>n===null?"—":n.toFixed(1)+"%";
@@ -71,6 +74,22 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
   let runs:Run[]=[], observations:StoredMsbObservation[]=[];
   let totalRuns=0, researchedStocks=0, unavailable=false;
   let autoEnabled=false,autoUnavailable=false,autoDays:AutoDay[]=[];
+  let scaleEnabled=false,scaleBatches=0,scaleUnavailable=false,scaleDays:ScaleDay[]=[];
+  try {
+    const [cfg,days]=await Promise.all([
+      pool.query<ScaleControl>("SELECT enabled,extra_batches FROM public.msb_volume_scale_control WHERE id=true"),
+      pool.query<ScaleDay>(
+        "SELECT trade_date::text,COUNT(*)::int AS batches,"+
+        "COUNT(*) FILTER(WHERE status='COMPLETED')::int AS completed,"+
+        "COALESCE(SUM(cardinality(codes)) FILTER(WHERE status='COMPLETED'),0)::int AS added,"+
+        "COUNT(*) FILTER(WHERE status='FAILED')::int AS failed "+
+        "FROM public.msb_volume_scale_batches GROUP BY trade_date ORDER BY trade_date DESC LIMIT 10"
+      ),
+    ]);
+    scaleEnabled=cfg.rows[0]?.enabled===true;
+    scaleBatches=Number(cfg.rows[0]?.extra_batches??0);
+    scaleDays=days.rows;
+  }catch(err){console.error("MSB scale UI unavailable",err);scaleUnavailable=true;}
   try {
     const [enabled,history]=await Promise.all([
       getMsbAutoEnabled(),
@@ -90,7 +109,7 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
         "SELECT detector_version,volume_version,code,signal_time::text,entry_time::text,exit_time::text,"+
         "profit_yen_100,return_percent::text,volume_eligible,ob_eligible,"+
         "breakout_ratio::text,retest_ratio::text FROM public.msb_volume_research_observations "+
-        "WHERE detector_version=$1 AND volume_version=$2 ORDER BY exit_time,code LIMIT 10001",
+        "WHERE detector_version=$1 AND volume_version=$2 ORDER BY exit_time,code LIMIT 50001",
         [SWING_SHADOW_VERSION,VOLUME_SENSITIVITY_VERSION]),
       pool.query<{runs:string;stocks:string}>(
         "SELECT (SELECT count(*) FROM public.msb_volume_research_runs "+
@@ -104,7 +123,7 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
     totalRuns=Number(totals.rows[0]?.runs??0);
     researchedStocks=Number(totals.rows[0]?.stocks??0);
   }catch(error){console.error("owner-only msb archive read unavailable",error);unavailable=true;}
-  const truncated=observations.length>10000;
+  const truncated=observations.length>50000;
   const result=unavailable||truncated?null:summarizeArchivedMsb(observations);
   const groups=result?.groups;
   return <main className="min-h-screen bg-slate-50 px-3 py-5 pb-24 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -116,7 +135,7 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
       </header>
       <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-950">
         <p className="font-black">🔒 研究専用・本番AI/LINE/疑似購入/学習結果は変更なし</p>
-        <p>手動保存は本人がボタンを押した時だけ。自動研究がONの時は、営業日朝8:50ごろ、既存の研究Cronで最大5銘柄の確定日足を検証・保存します。水平線研究がONなら同じ株価取得を共有します。古いスクリーンショットは自動では保存されません。</p>
+        <p>手動保存は本人がボタンを押した時だけ。自動研究がONの時は、営業日朝8:50ごろに確定日足を保存。水平線と共有する最初の最大5銘柄の後、拡張ONなら最大45銘柄を5銘柄ずつ追加検証します。古いスクリーンショットは自動保存されません。</p>
         <p>同じ銘柄の保有期間を重複除外しますが、別銘柄同士の相関や資金制約は未考慮。100株仮想損益は実際のポートフォリオ利益ではありません。取引ルールは旧研究から変更していません。</p>
       </section>
 
@@ -124,10 +143,11 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
         <h2 className="text-lg font-black">🤖 MSB・OBの自動蓄積</h2>
         <p className="mt-2 text-sm font-black">状態：{autoUnavailable?"確認できません":autoEnabled?"ON（自動運転）":"OFF（停止中）"}</p>
         <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
-          東証の営業日、朝8:50ごろに最大5銘柄を研究専用DBに保存します。
-          水平線の自動研究がONなら<strong>同じ5銘柄の日足を使い、株価取得回数を増やしません。</strong>
-          水平線がOFFの場合も既存のCron枠を再利用して最大5銘柄だけ取得します。
-          新しいCronや有料データ契約なし。取得・計算・DB保存には通常のVercel/Supabase使用枠を消費します。
+          東証の営業日、朝8:50ごろに最初の5銘柄を研究専用DBに保存します。
+          水平線研究がONなら最初の5銘柄は同じ日足データを共有。
+          拡張収集ONなら、そのあと新しい45銘柄まで追加取得します（1回5銘柄・最大9組）。
+          処理時間・株価取得失敗で少ない件数になる場合があります。
+          新Cron・追加有料データ契約なし。ただしYahoo通信・Vercel/Supabaseの使用量は増えます。
         </p>
         {!autoUnavailable&&<form action={setMsbAutoEnabled} className="mt-3">
           <input type="hidden" name="enabled" value={autoEnabled?"off":"on"}/>
@@ -154,6 +174,38 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
           一巡後は追加対象が尽きれば停止します。手動検証・本番AI・LINE通知には影響しません。
         </p>
       </section>
+      <section className="rounded-2xl border border-indigo-200 bg-white p-4 dark:border-indigo-900 dark:bg-slate-900">
+        <h2 className="text-base font-black">🚀 研究速度：5銘柄 → 最大50銘柄/日</h2>
+        <p className="mt-2 text-sm font-bold">
+          拡張収集：{scaleUnavailable?"状態を確認できません":scaleEnabled?"ON（追加最大"+scaleBatches*5+"銘柄）":"OFF（1日最大5銘柄のまま）"}
+        </p>
+        <p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+          通常の5銘柄が成功したときだけ、未調査銘柄を5件ずつ順番に検証・保存。
+          途中で失敗・時間切れならそこで停止し、翌日新しい銘柄から続行します。
+          水平線研究の最大5銘柄制限、AI・LINE通知、疑似購入の判定は変更しません。
+        </p>
+        {!scaleUnavailable&&<form action={setMsbScaleEnabled} className="mt-3">
+          <input type="hidden" name="enabled" value={scaleEnabled?"off":"on"}/>
+          <button type="submit" className={"min-h-12 w-full rounded-xl px-3 text-sm font-black text-white "+
+            (scaleEnabled?"bg-rose-700":"bg-indigo-700")}>
+            {scaleEnabled?"追加45銘柄の拡張収集を停止する":"追加45銘柄の拡張収集をONにする"}
+          </button>
+        </form>}
+        {params.scale==="error"&&<p role="alert" className="mt-2 text-xs font-bold text-red-700">拡張収集の切替に失敗しました。</p>}
+        {params.scale==="on"&&<p role="status" className="mt-2 text-xs font-bold text-indigo-700">拡張収集がONになりました。</p>}
+        {params.scale==="off"&&<p role="status" className="mt-2 text-xs font-bold text-indigo-700">拡張収集をOFFにしました。</p>}
+        <p className="mt-3 text-xs font-bold">追加収集の直近実績（最初の5銘柄は別）</p>
+        {scaleDays.length===0?<p className="mt-2 text-xs text-slate-500">まだ追加実行の履歴はありません。</p>:
+          <div className="mt-2 space-y-2">{scaleDays.map(day=><div key={day.trade_date}
+            className="rounded-lg bg-slate-100 p-3 text-xs dark:bg-slate-800">
+              <p className="font-bold">{day.trade_date}：追加{day.added}銘柄（{day.completed}/{day.batches}組成功）</p>
+              {day.failed>0&&<p className="text-red-700">失敗：{day.failed}組。保存失敗の詳細は運転履歴を確認。</p>}
+              {day.added<45&&<p className="text-slate-500">追加45銘柄未満：時間・データ取得・未調査銘柄数などが原因の場合があります。</p>}
+            </div>)}</div>}
+        <p className="mt-3 text-xs text-slate-500">
+          保存済みの同じシグナルは再計上しません。取得上限50銘柄は目標値で、毎日50銘柄の成功を保証するものではありません。
+        </p>
+      </section>
       {params.save==="saved"&&<p role="status" className="rounded-xl bg-blue-50 p-3 font-bold text-blue-900">研究結果を保存したよ！同じシグナルは重複登録していません。</p>}
       {params.save==="duplicate"&&<p role="status" className="rounded-xl bg-blue-50 p-3 font-bold text-blue-900">同じ銘柄と同じ確定日足は保存済みだよ。重複保存しませんでした。</p>}
       {unavailable?<p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-800">研究用の保存テーブルを読み取れません。DBの適用状態を確認してください。</p>:
@@ -164,7 +216,7 @@ export default async function MsbVolumeArchivePage({searchParams}:Props){
             </div>)}
         </div>}
       {truncated&&<p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-800">
-        保存済みの観察記録が1万件を超えました。不完全な累積勝率を表示しないため集計を停止しています。
+        保存済みの観察記録が5万件を超えました。不完全な累積勝率を表示しないため集計を停止しています。
       </p>}
       {groups&&<>
         <Summary data={groups[1]} label="🔍 最初のA・B：仮説を見つけた銘柄"/>

@@ -26,13 +26,22 @@ export async function claimMsbDaily(date:string,codes:readonly string[],mode:Mod
   );
   return !!result.rowCount;
 }
-async function markFailed(date:string,reason:"DATA_UNAVAILABLE"|"RUN_ERROR"){
+async function markFailed(date:string,reason:"DATA_UNAVAILABLE"|"RUN_ERROR",extraBatch?:number){
   try {
-    await pool.query(
-      "UPDATE public.msb_volume_auto_daily_runs "+
-      "SET status='FAILED',note=$2,finished_at=now() "+
-      "WHERE trade_date=$1::date AND status='CLAIMED'",[date,reason]
-    );
+    if(extraBatch!==undefined) {
+      if(!Number.isInteger(extraBatch)||extraBatch<1||extraBatch>9) throw new Error("INVALID_MSB_BATCH_NUMBER");
+      await pool.query(
+        "UPDATE public.msb_volume_scale_batches SET status='FAILED',note=$3,finished_at=now() "+
+        "WHERE trade_date=$1::date AND batch_no=$2 AND status='CLAIMED'",
+        [date,extraBatch,reason]
+      );
+    }else {
+      await pool.query(
+        "UPDATE public.msb_volume_auto_daily_runs "+
+        "SET status='FAILED',note=$2,finished_at=now() "+
+        "WHERE trade_date=$1::date AND status='CLAIMED'",[date,reason]
+      );
+    }
   }catch(e){ console.error("msb auto failed-state update unavailable",e); }
 }
 
@@ -41,18 +50,18 @@ async function markFailed(date:string,reason:"DATA_UNAVAILABLE"|"RUN_ERROR"){
  * the SOLO 5-stock limit. All saved data is versioned retrospective research only.
  */
 export async function archiveClaimedMsbBatch(
-  date:string,codes:readonly string[],loaded:readonly LoadedStock[],
+  date:string,codes:readonly string[],loaded:readonly LoadedStock[],extraBatch?:number,
 ):Promise<MsbAutoStatus> {
   if (loaded.length!==codes.length ||
       loaded.some((s,i)=>s.code!==codes[i] || s.error || s.candles.length<60)) {
-    await markFailed(date,"DATA_UNAVAILABLE");
+    await markFailed(date,"DATA_UNAVAILABLE",extraBatch);
     return {success:false,skipped:false,dateJst:date,status:"FAILED",reason:"DATA_UNAVAILABLE",codes:[...codes]};
   }
   try{
     const stocks=loaded.map(s=>({code:s.code,candles:s.candles}));
     const report=studyMsbMaSwing(stocks);
     if(report.invalidCodes.length||report.cohortCount!==codes.length) {
-      await markFailed(date,"DATA_UNAVAILABLE");
+      await markFailed(date,"DATA_UNAVAILABLE",extraBatch);
       return {success:false,skipped:false,dateJst:date,status:"FAILED",reason:"INVALID_CANDLES",codes:[...codes]};
     }
     const fingerprint=stocks.map(({code,candles})=>({
@@ -108,12 +117,21 @@ export async function archiveClaimedMsbBatch(
         if(!old.rows[0])throw new Error("MSB_ARCHIVE_DUPLICATE_UNREADABLE");
         archiveId=old.rows[0].id;
       }
-      const completed=await client.query(
-        "UPDATE public.msb_volume_auto_daily_runs SET status='COMPLETED',"+
-        "archive_run_id=$2::uuid,note=$3,finished_at=now() "+
-        "WHERE trade_date=$1::date AND status='CLAIMED' RETURNING trade_date",
-        [date,archiveId,saved.rows[0]?"ARCHIVED":"DUPLICATE_INPUT"]
-      );
+      // The extra batch is a separate append-only ledger from the original daily 5.
+      // Both save the same immutable observations, but update ONLY their own claim.
+      const completed=extraBatch===undefined
+        ? await client.query(
+          "UPDATE public.msb_volume_auto_daily_runs SET status='COMPLETED',"+
+          "archive_run_id=$2::uuid,note=$3,finished_at=now() "+
+          "WHERE trade_date=$1::date AND status='CLAIMED' RETURNING trade_date",
+          [date,archiveId,saved.rows[0]?"ARCHIVED":"DUPLICATE_INPUT"]
+        )
+        : await client.query(
+          "UPDATE public.msb_volume_scale_batches SET status='COMPLETED',"+
+          "archive_run_id=$3::uuid,note=$4,finished_at=now() "+
+          "WHERE trade_date=$1::date AND batch_no=$2 AND status='CLAIMED' RETURNING trade_date",
+          [date,extraBatch,archiveId,saved.rows[0]?"ARCHIVED":"DUPLICATE_INPUT"]
+        );
       if(!completed.rowCount)throw new Error("MSB_DAILY_CLAIM_CHANGED");
       await client.query("COMMIT");
     }catch(err){
@@ -122,7 +140,7 @@ export async function archiveClaimedMsbBatch(
     return {success:true,skipped:false,dateJst:date,status:"COMPLETED",codes:[...codes],archiveId};
   }catch(err){
     console.error("msb auto archive failed",err);
-    await markFailed(date,"RUN_ERROR");
+    await markFailed(date,"RUN_ERROR",extraBatch);
     return {success:false,skipped:false,dateJst:date,status:"FAILED",reason:"RUN_ERROR",codes:[...codes]};
   }
 }
