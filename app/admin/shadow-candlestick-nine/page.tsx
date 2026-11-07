@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import pool from "@/app/lib/postgres";
+import { combineArchivedShadowRuns, type ArchivedShadowRun } from "@/app/lib/research/shadowCandleArchiveStats";
+import { evaluateShadowBuyCaution } from "@/app/lib/research/shadowCandleBuyCaution";
+import ShadowBuyCautionPanel from "./ShadowBuyCautionPanel";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import {
   SHADOW_CANDLE_PATTERNS,
@@ -101,6 +105,32 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
   const lastDay = candles.length ? dateJst(candles[candles.length - 1].time) : null;
   const totalHits = studies.reduce((n, study) => n + study.hits.length, 0);
 
+  // Owner-only and explicit one-stock request. No Yahoo request or DB
+  // research query on initial page load. Stats are retrospective and NEVER
+  // modify a production buy/AI/notification decision.
+  let archiveRows: ReturnType<typeof combineArchivedShadowRuns>["rows"] | null = null;
+  if (validCode && !error && candles.length > 0) {
+    try {
+      const archive = await pool.query<ArchivedShadowRun>(`
+        SELECT id::text, detector_version, events
+        FROM public.shadow_candle_research_runs
+        WHERE detector_version = $1
+        ORDER BY created_at DESC
+        LIMIT 250
+      `, ["CANDLE9_V1"]);
+      archiveRows = combineArchivedShadowRuns(archive.rows).rows;
+    } catch (error) {
+      console.error("owner shadow buy caution archive unavailable", error);
+    }
+  }
+  const latestCompletedBarTime = candles.length ? candles[candles.length - 1].time : null;
+  const buyCaution = evaluateShadowBuyCaution({
+    hits: studies.flatMap(study => study.hits),
+    latestCompletedBarTime,
+    todayJst: todayJst(),
+    archiveRows,
+  });
+
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
       <div className="mx-auto max-w-4xl px-3 pt-5 sm:px-6">
@@ -163,6 +193,8 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
               </div>
               <p className="mt-3 text-xs text-slate-600">分析対象：{firstDay}〜{lastDay}（日本時間）。同じ2本が複数種類に重なる可能性があります。</p>
             </section>
+            <ShadowBuyCautionPanel result={buyCaution}
+              latestDate={lastDay} code={requested} statsAvailable={archiveRows !== null} />
             <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
               <h2 className="text-lg font-black">1・3・5営業日後の研究成績</h2>
               <p className="mt-2 text-xs leading-6 text-slate-600">
