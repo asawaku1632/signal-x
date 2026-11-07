@@ -187,14 +187,21 @@ export default function PushNotificationButton() {
         return;
       }
       const registration = await getRegistration();
+      const tag = "signalx-local-test-" + Date.now();
       await registration.showNotification("SIGNALX｜端末表示テスト", {
         body: "これが表示されれば、Androidへの通知表示は動作しています。",
         icon: "/icons/signalx-192.png",
-        tag: "signalx-local-test-" + Date.now(),
+        tag,
       });
-      setMessage("Androidに表示を依頼しました。通知が出なければ端末側またはTWAの通知連携を確認してください。");
-    } catch {
-      setMessage("端末内の通知表示に失敗しました。Android・Chromeの通知設定をご確認ください。");
+      const notifications = await registration.getNotifications({ tag });
+      if (notifications.length > 0) {
+        setMessage("診断: ブラウザ内に通知記録あり。Androidに表示されない場合はTWAの通知引き渡し・アプリの通知チャネル・既定ブラウザを確認してください。");
+      } else {
+        setMessage("診断: 表示処理は成功しましたが、ブラウザ内の通知記録が0件です。ブラウザ・OSが通知を抑制している可能性があります。");
+      }
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "UnknownError";
+      setMessage("診断: 通知の表示処理が失敗しました（" + name + "）。Androidとブラウザの通知権限をご確認ください。");
     } finally {
       setBusy(false);
     }
