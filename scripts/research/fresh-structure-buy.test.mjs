@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {evaluateFreshBuyWithStructures} from "../../app/lib/freshStructureBuy.ts";
+import {registerHooks} from "node:module";
+registerHooks({resolve(specifier,context,nextResolve){
+ if(specifier.startsWith("@/")){
+  const path=specifier.slice(2)+(/\.[cm]?[jt]s$/.test(specifier)?"":".ts");
+  return nextResolve(new URL("../../"+path,import.meta.url).href,context);
+ }
+ return nextResolve(specifier,context);
+}});
+const {evaluateFreshBuyWithStructures}=await import("../../app/lib/freshStructureBuy.ts");
 const date="2026-11-09",start=Date.parse(date+"T09:00:00+09:00")/1000;
 function seed(){return Array.from({length:42},(_,i)=>({time:start+i*300,open:100,high:100.2,low:99.8,close:100,volume:100}));}
 function put(b,i,close,high=close+.1,low=close-.1,open=close){b[i]={...b[i],open,high,low,close};}
