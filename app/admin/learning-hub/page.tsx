@@ -1,4 +1,6 @@
 import Link from "next/link";
+import pool from "@/app/lib/postgres";
+import { isTseTargetDateReady, resolveTseTradingDatesAfter } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
@@ -198,6 +200,193 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
   },
 ];
 
+
+const bbCohorts = [
+  ["UPPER_TREND", "上側・継続"],
+  ["UPPER_REVERSAL", "上側・反転警戒"],
+  ["LOWER_REBOUND", "下側・反発"],
+  ["UPPER_WATCH", "上側・監視"],
+  ["NO_BB", "BB記録なし"],
+  ["OTHER", "その他"],
+] as const;
+
+type BbResult = {
+  cohort: string;
+  candidates: number;
+  completed: number;
+  positive: number;
+  mean: number | null;
+  worst: number | null;
+};
+
+const formatReturn = (value: number | null) =>
+  value === null ? "—" : `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+
+
+async function Momentum915Results() {
+  try {
+    const { rows: anchors } = await pool.query<{
+      date: string; code: string; price: number | null; cohort: string;
+    }>(`
+      SELECT r.trade_date::text AS date, a.code, a.price,
+        CASE WHEN e.side = 'LOWER_REBOUND' THEN 'LOWER_REBOUND'
+             WHEN e.upper_regime IN ('UPPER_TREND', 'UPPER_REVERSAL', 'UPPER_WATCH') THEN e.upper_regime
+             WHEN e.id IS NULL THEN 'NO_BB' ELSE 'OTHER' END AS cohort
+      FROM public.entry_time_shadow_runs r
+      CROSS JOIN LATERAL jsonb_to_recordset(r.results->0->'momentum915'->'anchors')
+        AS a(code text, price float8)
+      LEFT JOIN LATERAL (
+        SELECT id, side, upper_regime FROM public.bb_signal_events
+        WHERE code = a.code AND signal_date = r.prior_date
+          AND created_at < ((r.trade_date + time '09:00') AT TIME ZONE 'Asia/Tokyo')
+        ORDER BY created_at DESC, id DESC LIMIT 1
+      ) e ON true
+      WHERE r.results->0->'momentum915'->>'version' = 'MOMENTUM_0915_AFTER_CLOSE_V1'
+    `);
+    if (!anchors.length) return <p className="mt-2 text-xs text-slate-600">9:15の検証記録はまだありません。</p>;
+
+    const horizons = [1, 3, 5];
+    const now = new Date();
+    const targets = anchors.flatMap(anchor => {
+      const dates = resolveTseTradingDatesAfter(anchor.date, 5);
+      return horizons.map(horizon => ({ ...anchor, horizon, target: dates[horizon - 1] }));
+    });
+    const { rows: prices } = await pool.query<{ date: string; code: string; price: string }>(`
+      SELECT DISTINCT ON (date, code) date, code, price::text
+      FROM public.daily_stock_results
+      WHERE date = ANY($1::text[]) AND code = ANY($2::text[])
+      ORDER BY date, code, created_at DESC, id DESC
+    `, [[...new Set(targets.map(row => row.target))], [...new Set(anchors.map(row => row.code))]]);
+    const byDateCode = new Map(prices.map(row => [row.date + ":" + row.code, Number(row.price)]));
+
+    return (
+      <div className="mt-4 border-t pt-3">
+        <h3 className="text-xs font-black">翌営業日9:15基準・100株の事後検証</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          引け後取得の9:15足始値から、購入日の翌取引日を1日後として計算。出口は日次保存の参考価格。コスト控除前。
+          BBは購入日9:00より前の最新記録で分類。
+        </p>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full whitespace-nowrap text-xs tabular-nums">
+            <caption className="sr-only">BB判定別の100株損益</caption>
+            <thead><tr className="border-b text-right">
+              <th scope="col" className="text-left">BB判定</th><th scope="col">日後</th>
+              <th scope="col">完了</th><th scope="col">待ち</th><th scope="col">欠損</th><th scope="col">平均損益</th>
+            </tr></thead>
+            <tbody>
+              {bbCohorts.filter(([key]) => anchors.some(row => row.cohort === key)).flatMap(([key, label]) =>
+                horizons.map(horizon => {
+                  const rows = targets.filter(row => row.cohort === key && row.horizon === horizon);
+                  let waiting = 0;
+                  let missing = 0;
+                  const pnl: number[] = [];
+                  for (const row of rows) {
+                    const exit = byDateCode.get(row.target + ":" + row.code);
+                    if (row.price === null || !Number.isFinite(row.price) || row.price <= 0) missing++;
+                    else if (!isTseTargetDateReady(row.target, now)) waiting++;
+                    else if (exit === undefined || !Number.isFinite(exit) || exit <= 0) missing++;
+                    else pnl.push((exit - row.price) * 100);
+                  }
+                  const mean = pnl.length ? Math.round(pnl.reduce((sum, value) => sum + value, 0) / pnl.length) : null;
+                  return <tr key={key + horizon} className="border-b border-slate-100 text-right">
+                    <th scope="row" className="py-1 text-left">{label}</th><td>{horizon}</td>
+                    <td>{pnl.length}</td><td>{waiting}</td><td>{missing}</td>
+                    <td>{mean === null ? "—" : (mean > 0 ? "+" : "") + mean.toLocaleString("ja-JP") + "円"}</td>
+                  </tr>;
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  } catch (error) {
+    console.error("Momentum 09:15 outcomes unavailable", error);
+    return <p role="status" className="mt-2 text-xs text-slate-600">9:15の損益集計を取得できませんでした。</p>;
+  }
+}
+
+async function MomentumBbComparison() {
+  let results: BbResult[];
+  try {
+    const { rows } = await pool.query<BbResult>(`
+WITH candidates AS (
+  SELECT DISTINCT ON (trade_date, code) trade_date, code, result_5d
+  FROM public.momentum_memory_observations
+  WHERE observation_flag AND validation_mode = 'FORWARD'
+    AND created_at < ((trade_date + 1 + time '09:15') AT TIME ZONE 'Asia/Tokyo')
+  ORDER BY trade_date, code, created_at, id
+), classified AS (
+  SELECT m.*, CASE
+    WHEN e.side = 'LOWER_REBOUND' THEN 'LOWER_REBOUND'
+    WHEN e.upper_regime IN ('UPPER_TREND', 'UPPER_REVERSAL', 'UPPER_WATCH') THEN e.upper_regime
+    WHEN e.id IS NULL THEN 'NO_BB'
+    ELSE 'OTHER'
+  END AS cohort
+  FROM candidates m
+  LEFT JOIN LATERAL (
+    SELECT id, side, upper_regime
+    FROM public.bb_signal_events
+    WHERE code = m.code AND signal_date = m.trade_date
+      AND created_at < ((m.trade_date + 1 + time '09:15') AT TIME ZONE 'Asia/Tokyo')
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  ) e ON true
+)
+SELECT cohort, count(*)::int AS candidates, count(result_5d)::int AS completed,
+       count(*) FILTER (WHERE result_5d > 0)::int AS positive,
+       avg(result_5d)::float8 AS mean, min(result_5d)::float8 AS worst
+FROM classified GROUP BY cohort
+    `);
+    results = rows;
+  } catch (error) {
+    console.error("Momentum BB research comparison failed", error);
+    return <p role="status" className="mt-3 text-xs text-slate-600">爆益前兆 × BBの比較を取得できませんでした。</p>;
+  }
+  const byCohort = new Map(results.map(row => [row.cohort, row]));
+
+  return (
+    <section aria-labelledby="momentum-bb-title" className="mt-3 rounded-2xl border border-indigo-100 bg-white p-3">
+      <h2 id="momentum-bb-title" className="text-sm font-black">爆益前兆 × ボリンジャーバンド</h2>
+      <p className="mt-1 text-xs leading-5 text-slate-600">
+        前向き候補を銘柄・判定日ごとに集計。同日のBB記録のうち、翌暦日9:15（日本時間）より前に保存された最新判定を使用。
+      </p>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full whitespace-nowrap text-xs tabular-nums">
+          <caption className="sr-only">BB判定別の保存済み5営業日後成績</caption>
+          <thead>
+            <tr className="border-b text-right text-slate-600">
+              <th scope="col" className="py-2 text-left">BB判定</th>
+              <th scope="col">完了 / 成立</th>
+              <th scope="col">プラス</th>
+              <th scope="col">平均</th>
+              <th scope="col">最悪</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bbCohorts.map(([key, label]) => {
+              const row = byCohort.get(key);
+              return (
+                <tr key={key} className="border-b border-slate-100 text-right">
+                  <th scope="row" className="py-2 pr-2 text-left font-bold">{label}</th>
+                  <td>{row?.completed ?? 0} / {row?.candidates ?? 0}</td>
+                  <td>{row?.completed ? `${row.positive}/${row.completed}` : "—"}</td>
+                  <td>{formatReturn(row?.mean ?? null)}</td>
+                  <td>{formatReturn(row?.worst ?? null)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        表は既存の5営業日後騰落率。9:15を起点にした結果は下の事後検証で確認できます。
+      </p>
+      <Momentum915Results />
+    </section>
+  );
+}
+
 export default async function PrivateLearningHubPage() {
   const { isOwner } = await getLearningOwnerSession();
   if (!isOwner) notFound();
@@ -232,6 +421,7 @@ export default async function PrivateLearningHubPage() {
             別期間での再確認まで求める研究専用ランキング。売買推奨ではありません。
           </p>
         </Link>
+        <MomentumBbComparison />
         <nav aria-label="学習データの分類" className="mt-3 grid grid-cols-3 gap-2">
           {[
             { href: "#verification", label: "📈 答え合わせ" },
