@@ -17,6 +17,7 @@ export default async function UptrendWatchPage(){
       取引時間中に5分ごとに最大160銘柄ずつ巡回し、確定5分足3本の終値と安値の切り上がり、
       BB中心線上昇、直前3本比で出来高1.2倍以上を確認すると通知します。</p>
     <PushNotificationButton />
+    <Link href="/admin/downtrend-watch" className="block text-sm font-bold text-blue-700">📉 お気に入りの下落傾向通知を見る →</Link>
     <p className="text-xs leading-5">参考株価はYahooの5分足です。最新の確定足から20分超経過したデータは確認待ち。
       通知文に足の開始時刻を表示します。全候補の確認にかかる時間は候補数と取得状況で変わります。同じ銘柄は直近の監視期間内で重複通知を抑えます。</p>
     {!rows.length&&<p className="rounded-xl border p-3 text-sm">初回の場中チェック待ちです。</p>}

@@ -1,4 +1,4 @@
-export function evaluateUptrend(bars, nowMs, tradeDate) {
+function evaluateTrend(bars, nowMs, tradeDate, direction) {
   const valid = bars.filter(bar => Number.isFinite(bar.time) &&
     ["open","high","low","close","volume"].every(key => Number.isFinite(bar[key])) &&
     bar.open > 0 && bar.low > 0 && bar.high >= Math.max(bar.open,bar.close,bar.low) &&
@@ -21,9 +21,20 @@ export function evaluateUptrend(bars, nowMs, tradeDate) {
   const previousVolume=valid.slice(-6,-3).reduce((sum,bar)=>sum+bar.volume,0);
   const currentVolume=recent.reduce((sum,bar)=>sum+bar.volume,0);
   const volumeRatio=previousVolume>0?currentVolume/previousVolume:0;
-  const matched=recent[2].close>recent[1].close && recent[1].close>recent[0].close &&
-    recent[2].low>recent[1].low && recent[1].low>recent[0].low &&
-    last.close>middle && middle>priorMiddle && volumeRatio>=1.2;
-  return {matched,reason:matched?"RISING_CLOSES_LOWS_MIDDLE_VOLUME":"CONDITIONS_NOT_MET",
+  const sign=direction==="DOWN"?-1:1;
+  const extreme=direction==="DOWN"?"high":"low";
+  const matched=(recent[2].close-recent[1].close)*sign>0 &&
+    (recent[1].close-recent[0].close)*sign>0 &&
+    (recent[2][extreme]-recent[1][extreme])*sign>0 &&
+    (recent[1][extreme]-recent[0][extreme])*sign>0 &&
+    (last.close-middle)*sign>0 && (middle-priorMiddle)*sign>0 && volumeRatio>=1.2;
+  return {matched,reason:matched?(direction==="DOWN"?"FALLING_CLOSES_HIGHS_MIDDLE_VOLUME":"RISING_CLOSES_LOWS_MIDDLE_VOLUME"):"CONDITIONS_NOT_MET",
     price:last.close,barTime:last.time,receivedAt:new Date(nowMs).toISOString(),middle,volumeRatio};
+}
+
+export function evaluateUptrend(bars, nowMs, tradeDate) {
+  return evaluateTrend(bars, nowMs, tradeDate, "UP");
+}
+export function evaluateDowntrend(bars, nowMs, tradeDate) {
+  return evaluateTrend(bars, nowMs, tradeDate, "DOWN");
 }
