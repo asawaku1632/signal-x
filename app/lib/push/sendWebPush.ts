@@ -48,7 +48,13 @@ export async function sendWebPush(
       const response = await webpush.sendNotification(
         pushSubscription,
         JSON.stringify(payload),
-        { TTL: 60, urgency: "normal", timeout: 10_000, vapidDetails },
+        {
+          // Diagnostic pushes should not expire while Android defers normal-priority delivery.
+          TTL: payload.tag === "signalx-push-test" ? 300 : 60,
+          urgency: payload.tag === "signalx-push-test" ? "high" : "normal",
+          timeout: 10_000,
+          vapidDetails,
+        },
       );
       return { ok: true, statusCode: response.statusCode };
     } catch (unknownError) {
