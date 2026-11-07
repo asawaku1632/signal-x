@@ -90,7 +90,7 @@ export async function GET(request:Request) {
         await pool.query(`UPDATE public.owner_uptrend_watch
           SET state=$4,notified_at=CASE WHEN $4='SENT' THEN now() ELSE NULL END
           WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state='CLAIMED'`,
-          [owner,stock.code,stock.signal_date,delivery.ok?"SENT":"WAITING"]);
+          [owner,stock.code,stock.signal_date,delivery.ok?"SENT":delivery.reason==="NO_SUBSCRIPTION"||delivery.reason==="PREFERENCE_DISABLED"?"WAITING":"CLAIMED"]);
         outcomes.push({code:stock.code,state:delivery.ok?"SENT":delivery.reason||"DELIVERY_FAILED"});
       }catch(error){
         outcomes.push({code:stock.code,state:error instanceof Error?error.message:"CAPTURE_FAILED"});
