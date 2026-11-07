@@ -66,10 +66,22 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
   );
   const cohort:FrozenSignal[]=selectPriorDayCandidates(rows);
   if(!cohort.length) return {success:true,skipped:true,date,priorDate,reason:"NO_FROZEN_PRIOR_DAY_SIGNALS"};
-  // DB claim permanently caps requests to <=5 for this day, even if they fail.
+  // Freeze the prior-session Momentum candidates before requesting any candles.
+  // The cutoff is before the session opens, even though this job runs after close.
+  const {rows: momentumCodes}=await pool.query<{code:string}>(`
+    SELECT code
+    FROM public.momentum_memory_observations
+    WHERE trade_date=$1::date AND observation_flag AND validation_mode='FORWARD'
+      AND code ~ '^[0-9]{4}$'
+      AND created_at < (($2::date + time '09:00') AT TIME ZONE 'Asia/Tokyo')
+    GROUP BY code
+    ORDER BY max(research_score) DESC NULLS LAST, code
+    LIMIT 5
+  `,[priorDate,date]);
+  // A claim caps the additional research requests at five per session.
   const claim=await pool.query<{trade_date:string}>(
-    "INSERT INTO public.entry_time_shadow_runs (trade_date,prior_date,policy_version,cohort) VALUES ($1::date,$2::date,$3,$4::jsonb) ON CONFLICT (trade_date) DO NOTHING RETURNING trade_date::text",
-    [date,priorDate,ENTRY_TIME_SHADOW_VERSION,JSON.stringify(cohort)]
+    "INSERT INTO public.entry_time_shadow_runs (trade_date,prior_date,policy_version,cohort,results) VALUES ($1::date,$2::date,$3,$4::jsonb,$5::jsonb) ON CONFLICT (trade_date) DO NOTHING RETURNING trade_date::text",
+    [date,priorDate,ENTRY_TIME_SHADOW_VERSION,JSON.stringify(cohort),JSON.stringify([{momentum915:{codes:momentumCodes.map(row=>row.code),state:"CLAIMED"}}])]
   );
   if(!claim.rows.length) return {success:true,skipped:true,date,reason:"ALREADY_CLAIMED"};
   try {
@@ -103,11 +115,24 @@ export async function runEntryTimeShadowDaily(now=new Date()) {
           error:e instanceof Error?e.message:"YAHOO_UNKNOWN"};
       }
     }));
+    const momentumAnchors=await Promise.all(momentumCodes.map(async ({code})=>{
+      try {
+        const candles=await yahooIntraday(code);
+        const anchors=captureHoldingEntryAnchors(date,code,candles);
+        const price=anchors?.entries.find(entry=>entry.time==="09:15")?.price??null;
+        return {code,price,reason:price===null?"MISSING_0915_BAR":null};
+      } catch(error) {
+        return {code,price:null,reason:error instanceof Error?error.message:"YAHOO_UNKNOWN"};
+      }
+    }));
+    const momentum915={version:"MOMENTUM_0915_AFTER_CLOSE_V1",priorDate,date,
+      source:"YAHOO_5M_OPEN_AFTER_CLOSE",capturedAt:new Date().toISOString(),anchors:momentumAnchors};
+    const archivedResults=results.map((row,index)=>index===0?{...row,momentum915}:row);
     const done=results.filter(x=>x.complete).length;
     const status=done===cohort.length?"COMPLETE":"PARTIAL";
     await pool.query(
       "UPDATE public.entry_time_shadow_runs SET results=$2::jsonb,status=$3,finished_at=now(),note=$4 WHERE trade_date=$1::date AND status='CLAIMED'",
-      [date,JSON.stringify(results),status,done+"/"+cohort.length+" complete; no automatic retries"]
+      [date,JSON.stringify(archivedResults),status,done+"/"+cohort.length+" complete; no automatic retries"]
     );
     return {success:true,skipped:false,date,priorDate,status,sampled:done,requested:cohort.length};
   }catch(error){
