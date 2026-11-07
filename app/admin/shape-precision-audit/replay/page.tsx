@@ -9,6 +9,8 @@ import {
   doubleBottomStageLabel,
 } from "@/app/lib/research/doubleBottomEvidence";
 
+import {shapeReplayPolicy,shapeReferenceCandles,closedReferenceCandles} from "@/app/lib/research/shapeReplayTiming.mjs";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -25,6 +27,8 @@ type Evidence = {
   scanPrice: number | null;
   timestamp: string;
   reasons: string[] | null;
+  barTimestamp: number | null;
+  dataSource: string;
 };
 type ReplayResult = {
   low1: { price: number; index: number };
@@ -86,12 +90,14 @@ async function loadEvidence(code: string, at: string): Promise<Evidence | null> 
     scanPrice: num(stock.price),
     timestamp,
     reasons,
+    barTimestamp: num(stock.latestBarTimestamp),
+    dataSource: typeof stock.dataSource === "string" ? stock.dataSource : "unknown",
   };
 }
 
 // One explicitly selected stock, one Yahoo daily OHLC request, no background
 // scans, no database writes, and no automatic retries.
-async function fetchDailyCandles(code: string, scanTimestamp: string): Promise<{
+async function fetchDailyCandles(code: string, _scanTimestamp: string): Promise<{
   candles: Candle[];
   error: string | null;
 }> {
@@ -114,23 +120,19 @@ async function fetchDailyCandles(code: string, scanTimestamp: string): Promise<{
     const result = chart?.result?.[0];
     const timestamps = result?.timestamp ?? [];
     const quote = result?.indicators?.quote?.[0];
-    const scanDate = jstDate(scanTimestamp);
-    // Exclude the detection date entirely: Yahoo may now return the full
-    // day's final bar, which was not available during a morning scan.
     const candles: Candle[] = timestamps.flatMap((time, i) => {
       const open = num(quote?.open?.[i]);
       const high = num(quote?.high?.[i]);
       const low = num(quote?.low?.[i]);
       const close = num(quote?.close?.[i]);
       if (!open || !high || !low || !close || !Number.isFinite(time) ||
-        high < Math.max(open, close, low) || low > Math.min(open, close, high) ||
-        jstDate(time) >= scanDate) return [];
+        high < Math.max(open, close, low) || low > Math.min(open, close, high)) return [];
       return [{ time, open, high, low, close }];
     }).slice(-90);
     return {
       candles,
       error: candles.length < 7
-        ? "検出日より前の日足が不足しています。比較結果は表示できません。"
+        ? "参考日足が不足しています。比較結果は表示できません。"
         : null,
     };
   } catch (error) {
@@ -143,7 +145,7 @@ async function fetchDailyCandles(code: string, scanTimestamp: string): Promise<{
 
 // Read-only replay of the structural thresholds in detectDoubleBottom.
 // It is NOT a replay of the original intraday decision or entire 55-pattern
-// optimizer, and runs on data ending before the day of the saved scan.
+// optimizer. The caller supplies the explicit reference cutoff.
 function inspectEarlierDailyCandles(candles: Candle[]): ReplayResult | null {
   if (candles.length < 7) return null;
   const lows: Array<{ index: number; price: number }> = [];
@@ -200,7 +202,7 @@ function CandleChart({ candles, replay }: { candles: Candle[]; replay: ReplayRes
 
   return (
     <svg viewBox="0 0 720 280" role="img"
-      aria-label="検出日の前営業日までの参考ローソク足。緑が陽線、赤が陰線。"
+      aria-label="表示対象日までの参考日足。緑が陽線、赤が陰線。"
       className="h-auto w-full rounded-xl bg-white">
       {[0, 1, 2, 3, 4].map((i) => {
         const price = high - range * i / 4;
@@ -263,7 +265,14 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
       </main>
     );
   }
-  const { candles, error } = await fetchDailyCandles(code, evidence.timestamp);
+  const fetched = await fetchDailyCandles(code, evidence.timestamp);
+  const policy=shapeReplayPolicy(evidence.timestamp,evidence.barTimestamp,evidence.dataSource)!;
+  const closed=closedReferenceCandles(fetched.candles,Date.now()) as Candle[];
+  const candles=shapeReferenceCandles(closed,policy) as Candle[];
+  const error=fetched.error||(candles.length<7?"照合対象日までの日足が不足しています。":null);
+  const latest=closed.at(-1)??null;
+  const followup=closed.filter(c=>jstDate(c.time)>jstDate(evidence.timestamp));
+  const retrievedAt=new Date().toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"});
   const replay = error ? null : inspectEarlierDailyCandles(candles);
   const last = candles[candles.length - 1] ?? null;
   const originalStage = classifyDoubleBottomReasons(evidence.reasons);
@@ -274,16 +283,19 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <Link href="/admin/shape-precision-audit" className="text-sm font-black text-blue-700">← 検出精度監査へ戻る</Link>
         <h1 className="mt-4 text-2xl font-black">🔬 参考日足で照合</h1>
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
-        <section className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-7">
-          <p className="font-black text-amber-950">重要：検出当時の完全再現ではありません</p>
-          <p className="mt-1">元の保存スキャン：{new Date(evidence.timestamp).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}（日本時間）</p>
-          <p>元の判定理由：{doubleBottomStageLabel(originalStage)} ／保存時株価：{yen(evidence.scanPrice)}</p>
-          <p>Yahoo参考日足は<strong>検出日の前日まで</strong>に制限しています。検出当日の日足は、当時の午前時点には存在しなかった午後の値動きを含むおそれがあるため使用しません。</p>
-          <p>そのため、元の判定と参考日足の判定が違っても、元の判定が間違いだったとは断定できません。株式分割・修正株価などによって過去データが変わる場合もあります。</p>
+        <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
+          <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
+          <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
+          <p>判定元の最終足：{policy.barTimestamp?new Date(policy.barTimestamp*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"時刻未保存"} ／ 保存価格 {yen(evidence.scanPrice)}</p>
+          <p>保存された判定：{doubleBottomStageLabel(originalStage)}</p>
+          <p>{policy.includeAnchor
+            ?policy.anchor+"の大引けまでの足を保存データで確認できるため、同日の日足も照合対象に含めます。"
+            :policy.anchor+"当日の完成日足を使えたと確認できないため、その日より前の日足で照合します。"}</p>
+          <p className="text-xs text-slate-600">日足は今回取得した参考データです。元の判定入力を保存したものではないため、足種や修正株価の違いで判定が異なる場合があります。保存日時は検出開始時刻とは限りません。</p>
         </section>
 
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-black">前営業日までの日足（最大40本表示）</h2>
+          <h2 className="text-lg font-black">保存時点までの参考日足（最大40本表示）</h2>
           {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : (
             <>
               <p className="mt-2 text-xs text-slate-600">参考データ最終日：{last ? jstDate(last.time) : "—"} ／日足OHLC {candles.length}本</p>
@@ -297,28 +309,46 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
 
         {!error && (
           <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="font-black">前営業日までの独立チェック</h2>
-            {!replay ? <p className="mt-2 text-sm leading-6">前日までのOHLCでは、同じ基本条件に一致する安値ペアを確認できませんでした。検出当日の反発が条件成立に必要だった可能性もあります。</p> : (
+            <h2 className="font-black">日足で見た形の確認</h2>
+            {!replay ? <p className="mt-2 text-sm leading-6">対象日までの日足では、安値2つの基本条件に一致しませんでした。元の足種が異なる場合、その判定との直接比較はできません。</p> : (
               <>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <p className="rounded-lg bg-slate-50 p-3">第1の安値<br/><strong>{yen(replay.low1.price)}</strong></p>
-                  <p className="rounded-lg bg-slate-50 p-3">第2の安値<br/><strong>{yen(replay.low2.price)}</strong></p>
+                  <p className="rounded-lg bg-slate-50 p-3">第1の安値（{jstDate(candles[replay.low1.index].time)}）<br/><strong>{yen(replay.low1.price)}</strong></p>
+                  <p className="rounded-lg bg-slate-50 p-3">第2の安値（{jstDate(candles[replay.low2.index].time)}）<br/><strong>{yen(replay.low2.price)}</strong></p>
                   <p className="rounded-lg bg-slate-50 p-3">参考ネックライン<br/><strong>{yen(replay.neckline)}</strong></p>
                   <p className="rounded-lg bg-slate-50 p-3">参考最終終値<br/><strong>{yen(replay.lastClose)}</strong></p>
                 </div>
                 <p className="mt-2 text-sm font-bold">
-                  {replay.necklineBreak ? "前日までの参考データでネックライン突破相当" :
-                    replay.nearNeckline ? "前日までの参考データでネックライン付近" :
-                    "前日までの参考データでは反発候補"}
+                  {replay.necklineBreak ? "対象日までの参考日足でネックライン突破相当" :
+                    replay.nearNeckline ? "対象日までの参考日足でネックライン付近" :
+                    "対象日までの参考日足では反発候補"}
                 </p>
               </>
             )}
             <p className="mt-2 text-xs leading-6 text-slate-500">
               これは参考日足の安値ペア・3.5%以内・4～60本・1%以上の反発のみを照合した研究表示です。
-              元の判定入力や55種類の重複判定・確信度スコアを再現するものではありません。買い・売りの判断には使用しないでください。
+              元の5分足などの判定入力や55種類全体のスコアは再現していません。ネックライン突破相当は、終値が線の99.8%以上という既存研究条件で、厳密な上抜けと異なります。
             </p>
           </section>
         )}
+        {!fetched.error&&<section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6">
+          <h2 className="font-black">その後・直近の日足はどうなった？</h2>
+          <p>取得日時 {retrievedAt} ／ 最新の対象日 {latest?jstDate(latest.time):"—"}</p>
+          <p>最新終値 {yen(latest?.close??null)}</p>
+          {latest&&replay&&<p className="mt-2 font-bold">照合したネックライン {yen(replay.neckline)}に対し、
+            {latest.close>replay.neckline?"終値は上":latest.close===replay.neckline?"終値は同値":"終値は下"}です。
+            {latest.close<replay.low2.price?"第2の安値も下回っています。":""}</p>}
+          <p className="mt-1 text-xs text-slate-600">元の参考ネックラインを固定して比較しています。新しいダブルボトムの成立や、場中の上昇継続を判定した表示ではありません。</p>
+          <div className="mt-3 grid grid-cols-3 gap-2">{[1,3,5].map(n=>{
+            const c=followup[n-1];
+            return <div key={n} className="rounded-lg bg-slate-50 p-2">
+              <p className="font-bold">保存日から{n}取引日後</p>
+              <p>{c?jstDate(c.time):"日足待ち"}</p><p>{yen(c?.close??null)}</p>
+              {c&&last&&<p>{((c.close/last.close-1)*100).toFixed(2)}%</p>}
+            </div>;
+          })}</div>
+          <p className="mt-2 text-xs text-slate-600">％は照合対象最終日（{last?jstDate(last.time):"—"}）の参考終値比。売買損益ではありません。価格のある取引日を数え、当日16時前の日足は除外します。</p>
+        </section>}
         <div className="mt-4 flex flex-wrap gap-2">
           <Link href={`/chart/${code}`} className="grid min-h-11 place-items-center rounded-xl bg-blue-700 px-4 text-sm font-black text-white">通常のチャートを見る</Link>
           <Link href={`/analysis/${code}`} className="grid min-h-11 place-items-center rounded-xl border border-blue-300 px-4 text-sm font-black text-blue-700">AI解析</Link>
