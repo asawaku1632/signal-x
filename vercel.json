@@ -151,6 +151,14 @@
     {
       "path": "/api/cron/morning-market-forward",
       "schedule": "45 23 * * 0-4"
+    },
+    {
+      "path": "/api/cron/owner-uptrend",
+      "schedule": "20 0,1 * * 1-5"
+    },
+    {
+      "path": "/api/cron/owner-uptrend",
+      "schedule": "5 4,5 * * 1-5"
     }
   ]
 }
