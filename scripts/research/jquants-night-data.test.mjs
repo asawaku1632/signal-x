@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {jquantsCode,jquantsDailyCandle} from "../../app/lib/jquantsNightData.mjs";
+const date="2026-11-06";
+const row={Date:date,Code:"13010",AdjO:100,AdjH:110,AdjL:95,AdjC:105,AdjVo:1000,O:200,C:210};
+test("normalizes only ordinary security suffix",()=>{assert.equal(jquantsCode("13010"),"1301");assert.equal(jquantsCode("285A0"),"285A");assert.equal(jquantsCode("13011"),null);});
+test("uses adjusted OHLC and Tokyo close timestamp",()=>{const c=jquantsDailyCandle(row,date);assert.equal(c.open,100);assert.equal(c.close,105);assert.equal(c.time,Date.parse(date+"T15:30:00+09:00")/1000);});
+test("rejects other dates and missing prices",()=>{assert.equal(jquantsDailyCandle({...row,Date:"2026-11-05"},date),null);assert.equal(jquantsDailyCandle({...row,AdjC:null},date),null);});
+test("rejects invalid candle ranges and volume",()=>{assert.equal(jquantsDailyCandle({...row,AdjH:99},date),null);assert.equal(jquantsDailyCandle({...row,AdjVo:-1},date),null);});
+test("rejects malformed records",()=>{assert.equal(jquantsDailyCandle(null,date),null);assert.equal(jquantsDailyCandle(row,"invalid"),null);});

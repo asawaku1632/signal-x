@@ -13,9 +13,10 @@ export default async function UptrendWatchPage(){
   return <main className="mx-auto max-w-2xl space-y-4 px-3 py-5 pb-24">
     <Link href="/admin/learning-hub" className="text-sm text-blue-700">← 学習管理</Link>
     <h1 className="text-xl font-black">上昇傾向の通知・本人専用</h1>
-    <p className="text-sm leading-6">日次保存の953銘柄を候補抽出の対象とし、前の2営業日に買いローソク形またはBB上側トレンドが出た銘柄を監視。
+    <p className="text-sm leading-6">J-Quantsの夜間分析が完了した日は、その上昇候補を優先して翌営業日に監視します。未完了日は既存の日次保存を使用。953銘柄を候補抽出の対象とし、前の2営業日に買いローソク形またはBB上側トレンドが出た銘柄を監視。
       取引時間中に5分ごとに最大160銘柄ずつ巡回し、確定5分足3本の終値と安値の切り上がり、
       BB中心線上昇、直前3本比で出来高1.2倍以上を確認すると通知します。</p>
+    <Link href="/admin/night-jquants" className="block text-sm font-bold text-blue-700">🌙 J-Quants日足の夜間分析を見る →</Link>
     <PushNotificationButton />
     <Link href="/admin/downtrend-watch" className="block text-sm font-bold text-blue-700">📉 お気に入りの下落傾向通知を見る →</Link>
     <p className="text-xs leading-5">参考株価はYahooの5分足です。最新の確定足から20分超経過したデータは確認待ち。
