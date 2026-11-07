@@ -7,7 +7,7 @@ import {pushWebToUser} from "@/app/lib/push/userPush";
 import {evaluateUptrend} from "@/app/lib/uptrendObservation.mjs";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
-export const maxDuration=60;
+export const maxDuration=180;
 
 export async function GET(request:Request) {
   const unauthorized=requireCronAuth(request);
@@ -52,11 +52,11 @@ export async function GET(request:Request) {
         WHERE sent.owner_email=w.owner_email AND sent.code=w.code AND sent.state IN ('SENT','CLAIMED')
           AND sent.signal_date>= $3::date)
     ORDER BY w.code,w.signal_date DESC) pending
-    ORDER BY COALESCE((observation->>'checkedAt')::timestamptz,'epoch'::timestamptz),code LIMIT 40
+    ORDER BY COALESCE((observation->>'checkedAt')::timestamptz,'epoch'::timestamptz),code LIMIT 160
   `,[owner,priorDates,priorDates[1]]);
   const outcomes:Record<string,unknown>[]=[];
-  for(let start=0;start<rows.length;start+=5){
-    await Promise.all(rows.slice(start,start+5).map(async stock=>{
+  for(let start=0;start<rows.length;start+=20){
+    await Promise.all(rows.slice(start,start+20).map(async stock=>{
       try {
         const response=await fetch("https://query1.finance.yahoo.com/v8/finance/chart/"+encodeURIComponent(stock.code+".T")+"?range=5d&interval=5m",
           {cache:"no-store",signal:AbortSignal.timeout(5000),headers:{"User-Agent":"Mozilla/5.0"}});
