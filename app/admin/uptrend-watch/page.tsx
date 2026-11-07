@@ -14,7 +14,7 @@ export default async function UptrendWatchPage(){
     <Link href="/admin/learning-hub" className="text-sm text-blue-700">← 学習管理</Link>
     <h1 className="text-xl font-black">上昇傾向の通知・本人専用</h1>
     <p className="text-sm leading-6">日次保存の953銘柄を候補抽出の対象とし、前の2営業日に買いローソク形またはBB上側トレンドが出た銘柄を監視。
-      取引時間中に5分ごとに最大40銘柄ずつ巡回し、確定5分足3本の終値と安値の切り上がり、
+      取引時間中に5分ごとに最大160銘柄ずつ巡回し、確定5分足3本の終値と安値の切り上がり、
       BB中心線上昇、直前3本比で出来高1.2倍以上を確認すると通知します。</p>
     <PushNotificationButton />
     <p className="text-xs leading-5">参考株価はYahooの5分足です。最新の確定足から20分超経過したデータは確認待ち。
