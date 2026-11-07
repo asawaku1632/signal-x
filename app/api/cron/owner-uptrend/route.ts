@@ -73,7 +73,7 @@ export async function GET(request:Request) {
         await pool.query(`UPDATE public.owner_uptrend_watch SET observation=$4::jsonb
           WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state='WAITING'`,
           [owner,stock.code,stock.signal_date,JSON.stringify({...observation,checkedAt:new Date().toISOString()})]);
-        if(!observation.matched){outcomes.push({code:stock.code,state:observation.reason});return;}
+        if(!observation.matched || typeof observation.price!=="number" || typeof observation.barTime!=="number" || typeof observation.volumeRatio!=="number"){outcomes.push({code:stock.code,state:observation.reason});return;}
         // Claim before delivery. An ambiguous delivery stays claimed for manual audit.
         const claim=await pool.query(`UPDATE public.owner_uptrend_watch w
           SET state='CLAIMED',claimed_at=now(),observation=$4::jsonb
