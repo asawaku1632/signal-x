@@ -52,17 +52,24 @@ export async function captureFreshBuyOutcomes(owner:string,today:string){
     }catch{stats.providerErrors++;}
     await new Promise(resolve=>setTimeout(resolve,1100));
    }
+   const changes:Array<Record<string,unknown>>=[];
    for(const p of pending.rows){
     if(p.required_dates.some(d=>!attempted.has(d)))continue;
     const result=evaluateBuyOutcome(p,p,data,Date.now());
     if(result.status==="PENDING")continue;
-    const update=await pool.query(`UPDATE public.owner_new_buy_outcomes SET status=$5,close_price=$6,return_pct=$7,
-     evidence=$8::jsonb,note=$9,last_attempt_at=now(),completed_at=CASE WHEN $5='COMPLETE' THEN now() ELSE NULL END
-     WHERE owner_email=$1 AND code=$2 AND trade_date=$3::date AND horizon=$4
-      AND status IN ('PENDING','DATA_MISSING') RETURNING status`,
-     [owner,p.code,p.trade_date,p.horizon,result.status,result.close_price??null,result.return_pct??null,
-      JSON.stringify(result.evidence??null),result.note]);
-    if(update.rowCount){if(result.status==="COMPLETE")stats.completed++;else if(result.status==="DATA_MISSING")stats.missing++;else stats.excluded++;}
+    changes.push({code:p.code,trade_date:p.trade_date,horizon:p.horizon,status:result.status,
+      close_price:result.close_price??null,return_pct:result.return_pct??null,evidence:result.evidence??null,note:result.note});
+   }
+   if(changes.length){
+    const updated=await pool.query<{status:string;count:number}>(`WITH changed AS (
+     UPDATE public.owner_new_buy_outcomes o SET status=r.status,close_price=r.close_price,return_pct=r.return_pct,
+      evidence=r.evidence,note=r.note,last_attempt_at=now(),completed_at=CASE WHEN r.status='COMPLETE' THEN now() ELSE NULL END
+     FROM jsonb_to_recordset($2::jsonb) r(code text,trade_date text,horizon smallint,status text,
+      close_price numeric,return_pct numeric,evidence jsonb,note text)
+     WHERE o.owner_email=$1 AND o.code=r.code AND o.trade_date=r.trade_date::date AND o.horizon=r.horizon
+      AND o.status IN ('PENDING','DATA_MISSING') RETURNING o.status)
+     SELECT status,count(*)::int AS count FROM changed GROUP BY status`,[owner,JSON.stringify(changes)]);
+    for(const r of updated.rows){if(r.status==="COMPLETE")stats.completed+=r.count;else if(r.status==="DATA_MISSING")stats.missing+=r.count;else stats.excluded+=r.count;}
    }
   }
   await pool.query(`UPDATE public.owner_new_buy_outcome_runs SET state='DONE',finished_at=now(),stats=$3::jsonb
