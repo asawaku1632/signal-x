@@ -1,3 +1,4 @@
+import { resolveTseTradingDatesAfter, isTseTargetDateReady } from "@/app/lib/technicalObservation/tseMarketCalendar";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import pool from "@/app/lib/postgres";
@@ -40,6 +41,85 @@ function signed(value: number | null) {
   return value === null ? "—" : (value > 0 ? "+" : "") + value.toFixed(2) + "%";
 }
 
+
+
+async function SavedCandleFollowUp() {
+  try {
+    const {rows: events} = await pool.query<{
+      code:string; pattern:string; direction:string; signal_date:string; signal_close:number; saved_at:string;
+    }>(`
+      WITH source AS (
+        SELECT detector_version,created_at,e FROM public.shadow_candle_research_runs
+        CROSS JOIN LATERAL jsonb_array_elements(events) e WHERE detector_version=$1
+      ), first_seen AS (
+        SELECT DISTINCT ON(detector_version,e->>'code',e->>'tradeDate',e->>'patternId') *
+        FROM source ORDER BY detector_version,e->>'code',e->>'tradeDate',e->>'patternId',created_at
+      )
+      SELECT e->>'code' code,e->>'patternId' pattern,e->>'direction' direction,
+        e->>'tradeDate' signal_date,(e->>'detectionClose')::float8 signal_close,
+        created_at::text saved_at
+      FROM first_seen
+      WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(e->'outcomes') o
+        WHERE o->>'days'='5' AND o->>'directionalReturn' IS NULL)
+    `,[SHADOW_CANDLE_DETECTOR_VERSION]);
+    const now=new Date();
+    let excluded=0;
+    const targets=events.flatMap(event=>{
+      if(!Number.isFinite(event.signal_close)||event.signal_close<=0 ||
+        !["BUY","SELL"].includes(event.direction)){excluded++;return [];}
+      try {
+        const dates=resolveTseTradingDatesAfter(event.signal_date,5);
+        return [1,3,5].map(days=>({...event,days,target:dates[days-1]}));
+      } catch {excluded++;return [];}
+    });
+    const dates=[...new Set(targets.map(row=>row.target))];
+    const codes=[...new Set(targets.map(row=>row.code))];
+    const {rows:prices}=await pool.query<{date:string;code:string;price:string}>(`
+      SELECT DISTINCT ON(date,code) date,code,price::text FROM public.daily_stock_results
+      WHERE date=ANY($1::text[]) AND code=ANY($2::text[])
+      ORDER BY date,code,created_at DESC,id DESC
+    `,[dates,codes]);
+    const savedPrices=new Map(prices.map(row=>[row.date+":"+row.code,Number(row.price)]));
+    return <section className="mt-4 rounded-2xl border bg-white p-4">
+      <h2 className="text-sm font-black">初回保存後の参考株価追跡</h2>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        初回保存時に5日後結果がなかった{events.length}件を対象に、各期限の前日までに保存された検出を追跡。
+        検出終値と後日の日次保存価格を比較します。SELLは下落をプラスに換算。費用控除前。
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full whitespace-nowrap text-right text-xs tabular-nums">
+          <thead><tr>{["日後","完了","期限待ち","価格欠損","保存が期限以降","方向一致","平均"].map(label=>
+            <th scope="col" key={label} className="px-2 py-1">{label}</th>)}</tr></thead>
+          <tbody>{[1,3,5].map(days=>{
+            let waiting=0,missing=0,late=0;
+            const returns:number[]=[];
+            for(const row of targets.filter(row=>row.days===days)){
+              if(Date.parse(row.saved_at)>=Date.parse(row.target+"T00:00:00+09:00")){late++;continue;}
+              if(!isTseTargetDateReady(row.target,now)){waiting++;continue;}
+              const price=savedPrices.get(row.target+":"+row.code);
+              if(price===undefined||!Number.isFinite(price)||price<=0){missing++;continue;}
+              returns.push(100*(price/row.signal_close-1)*(row.direction==="BUY"?1:-1));
+            }
+            const mean=returns.length?returns.reduce((sum,value)=>sum+value,0)/returns.length:null;
+            return <tr key={days} className="border-t">
+              <th scope="row" className="px-2 py-2">{days}</th><td>{returns.length}</td>
+              <td>{waiting}</td><td>{missing}</td><td>{late}</td>
+              <td>{returns.length?returns.filter(value=>value>0).length+"/"+returns.length:"—"}</td>
+              <td>{signed(mean)}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-600">
+        入力・営業日を確認できない記録 {excluded}件。
+        検出当日の終値で売買できたか、株式分割などの価格調整は未照合。将来の売買成績を認定するには別途検証が必要です。
+      </p>
+    </section>;
+  } catch(error) {
+    console.error("saved candle follow-up unavailable",error);
+    return <p role="status" className="mt-4 text-sm">保存後の追跡結果を取得できませんでした。</p>;
+  }
+}
 
 async function ArchiveTimingEvidence() {
   try {
@@ -138,6 +218,7 @@ export default async function ShadowCandleArchivePage() {
         </p>
 
         <ArchiveTimingEvidence />
+        <SavedCandleFollowUp />
         <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6">
           <p className="font-black">
             🔒 本人限定・SHADOW ONLY・自動研究：{autoEnabled ? "有効" : "停止中"}
