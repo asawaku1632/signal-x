@@ -43,6 +43,7 @@ export default function PushNotificationButton() {
   const [state, setState] = useState<PushState>("checking");
   const [message, setMessage] = useState("通知機能を確認しています…");
   const [busy, setBusy] = useState(false);
+  const [renewSubscription, setRenewSubscription] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -72,8 +73,25 @@ export default function PushNotificationButton() {
       const subscription = await registration?.pushManager.getSubscription();
       if (!active) return;
       if (subscription) {
-        setState("subscribed");
-        setMessage("この端末はプッシュ通知を受け取れます。");
+        const response = await fetch("/api/push/subscriptions/status", {
+          method: "POST",
+          headers: REQUEST_HEADERS,
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+          cache: "no-store",
+        });
+        if (!active) return;
+        if (!response.ok) throw new Error("Unable to check server registration");
+        const result = await response.json() as { registered?: boolean };
+        if (!active) return;
+        if (result.registered) {
+          setState("subscribed");
+          setRenewSubscription(false);
+          setMessage("サーバー登録は有効です。端末への通知表示は未確認です。");
+        } else {
+          setState("permitted");
+          setRenewSubscription(true);
+          setMessage("サーバーの通知登録が無効です。「登録を作り直す」を押してください。");
+        }
       } else if (Notification.permission === "granted") {
         setState("permitted");
         setMessage("通知は許可済みです。購読を有効にしてください。");
@@ -91,7 +109,7 @@ export default function PushNotificationButton() {
     return () => { active = false; };
   }, []);
 
-  async function subscribe() {
+  async function subscribe(forceNew = false) {
     setBusy(true);
     setMessage("通知を設定しています…");
     try {
@@ -110,7 +128,9 @@ export default function PushNotificationButton() {
       }
 
       const registration = await getRegistration();
-      const subscription = await registration.pushManager.getSubscription()
+      const previous = await registration.pushManager.getSubscription();
+      if (forceNew && previous) await previous.unsubscribe();
+      const subscription = (!forceNew ? previous : null)
         ?? await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -122,7 +142,8 @@ export default function PushNotificationButton() {
       });
       if (!response.ok) throw new Error("Subscription save failed");
       setState("subscribed");
-      setMessage("プッシュ通知を受け取る設定が完了しました。");
+      setRenewSubscription(false);
+      setMessage("新しい通知登録が保存されました。端末表示テストも確認してください。");
     } catch {
       setState("error");
       setMessage("通知の設定に失敗しました。時間をおいて再度お試しください。");
@@ -147,6 +168,7 @@ export default function PushNotificationButton() {
         await subscription.unsubscribe();
       }
       setState(Notification.permission === "granted" ? "permitted" : "prompt");
+      setRenewSubscription(false);
       setMessage("この端末のプッシュ通知を解除しました。");
     } catch {
       setState("error");
@@ -156,27 +178,61 @@ export default function PushNotificationButton() {
     }
   }
 
+  async function testDeviceDisplay() {
+    setBusy(true);
+    setMessage("端末内の表示テストを実行しています…");
+    try {
+      if (Notification.permission !== "granted") {
+        setMessage("通知が許可されていません。Androidのアプリ通知設定をご確認ください。");
+        return;
+      }
+      const registration = await getRegistration();
+      await registration.showNotification("SIGNALX｜端末表示テスト", {
+        body: "これが表示されれば、Androidへの通知表示は動作しています。",
+        icon: "/icons/signalx-192.png",
+        tag: "signalx-local-test-" + Date.now(),
+      });
+      setMessage("Androidに表示を依頼しました。通知が出なければ端末側またはTWAの通知連携を確認してください。");
+    } catch {
+      setMessage("端末内の通知表示に失敗しました。Android・Chromeの通知設定をご確認ください。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function sendTest() {
     setBusy(true);
-    setMessage("テスト通知を送信しています…");
+    setMessage("この端末へのテスト通知を送信しています…");
     try {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (!subscription) {
+        setState("permitted");
+        setRenewSubscription(true);
+        setMessage("この端末の通知登録が見つかりません。「登録を作り直す」を押してください。");
+        return;
+      }
       const response = await fetch("/api/push/test", {
         method: "POST",
         headers: REQUEST_HEADERS,
-        body: "{}",
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
       });
-      const result = await response.json() as { sent?: number; error?: string };
-      if (!response.ok || !result.sent) {
-        if (response.status === 429) throw new Error("RATE_LIMITED");
-        throw new Error("Test push failed");
+      const result = await response.json() as { sent?: number; error?: string; acceptedByPushService?: boolean };
+      if (response.status === 404 || response.status === 410) {
+        setState("permitted");
+        setRenewSubscription(true);
+        setMessage("この端末の通知登録が無効になりました。「登録を作り直す」を押してください。");
+        return;
       }
+      if (response.status === 429) {
+        setMessage("送信制限中です。1分以上空けてからテストしてください。");
+        return;
+      }
+      if (!response.ok || !result.acceptedByPushService) throw new Error("Test push failed");
       setState("subscribed");
-      setMessage("テスト通知を送信しました。端末の通知をご確認ください。");
-    } catch (error) {
-      setState("subscribed");
-      setMessage(error instanceof Error && error.message === "RATE_LIMITED"
-        ? "連続送信はできません。1分ほど待ってからお試しください。"
-        : "テスト通知の送信に失敗しました。設定をご確認ください。");
+      setMessage("通知サービスは送信を受け付けました（スマホ表示は未確認）。表示されなければ端末表示テストを実行してください。");
+    } catch {
+      setMessage("テスト送信に失敗しました。サーバー側の送信状況をご確認ください。");
     } finally {
       setBusy(false);
     }
@@ -193,7 +249,7 @@ export default function PushNotificationButton() {
             <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
               state === "subscribed" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
             }`}>
-              {state === "subscribed" ? "受信可能" : state === "checking" ? "確認中" : "設定確認"}
+              {state === "subscribed" ? "登録済み" : state === "checking" ? "確認中" : "設定確認"}
             </span>
           </div>
           <p className="mt-1 text-[11px] leading-4 text-slate-500" aria-live="polite">{message}</p>
@@ -204,12 +260,18 @@ export default function PushNotificationButton() {
             テスト送信
           </button>
         ) : (
-          <button type="button" onClick={() => void subscribe()} disabled={unavailable || busy}
+          <button type="button" onClick={() => void subscribe(renewSubscription)} disabled={unavailable || busy}
             className="shrink-0 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-black text-white disabled:opacity-50">
-            通知を有効に
+            {renewSubscription ? "登録を作り直す" : "通知を有効に"}
           </button>
         )}
       </div>
+      {state === "subscribed" && (
+        <button type="button" onClick={() => void testDeviceDisplay()} disabled={busy}
+          className="mt-2 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 disabled:opacity-50">
+          端末表示テスト（サーバーを使わずに表示）
+        </button>
+      )}
       {state === "subscribed" && (
         <details className="mt-2 border-t border-slate-100 pt-2">
           <summary className="cursor-pointer text-[11px] font-bold text-slate-500">
