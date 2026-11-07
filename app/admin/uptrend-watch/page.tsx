@@ -17,6 +17,8 @@ export default async function UptrendWatchPage(){
       取引時間中に5分ごとに最大160銘柄ずつ巡回し、確定5分足3本の終値と安値の切り上がり、
       BB中心線上昇、直前3本比で出来高1.2倍以上を確認すると通知します。</p>
     <Link href="/admin/night-jquants" className="block text-sm font-bold text-blue-700">🌙 J-Quants日足の夜間分析を見る →</Link>
+    <Link href="/admin/new-buy-events" className="block rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">🟢 新規買い条件・成立時の価格とチャートを見る →</Link>
+    <p className="text-xs leading-5">高値突破・押し目反発・BB上方向拡大の新規成立は、時刻と参考価格を固定保存して通知します。同じ銘柄は1日1回。上昇継続の通知とは分けて記録します。</p>
     <PushNotificationButton />
     <Link href="/admin/downtrend-watch" className="block text-sm font-bold text-blue-700">📉 お気に入りの下落傾向通知を見る →</Link>
     <p className="text-xs leading-5">参考株価はYahooの5分足です。最新の確定足から20分超経過したデータは確認待ち。

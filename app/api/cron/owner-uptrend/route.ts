@@ -4,6 +4,7 @@ import {requireCronAuth} from "@/app/lib/cronAuth";
 import {isLearningOwnerEmail} from "@/app/lib/learningOwner";
 import {getTseCashSessionStatus,isTseTradingDate} from "@/app/lib/technicalObservation/tseMarketCalendar";
 import {pushWebToUser} from "@/app/lib/push/userPush";
+import {captureAndNotifyFreshBuy} from "@/app/lib/freshBuyEventRunner";
 import {evaluateUptrend} from "@/app/lib/uptrendObservation.mjs";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -56,13 +57,10 @@ export async function GET(request:Request) {
   `,[owner,priorDates,session.date]);
   const {rows}=await pool.query<{code:string;name:string;signal_date:string}>(`
     SELECT * FROM (SELECT DISTINCT ON (w.code) w.code,w.name,w.signal_date::text,w.observation FROM public.owner_uptrend_watch w
-    WHERE owner_email=$1 AND signal_date=ANY($2::date[]) AND state='WAITING'
-      AND NOT EXISTS(SELECT 1 FROM public.owner_uptrend_watch sent
-        WHERE sent.owner_email=w.owner_email AND sent.code=w.code AND sent.state IN ('SENT','CLAIMED')
-          AND sent.signal_date>= $3::date)
+    WHERE owner_email=$1 AND signal_date=ANY($2::date[])
     ORDER BY w.code,w.signal_date DESC) pending
     ORDER BY COALESCE((observation->>'checkedAt')::timestamptz,'epoch'::timestamptz),code LIMIT 160
-  `,[owner,priorDates,priorDates[1]]);
+  `,[owner,priorDates]);
   const outcomes:Record<string,unknown>[]=[];
   for(let start=0;start<rows.length;start+=20){
     await Promise.all(rows.slice(start,start+20).map(async stock=>{
@@ -72,6 +70,7 @@ export async function GET(request:Request) {
         if(!response.ok)throw Error("QUOTE_HTTP_"+response.status);
         const payload=await response.json();
         const result=payload?.chart?.result?.[0];
+        if(result?.meta?.symbol!==stock.code+".T")throw Error("QUOTE_SYMBOL_MISMATCH");
         if(!Array.isArray(result?.timestamp))throw Error("MISSING_TIMESTAMPS");
         const quotes=result?.indicators?.quote?.[0];
         if(!quotes)throw Error("MISSING_QUOTES");
@@ -82,6 +81,8 @@ export async function GET(request:Request) {
         await pool.query(`UPDATE public.owner_uptrend_watch SET observation=$4::jsonb
           WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state='WAITING'`,
           [owner,stock.code,stock.signal_date,JSON.stringify({...observation,checkedAt:new Date().toISOString()})]);
+        const freshBuy=await captureAndNotifyFreshBuy(owner,stock,bars,session.date);
+        if(freshBuy.hasEvent){outcomes.push({code:stock.code,state:"NEW_BUY_"+freshBuy.state});return;}
         if(!observation.matched || typeof observation.price!=="number" || typeof observation.barTime!=="number" || typeof observation.volumeRatio!=="number"){outcomes.push({code:stock.code,state:observation.reason});return;}
         // Claim before delivery. An ambiguous delivery stays claimed for manual audit.
         const claim=await pool.query(`UPDATE public.owner_uptrend_watch w
@@ -108,6 +109,11 @@ export async function GET(request:Request) {
           WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date AND state=\'WAITING\'`,
           [owner,stock.code,stock.signal_date,JSON.stringify({reason,checkedAt:new Date().toISOString()})]);
         outcomes.push({code:stock.code,state:reason});
+      }finally{
+        await pool.query(`UPDATE public.owner_uptrend_watch
+          SET observation=COALESCE(observation,'{}'::jsonb)||jsonb_build_object('checkedAt',$4::text)
+          WHERE owner_email=$1 AND code=$2 AND signal_date=$3::date`,
+          [owner,stock.code,stock.signal_date,new Date().toISOString()]);
       }
     }));
   }
