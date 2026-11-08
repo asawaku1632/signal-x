@@ -30,6 +30,25 @@ export type LossDiagnostics = {
   };
   matched: PairedResult[];
   detectionNearSameTrade: boolean;
+  symbolBalance: {
+    version: string;
+    byScenario: {
+      scenario: string;
+      distinctCandidateSymbols: number;
+      maturedSymbols: number;
+      missingSymbols: number;
+      pooled5Mean: number|null;
+      equalSymbol5Mean: number|null;
+      totalMatured: number;
+      totalLoss5: number;
+      codesWithLoss5: number;
+      biggestLossCluster: null|{code:string;loss5:number;shareOfAllLossesPercent:number};
+      perCode: {
+        code:string;candidates:number;entered:number;matured:number;pending:number;
+        mean5:number|null;positive5:number|null;losses3:number;losses5:number;
+      }[];
+    }[];
+  };
   riskStrata: {
     id: string; title: string;
     groups: {
@@ -194,6 +213,56 @@ export default function NecklineLossDiagnostics({analysis}:{analysis:LossDiagnos
           検出候補が少ない区分・同一銘柄の重複がある区分では統計が不安定です。
           成績は往復コスト0.2ポイントを差し引いた事後の参考値で、取引の約定可能性は未検証。
           買い・売り・通知への接続はありません。研究版：{analysis.version}。
+        </p>
+      </section>
+      <section className="rounded-2xl border border-slate-300 bg-white p-4">
+        <h2 className="text-base font-black">⑦ 同じ銘柄の候補が多すぎる影響を検証</h2>
+        <p className="mt-2 text-xs leading-5 text-slate-700">
+          一つの銘柄で何度も候補が出ると、その銘柄の成績が全体平均を左右します。
+          <strong>候補全件の平均</strong>と<strong>各銘柄を同じ重みで計算した平均</strong>を比較し、
+          −5%以下の損失がどの銘柄に集中したかを表示します。
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {analysis.symbolBalance.byScenario.map(item=>(
+            <div key={item.scenario} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-black">{scenarioLabels[item.scenario]}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-white p-2">
+                  <p className="text-[11px] font-bold text-slate-600">候補全件の平均</p>
+                  <p className="mt-1 text-lg font-black">{pct(item.pooled5Mean)}</p>
+                  <p className="text-[11px] text-slate-600">確定{item.totalMatured}件</p>
+                </div>
+                <div className="rounded-lg bg-white p-2">
+                  <p className="text-[11px] font-bold text-slate-600">銘柄を均等にした平均</p>
+                  <p className="mt-1 text-lg font-black">{pct(item.equalSymbol5Mean)}</p>
+                  <p className="text-[11px] text-slate-600">確定{item.maturedSymbols}銘柄</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs leading-6 text-slate-700">
+                −5%以下は{item.totalLoss5}件 / 損失発生は{item.codesWithLoss5}銘柄。
+                {item.biggestLossCluster && (
+                  <> 最多は{item.biggestLossCluster.code}の{item.biggestLossCluster.loss5}件
+                    （全損失の{item.biggestLossCluster.shareOfAllLossesPercent.toFixed(1)}%）。</>
+                )}
+              </p>
+              <details className="mt-2 rounded-lg border border-slate-200 bg-white p-2">
+                <summary className="cursor-pointer text-xs font-black">銘柄別の内訳を開く</summary>
+                <div className="mt-2 space-y-1">
+                  {item.perCode.map(code=>(
+                    <div key={code.code} className="flex justify-between gap-2 border-b border-slate-100 py-1 text-xs">
+                      <span>{code.code}（確定{code.matured}）</span>
+                      <span className="text-right">{pct(code.mean5)} / −5%以下{code.losses5}件</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-amber-900">
+          この平均は銘柄ごとの参考値であり、相場の独立性・将来の利益を保証しません。
+          この研究で良かった銘柄を後から選んでいるわけではありません。
+          未確定の銘柄は均等平均の分母から除外します。
         </p>
       </section>
     </>
