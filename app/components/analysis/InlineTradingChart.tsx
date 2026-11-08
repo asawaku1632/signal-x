@@ -50,10 +50,18 @@ export default function InlineTradingChart({
   code,
   takeProfit,
   stopLoss,
+  isFavorite,
+  favoriteLoading,
+  favoriteSaving,
+  onToggleFavorite,
 }: {
   code: string;
   takeProfit: number | null;
   stopLoss: number | null;
+  isFavorite: boolean;
+  favoriteLoading: boolean;
+  favoriteSaving: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>("5m");
   const [chart, setChart] = useState<LoadState>({ kind: "loading" });
@@ -103,16 +111,35 @@ export default function InlineTradingChart({
 
   return (
     <section aria-label="本格ローソク足チャート" className="mt-2 rounded-2xl border border-blue-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex flex-wrap items-start justify-between gap-2 px-1 pb-2">
-        <div>
-          <h2 className="text-base font-black text-slate-950 dark:text-white">📈 ローソク足チャート</h2>
-          <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
+      <div className="px-1 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="min-w-0 text-base font-black text-slate-950 dark:text-white">📈 ローソク足チャート</h2>
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            disabled={favoriteLoading || favoriteSaving}
+            aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+            aria-pressed={isFavorite}
+            className={`inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border px-2 text-xs font-bold shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+              isFavorite
+                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            }`}
+          >
+            <span className="text-lg" aria-hidden="true">
+              {favoriteLoading || favoriteSaving ? "…" : isFavorite ? "★" : "☆"}
+            </span>
+            お気に入り
+          </button>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <p className="text-[11px] leading-5 text-slate-600 dark:text-slate-300">
             前回参考値・支持線・抵抗線・移動平均・MACDを表示
           </p>
+          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+            Yahoo参考データ
+          </span>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
-          Yahoo参考データ
-        </span>
       </div>
       <div role="tablist" aria-label="ローソク足の時間軸" className="grid grid-cols-6 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
         {timeframes.map(option => (
@@ -131,7 +158,7 @@ export default function InlineTradingChart({
         </div>
       ) : chart.kind === "unavailable" || !data || !candles.length ? (
         <p role="status" className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-900">
-          この時間軸のデータを取得できませんでした。参考線や架空の価格は表示しません。上の青いリンクから元のチャートも確認できます。
+          この時間軸のデータを取得できませんでした。参考線や架空の価格は表示しません。時間軸を切り替えるか、時間をおいてご確認ください。
         </p>
       ) : (
         <>

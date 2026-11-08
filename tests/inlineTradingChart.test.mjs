@@ -22,18 +22,23 @@ test("overview prioritizes P/L ahead of compact candle guide", () => {
   assert.doesNotMatch(panel.slice(swing, compact), /<details open=\{swingEntryDecision/);
 });
 
-test("chart tab opens the same full interactive TradingChart directly under the blue link", () => {
+test("chart tab opens the full interactive chart without a duplicate blue link", () => {
   const start = detail.indexOf('id="stock-panel-chart"');
   const end = detail.indexOf('id="stock-panel-analysis"', start);
   assert.ok(start >= 0 && end > start);
   const panel = detail.slice(start, end);
-  const link = panel.indexOf('href={`/chart/${signal.code}`}');
   const mainChart = panel.indexOf("<InlineTradingChart");
   const guide = panel.indexOf("🔎 参考日足の目印と読み方を見る");
-  assert.ok(link >= 0 && link < mainChart && mainChart < guide);
+  assert.ok(mainChart >= 0 && mainChart < guide);
+  assert.doesNotMatch(panel, /チャートで確認|href=\{`\/chart\/\$\{signal\.code\}\`\}/);
   assert.match(panel, /takeProfit=\{hasReferencePrice \? takeProfit : null\}/);
   assert.match(panel, /stopLoss=\{hasReferencePrice \? stopLoss : null\}/);
+  assert.match(panel, /isFavorite=\{isFavorite\}/);
+  assert.match(panel, /onToggleFavorite=\{\(\) => void toggleFavorite\(\)\}/);
   assert.match(inline, /import TradingChart from "@\/app\/chart\/\[code\]\/components\/TradingChart"/);
+  assert.match(inline, /aria-pressed=\{isFavorite\}/);
+  assert.match(inline, /onClick=\{onToggleFavorite\}/);
+  assert.doesNotMatch(inline, /上の青いリンク/);
   assert.match(inline, /<TradingChart/);
 });
 
