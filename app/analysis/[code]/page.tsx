@@ -956,6 +956,7 @@ export default function AnalysisPage() {
           <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
         </section>
 
+        {hasReferencePrice ? (
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の参考試算）</span></h2>
 
@@ -976,13 +977,19 @@ export default function AnalysisPage() {
             <Info label="損益比" value={riskReward} valueClass="text-blue-600 dark:text-blue-400" />
           </div>
         </section>
+        ) : (
+          <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+            <h2 className="font-black">利益とリスク（100株の参考試算）</h2>
+            <p className="mt-1 text-xs leading-5">参考株価を取得できないため、利確・損切り・必要資金の金額は計算しません。</p>
+          </section>
+        )}
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">重要指標</h2>
           <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <Info label="必要資金" value={yen(requiredMoney)} />
-            <Info label="変化率" value={`${changePercent > 0 ? "+" : ""}${changePercent}%`} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
-            <Info label="出来高" value={`${volumeRatio}倍`} />
+            <Info label="必要資金" value={hasReferencePrice ? yen(requiredMoney) : "—"} />
+            <Info label="変化率" value={hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
+            <Info label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} />
           </div>
         </section>
 
@@ -1055,12 +1062,12 @@ export default function AnalysisPage() {
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="text-base font-black">テクニカル情報</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">売買判断を補助する指標</p></div><span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getSupportResistanceStyle(supportResistanceStatus)}`}>{getSupportResistanceLabel(supportResistanceStatus)}</span></div>
           <div className="mt-2 grid grid-cols-2 gap-2 min-[430px]:grid-cols-3">
-            <Mini label="RSI" value={`${rsi} / ${getRsiComment(rsi)}`} compact valueClass={getRsiColor(rsi)} />
-            <Mini label="出来高" value={`${volumeRatio}倍`} compact />
+            <Mini label="RSI" value={hasReferencePrice && signal.rsi != null ? `${rsi} / ${getRsiComment(rsi)}` : "—"} compact valueClass={getRsiColor(rsi)} />
+            <Mini label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} compact />
             <Mini label="検出パターン" value={getPatternText(signal.patternSignal)} compact />
             <Mini label="支持線（下値の目安）" value={levelYen(supportPrice)} compact />
             <Mini label="抵抗線（上値の壁）" value={levelYen(resistancePrice)} compact />
-            <Mini label="上値突破の期待度" value={`${breakoutExpectation}%`} compact valueClass="text-blue-600 dark:text-blue-400" />
+            <Mini label="上値突破の期待度" value={hasReferencePrice && supportResistanceStatus !== "NO_DATA" ? `${breakoutExpectation}%` : "—"} compact valueClass="text-blue-600 dark:text-blue-400" />
           </div>
           <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-medium leading-5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{getSupportResistanceComment({ status: supportResistanceStatus, supportPrice, resistancePrice, supportDistancePercent, resistanceDistancePercent, breakoutExpectation })}</p>
           <PatternList detectedPatterns={signal.detectedPatterns} code={signal.code} />
