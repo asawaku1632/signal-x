@@ -104,7 +104,7 @@ export default function MorningEntryRecheckCard(props: Props) {
           <p className="text-[10px] font-black tracking-wide text-sky-700 dark:text-sky-300">MORNING RECHECK / 参考チェック</p>
           <h2 className="mt-1 text-base font-black">🌅 当日の買い判断を再チェック</h2>
         </div>
-        <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">発注なし</span>
+        <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">アプリから発注しません</span>
       </div>
 
       <div className={`mt-3 rounded-xl border p-3 ${accent}`}>
