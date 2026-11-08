@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ShadowNineOverview from "@/app/admin/shadow-candlestick-nine/ShadowNineOverview";
 import type { ShadowNineSummary } from "@/app/lib/research/shadowCandleNineOverview";
+import { getShadowNineQuickVerdict } from "@/app/lib/research/shadowCandleQuickVerdict";
 
 type Report = {
   success: true;
@@ -16,8 +17,10 @@ type Report = {
 
 /**
  * Only rendered by the server owner-gated /analysis/[code]/layout.tsx.
- * No data request until the owner opens this native, initially closed details.
+ * The closed header now displays a real research verdict: once the owner
+ * visits this code, fetch ONE code automatically, not on expand/collapse.
  * Server API separately rechecks the owner's session and validates a single code.
+ * Ordinary users never mount this component.
  */
 export default function OwnerCandleNineSummary({ code }: { code: string }) {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -58,25 +61,43 @@ export default function OwnerCandleNineSummary({ code }: { code: string }) {
     }
   }, [code, report]);
 
+  // The user asked to see the verdict BEFORE opening the accordion.
+  // One owner-only request on mount, shared by the header and expanded body.
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const quick = getShadowNineQuickVerdict(report?.summary ?? null, state === "error");
+  const quickColors = {
+    neutral: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+    amber: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+    red: "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200",
+    green: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+  } as const;
+
   return (
-    <details
-      className="mb-2 rounded-xl border border-sky-200 bg-white px-3 py-2 shadow-sm dark:border-sky-800 dark:bg-slate-900"
-      onToggle={event => {
-        if (event.currentTarget.open && state === "idle") {
-          void load();
-        }
-      }}
-    >
-      <summary className="min-h-10 cursor-pointer py-1 text-sm font-black text-slate-950 dark:text-slate-100">
-        📋 ローソク足9種類・総合結果
-        <span className="ml-2 text-[11px] font-bold text-sky-700 dark:text-sky-300">
-          本人専用・タップして開く
+    <details className="mb-2 rounded-xl border border-sky-200 bg-white px-3 py-2 shadow-sm dark:border-sky-800 dark:bg-slate-900">
+      <summary className="min-h-12 cursor-pointer py-1 text-sm font-black text-slate-950 dark:text-slate-100">
+        <span className="flex flex-wrap items-center justify-between gap-2">
+          <span>📋 ローソク足9種類・総合結果</span>
+          <span role="status" aria-live="polite"
+            className={`rounded-lg px-3 py-1.5 text-sm font-black ${quickColors[quick.tone]}`}>
+            {quick.icon} {quick.label}
+          </span>
+        </span>
+        <span className="mt-1 block text-xs font-medium leading-5 text-slate-600 dark:text-slate-300">
+          {quick.explanation}
+          {report ? `（確定日足：${report.latestDate}）` : ""}
+        </span>
+        <span className="mt-1 block text-[11px] font-bold text-sky-700 dark:text-sky-300">
+          🔒 本人限定・研究用　｜　詳しい理由を見る ▼
         </span>
       </summary>
       <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-800">
         <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
-          {code}の完成済み日足だけを使う研究表示。開いたときだけ参考株価を1銘柄取得し、
-          過去に保存した9形状の研究結果と比較します。
+          {code}の完成済み日足だけを使う研究表示。本人がこの銘柄のページを開くと
+          1銘柄分の参考日足を自動照合し、折りたたみ前に研究判定を表示します。
+          折りたたみの開閉では再取得しません。
         </p>
         {state === "loading" && (
           <p role="status" className="mt-3 rounded-lg bg-slate-50 p-3 text-sm font-bold dark:bg-slate-800">
