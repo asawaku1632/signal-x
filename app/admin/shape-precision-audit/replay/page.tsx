@@ -316,20 +316,53 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
         <p className="mt-1 text-sm font-black text-blue-800">照合する形：{selected.name}</p>
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-lg font-black">まず結論：何が分かった？</h2>
+          <p className="mt-2 text-sm leading-6">
+            この形は{direction==="BUY"?"上昇・反発を探す形":direction==="SELL"?"下落に注意する形":"上か下かの方向を確認する形"}です。
+            ただし、形の向きだけで売買する判断はできません。
+          </p>
+          <div className="mt-3 grid gap-2 text-sm leading-6">
+            <p className="rounded-lg bg-slate-50 px-3 py-2">
+              <strong>① 保存された{policy.sourceLabel}の記録：</strong>
+              {isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
+            </p>
+            <p className="rounded-lg bg-slate-50 px-3 py-2">
+              <strong>② 参考日足（{last?jstDate(last.time):"取得待ち"}まで）：</strong>
+              {error?"データ不足で確認不可":dailyUnsupported?"分足専用なので確認不可":isDoubleBottom?
+                conditionMatches?"安値2つの基本条件に一致（上抜けの確認とは別）":"安値2つの基本条件には不一致":
+                conditionMatches?"選んだ形の条件に一致":"選んだ形の条件には不一致"}
+            </p>
+          </div>
+          <p className="mt-3 border-t border-slate-200 pt-3 text-base font-black">③ 今、買う？ 売る？ → この画面だけでは未判定</p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            ①は保存された元の判定、②は今回取り直した日足の確認です。足の種類や判定条件が異なるため、同じ結果とは限りません。
+            どちらも新しい売買サインや利益の保証ではありません。
+          </p>
+        </section>
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-lg font-black">保存時点までの参考日足と目印</h2>
           {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : (
             <>
               <p className="mt-2 text-xs text-slate-600">参考データ最終日：{last ? jstDate(last.time) : "—"} ／日足OHLC {candles.length}本</p>
+              <p className="mt-3 text-sm font-bold">まず、紫の①②と青丸・オレンジ点線の位置を見ます。これらは売買した場所ではありません。</p>
               <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
                 <CandleChart candles={candles} replay={replay} marks={conditionMarks}/>
               </div>
-              {isDoubleBottom?<p className="mt-2 text-xs text-slate-600">青丸：参考日足で見つけた底候補。橙破線：参考ネックライン。</p>:<p className="mt-2 text-xs text-slate-600">実際の参考日足を表示。紫の丸は選択した形の条件一致を確認した足です。</p>}
+              <div className="mt-3 space-y-1 text-sm leading-6 text-slate-700">
+                <p><strong className="text-violet-700">紫の①②：</strong>形の条件が一致した期間の始まりと最後。買い時・売り時ではありません。</p>
+                {isDoubleBottom&&<>
+                  <p><strong className="text-blue-700">青丸：</strong>値下がりが止まった可能性のある底候補。買い時の印ではありません。</p>
+                  <p><strong className="text-amber-700">オレンジ点線：</strong>上抜けできるか注目する参考価格の線。突破の保証ではありません。</p>
+                </>}
+                <p><strong>緑・赤の棒：</strong>その日の始値と終値を比べたローソク足です。</p>
+              </div>
               <div className="mt-3 rounded-xl bg-violet-50 p-3 text-xs leading-6 text-violet-950">
-                <p className="font-bold">紫の丸：① 一致開始 → ② 判定足／最終一致</p>
-                <p>各日までのデータだけで順に判定し、直近で条件一致した区間に目印を付けています。形を作り始めた底・天井そのものを示す印とは異なります。</p>
+                <p className="font-bold">紫の丸は「買い／売り」ではなく、形の条件が一致した日</p>
+                <p>①は直近の一致が続き始めた日、②は最後に一致した日です。過去の日足だけを順に使って調べています。実際の底や天井、売買のタイミングを示す印ではありません。</p>
                 {conditionMarks.length?<div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {conditionMarks.map(mark=><p key={mark.index} className="rounded-lg bg-white px-2 py-1 font-bold">{mark.label}：{jstDate(mark.time)} ／ 終値 {yen(candles[mark.index].close)}</p>)}
                 </div>:<p className="font-bold">{dailyUnsupported?"分足専用のため日足には一致の目印を付けません。":"取得範囲内に条件一致の足がないため、紫の目印はありません。"}</p>}
+                {conditionMarks.length>0&&conditionHistory.active&&<p className="font-bold">参考日足の最終日も条件は一致しています。ただし、今すぐ買う合図ではありません。</p>}
                 {conditionMarks.length>0&&!conditionHistory.active&&<p className="font-bold">目印は過去の一致区間です。照合対象の最終日では条件が外れています。</p>}
                 {conditionHistory.historyLimited&&<p>取得範囲の最初から一致しています。さらに前の一致開始日は確認できません。</p>}
                 <p>長い期間の図は左右に動かして確認できます。</p>
