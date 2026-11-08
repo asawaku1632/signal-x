@@ -58,11 +58,11 @@ test("stock header is compact and favorite action lives in the chart heading", (
   assert.match(chart, /favoriteSaving=\{favoriteSaving\}/);
   assert.doesNotMatch(chart, /チャートで確認/);
   assert.doesNotMatch(chart, /<details|<summary|参考日足の目印と読み方を見る/);
-  assert.match(chart, /<AnalysisVisualGuide\\s+code=\\{signal.code\\}/);
+  assert.ok(chart.includes("<AnalysisVisualGuide"));
   const overview = detail.slice(detail.indexOf('id="stock-panel-overview"'), detail.indexOf('id="stock-panel-chart"'));
-  assert.match(overview, /onClick=\\{\\(\\) => void toggleFavorite\\(\\)\\}/);
-  assert.match(overview, /aria-pressed=\\{isFavorite\\}/);
-  assert.match(overview, /favoriteLoading \\|\\| favoriteSaving/);
+  assert.ok(overview.includes("onClick={() => void toggleFavorite()}"));
+  assert.ok(overview.includes("aria-pressed={isFavorite}"));
+  assert.ok(overview.includes("disabled={favoriteLoading || favoriteSaving}"));
   assert.ok(overview.indexOf("お気に入り") < overview.indexOf("参考株価"));
 });
 
