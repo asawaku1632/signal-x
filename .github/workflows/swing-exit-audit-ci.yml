@@ -57,6 +57,8 @@ on:
       - "app/components/analysis/OwnerCandleNineSummary.tsx"
       - "app/api/admin/shadow-candle-nine-overview/**"
       - "tests/ownerCandleNineStockOverview.test.mjs"
+      - "app/lib/research/shadowCandleQuickVerdict.ts"
+      - "tests/shadowCandleQuickVerdict.test.mjs"
       - "app/admin/shadow-candlestick-nine/archive/**"
       - "app/admin/shadow-candlestick-nine/batch/actions.ts"
       - "tests/shadowCandleStudyArchive.test.mjs"
@@ -84,6 +86,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/ownerPostSaleAudit.test.mjs tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs tests/shadowCandleBuyCaution.test.mjs tests/shadowCandleNineOverview.test.mjs tests/ownerCandleNineStockOverview.test.mjs
+      - run: node --test tests/ownerPostSaleAudit.test.mjs tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs tests/shadowCandleBuyCaution.test.mjs tests/shadowCandleNineOverview.test.mjs tests/ownerCandleNineStockOverview.test.mjs tests/shadowCandleQuickVerdict.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
