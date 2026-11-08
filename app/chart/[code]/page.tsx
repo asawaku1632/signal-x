@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import TradingChart from "./components/TradingChart";
+import { observedNecklineOverlay } from "@/app/lib/research/observedNecklineOverlay.mjs";
 import ActionCard from "./components/ActionCard";
 import ChartHeader from "./components/ChartHeader";
 import SupportResistanceCard from "./components/SupportResistanceCard";
@@ -478,6 +479,9 @@ export default function ChartPage() {
     chart.status === "stale" ||
     intradayDelayed;
   const referencePriceLabel = historicalQuote ? "前回参考値" : "参考値";
+  const dailyNeckline = timeframe === "1D" && !chartLoading
+    ? observedNecklineOverlay(chart.candles)
+    : null;
   const currentPrice = chart.currentPrice ?? resolvedStock.price ?? 0;
 
   const takeProfit = resolvedStock.takeProfit ?? Math.round(currentPrice * 1.03);
@@ -655,6 +659,17 @@ export default function ChartPage() {
               </span>
             </div>
 
+            {timeframe === "1D" && dailyNeckline && (
+              <p className="mx-1 mt-2 rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs font-bold leading-5 text-blue-950">
+                🔬 実測日足の底①・底②・ネックライン候補（研究用）：
+                {dailyNeckline.overlay ? (
+                  dailyNeckline.overlay.state === "WATCH" ? "上抜け待ち"
+                  : dailyNeckline.overlay.state === "BREAKOUT" ? "過去に上抜け確認"
+                  : "過去の候補は失効・終了"
+                ) : dailyNeckline.status === "INSUFFICIENT" ? "データ不足で表示保留" : "該当候補なし"}
+                。当時のリアルタイム検出記録や売買指示ではありません。
+              </p>
+            )}
             <div className="relative mt-1 min-h-[320px]">
               <div
                 className={`transition-opacity duration-200 ${
@@ -663,6 +678,7 @@ export default function ChartPage() {
               >
                 <TradingChart
                   candles={chart.candles}
+                  necklineOverlay={dailyNeckline?.overlay ?? null}
                   ma20={chart.ma20}
                   currentPrice={currentPrice}
                   priceLabel={referencePriceLabel}

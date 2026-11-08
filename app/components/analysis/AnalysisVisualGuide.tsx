@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import NecklineEarlyStudyPanel from "@/app/components/analysis/NecklineEarlyStudyPanel";
+import { observedNecklineOverlay } from "@/app/lib/research/observedNecklineOverlay.mjs";
+import type { ResearchNecklineOverlay } from "@/app/chart/[code]/components/TradingChart";
 import { useEffect, useState } from "react";
 
 type DailyCandle = {
@@ -52,14 +54,16 @@ function PlainCandleChart({
   candles,
   highLine,
   lowLine,
+  necklineOverlay,
 }: {
   candles: DailyCandle[];
   highLine: number | null;
   lowLine: number | null;
+  necklineOverlay: ResearchNecklineOverlay | null;
 }) {
-  const shown = candles.slice(-30);
+  const shown = candles.slice(necklineOverlay ? -70 : -30);
   const w = 570, h = 260, left = 52, right = 22, top = 30, bottom = 32;
-  const maxPrice = Math.max(...shown.map((c) => c.high), highLine ?? 0);
+  const maxPrice = Math.max(...shown.map((c) => c.high), highLine ?? 0, necklineOverlay?.neckline ?? 0);
   const minPrice = Math.min(...shown.map((c) => c.low), lowLine ?? Infinity);
   const margin = Math.max((maxPrice - minPrice) * 0.09, maxPrice * 0.003, 0.01);
   const maximum = maxPrice + margin, minimum = Math.max(0, minPrice - margin);
@@ -71,7 +75,9 @@ function PlainCandleChart({
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} role="img"
-      aria-label="実際の確定日足のローソク足。青丸は表示期間の最安値、紫丸は最後の確定足。青い破線は直前20本の安値、橙色の破線は直前20本の高値。"
+      aria-label={necklineOverlay
+        ? "実測した確定日足。青い底①・底②とオレンジのネックラインは、未来情報を使わずに確定した研究上の候補です。紫丸は最後の確定足です。"
+        : "実際の確定日足。青丸は表示期間の最安値、紫丸は最後の確定足。青い破線は直前20本の安値、橙色の破線は直前20本の高値。"}
       className="block h-auto w-full rounded-lg bg-white">
       {[0, 1, 2, 3, 4].map((index) => {
         const price = maximum - (maximum - minimum) * index / 4;
@@ -98,6 +104,20 @@ function PlainCandleChart({
             fontSize="11" fontWeight="bold" textAnchor="end" fill="#1d4ed8">前20本の安値</text>
         </g>
       )}
+      {necklineOverlay && (
+        <g>
+          <line x1={left} x2={w - right} y1={y(necklineOverlay.neckline)}
+            y2={y(necklineOverlay.neckline)} stroke="#d97706" strokeWidth="2.3" strokeDasharray="7 4"/>
+          <rect x={w - right - 172}
+            y={Math.max(10, Math.min(h - bottom - 20, y(necklineOverlay.neckline) - 23))}
+            width="170" height="20" rx="6" fill="#fffbeb" stroke="#d97706"/>
+          <text x={w - right - 87}
+            y={Math.max(24, Math.min(h - bottom - 6, y(necklineOverlay.neckline) - 9))}
+            textAnchor="middle" fontSize="11" fontWeight="bold" fill="#92400e">
+            ネックライン候補 {Math.round(necklineOverlay.neckline).toLocaleString("ja-JP")}円
+          </text>
+        </g>
+      )}
       {shown.map((candle, index) => {
         const cx = x(index);
         const color = candle.close >= candle.open ? "#059669" : "#dc2626";
@@ -108,9 +128,25 @@ function PlainCandleChart({
             stroke={color} strokeWidth="2" />
           <rect x={cx - Math.min(step * 0.28, 7)} y={upper}
             width={Math.min(step * 0.56, 14)} height={height} fill={color} />
-          {index === lowestIndex && (
+          {(!necklineOverlay && index === lowestIndex) && (
             <circle cx={cx} cy={y(candle.low) + 3} r="7.5"
               fill="white" fillOpacity="0.75" stroke="#2563eb" strokeWidth="2.5" />
+          )}
+          {necklineOverlay && (
+            [
+              {time: necklineOverlay.firstTime, label: "底①"},
+              {time: necklineOverlay.secondTime, label: "底②"},
+            ].filter(mark => mark.time === candle.time).map(mark => {
+              const badgeX = Math.max(left, Math.min(w-right-46, cx-23));
+              const badgeY = Math.max(7, Math.min(h-bottom-23, y(candle.low)-27));
+              return <g key={mark.label}>
+                <circle cx={cx} cy={y(candle.low)} r="8.5" fill="#eff6ff" stroke="#2563eb" strokeWidth="3"/>
+                <rect x={badgeX} y={badgeY} width="46" height="21" rx="8" fill="#1d4ed8"/>
+                <text x={badgeX+23} y={badgeY+15} fontSize="12" textAnchor="middle" fontWeight="bold" fill="white">
+                  {mark.label}
+                </text>
+              </g>;
+            })
           )}
           {index === lastIndex && (
             <circle cx={cx} cy={y(candle.close)} r="7.5"
@@ -173,6 +209,8 @@ export default function AnalysisVisualGuide({
   }, [code]);
 
   const candles = chart.kind === "ready" ? chart.candles : [];
+  const necklineResult = chart.kind === "ready" ? observedNecklineOverlay(candles) : null;
+  const necklineOverlay: ResearchNecklineOverlay | null = necklineResult?.overlay ?? null;
   const latest = candles.at(-1);
   const prior = candles.slice(-21, -1);
   const highLine = prior.length === 20 ? Math.max(...prior.map((bar) => bar.high)) : null;
@@ -212,14 +250,40 @@ export default function AnalysisVisualGuide({
       ) : (
         <>
           <div className="mt-3 rounded-xl border border-slate-100 bg-white p-1">
-            <PlainCandleChart candles={candles} highLine={highLine} lowLine={lowLine} />
+            <PlainCandleChart candles={candles}
+              highLine={necklineOverlay ? null : highLine}
+              lowLine={necklineOverlay ? null : lowLine}
+              necklineOverlay={necklineOverlay} />
           </div>
           <div className={`mt-2 grid grid-cols-1 gap-1 text-xs leading-5 text-slate-700 dark:text-slate-200 ${compact ? "" : "min-[440px]:grid-cols-2"}`}>
-            <p><strong className="text-blue-700 dark:text-blue-300">◯ 青丸：</strong>表示期間で最も安かった足（底確定ではない）</p>
-            <p><strong className="text-violet-700 dark:text-violet-300">◯ 紫丸：</strong>最後の確定足（売買サインではない）</p>
-            <p><strong className="text-amber-700 dark:text-amber-300">┄ オレンジ：</strong>直前20本の高値 {highLine != null ? yen(highLine) : "未取得"}</p>
-            <p><strong className="text-blue-700 dark:text-blue-300">┄ 青点線：</strong>直前20本の安値 {lowLine != null ? yen(lowLine) : "未取得"}</p>
+            {necklineOverlay ? (
+              <>
+                <p><strong className="text-blue-700">🔵 底①：</strong>{yen(necklineOverlay.low1)}（{jstDate(necklineOverlay.firstTime)}）</p>
+                <p><strong className="text-blue-700">🔵 底②：</strong>{yen(necklineOverlay.low2)}（{jstDate(necklineOverlay.secondTime)}）</p>
+                <p><strong className="text-amber-700">┄ ネックライン候補：</strong>{yen(necklineOverlay.neckline)}</p>
+                <p><strong className="text-violet-700">◯ 紫丸：</strong>最新の確定日足</p>
+              </>
+            ) : (
+              <>
+                <p><strong className="text-blue-700 dark:text-blue-300">◯ 青丸：</strong>表示期間で最も安かった足（底確定ではない）</p>
+                <p><strong className="text-violet-700 dark:text-violet-300">◯ 紫丸：</strong>最後の確定足（売買サインではない）</p>
+                <p><strong className="text-amber-700 dark:text-amber-300">┄ オレンジ：</strong>直前20本の高値 {highLine != null ? yen(highLine) : "未取得"}</p>
+                <p><strong className="text-blue-700 dark:text-blue-300">┄ 青点線：</strong>直前20本の安値 {lowLine != null ? yen(lowLine) : "未取得"}</p>
+              </>
+            )}
           </div>
+          {necklineOverlay && (
+            <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-bold leading-5 text-amber-950" role="status">
+              🔬 ダブルボトム研究候補：
+              {necklineOverlay.state === "WATCH" ? "監視中（上抜け待ち）"
+                : necklineOverlay.state === "BREAKOUT" ? "過去に終値上抜け"
+                : necklineOverlay.state === "INVALIDATED" ? "安値割れで失効" : "期限内の上抜けなし"}
+              。初めて条件を確認できた日：{jstDate(necklineOverlay.firstSeenTime)}。
+              底①・底②は右側2本の確定日足を確認してから認定。
+              過去の日足を使った事後的な研究表示で、リアルタイムの検知・買いサインではありません。
+              {insufficient ? " 参考データの鮮度・分析価格は未確認です。" : ""}
+            </p>
+          )}
         </>
       )}
       <div className="mt-3 rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/20">

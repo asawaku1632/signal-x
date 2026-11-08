@@ -28,7 +28,20 @@ type PriceLevel = {
   width: number;
 };
 
+export type ResearchNecklineOverlay = {
+  firstTime: number;
+  secondTime: number;
+  low1: number;
+  low2: number;
+  neckline: number;
+  firstSeenTime: number;
+  breakoutTime: number | null;
+  lastCompletedTime: number;
+  state: "WATCH" | "BREAKOUT" | "INVALIDATED" | "EXPIRED";
+};
+
 type TradingChartProps = {
+  necklineOverlay?: ResearchNecklineOverlay | null;
   candles: Candle[];
   ma20: number | null;
   ema20: number | null;
@@ -241,6 +254,7 @@ export default function TradingChart({
   stopLoss,
   supportPrice,
   resistancePrice,
+  necklineOverlay = null,
   mobileHeight = 320,
   desktopHeight = 700,
 }: TradingChartProps) {
@@ -462,7 +476,16 @@ export default function TradingChart({
       candle.close,
     ]);
 
-    const allPrices = [...candlePrices, ...levels.map((level) => level.price)];
+    const patternInViewport = necklineOverlay && data.some(bar =>
+      bar.time === necklineOverlay.firstTime ||
+      bar.time === necklineOverlay.secondTime ||
+      bar.time === necklineOverlay.breakoutTime
+    );
+    const allPrices = [
+      ...candlePrices,
+      ...levels.map((level) => level.price),
+      ...(patternInViewport && necklineOverlay ? [necklineOverlay.neckline] : []),
+    ];
     const globalMin = Math.min(...allPrices);
     const globalMax = Math.max(...allPrices);
 
@@ -530,6 +553,22 @@ export default function TradingChart({
       isDesktop ? 44 : 22,
       paddingTop + (isDesktop ? 16 : 10),
       height - paddingBottom - (isDesktop ? 16 : 10),
+    );
+
+    // Annotations are keyed by the real candle's timestamp, so they follow
+    // swipe/zoom and disappear when their evidence is outside the visible range.
+    const visibleBottomMarkers = necklineOverlay
+      ? [
+          { time: necklineOverlay.firstTime, low: necklineOverlay.low1, label: "底①" },
+          { time: necklineOverlay.secondTime, low: necklineOverlay.low2, label: "底②" },
+        ].map(marker => ({
+          ...marker,
+          index: data.findIndex(bar => bar.time === marker.time),
+        })).filter(marker => marker.index >= 0)
+      : [];
+    const showNeckline = necklineOverlay !== null && (
+      visibleBottomMarkers.length > 0
+      || data.some(bar => bar.time === necklineOverlay.breakoutTime)
     );
 
     const selected =
@@ -657,6 +696,47 @@ export default function TradingChart({
             </g>
           );
         })}
+
+        {showNeckline && necklineOverlay && (
+          <g aria-label={`ネックライン候補 ${Math.round(necklineOverlay.neckline)}円・研究用`}>
+            <line x1={chartLeft} x2={chartRight} y1={y(necklineOverlay.neckline)} y2={y(necklineOverlay.neckline)}
+              stroke="#d97706" strokeWidth={isDesktop ? 3 : 2} strokeDasharray="7 5" />
+            <rect x={chartLeft + 5}
+              y={clamp(y(necklineOverlay.neckline) - (isDesktop ? 30 : 19), plotTop + 2, plotBottom - (isDesktop ? 23 : 15))}
+              width={isDesktop ? 252 : 161} height={isDesktop ? 26 : 16} rx="6"
+              fill="#fffbeb" stroke="#d97706" />
+            <text x={chartLeft + 12}
+              y={clamp(y(necklineOverlay.neckline) - (isDesktop ? 12 : 8), plotTop + 14, plotBottom - (isDesktop ? 8 : 3))}
+              fill="#92400e" fontWeight="800" fontSize={isDesktop ? 15 : 10}>
+              ネックライン候補 {Math.round(necklineOverlay.neckline).toLocaleString("ja-JP")}円
+            </text>
+          </g>
+        )}
+        {visibleBottomMarkers.map((marker, i) => {
+          const markerX = x(marker.index);
+          const markerY = y(marker.low);
+          if (markerY < plotTop || markerY > plotBottom) return null;
+          const labelX = clamp(markerX - (isDesktop ? 29 : 17), chartLeft, chartRight - (isDesktop ? 58 : 34));
+          const labelY = clamp(markerY + (i === 0 ? -34 : 13), plotTop + 2, plotBottom - (isDesktop ? 25 : 17));
+          return (
+            <g key={marker.label} aria-label={`${marker.label}・研究で確定した安値候補`}>
+              <circle cx={markerX} cy={markerY} r={isDesktop ? 11 : 6}
+                fill="#dbeafe" fillOpacity=".85" stroke="#2563eb" strokeWidth={isDesktop ? 3 : 2} />
+              <rect x={labelX} y={labelY} width={isDesktop ? 58 : 34} height={isDesktop ? 25 : 17}
+                rx={isDesktop ? 9 : 6} fill="#1d4ed8" />
+              <text x={labelX + (isDesktop ? 29 : 17)} y={labelY + (isDesktop ? 18 : 12)}
+                fontSize={isDesktop ? 15 : 9} fontWeight="900" textAnchor="middle" fill="white">
+                {marker.label}
+              </text>
+            </g>
+          );
+        })}
+        {necklineOverlay?.breakoutTime != null && data.map((bar, i) => bar.time === necklineOverlay.breakoutTime ? (
+          <g key="neckline-breakout" aria-label="終値での上抜け確認・研究履歴">
+            <circle cx={x(i)} cy={y(bar.close)} r={isDesktop ? 10 : 6}
+              fill="#dcfce7" stroke="#16a34a" strokeWidth="3" />
+          </g>
+        ) : null)}
 
         <line x1={chartLeft} x2={chartRight} y1={macdY(0)} y2={macdY(0)} stroke="#cbd5e1" strokeWidth="1" />
         <text x={chartLeft} y={macdTop - (isDesktop ? 12 : 8)} fontSize={isDesktop ? 14 : 9} fontWeight="800" fill="#475569">
