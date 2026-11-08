@@ -21,9 +21,11 @@ export const maxDuration = 25;
 const headers = { "Cache-Control": "private, no-store, max-age=0" };
 
 /**
- * Owner-only on-demand read, NOT a page-load fetch, prefetch, cron, or a new
- * trading rule. Called only when the owner expands their stock's summary.
- * Exactly one Yahoo 6-month daily OHLC request per explicit interaction.
+ * Owner-only one-stock research read, now invoked ONCE when the owner opens
+ * an individual stock detail page so a verdict appears before expanding.
+ * Never called for nonowners; never called by prefetch, Cron or main scan.
+ * At most one Yahoo 6-month daily OHLC request per mounted owner detail panel.
+ * Not a production buy/sell rule.
  */
 export async function POST(request: NextRequest) {
   const { isOwner } = await getLearningOwnerSession();
