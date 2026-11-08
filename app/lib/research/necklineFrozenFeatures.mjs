@@ -123,7 +123,7 @@ function outcomes(values) {
 }
 
 function summarizeGroup(events, bin) {
-  const rows = events.filter(e => e.frozenFeatures?.buckets?.[bin.axisId] === bin.id);
+  const rows = events.filter(e => (e.frozenFeatures?.buckets?.[bin.axisId] ?? "UNKNOWN") === bin.id);
   const breakout = rows.filter(e => e.status === "BREAKOUT").length;
   const invalidated = rows.filter(e => e.status === "INVALIDATED").length;
   const expired = rows.filter(e => e.status === "EXPIRED").length;
