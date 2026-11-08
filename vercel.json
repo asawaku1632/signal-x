@@ -211,6 +211,18 @@
     {
       "path": "/api/cron/new-buy-outcomes",
       "schedule": "10,50 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/neckline-forward-preopen?batch=0",
+      "schedule": "25 23 * * 0-4"
+    },
+    {
+      "path": "/api/cron/neckline-forward-preopen?batch=1",
+      "schedule": "35 23 * * 0-4"
+    },
+    {
+      "path": "/api/cron/neckline-forward-preopen?batch=2",
+      "schedule": "45 23 * * 0-4"
     }
   ]
 }
