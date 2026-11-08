@@ -138,6 +138,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "パターン別の的中率と未来追跡",
       },
       {
+        href: "/admin/neckline-quality", icon: "🔵",
+        title: "底①・底②・ネックライン検証", tag: "本人専用・読み取り研究",
+        detail: "実際の確定日足で上抜け・失効・期限終了と3/5営業日後の事後成績を確認",
+      },
+      {
         href: "/admin/shape-precision-audit", icon: "🔬",
         title: "チャート55形状・検出精度監査", tag: "新機能",
         detail: "ダブルボトム過剰検出・信頼度分布とサンプルチャートを点検",
