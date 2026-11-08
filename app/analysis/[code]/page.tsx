@@ -211,19 +211,6 @@ function getSwingEntryToneClasses(tone: SwingEntryDecision["tone"]) {
 }
 
 /** A single user-facing action line; AI rank and swing entry timing stay distinct. */
-function describeNewEntry(status: SwingEntryDecision["status"]) {
-  switch (status) {
-    case "CANDIDATE":
-      return { title: "監視候補（購入条件は再確認）", action: "次の確認：9:05以降の価格・出来高と最新材料を見る" };
-    case "WAIT":
-      return { title: "監視候補・押し目待ち", action: "新規購入：今は追いかけず、値動きが落ち着くのを待つ" };
-    case "WATCH":
-      return { title: "様子見（追加シグナル待ち）", action: "新規購入：まだ決めず、方向が見えるまで待つ" };
-    case "AVOID":
-      return { title: "見送り（新規購入は慎重に）", action: "新規購入：現時点の保存判定では見送り" };
-  }
-}
-
 function SwingEntryCard({ decision }: { decision: SwingEntryDecision }) {
   return (
     <section className={`mt-2 rounded-xl border p-3 shadow-sm ${getSwingEntryToneClasses(decision.tone)}`}>
@@ -768,7 +755,6 @@ export default function AnalysisPage() {
     volumeRatio: signal.volumeRatio,
     changePercent: signal.changePercent,
   });
-  const unifiedEntry = describeNewEntry(swingEntryDecision.status);
 
   const total = historyStats?.total ?? 0;
   const win = historyStats?.win ?? 0;
@@ -1020,13 +1006,6 @@ export default function AnalysisPage() {
           <summary className="cursor-pointer text-sm font-black">📊 ボリンジャーバンド・補助評価を表示</summary>
           <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
         </details>
-
-        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
-          <p className="text-xs font-black text-orange-700 dark:text-orange-300">新規購入の判断（保存時点）</p>
-
-          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{hasReferencePrice ? unifiedEntry.action : "株価が未取得のため、売買に使える判定はありません。"}</p>
-          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">上の結論と同じ新規購入の評価です。実際の注文時は最新の価格・チャートと証券会社の表示を確認してください。</p>
-        </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
