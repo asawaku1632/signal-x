@@ -818,35 +818,7 @@ export default function AnalysisPage() {
     <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto w-full max-w-2xl px-3 pt-2 min-[380px]:px-4">
         <header className="sticky top-0 z-30 -mx-3 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95 min-[380px]:-mx-4 min-[380px]:px-4">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href="/scan-mobile"
-              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm transition active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            >
-              <span aria-hidden="true">←</span> Scanへ戻る
-            </Link>
-            <button
-              type="button"
-              onClick={() => void toggleFavorite()}
-              disabled={favoriteLoading || favoriteSaving}
-              className={`inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl border px-3 text-sm font-bold shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
-                isFavorite
-                  ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-              }`}
-              aria-label={
-                isFavorite
-                  ? "お気に入りから削除"
-                  : "お気に入りに追加"
-              }
-            >
-              <span className="text-xl" aria-hidden="true">
-                {favoriteLoading || favoriteSaving ? "…" : isFavorite ? "★" : "☆"}
-              </span>
-              <span className="hidden min-[360px]:inline">お気に入り</span>
-            </button>
-          </div>
-          <p className="mt-2 truncate text-center text-sm font-black text-slate-950 dark:text-white">{signal.name}（{signal.code}）</p>
+          <p className="truncate text-center text-sm font-black text-slate-950 dark:text-white">{signal.name}（{signal.code}）</p>
           <div role="tablist" aria-label="銘柄ページの表示切り替え"
             className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
             {ANALYSIS_TABS.map((tab, index) => (
@@ -975,19 +947,15 @@ export default function AnalysisPage() {
         <section role="tabpanel" id="stock-panel-chart" aria-labelledby="stock-tab-chart" hidden={activeTab !== "chart"}>
           {activeTab === "chart" && (
             <>
-        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
-            <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
-          </div>
-        </Link>
-
-
 
         <InlineTradingChart
           code={signal.code}
           takeProfit={hasReferencePrice ? takeProfit : null}
           stopLoss={hasReferencePrice ? stopLoss : null}
+          isFavorite={isFavorite}
+          favoriteLoading={favoriteLoading}
+          favoriteSaving={favoriteSaving}
+          onToggleFavorite={() => void toggleFavorite()}
         />
         <details className="mt-3 rounded-xl border border-blue-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-300">
