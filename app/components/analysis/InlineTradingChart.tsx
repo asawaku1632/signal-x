@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TradingChart from "@/app/chart/[code]/components/TradingChart";
+import { observedNecklineOverlay } from "@/app/lib/research/observedNecklineOverlay.mjs";
 
 type Timeframe = "5m" | "15m" | "1H" | "1D" | "1W" | "1M";
 type Candle = {
@@ -97,6 +98,12 @@ export default function InlineTradingChart({
   const lastJstDate = quoteAt != null ? new Date(quoteAt * 1000).toLocaleDateString("sv-SE", {timeZone:"Asia/Tokyo"}) : "";
   const todayJst = new Date().toLocaleDateString("sv-SE", {timeZone:"Asia/Tokyo"});
   const oldQuote = data?.status === "stale" || !quoteAt || lastJstDate !== todayJst;
+  // Run the research only on completed, strictly ordered 1D bars.
+  // No intraday or unconfirmed candle can create these marks.
+  const necklineStudy = timeframe === "1D" && chart.kind === "ready"
+    ? observedNecklineOverlay(candles)
+    : null;
+  const necklineOverlay = necklineStudy?.overlay ?? null;
   // Use only the already displayed overview calculation, never create a new investment target.
   const pricesValid = Number.isFinite(takeProfit) && Number.isFinite(stopLoss)
     && (takeProfit ?? 0) > 0 && (stopLoss ?? 0) > 0;
@@ -114,6 +121,12 @@ export default function InlineTradingChart({
           Yahoo参考データ
         </span>
       </div>
+      {timeframe !== "1D" && (
+        <button type="button" onClick={() => setTimeframe("1D")}
+          className="mb-2 min-h-10 w-full rounded-lg border border-blue-300 bg-blue-50 px-3 text-xs font-black text-blue-800">
+          🔵 底①・底②・ネックライン候補を日足で確認 →
+        </button>
+      )}
       <div role="tablist" aria-label="ローソク足の時間軸" className="grid grid-cols-6 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
         {timeframes.map(option => (
           <button key={option.value} type="button" role="tab" aria-selected={timeframe === option.value}
@@ -142,10 +155,46 @@ export default function InlineTradingChart({
             {" "}最終足 {quoteAt ? jstDate(quoteAt) : "取得時刻不明"}（日本時間）。
             約定価格・リアルタイムの売買サインではありません。
           </p>
+          {timeframe === "1D" && necklineStudy && (
+            <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs leading-5 text-slate-800" role="status">
+              <p className="font-black text-blue-950">🔬 実測日足からのダブルボトム候補（研究中）</p>
+              {necklineOverlay ? (
+                <>
+                  <p className="mt-1 font-bold">
+                    {necklineOverlay.state === "WATCH" ? "監視中：ネックライン上抜け待ち"
+                      : necklineOverlay.state === "BREAKOUT" ? "過去の上抜けを確認"
+                      : necklineOverlay.state === "INVALIDATED" ? "候補失効：安値割れ"
+                      : "候補終了：期限内に上抜けず"}
+                    {" "}／初検出日 {jstDate(necklineOverlay.firstSeenTime)}
+                  </p>
+                  <p className="mt-1">
+                    底① {Math.round(necklineOverlay.low1).toLocaleString("ja-JP")}円、
+                    底② {Math.round(necklineOverlay.low2).toLocaleString("ja-JP")}円、
+                    ネックライン候補 {Math.round(necklineOverlay.neckline).toLocaleString("ja-JP")}円
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-600">
+                    底は当該日より右側2本の確定足を確認した後に認定。
+                    これは後から日足を1日ずつ再生した研究結果で、当日のリアルタイム保存記録ではありません。
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 font-bold">
+                  {necklineStudy.status === "INSUFFICIENT"
+                    ? "データ不足・未確定足あり：目印を表示しません"
+                    : "今回の日足には研究条件に一致する最近の候補がありません"}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] text-slate-600">
+                {oldQuote ? "前回参考データです。最新の株価ではありません。" : "取得済み確定日足に基づく研究表示です。"}
+                {" "}買い・売りの指示や上昇確率ではありません。
+              </p>
+            </div>
+          )}
           <div className="mt-2">
             {price != null && pricesValid ? (
               <TradingChart
                 key={timeframe} candles={candles}
+                necklineOverlay={timeframe === "1D" ? necklineOverlay : null}
                 ma20={data.ma20 ?? null} ema20={data.ema20 ?? null}
                 vwap={data.vwap ?? null} macd={data.macd ?? null}
                 macdSignal={data.macdSignal ?? null}
