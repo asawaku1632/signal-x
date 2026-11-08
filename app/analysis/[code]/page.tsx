@@ -220,10 +220,10 @@ function SwingEntryCard({ decision }: { decision: SwingEntryDecision }) {
           {decision.icon} {decision.label}
         </span>
       </div>
-      <p className="mt-1 text-xs font-medium">数日〜2週間の新規購入を検討する場合の保存時点の評価</p>
-      <p className="mt-3 text-sm font-black leading-6">{decision.summary}</p>
       <details className="mt-3 border-t border-current/20 pt-2">
         <summary className="cursor-pointer text-xs font-black">▶ 判定理由・詳しい説明を見る</summary>
+        <p className="mt-2 text-xs font-medium">数日〜2週間の新規購入を検討する場合の保存時点の評価</p>
+        <p className="mt-3 text-sm font-black leading-6">{decision.summary}</p>
         <ul className="mt-2 space-y-1 text-xs leading-5">
           {decision.reasons.slice(0, 3).map((reason, index) => (
             <li key={`${reason}-${index}`}>・{reason}</li>
@@ -886,6 +886,52 @@ export default function AnalysisPage() {
             <p className="mt-1 text-xs leading-5">有効な株価が取得できないため、様子見・見送りなどの判定を確定しません。</p>
           </section>
         )}
+        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
+            <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
+          </div>
+        </Link>
+
+
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">AI学習データ <span className="text-xs font-medium text-slate-500">（過去実績・新規購入の勝率ではない）</span></h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
+          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">過去の判定済み勝率</p>
+            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
+            {winRate !== null && (
+              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
+            過去に判定が確定した{resolvedCount}件のWIN÷（WIN＋LOSE）です。HOLDは除外。
+            今回の銘柄を今から買ったときの勝率ではなく、AI評価やスイング判定と直接比較できません。
+          </p>
+          {historyStats && unclassifiedCount !== 0 && (
+            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+              <summary className="cursor-pointer">⚠ 集計内訳に{Math.abs(unclassifiedCount)}件の差があります（詳しく見る）</summary>
+              <p className="mt-2 font-medium">
+                集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
+                この画面では差の内訳は未確認です。
+              </p>
+            </details>
+          )}
+          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
+        </section>
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-sm font-black">重要指標</h2>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <Info label="必要資金" value={hasReferencePrice ? yen(requiredMoney) : "—"} />
+            <Info label="変化率" value={hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
+            <Info label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} />
+          </div>
+        </section>
+
         {hasReferencePrice ? (
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">💰 利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の仮試算）</span></h2>
@@ -902,7 +948,7 @@ export default function AnalysisPage() {
             </p>
           </details>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 gap-2">
             <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-slate-800">
               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">仮の利確価格</p>
               <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
@@ -949,52 +995,6 @@ export default function AnalysisPage() {
             </button>
           </div>
         </details>
-
-        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
-            <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
-          </div>
-        </Link>
-
-
-
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-base font-black">AI学習データ <span className="text-xs font-medium text-slate-500">（過去実績・新規購入の勝率ではない）</span></h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
-          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">過去の判定済み勝率</p>
-            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
-            {winRate !== null && (
-              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
-                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
-              </p>
-            )}
-          </div>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
-            過去に判定が確定した{resolvedCount}件のWIN÷（WIN＋LOSE）です。HOLDは除外。
-            今回の銘柄を今から買ったときの勝率ではなく、AI評価やスイング判定と直接比較できません。
-          </p>
-          {historyStats && unclassifiedCount !== 0 && (
-            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-              <summary className="cursor-pointer">⚠ 集計内訳に{Math.abs(unclassifiedCount)}件の差があります（詳しく見る）</summary>
-              <p className="mt-2 font-medium">
-                集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
-                この画面では差の内訳は未確認です。
-              </p>
-            </details>
-          )}
-          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-sm font-black">重要指標</h2>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <Info label="必要資金" value={hasReferencePrice ? yen(requiredMoney) : "—"} />
-            <Info label="変化率" value={hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
-            <Info label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} />
-          </div>
-        </section>
 
         <MorningEntryRecheckCard
           code={signal.code}
