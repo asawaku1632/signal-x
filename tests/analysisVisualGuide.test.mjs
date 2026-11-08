@@ -32,8 +32,9 @@ test("four top tabs are independent and render previous content without duplicat
 
   const order = [
     'id="stock-panel-overview"', "/* Main summary:", "<SwingEntryCard",
-    "<AnalysisVisualGuide code={signal.code}", "💰 利益とリスク",
-    'id="stock-panel-chart"', "<AnalysisVisualGuide\n", "📈 チャートで確認",
+    "💰 利益とリスク", "<AnalysisVisualGuide code={signal.code}",
+    'id="stock-panel-chart"', "📈 チャートで確認", "<EmbeddedTradingChart",
+    "📘 確定日足の目印と読み方も確認する", "<AnalysisVisualGuide\n",
     'id="stock-panel-analysis"', "AI学習データ", ">重要指標</h2>",
     "<SwingHistoricalEvidence", 'id="stock-panel-catalog"',
     "<PatternList detectedPatterns=", "<DoubleBottomVisualLesson"
