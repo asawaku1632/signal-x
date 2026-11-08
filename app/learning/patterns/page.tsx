@@ -30,6 +30,11 @@ export default function ChartPatternCatalogPage() {
           <p className="mt-3 text-xs font-black text-blue-700">Chart Pattern Engine 実装済み {chartPatternCatalog.length}パターンID</p>
         </section>
 
+          <Link href="/learning/chart-quiz"
+            className="mt-4 flex min-h-12 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-black text-emerald-800 shadow-sm">
+            🧠 3択でチャートの見方を練習する →
+          </Link>
+
           <Link href="/chart-shape-search"
             className="mt-5 flex min-h-12 items-center justify-center rounded-2xl bg-blue-700 px-4 py-3 text-center text-sm font-black text-white shadow-sm">
             🔎 チャートの形から銘柄を探す
