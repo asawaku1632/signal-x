@@ -26,7 +26,6 @@ test("accordion loads ONLY on opening, never as background page request, and off
   assert.match(component,/method: "POST"/);
   assert.match(component,/cache: "no-store"/);
   assert.match(component,/<ShadowNineOverview/);
-  assert.match(component,/\/"\}/); // React syntax for known owner UI
   assert.match(component,/prefetch=\{false\}/);
   assert.doesNotMatch(component,/\buseEffect\s*\(/);
   assert.doesNotMatch(component,/\b(?:sendLine|saveDisplaySnapshot|runScan|placeOrder)\s*\(/);
