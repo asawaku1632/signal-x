@@ -245,6 +245,23 @@ export default function AnalysisVisualGuide({
           9:05以降の5分足や最新の株価・ニュースは別途確認してください。この日足図だけで売買を決めません。
         </p>
       </div>
+      <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+        <p className="text-sm font-black text-violet-900">📚 チャートの形を図鑑で確認</p>
+        <p className="mt-1 text-xs leading-5 text-slate-700">
+          このチャートの青丸は表示期間の最安値で、ダブルボトムの「底①・底②」を自動認定したものではありません。
+          図鑑の目印と見比べて、形が完成しているか学べます。
+        </p>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Link href={`/learning/patterns/pattern002?code=${encodeURIComponent(code)}`}
+            className="flex min-h-11 items-center justify-center rounded-lg border border-violet-300 bg-white px-3 text-center text-xs font-black text-violet-800">
+            🔵 底①・底②・ネックラインの見方
+          </Link>
+          <Link href="/learning/chart-quiz"
+            className="flex min-h-11 items-center justify-center rounded-lg border border-violet-300 bg-white px-3 text-center text-xs font-black text-violet-800">
+            🧠 3択クイズで練習
+          </Link>
+        </div>
+      </div>
       <Link href={`/chart/${encodeURIComponent(code)}`}
         className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-3 text-sm font-black text-white">
         ローソク足チャートを詳しく見る →
