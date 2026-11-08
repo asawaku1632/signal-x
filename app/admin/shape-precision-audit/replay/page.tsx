@@ -323,19 +323,19 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
           </p>
           <div className="mt-3 grid gap-2 text-sm leading-6">
             <p className="rounded-lg bg-slate-50 px-3 py-2">
-              <strong>① 保存された{policy.sourceLabel}の記録：</strong>
+              <strong>保存された{policy.sourceLabel}の判定：</strong>
               {isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
             </p>
             <p className="rounded-lg bg-slate-50 px-3 py-2">
-              <strong>② 参考日足（{last?jstDate(last.time):"取得待ち"}まで）：</strong>
+              <strong>参考日足（{last?jstDate(last.time):"取得待ち"}まで）：</strong>
               {error?"データ不足で確認不可":dailyUnsupported?"分足専用なので確認不可":isDoubleBottom?
                 conditionMatches?"安値2つの基本条件に一致（上抜けの確認とは別）":"安値2つの基本条件には不一致":
                 conditionMatches?"選んだ形の条件に一致":"選んだ形の条件には不一致"}
             </p>
           </div>
-          <p className="mt-3 border-t border-slate-200 pt-3 text-base font-black">③ 今、買う？ 売る？ → この画面だけでは未判定</p>
+          <p className="mt-3 border-t border-slate-200 pt-3 text-base font-black">今、買う？ 売る？ → この画面だけでは未判定</p>
           <p className="mt-1 text-xs leading-5 text-slate-600">
-            ①は保存された元の判定、②は今回取り直した日足の確認です。足の種類や判定条件が異なるため、同じ結果とは限りません。
+            上の2つは別々の確認です。足の種類や判定条件が異なるため、同じ結果とは限りません。
             どちらも新しい売買サインや利益の保証ではありません。
           </p>
         </section>
