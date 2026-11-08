@@ -59,7 +59,7 @@ test("owner-only render autoloads exactly once per mount and exposes verdict bef
   const component=read("app/components/analysis/OwnerCandleNineSummary.tsx");
   const render=component.indexOf("return (\n    <details");
   const topSummary=component.indexOf("<summary ",render);
-  const expanded=component.indexOf("<ShadowNineOverview ",render);
+  const expanded=component.indexOf("<ShadowNineOverview",render);
   const quick=component.indexOf("quick.icon",topSummary);
   assert.ok(render>0 && topSummary>render && quick>topSummary && expanded>quick);
   assert.match(component,/useEffect\(\(\) => \{\s*void load\(\);/);
