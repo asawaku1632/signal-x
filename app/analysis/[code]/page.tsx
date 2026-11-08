@@ -14,6 +14,7 @@ import type { BollingerSignal } from "@/app/lib/bollingerBands";
 import { getSwingEntryDecision, type SwingEntryDecision } from "@/app/lib/swingDecision";
 import SwingHistoricalEvidence from "@/app/components/analysis/SwingHistoricalEvidence";
 import AnalysisVisualGuide from "@/app/components/analysis/AnalysisVisualGuide";
+import EmbeddedTradingChart from "@/app/components/analysis/EmbeddedTradingChart";
 import DoubleBottomVisualLesson from "@/app/components/patterns/DoubleBottomVisualLesson";
 
 type AnalysisTab = "overview" | "chart" | "analysis" | "catalog";
@@ -514,6 +515,7 @@ export default function AnalysisPage() {
   const [learningError, setLearningError] = useState(false);
   const [showAllReasons, setShowAllReasons] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
+  const [showReferenceChart, setShowReferenceChart] = useState(false);
   useEffect(() => { setActiveTab("overview"); }, [code]);
 
   useEffect(() => {
@@ -921,13 +923,6 @@ export default function AnalysisPage() {
             <p className="mt-1 text-xs leading-5">有効な株価が取得できないため、様子見・見送りなどの判定を確定しません。</p>
           </section>
         )}
-        <AnalysisVisualGuide code={signal.code} analysisPrice={hasReferencePrice ? price : null} compact />
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => { setActiveTab("chart"); window.scrollTo({top:0}); }}
-            className="min-h-11 rounded-xl border border-blue-200 bg-blue-50 p-2 text-xs font-black text-blue-800">📈 チャートを詳しく</button>
-          <button type="button" onClick={() => { setActiveTab("analysis"); window.scrollTo({top:0}); }}
-            className="min-h-11 rounded-xl border border-blue-200 bg-white p-2 text-xs font-black text-blue-800">🔎 指標・学習実績へ</button>
-        </div>
         {hasReferencePrice ? (
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">💰 利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の仮試算）</span></h2>
@@ -968,22 +963,45 @@ export default function AnalysisPage() {
           </section>
         )}
 
+        <AnalysisVisualGuide code={signal.code} analysisPrice={hasReferencePrice ? price : null} compact />
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => { setActiveTab("chart"); window.scrollTo({top:0}); }}
+            className="min-h-11 rounded-xl border border-blue-200 bg-blue-50 p-2 text-xs font-black text-blue-800">📈 チャートを詳しく</button>
+          <button type="button" onClick={() => { setActiveTab("analysis"); window.scrollTo({top:0}); }}
+            className="min-h-11 rounded-xl border border-blue-200 bg-white p-2 text-xs font-black text-blue-800">🔎 指標・学習実績へ</button>
+        </div>
             </>
           )}
         </section>
         <section role="tabpanel" id="stock-panel-chart" aria-labelledby="stock-tab-chart" hidden={activeTab !== "chart"}>
           {activeTab === "chart" && (
             <>
-        <AnalysisVisualGuide
-          code={signal.code}
-          analysisPrice={hasReferencePrice ? price : null}
-        />
         <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
             <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
           </div>
         </Link>
+        <EmbeddedTradingChart
+          code={signal.code}
+          referencePrice={hasReferencePrice ? price : null}
+          referenceTakeProfit={hasReferencePrice ? takeProfit : null}
+          referenceStopLoss={hasReferencePrice ? stopLoss : null}
+        />
+        <section className="mt-3 rounded-xl border border-violet-200 bg-white p-3 shadow-sm dark:border-violet-900 dark:bg-slate-900">
+          <button type="button" aria-expanded={showReferenceChart}
+            onClick={() => setShowReferenceChart(current => !current)}
+            className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-black text-violet-800 dark:text-violet-300">
+            <span>📘 確定日足の目印と読み方も確認する</span>
+            <span aria-hidden>{showReferenceChart ? "▲" : "▼"}</span>
+          </button>
+          {showReferenceChart && (
+            <AnalysisVisualGuide
+              code={signal.code}
+              analysisPrice={hasReferencePrice ? price : null}
+            />
+          )}
+        </section>
 
 
 
