@@ -9,11 +9,12 @@ const detail = readFileSync(join(root, "app/analysis/[code]/page.tsx"), "utf8");
 const guide = readFileSync(join(root, "app/components/analysis/AnalysisVisualGuide.tsx"), "utf8");
 const layout = readFileSync(join(root, "app/analysis/[code]/layout.tsx"), "utf8");
 
-test("stock summary, swing, always-visible profit/loss, chart, historical cards, learning, indicators", () => {
+test("stock summary, swing, chart link, AI learning, key metrics, stacked prices, then chart", () => {
   const items = [
-    "/* Main summary:", "<SwingEntryCard", "仮の利確価格", "仮の損切価格",
-    "<AnalysisVisualGuide", "<SwingHistoricalEvidence", "保存データを表示中",
-    "AI学習データ", ">重要指標</h2>"
+    "/* Main summary:", "<SwingEntryCard", '<Link href={`/chart/${signal.code}`}',
+    "AI学習データ", ">重要指標</h2>", "💰 利益とリスク",
+    "仮の利確価格", "仮の損切価格", "<AnalysisVisualGuide",
+    "<SwingHistoricalEvidence", "保存データを表示中"
   ];
   const offsets=items.map(x=>detail.indexOf(x));
   assert.ok(offsets.every(x=>x>=0), JSON.stringify(offsets));
