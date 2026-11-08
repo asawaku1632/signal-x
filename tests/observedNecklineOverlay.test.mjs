@@ -70,6 +70,7 @@ test("actual OHLC charts receive same day-only research overlay, not a simulated
   const trading = read("app/chart/[code]/components/TradingChart.tsx");
   const inline = read("app/components/analysis/InlineTradingChart.tsx");
   const visual = read("app/components/analysis/AnalysisVisualGuide.tsx");
+  const fullChart = read("app/chart/[code]/page.tsx");
   assert.match(trading, /necklineOverlay\?: ResearchNecklineOverlay \| null/);
   assert.match(trading, /visibleBottomMarkers/);
   assert.match(trading, /marker\.time === bar\.time/);
@@ -83,4 +84,8 @@ test("actual OHLC charts receive same day-only research overlay, not a simulated
   assert.match(visual, /<PlainCandleChart candles=\{candles\}/);
   assert.match(visual, /observedNecklineOverlay\(candles\)/);
   assert.match(visual, /過去の日足を使った事後的な研究表示/);
+  assert.match(fullChart, /timeframe === "1D" && !chartLoading/);
+  assert.match(fullChart, /observedNecklineOverlay\(chart\.candles\)/);
+  assert.match(fullChart, /necklineOverlay=\{dailyNeckline\?\.overlay \?\? null\}/);
+  assert.match(fullChart, /当時のリアルタイム検出記録や売買指示ではありません/);
 });
