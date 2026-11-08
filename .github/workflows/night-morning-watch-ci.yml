@@ -12,6 +12,9 @@ on:
       - "app/lib/research/entryTimeShadowRunner.ts"
       - "app/admin/night-entry-holding/**"
       - "app/admin/night-morning-watch/**"
+      - "app/api/admin/morning-probe-shadow/**"
+      - "app/lib/research/morning0915Review.mjs"
+      - "tests/morning0915Review.test.mjs"
       - "app/admin/learning-hub/page.tsx"
       - "tests/nightMorningWatch.test.mjs"
       - "tests/nightTimingHolding.test.mjs"
@@ -24,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test tests/nightMorningWatch.test.mjs tests/nightHoldingGuidance.test.mjs tests/nightHoldingAudit.test.mjs tests/nightTimingHolding.test.mjs tests/entryTimeShadow.test.mjs
+      - run: node --test tests/morning0915Review.test.mjs tests/nightMorningWatch.test.mjs tests/nightHoldingGuidance.test.mjs tests/nightHoldingAudit.test.mjs tests/nightTimingHolding.test.mjs tests/entryTimeShadow.test.mjs
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
