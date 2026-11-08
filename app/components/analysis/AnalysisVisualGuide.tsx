@@ -133,13 +133,9 @@ function PlainCandleChart({
 export default function AnalysisVisualGuide({
   code,
   analysisPrice,
-  swingLabel,
-  swingSummary,
 }: {
   code: string;
   analysisPrice: number | null;
-  swingLabel: string;
-  swingSummary: string;
 }) {
   const [chart, setChart] = useState<ChartState>({ kind: "loading" });
 
@@ -224,17 +220,19 @@ export default function AnalysisVisualGuide({
         </>
       )}
       <div className="mt-3 rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/20">
-        <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-200">🟢 今の状態：何が分かった？</h3>
+        <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-200">📊 チャートから分かること</h3>
         <p className="mt-1 text-sm font-bold leading-6 text-slate-900 dark:text-white">
-          {insufficient ? "判定材料の確認が必要です" : swingLabel + "（スイング判定）"}
+          {insufficient ? "参考データの確認が必要です" : observed}
         </p>
-        <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">
-          {insufficient
-            ? "参考価格・確定日足の新しさ・分析データのいずれかが不足しています。古い値を使って新しい買い判断はしません。"
-            : swingSummary}
+        {insufficient && (
+          <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">
+            株価・確定日足の新しさなどを確認できないため、ここから新しい買い判断はしません。
+          </p>
+        )}
+        <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-400">
+          この図は過去の価格の観察用です。上の高値・安値は簡単な比較線であり、支持線・抵抗線の確定や売買推奨ではありません。
+          新規購入のタイミングについては、この下の「スイング判定」で確認してください。
         </p>
-        <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">{observed}</p>
-        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">※ ここで表示する高値・安値は簡単な比較線です。支持線や抵抗線の確定・突破予測ではありません。</p>
       </div>
       <div className="mt-2 rounded-xl bg-blue-50 p-3 dark:bg-blue-950/20">
         <h3 className="text-sm font-black text-blue-900 dark:text-blue-200">🚩 次に見るポイント</h3>
