@@ -818,9 +818,8 @@ export default function AnalysisPage() {
     <main className="min-h-screen overflow-x-hidden bg-slate-50 pb-28 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto w-full max-w-2xl px-3 pt-2 min-[380px]:px-4">
         <header className="sticky top-0 z-30 -mx-3 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/95 min-[380px]:-mx-4 min-[380px]:px-4">
-          <p className="truncate text-center text-sm font-black text-slate-950 dark:text-white">{signal.name}（{signal.code}）</p>
           <div role="tablist" aria-label="銘柄ページの表示切り替え"
-            className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
             {ANALYSIS_TABS.map((tab, index) => (
               <button key={tab.key} type="button" role="tab"
                 id={`stock-tab-${tab.key}`} aria-controls={`stock-panel-${tab.key}`}
@@ -878,12 +877,12 @@ export default function AnalysisPage() {
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-300">AI POWER</p>
               <p className={`text-4xl font-black leading-tight ${hasReferencePrice ? getPowerColor(power) : "text-slate-400"}`}>{hasReferencePrice ? power : "—"}</p>
             </div>
-            <div className="ml-auto flex min-w-0 flex-col items-end gap-1 text-[10px] font-bold leading-4 min-[380px]:text-xs">
-              <span className="inline-flex min-w-0 flex-wrap items-center justify-end gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                AI評価帯：
-                <AiScoreTierBadge score={hasReferencePrice ? (signal.score ?? signal.aiPower ?? null) : null} />
+            <div className="ml-auto flex min-w-0 flex-col items-end gap-1.5">
+              <span className="inline-flex max-w-full flex-wrap items-center justify-end gap-1.5 rounded-xl border-2 border-slate-300 bg-white px-2.5 py-1.5 text-sm font-black leading-5 text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                <span className="whitespace-nowrap">AI評価帯：</span>
+                <AiScoreTierBadge score={hasReferencePrice ? (signal.score ?? signal.aiPower ?? null) : null} size="large" />
               </span>
-              <span className={`inline-flex min-w-0 flex-wrap justify-end rounded-lg border px-2 py-1 text-right ${hasReferencePrice ? getSwingEntryToneClasses(swingEntryDecision.tone) : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+              <span className={`inline-flex max-w-full flex-wrap justify-end rounded-lg border px-2 py-1 text-right text-xs font-bold leading-5 ${hasReferencePrice ? getSwingEntryToneClasses(swingEntryDecision.tone) : "border-slate-200 bg-slate-50 text-slate-600"}`}>
                 新規のタイミング：{hasReferencePrice ? swingEntryDecision.label : "判定保留"}
               </span>
             </div>

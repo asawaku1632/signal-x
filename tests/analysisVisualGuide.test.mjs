@@ -52,7 +52,9 @@ test("four top tabs are independent and render previous content without duplicat
 test("stock header is compact and favorite action lives in the chart heading", () => {
   const header = detail.slice(detail.indexOf('<header className="sticky top-0'), detail.indexOf('id="stock-panel-overview"'));
   assert.doesNotMatch(header, /Scanへ戻る|toggleFavorite|お気に入り/);
-  assert.match(header, /\{signal.name\}（\{signal.code\}）/);
+  assert.doesNotMatch(header, /\{signal.name\}（\{signal.code\}）/);
+  assert.ok(header.includes('className="grid grid-cols-4 gap-1 rounded-xl'));
+  assert.doesNotMatch(header, /className="mt-2 grid grid-cols-4/);
   const chart = detail.slice(detail.indexOf('id="stock-panel-chart"'), detail.indexOf('id="stock-panel-analysis"'));
   assert.match(chart, /favoriteLoading=\{favoriteLoading\}/);
   assert.match(chart, /favoriteSaving=\{favoriteSaving\}/);
@@ -64,6 +66,9 @@ test("stock header is compact and favorite action lives in the chart heading", (
   assert.ok(overview.includes("aria-pressed={isFavorite}"));
   assert.ok(overview.includes("disabled={favoriteLoading || favoriteSaving}"));
   assert.ok(overview.indexOf("お気に入り") < overview.indexOf("参考株価"));
+  assert.ok(overview.includes('size="large"'));
+  assert.ok(overview.includes('text-sm font-black leading-5 text-slate-900'));
+  assert.ok(overview.includes('min-w-0 truncate text-xl'));
 });
 
 test("owner-only research widgets stay after main stock content", () => {

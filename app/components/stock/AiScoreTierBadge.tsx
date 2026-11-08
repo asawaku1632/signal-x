@@ -12,15 +12,17 @@ const classes = {
 
 export default function AiScoreTierBadge({
   score,
+  size = "normal",
 }: {
   score: number | null | undefined;
+  size?: "normal" | "large";
 }) {
   const tier = getAiScoreTier(score);
   return (
     <span
       data-testid="ai-score-tier-badge"
       title="AI POWERのスコア帯（売買推奨・実測勝率ではありません）"
-      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-black leading-4 whitespace-nowrap ${classes[tier.tone]}`}
+      className={`inline-flex shrink-0 items-center rounded-md border font-black whitespace-nowrap ${size === "large" ? "px-2.5 py-1 text-sm leading-5" : "px-1.5 py-0.5 text-[10px] leading-4"} ${classes[tier.tone]}`}
     >
       {tier.label}
     </span>
