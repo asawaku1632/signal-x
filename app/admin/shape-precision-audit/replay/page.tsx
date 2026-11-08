@@ -346,7 +346,7 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
           <p className="mt-2 text-xs leading-5">形の向きの分類です。「今すぐ買う・売る」という注文の指示ではありません。元の保存判定と今回の日足の判定は分けて見てください。</p>
         </section>
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
-          <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
+          <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 上の図は参考日足</h2>
           <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
           <p>判定元の最終足：{policy.barTimestamp?new Date(policy.barTimestamp*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"時刻未保存"} ／ 保存価格 {yen(evidence.scanPrice)}</p>
           <p>保存された判定：{isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
