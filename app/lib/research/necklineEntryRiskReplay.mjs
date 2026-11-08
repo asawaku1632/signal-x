@@ -1,7 +1,8 @@
 import { auditNecklineQuality, NECKLINE_ROUND_TRIP_COST_PERCENT } from "./necklineQualityAudit.mjs";
 import { completedDailyBars } from "./observedNecklineOverlay.mjs";
+import { diagnoseNecklineLossRisk } from "./necklineRiskDiagnostics.mjs";
 
-export const NECKLINE_ENTRY_RISK_VERSION = "NECKLINE_ENTRY_RISK_REPLAY_V1";
+export const NECKLINE_ENTRY_RISK_VERSION = "NECKLINE_ENTRY_RISK_REPLAY_V2_LOSS_DIAGNOSTICS";
 export const NECKLINE_CHRONOLOGICAL_SPLIT = "2026-08-01";
 export const NECKLINE_EXTENDED_MAX_SYMBOLS = 15;
 const round = x => Math.round(x * 100) / 100;
@@ -118,6 +119,7 @@ export function replayNecklineEntryRisk(stocks, now = new Date()) {
       scenarios:NECKLINE_ENTRY_SCENARIOS.map(config=>({...config,...summarizeScenario(subset,config.id)})),
     })),
     worstCases,
+    diagnostics:diagnoseNecklineLossRisk(records),
     records, // used in static tests and only within owner-only responses
   };
 }
