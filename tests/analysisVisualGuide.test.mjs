@@ -33,7 +33,7 @@ test("four top tabs are independent and render previous content without duplicat
   const order = [
     'id="stock-panel-overview"', "/* Main summary:", "<SwingEntryCard",
     "💰 利益とリスク", "<AnalysisVisualGuide code={signal.code}",
-    'id="stock-panel-chart"', "<InlineTradingChart", "🔎 参考日足の目印と読み方を見る",
+    'id="stock-panel-chart"', "<InlineTradingChart",
     'id="stock-panel-analysis"', "AI学習データ", ">重要指標</h2>",
     "<SwingHistoricalEvidence", 'id="stock-panel-catalog"',
     "<PatternList detectedPatterns=", "<DoubleBottomVisualLesson"
@@ -43,7 +43,7 @@ test("four top tabs are independent and render previous content without duplicat
   assert.ok(offsets.slice(1).every((v,i) => v > offsets[i]), JSON.stringify(offsets));
   const chartTab = detail.indexOf('id="stock-panel-chart"');
   const fullDailyGuide = detail.indexOf("        <AnalysisVisualGuide", chartTab);
-  assert.ok(fullDailyGuide > detail.indexOf("🔎 参考日足の目印と読み方を見る"));
+  assert.ok(fullDailyGuide > detail.indexOf("<InlineTradingChart", chartTab));
 
   assert.equal((detail.match(/<PatternList detectedPatterns=/g) ?? []).length, 1);
   assert.equal((detail.match(/<BottomNav/g) ?? []).length, 1);
@@ -57,6 +57,13 @@ test("stock header is compact and favorite action lives in the chart heading", (
   assert.match(chart, /favoriteLoading=\{favoriteLoading\}/);
   assert.match(chart, /favoriteSaving=\{favoriteSaving\}/);
   assert.doesNotMatch(chart, /チャートで確認/);
+  assert.doesNotMatch(chart, /<details|<summary|参考日足の目印と読み方を見る/);
+  assert.match(chart, /<AnalysisVisualGuide\\s+code=\\{signal.code\\}/);
+  const overview = detail.slice(detail.indexOf('id="stock-panel-overview"'), detail.indexOf('id="stock-panel-chart"'));
+  assert.match(overview, /onClick=\\{\\(\\) => void toggleFavorite\\(\\)\\}/);
+  assert.match(overview, /aria-pressed=\\{isFavorite\\}/);
+  assert.match(overview, /favoriteLoading \\|\\| favoriteSaving/);
+  assert.ok(overview.indexOf("お気に入り") < overview.indexOf("参考株価"));
 });
 
 test("owner-only research widgets stay after main stock content", () => {
