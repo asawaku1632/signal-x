@@ -9,21 +9,20 @@ const detail = readFileSync(join(root, "app/analysis/[code]/page.tsx"), "utf8");
 const guide = readFileSync(join(root, "app/components/analysis/AnalysisVisualGuide.tsx"), "utf8");
 const layout = readFileSync(join(root, "app/analysis/[code]/layout.tsx"), "utf8");
 
-test("stock summary followed by annotated chart, then swing and historical details", () => {
-  const stockSummary = detail.indexOf("/* Main summary:");
-  const chart = detail.indexOf("<AnalysisVisualGuide");
-  const swing = detail.indexOf("<SwingEntryCard");
-  const historical = detail.indexOf("<SwingHistoricalEvidence");
-  const learning = detail.indexOf("AI学習データ");
-  const profit = detail.indexOf("もし参考株価で100株買った場合の試算");
-  const metrics = detail.indexOf('>重要指標</h2>');
-  assert.ok(stockSummary >= 0 && stockSummary < chart && chart < swing);
-  assert.ok(swing < historical && historical < learning && learning < profit && profit < metrics);
+test("stock summary, swing, always-visible profit/loss, chart, historical cards, learning, indicators", () => {
+  const items = [
+    "/* Main summary:", "<SwingEntryCard", "仮の利確価格", "仮の損切価格",
+    "<AnalysisVisualGuide", "<SwingHistoricalEvidence", "保存データを表示中",
+    "AI学習データ", ">重要指標</h2>"
+  ];
+  const offsets=items.map(x=>detail.indexOf(x));
+  assert.ok(offsets.every(x=>x>=0), JSON.stringify(offsets));
+  assert.ok(offsets.slice(1).every((x,i)=>x>offsets[i]), JSON.stringify(offsets));
   assert.match(detail, /hasReferencePrice \? yen\(price\) : "未取得"/);
   assert.doesNotMatch(detail, /📌 まず結論/);
 });
 
-test("owner-only research widgets come after main stock content, not before", () => {
+test("owner-only research widgets stay after main stock content", () => {
   const content = layout.indexOf("  {children}\n  <div");
   const owner = layout.indexOf("<OwnerCandleNineSummary");
   const buyEvents = layout.indexOf("この銘柄の新規買い条件・成立記録");
@@ -32,7 +31,7 @@ test("owner-only research widgets come after main stock content, not before", ()
   assert.match(layout, /getLearningOwnerSession/);
 });
 
-test("visual guide uses actual completed daily candles only and does not invent signals", () => {
+test("visual guide uses actual completed daily candles only, never fake data", () => {
   assert.match(guide, /\/api\/chart\//);
   assert.match(guide, /\?tf=1D/);
   assert.match(guide, /payload\.candles/);
@@ -44,7 +43,7 @@ test("visual guide uses actual completed daily candles only and does not invent 
   assert.doesNotMatch(guide, /Math\.random|mockCandles|fakeCandles/);
 });
 
-test("chart shows observations without duplicate swing verdict", () => {
+test("chart observation is separate from swing decision", () => {
   assert.match(guide, /チャートから分かること/);
   assert.doesNotMatch(guide, /swingLabel|swingSummary|スイング判定\)/);
   assert.match(guide, /底確定ではない/);
