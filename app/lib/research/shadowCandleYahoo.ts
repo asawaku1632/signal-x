@@ -83,7 +83,13 @@ async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
   }
 }
 
-export async function fetchCohort(codes: string[]): Promise<LoadedStock[]> {
+// Defensive maximum on the server, regardless of the form's input checks.
+async function fetchBoundedCohort(codes: string[], maximum: number): Promise<LoadedStock[]> {
+  if (!Array.isArray(codes) || codes.length < 1 || codes.length > maximum
+    || new Set(codes).size !== codes.length
+    || codes.some(code => typeof code !== "string" || !/^[0-9]{4}$/.test(code))) {
+    throw new Error("invalid explicitly selected research cohort");
+  }
   const results: LoadedStock[] = new Array(codes.length);
   let nextIndex = 0;
   // At most 3 simultaneous HTTP calls, at most 5 in total.
@@ -95,5 +101,16 @@ export async function fetchCohort(codes: string[]): Promise<LoadedStock[]> {
   };
   await Promise.all(Array.from({ length: Math.min(3, codes.length) }, () => worker()));
   return results;
+}
+
+// Existing five-stock research pages retain their original cap.
+export async function fetchCohort(codes: string[]): Promise<LoadedStock[]> {
+  return fetchBoundedCohort(codes, 5);
+}
+
+// Separate owner-triggered extended replay, max 15 codes / 3 upstream calls in
+// parallel. Never invoke from an automatic job or public endpoint.
+export async function fetchNecklineExtendedCohort(codes: string[]): Promise<LoadedStock[]> {
+  return fetchBoundedCohort(codes, 15);
 }
 
