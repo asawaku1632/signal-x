@@ -1,4 +1,5 @@
 import "server-only";
+import {createHash} from "node:crypto";
 import type { ShadowCandle } from "@/app/lib/research/shadowCandlestickNine";
 
 // Yahoo lookups may be called ONLY after owner verification by the caller.
@@ -24,17 +25,17 @@ function positive(value: unknown): number | null {
 
 // Per-click, owner-only, bounded and explicitly selected codes.
 // No periodic work, writing, caching, background collection or bulk universe access.
-async function fetchCompletedDailyBars(code: string): Promise<LoadedStock> {
+async function fetchCompletedDailyBars(code: string, host = "query1.finance.yahoo.com"): Promise<LoadedStock> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5_500);
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=6mo&interval=1d`;
+    const url = `https://${host}/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=6mo&interval=1d`;
     const response = await fetch(url, {
       cache: "no-store",
       headers: { "User-Agent": "Mozilla/5.0" },
       signal: controller.signal,
     });
-    if (!response.ok) return { code, candles: [], error: "株価取得に失敗（応答エラー）" };
+    if (!response.ok) return { code, candles: [], error: `HTTP_${response.status}` };
     const value: unknown = await response.json();
     const chart = (value as {
       chart?: {
@@ -114,3 +115,51 @@ export async function fetchNecklineExtendedCohort(codes: string[]): Promise<Load
   return fetchBoundedCohort(codes, 15);
 }
 
+
+/**
+ * Owner-only or authenticated research-cron only. A transient Yahoo error is
+ * retried once on the alternative Yahoo chart host. This NEVER fabricates OHLC,
+ * silently drops a requested code, or recovers an older forward candidate.
+ * Maximum 15 selected codes, 3 concurrent workers, 2 requests per code.
+ */
+export type NecklineStableStock = LoadedStock & {
+  attempts: number;
+  source: string;
+  barsSha256: string | null;
+  latestDate: string | null;
+};
+export async function fetchNecklineStableCohort(codes: string[]): Promise<NecklineStableStock[]> {
+  if (!Array.isArray(codes) || codes.length < 1 || codes.length > 15
+    || new Set(codes).size !== codes.length
+    || codes.some(code => !/^[0-9]{4}$/.test(code))) {
+    throw new Error("INVALID_NECKLINE_COHORT");
+  }
+  const results: NecklineStableStock[] = new Array(codes.length);
+  let current = 0;
+  const worker = async () => {
+    while (current < codes.length) {
+      const index = current++;
+      const code = codes[index];
+      let last: LoadedStock = {code,candles:[],error:"データ未取得"};
+      let attempts = 0, source = "YAHOO_QUERY1_1D";
+      for (const [i,host] of ["query1.finance.yahoo.com","query2.finance.yahoo.com"].entries()) {
+        // A 404/400 is usually a missing listing/code; do not retry it.
+        if (i > 0 && /^(HTTP_400|HTTP_404)$/.test(last.error ?? "")) break;
+        attempts++;
+        source = host.startsWith("query1") ? "YAHOO_QUERY1_1D" : "YAHOO_QUERY2_1D";
+        last = await fetchCompletedDailyBars(code,host);
+        if (!last.error && last.candles.length >= 25) break;
+      }
+      const candles = last.error ? [] : last.candles;
+      results[index] = {
+        code, candles, error:last.error ?? (candles.length < 25 ? "日足25本未満" : null),
+        attempts, source,
+        barsSha256: candles.length >= 25
+          ? createHash("sha256").update(JSON.stringify(candles)).digest("hex") : null,
+        latestDate: candles.length ? dateJst(candles[candles.length - 1].time) : null,
+      };
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(3,codes.length)},worker));
+  return results;
+}
