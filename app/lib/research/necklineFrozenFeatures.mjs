@@ -142,9 +142,9 @@ function summarizeGroup(events, bin) {
     early5: outcomes(rows.map(e => e.earlyReturn5)),
     // Even a large number in this historical 5-stock replay is NOT
     // independent out-of-sample verification.
-    insufficientForSelection: rows.length < NECKLINE_MIN_EXPLORATORY_EVENTS
-      || symbols < NECKLINE_MIN_INDEPENDENT_SYMBOLS
-      || rows.length > 0, // exploratory replay is NEVER a validated buy rule
+    descriptiveSampleReady: rows.length >= NECKLINE_MIN_EXPLORATORY_EVENTS
+      && symbols >= NECKLINE_MIN_INDEPENDENT_SYMBOLS,
+    selectionValidated: false, // historic replay alone can never validate a buy rule
   };
 }
 
