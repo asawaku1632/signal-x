@@ -190,71 +190,97 @@ function yen(value: number | null) {
   return value === null ? "—" : Math.round(value).toLocaleString("ja-JP") + "円";
 }
 
-function CandleChart({ candles, replay, marks }: { candles: Candle[]; replay: ReplayResult | null; marks:ConditionMark[] }) {
-  const anchors=[...marks.map(mark=>mark.index),...(replay?[replay.low1.index,replay.low2.index]:[])];
-  const firstVisible=Math.max(0,Math.min(Math.max(0,candles.length-40),...anchors.map(index=>index-2)));
-  const tail=candles.slice(firstVisible);
+function CandleChart({ candles, replay, marks, recentOnly = false }: {
+  candles: Candle[];
+  replay: ReplayResult | null;
+  marks: ConditionMark[];
+  recentOnly?: boolean;
+}) {
+  // The phone's first view focuses on recent prices. Historical annotations
+  // remain available on the full, horizontally scrollable chart below.
+  const firstIndex = recentOnly ? Math.max(0, candles.length - 22) : 0;
+  const tail = candles.slice(firstIndex);
   if (!tail.length) return null;
-  const width = Math.max(720,tail.length*15+67);
-  const height = 280;
-  const left = 55;
-  const right = 12;
-  const top = 22;
-  const bottom = 32;
-  const high = Math.max(...tail.map((c) => c.high), replay?.neckline ?? 0);
-  const low = Math.min(...tail.map((c) => c.low), replay?.neckline ?? Infinity);
-  const range = Math.max(0.01, high - low);
-  const y = (price: number) => top + (high - price) / range * (height - top - bottom);
-  const x = (i: number) => left + (i + 0.5) * (width - left - right) / tail.length;
-  const columnWidth = Math.max(4, Math.min(12, (width - left - right) / tail.length * 0.55));
-  const firstIndex = candles.length - tail.length;
+  const width = recentOnly ? 440 : Math.max(800, tail.length * 18 + 75);
+  const height = 338;
+  const left = 51, right = 18, top = 70, bottom = 43;
+  const high = Math.max(...tail.map(c => c.high), replay?.neckline ?? 0);
+  const low = Math.min(...tail.map(c => c.low), replay?.neckline ?? Infinity);
+  const margin = Math.max((high - low) * 0.07, high * 0.002, 0.01);
+  const topPrice = high + margin;
+  const bottomPrice = Math.max(0, low - margin);
+  const range = Math.max(0.01, topPrice - bottomPrice);
+  const y = (price: number) => top + (topPrice - price) / range * (height - top - bottom);
+  const x = (index: number) => left + (index + 0.5) * (width - left - right) / tail.length;
+  const barWidth = Math.max(4, Math.min(12, (width - left - right) / tail.length * 0.58));
+  const callout = (cx: number, title: string, fill: string, stroke: string, locationY: number) => {
+    const boxWidth = title.length > 5 ? 106 : 55;
+    const bx = Math.max(left, Math.min(width - right - boxWidth, cx - boxWidth / 2));
+    const by = Math.max(28, Math.min(height - 24, locationY));
+    return <g>
+      <rect x={bx} y={by} width={boxWidth} height="23" rx="7"
+        fill={fill} stroke={stroke} strokeWidth="1.2" />
+      <text x={bx + boxWidth / 2} y={by + 16} fontSize="13"
+        fontWeight="bold" textAnchor="middle" fill={stroke}>{title}</text>
+    </g>;
+  };
 
   return (
-    <svg viewBox={`0 0 ${width} 280`} role="img"
-      style={tail.length>40?{minWidth:width}:undefined}
-      aria-label="表示対象日までの参考日足。緑が陽線、赤が陰線。"
-      className="h-auto w-full rounded-xl bg-white">
-      {[0, 1, 2, 3, 4].map((i) => {
-        const price = high - range * i / 4;
-        const yy = y(price);
-        return (
-          <g key={i}>
-            <line x1={left} x2={width - right} y1={yy} y2={yy} stroke="#e2e8f0" />
-            <text x={left - 5} y={yy + 4} fontSize="11" textAnchor="end" fill="#475569">{Math.round(price).toLocaleString("ja-JP")}</text>
-          </g>
-        );
+    <svg viewBox={"0 0 " + width + " " + height} role="img"
+      aria-label="実際の参考日足。青の底①②は安値候補、紫の①②は条件一致の始まりと最後、橙色の線は参考ネックライン。どの目印も売買を示しません。"
+      style={recentOnly ? {minWidth: 390} : {minWidth: width}}
+      className="block h-auto w-full rounded-xl bg-white">
+      <text x={left} y="23" fontSize="15" fontWeight="bold" fill="#0f172a">
+        {recentOnly ? "直近22本を拡大" : "全期間・保存時点まで"}
+      </text>
+      {replay && <>
+        <text x={width - right} y="23" fontSize="13" textAnchor="end" fontWeight="bold" fill="#92400e">
+          {"参考の壁 " + yen(replay.neckline)}
+        </text>
+        <line x1={left} x2={width - right} y1={y(replay.neckline)} y2={y(replay.neckline)}
+          stroke="#d97706" strokeDasharray="7 5" strokeWidth="2.3" />
+      </>}
+      {[0,1,2,3,4].map(index => {
+        const price = topPrice - range * index / 4;
+        return <g key={index}>
+          <line x1={left} x2={width - right} y1={y(price)} y2={y(price)} stroke="#e2e8f0" />
+          <text x={left-5} y={y(price)+4} fontSize="12" textAnchor="end" fill="#475569">
+            {Math.round(price).toLocaleString("ja-JP")}
+          </text>
+        </g>;
       })}
-      {replay && (
-        <>
-          <line x1={left} x2={width - right} y1={y(replay.neckline)} y2={y(replay.neckline)}
-            stroke="#d97706" strokeDasharray="6 5" strokeWidth="2"/>
-          <text x={width - right - 4} y={y(replay.neckline) - 6}
-            textAnchor="end" fontSize="11" fill="#92400e">参考ネックライン</text>
-        </>
-      )}
-      {tail.map((c, i) => {
-        const xx = x(i);
-        const rising = c.close >= c.open;
-        const color = rising ? "#059669" : "#dc2626";
+      {tail.map((c, index) => {
+        const absoluteIndex = firstIndex + index;
+        const xx = x(index);
+        const color = c.close >= c.open ? "#059669" : "#dc2626";
         const bodyTop = Math.min(y(c.open), y(c.close));
         const bodyHeight = Math.max(1.8, Math.abs(y(c.open) - y(c.close)));
-        const absoluteIndex = firstIndex + i;
-        const lowMark = replay && [replay.low1.index, replay.low2.index].includes(absoluteIndex);
-        const mark=marks.find(mark=>mark.index===absoluteIndex);
-        return (
-          <g key={c.time}>
-            <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth="2"/>
-            <rect x={xx - columnWidth / 2} y={bodyTop} width={columnWidth} height={bodyHeight} fill={color}/>
-            {lowMark && <circle cx={xx} cy={y(c.low) + 5} r="6" fill="none" stroke="#2563eb" strokeWidth="2"/>}
-            {mark&&<g>
-              <circle cx={xx} cy={y(c.close)} r="6" fill="white" stroke="#7c3aed" strokeWidth="2.5"/>
-              <text x={xx>width-105?width-right-4:xx}
-                y={Math.max(top+14+(mark.kind==="end"?16:0),y(c.high)-12)}
-                textAnchor={xx>width-105?"end":"middle"} fontSize="11" fontWeight="bold" fill="#6d28d9">{mark.label}</text>
-            </g>}
-            {i % 10 === 0 && <text x={xx} y={height - 12} textAnchor="middle" fontSize="11" fill="#475569">{jstDate(c.time).slice(5)}</text>}
-          </g>
-        );
+        const bottomIndex = replay?.low1.index === absoluteIndex ? 1
+          : replay?.low2.index === absoluteIndex ? 2 : 0;
+        const mark = marks.find(item => item.index === absoluteIndex);
+        const markTitle = mark ? (mark.kind === "start" ? "①一致開始" : "②最終一致") : "";
+        return <g key={c.time}>
+          <line x1={xx} x2={xx} y1={y(c.high)} y2={y(c.low)}
+            stroke={color} strokeWidth="2.3" />
+          <rect x={xx-barWidth/2} y={bodyTop} width={barWidth} height={bodyHeight} fill={color} />
+          {bottomIndex > 0 && <>
+            <circle cx={xx} cy={y(c.low)+4} r="7" fill="white" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1={xx} x2={xx} y1={y(c.low)+11} y2={Math.min(height-37,y(c.low)+20)}
+              stroke="#2563eb" strokeWidth="1.5" />
+            {callout(xx, "底" + (bottomIndex === 1 ? "①" : "②"), "#eff6ff", "#1d4ed8", y(c.low)+20)}
+          </>}
+          {mark && <>
+            <circle cx={xx} cy={y(c.close)} r="7" fill="white" stroke="#7c3aed" strokeWidth="2.5" />
+            <line x1={xx} x2={xx} y1={y(c.high)-4} y2={Math.max(47,y(c.high)-16)}
+              stroke="#7c3aed" strokeWidth="1.5" />
+            {callout(xx, markTitle, "#f5f3ff", "#6d28d9", y(c.high)-41)}
+          </>}
+          {(index === 0 || index === tail.length-1 || index % 7 === 0) && (
+            <text x={xx} y={height-11} textAnchor="middle" fontSize="12" fill="#475569">
+              {jstDate(c.time).slice(5)}
+            </text>
+          )}
+        </g>;
       })}
     </svg>
   );
@@ -315,34 +341,60 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <h1 className="mt-4 text-2xl font-black">🔬 参考日足で照合</h1>
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
         <p className="mt-1 text-sm font-black text-blue-800">照合する形：{selected.name}</p>
-        <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
           <h2 className="text-lg font-black">保存時点までの参考日足と目印</h2>
           {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : (
             <>
-              <p className="mt-2 text-xs text-slate-600">参考データ最終日：{last ? jstDate(last.time) : "—"} ／日足OHLC {candles.length}本</p>
-              <p className="mt-3 text-sm font-bold">まず、紫の①②と青丸・オレンジ点線の位置を見ます。これらは売買した場所ではありません。</p>
-              <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
-                <CandleChart candles={candles} replay={replay} marks={conditionMarks}/>
+              <p className="mt-1 text-xs text-slate-600">
+                {last ? jstDate(last.time) : "—"}までの完成済み参考日足 ／ 計{candles.length}本
+              </p>
+              <p className="mt-2 text-sm font-black text-blue-900">下の図を見れば、どこが底候補で、いつ形の条件が一致したか分かります。</p>
+              <div className="mt-2 overflow-x-auto rounded-xl border border-slate-100" aria-label="最近の値動きを拡大したチャート">
+                <CandleChart candles={candles} replay={replay} marks={conditionMarks} recentOnly />
               </div>
-              <div className="mt-3 space-y-1 text-sm leading-6 text-slate-700">
-                <p><strong className="text-violet-700">紫の①②：</strong>形の条件が一致した期間の始まりと最後。買い時・売り時ではありません。</p>
-                {isDoubleBottom&&<>
-                  <p><strong className="text-blue-700">青丸：</strong>値下がりが止まった可能性のある底候補。買い時の印ではありません。</p>
-                  <p><strong className="text-amber-700">オレンジ点線：</strong>上抜けできるか注目する参考価格の線。突破の保証ではありません。</p>
-                </>}
-                <p><strong>緑・赤の棒：</strong>その日の始値と終値を比べたローソク足です。</p>
+              <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-6 text-slate-800">
+                <p><strong className="text-blue-700">青の底①②：</strong>下げ止まりの候補（買い位置ではない）</p>
+                <p><strong className="text-violet-700">紫の①②：</strong>形のルールに一致した始まりと最後（売買サインではない）</p>
+                <p><strong className="text-amber-700">オレンジ破線：</strong>上抜けに注目する参考の壁</p>
               </div>
-              <div className="mt-3 rounded-xl bg-violet-50 p-3 text-xs leading-6 text-violet-950">
-                <p className="font-bold">紫の丸は「買い／売り」ではなく、形の条件が一致した日</p>
-                <p>①は直近の一致が続き始めた日、②は最後に一致した日です。過去の日足だけを順に使って調べています。実際の底や天井、売買のタイミングを示す印ではありません。</p>
-                {conditionMarks.length?<div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                  {conditionMarks.map(mark=><p key={mark.index} className="rounded-lg bg-white px-2 py-1 font-bold">{mark.label}：{jstDate(mark.time)} ／ 終値 {yen(candles[mark.index].close)}</p>)}
-                </div>:<p className="font-bold">{dailyUnsupported?"分足専用のため日足には一致の目印を付けません。":"取得範囲内に条件一致の足がないため、紫の目印はありません。"}</p>}
-                {conditionMarks.length>0&&conditionHistory.active&&<p className="font-bold">参考日足の最終日も条件は一致しています。ただし、今すぐ買う合図ではありません。</p>}
-                {conditionMarks.length>0&&!conditionHistory.active&&<p className="font-bold">目印は過去の一致区間です。照合対象の最終日では条件が外れています。</p>}
-                {conditionHistory.historyLimited&&<p>取得範囲の最初から一致しています。さらに前の一致開始日は確認できません。</p>}
-                <p>長い期間の図は左右に動かして確認できます。</p>
+              <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm leading-6">
+                <p className="font-black text-blue-900">📍 この図で確認できたこと</p>
+                {isDoubleBottom ? (
+                  replay ? <>
+                    <p>底候補は <strong>{yen(replay.low1.price)}</strong> と <strong>{yen(replay.low2.price)}</strong>。</p>
+                    <p>参考の壁は <strong>{yen(replay.neckline)}</strong>。{replay.necklineBreak
+                      ? "終値は壁とほぼ同水準（厳密な上抜けの確認ではない）。"
+                      : replay.nearNeckline ? "終値は壁の近く。" : "終値はまだ壁より下。"}
+                    </p>
+                  </> : <p>参考日足では底2つの基本条件を確認できませんでした。</p>
+                ) : (
+                  <p>{dailyUnsupported ? "この形は分足専用です。" : referenceMatches.length ? "今回の日足で形の条件が一致しました。" : "今回の日足では条件が一致しませんでした。"}</p>
+                )}
+                <p className="mt-1 font-bold">判断：この図だけでは新しく買う・売るは未判定。</p>
               </div>
+              <details className="mt-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
+                <summary className="cursor-pointer font-black">🔎 全期間のチャート・紫①②の日付を見る</summary>
+                <p className="mt-2 text-xs leading-5">長いチャートは左右に動かせます。直近の拡大図に出ていない昔の一致開始も確認できます。</p>
+                <div className="mt-2 overflow-x-auto rounded-lg border border-violet-100 bg-white">
+                  <CandleChart candles={candles} replay={replay} marks={conditionMarks} />
+                </div>
+                {conditionMarks.length ? (
+                  <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+                    {conditionMarks.map(mark => (
+                      <p key={mark.index} className="rounded-lg bg-white px-2 py-1.5 font-bold">
+                        {mark.label}：{jstDate(mark.time)} ／ 終値{yen(candles[mark.index].close)}
+                      </p>
+                    ))}
+                  </div>
+                ) : <p className="mt-2 text-xs">{dailyUnsupported
+                  ? "分足専用のため日足には一致マークを付けません。"
+                  : "取得期間中に条件一致の記録はありません。"}</p>}
+                {conditionMarks.length > 0 && !conditionHistory.active &&
+                  <p className="mt-2 text-xs font-bold">最新の参考日足では一致条件が外れています。</p>}
+                {conditionHistory.historyLimited &&
+                  <p className="mt-2 text-xs">取得期間の最初から一致しており、真の開始日は確認できません。</p>}
+                <p className="mt-2 text-xs leading-5">目印は後から参考日足を調べた結果です。元の5分足判定の買い・売り時刻を再現したものではありません。</p>
+              </details>
             </>
           )}
         </section>
