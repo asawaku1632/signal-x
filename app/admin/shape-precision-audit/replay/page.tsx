@@ -315,25 +315,6 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
         <h1 className="mt-4 text-2xl font-black">🔬 参考日足で照合</h1>
         <p className="mt-2 text-lg font-black">{evidence.name}（{evidence.code}）</p>
         <p className="mt-1 text-sm font-black text-blue-800">照合する形：{selected.name}</p>
-        <section className={"mt-4 rounded-2xl border p-4 "+guide.classes}>
-          <p className="text-xs font-bold">図鑑のように見分ける・この形の分類</p>
-          <h2 className="mt-1 text-xl font-black">{guide.label}</h2>
-          <p className="mt-2 text-sm leading-6">{guide.description}</p>
-          <p className="mt-2 text-sm font-black">今回の日足：{error?"取得待ち":dailyUnsupported?"分足専用のため照合対象外":conditionMatches?"条件一致あり":"条件一致なし・今の形は未確認"}</p>
-          <p className="mt-2 text-xs leading-5">形の向きの分類です。「今すぐ買う・売る」という注文の指示ではありません。元の保存判定と今回の日足の判定は分けて見てください。</p>
-        </section>
-        <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
-          <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
-          <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
-          <p>判定元の最終足：{policy.barTimestamp?new Date(policy.barTimestamp*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"時刻未保存"} ／ 保存価格 {yen(evidence.scanPrice)}</p>
-          <p>保存された判定：{isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
-            {!isDoubleBottom&&evidence.reasons?.length?<span className="block text-xs">{evidence.reasons.join(" ／ ")}</span>:null}</p>
-          <p>{policy.includeAnchor
-            ?policy.anchor+"の大引けまでの足を保存データで確認できるため、同日の日足も照合対象に含めます。"
-            :policy.anchor+"当日の完成日足を使えたと確認できないため、その日より前の日足で照合します。"}</p>
-          <p className="text-xs text-slate-600">日足は今回取得した参考データです。元の判定入力を保存したものではないため、足種や修正株価の違いで判定が異なる場合があります。保存日時は検出開始時刻とは限りません。</p>
-        </section>
-
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-lg font-black">保存時点までの参考日足と目印</h2>
           {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : (
@@ -355,6 +336,25 @@ export default async function PrivateShapeReplayPage({ searchParams }: Props) {
               </div>
             </>
           )}
+        </section>
+
+        <section className={"mt-4 rounded-2xl border p-4 "+guide.classes}>
+          <p className="text-xs font-bold">図鑑のように見分ける・この形の分類</p>
+          <h2 className="mt-1 text-xl font-black">{guide.label}</h2>
+          <p className="mt-2 text-sm leading-6">{guide.description}</p>
+          <p className="mt-2 text-sm font-black">今回の日足：{error?"取得待ち":dailyUnsupported?"分足専用のため照合対象外":conditionMatches?"条件一致あり":"条件一致なし・今の形は未確認"}</p>
+          <p className="mt-2 text-xs leading-5">形の向きの分類です。「今すぐ買う・売る」という注文の指示ではありません。元の保存判定と今回の日足の判定は分けて見てください。</p>
+        </section>
+        <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7">
+          <h2 className="font-black">元の判定は{policy.sourceLabel} ／ 下の図は参考日足</h2>
+          <p>スキャン保存：{new Date(evidence.timestamp).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}（日本時間）</p>
+          <p>判定元の最終足：{policy.barTimestamp?new Date(policy.barTimestamp*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"時刻未保存"} ／ 保存価格 {yen(evidence.scanPrice)}</p>
+          <p>保存された判定：{isDoubleBottom?doubleBottomStageLabel(originalStage):selected.name}
+            {!isDoubleBottom&&evidence.reasons?.length?<span className="block text-xs">{evidence.reasons.join(" ／ ")}</span>:null}</p>
+          <p>{policy.includeAnchor
+            ?policy.anchor+"の大引けまでの足を保存データで確認できるため、同日の日足も照合対象に含めます。"
+            :policy.anchor+"当日の完成日足を使えたと確認できないため、その日より前の日足で照合します。"}</p>
+          <p className="text-xs text-slate-600">日足は今回取得した参考データです。元の判定入力を保存したものではないため、足種や修正株価の違いで判定が異なる場合があります。保存日時は検出開始時刻とは限りません。</p>
         </section>
 
         {!error && isDoubleBottom && (
