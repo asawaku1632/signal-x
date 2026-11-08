@@ -853,7 +853,7 @@ export default function AnalysisPage() {
           <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5 text-sm">
             <span className="font-bold">参考株価 <strong className="text-lg">{hasReferencePrice ? yen(price) : "未取得"}</strong></span>
             <span className={`font-black ${changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500"}`}>
-              スキャン変化率 {changePercent > 0 ? "+" : ""}{changePercent}%
+              スキャン変化率 {hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"}
             </span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
@@ -861,25 +861,25 @@ export default function AnalysisPage() {
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-300">AI POWER</p>
               <p className={`text-4xl font-black leading-tight ${hasReferencePrice ? getPowerColor(power) : "text-slate-400"}`}>{hasReferencePrice ? power : "—"}</p>
             </div>
-            <span className={`rounded-full border px-2 py-1 text-xs font-black ${getJudgeColor(power)}`}>
+            <span className={`rounded-full border px-2 py-1 text-xs font-black ${hasReferencePrice ? getJudgeColor(power) : "border-slate-200 bg-slate-50 text-slate-600"}`}>
               {hasReferencePrice ? `${judgeIcon} ${judge}` : "⚪ 判定保留"}
             </span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-800 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
+            <span className={`rounded-full border px-2 py-1 text-xs font-black ${hasReferencePrice ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
               {hasReferencePrice ? `${swingEntryDecision.icon} ${swingEntryDecision.label}${swingEntryDecision.status === "CANDIDATE" ? "（暫定）" : ""}` : "⚪ 材料不足"}
             </span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
             <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">AI順位</p>
-              <p className="text-xs font-black">{getRankLabel(aiRank)} / {totalRank || "-"}</p>
+              <p className="text-xs font-black">{hasReferencePrice ? `${getRankLabel(aiRank)} / ${totalRank || "-"}` : "—"}</p>
             </div>
             <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">信頼度目安</p>
-              <p className="text-xs font-black">{aiTrust}%</p>
+              <p className="text-xs font-black">{hasReferencePrice ? `${aiTrust}%` : "—"}</p>
             </div>
             <div className="min-w-0 rounded-lg bg-slate-50 p-1.5 dark:bg-slate-800">
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">出来高</p>
-              <p className="text-xs font-black">{volumeRatio}倍</p>
+              <p className="text-xs font-black">{hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"}</p>
             </div>
           </div>
           <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20" role="status">
@@ -903,7 +903,12 @@ export default function AnalysisPage() {
           swingLabel={swingEntryDecision.label}
           swingSummary={swingEntryDecision.summary}
         />
-        <SwingEntryCard decision={swingEntryDecision} />
+        {hasReferencePrice ? <SwingEntryCard decision={swingEntryDecision} /> : (
+          <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+            <p className="font-black">📅 スイング判定：材料不足</p>
+            <p className="mt-1 text-xs leading-5">有効な株価が取得できないため、様子見・見送りなどの判定を確定しません。</p>
+          </section>
+        )}
         <SwingHistoricalEvidence code={signal.code} />
 
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
@@ -999,7 +1004,7 @@ export default function AnalysisPage() {
         <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
           <p className="text-xs font-black text-orange-700 dark:text-orange-300">現在の行動</p>
 
-          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{getPowerMessage(power)}</p>
+          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{hasReferencePrice ? getPowerMessage(power) : "株価が未取得のため、売買に使える判定はありません。"}</p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">売買前に利確・損切の目安とチャートをご確認ください。</p>
         </section>
 
