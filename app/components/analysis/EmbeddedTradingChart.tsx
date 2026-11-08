@@ -55,11 +55,13 @@ const asOfJst = (timestamp: number) => new Date(timestamp * 1000).toLocaleString
   },
 );
 
-function validCandle(value: Candle): boolean {
-  return positive(value.open) && positive(value.high) && positive(value.low) && positive(value.close)
-    && Number.isFinite(value.time) && value.time > 0
-    && value.high >= Math.max(value.open, value.close, value.low)
-    && value.low <= Math.min(value.open, value.close, value.high);
+function validCandle(value: unknown): value is Candle {
+  if (!value || typeof value !== "object") return false;
+  const candle = value as Partial<Candle>;
+  return positive(candle.open) && positive(candle.high) && positive(candle.low) && positive(candle.close)
+    && Number.isFinite(candle.time) && Number(candle.time) > 0
+    && Number(candle.high) >= Math.max(Number(candle.open), Number(candle.close), Number(candle.low))
+    && Number(candle.low) <= Math.min(Number(candle.open), Number(candle.close), Number(candle.high));
 }
 
 /**
@@ -109,8 +111,9 @@ export default function EmbeddedTradingChart({
 
   const chart = result.kind === "ready" ? result.data : null;
   const last = chart?.candles.at(-1) ?? null;
-  const displayPrice = positive(chart?.currentPrice)
-    ? chart.currentPrice
+  const latestReferencePrice = chart?.currentPrice ?? null;
+  const displayPrice = positive(latestReferencePrice)
+    ? latestReferencePrice
     : positive(referencePrice) ? referencePrice : (last?.close ?? null);
   const quoteTime = chart?.latestBarTimestamp ?? last?.time ?? null;
   const previousDay = quoteTime === null || dateJst(quoteTime) !== dateJst(Date.now() / 1000);
