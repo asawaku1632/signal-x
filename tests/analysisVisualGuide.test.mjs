@@ -33,8 +33,7 @@ test("four top tabs are independent and render previous content without duplicat
   const order = [
     'id="stock-panel-overview"', "/* Main summary:", "<SwingEntryCard",
     "💰 利益とリスク", "<AnalysisVisualGuide code={signal.code}",
-    'id="stock-panel-chart"', "📈 チャートで確認",
-    "<InlineTradingChart", "🔎 参考日足の目印と読み方を見る",
+    'id="stock-panel-chart"', "<InlineTradingChart", "🔎 参考日足の目印と読み方を見る",
     'id="stock-panel-analysis"', "AI学習データ", ">重要指標</h2>",
     "<SwingHistoricalEvidence", 'id="stock-panel-catalog"',
     "<PatternList detectedPatterns=", "<DoubleBottomVisualLesson"
@@ -48,6 +47,16 @@ test("four top tabs are independent and render previous content without duplicat
 
   assert.equal((detail.match(/<PatternList detectedPatterns=/g) ?? []).length, 1);
   assert.equal((detail.match(/<BottomNav/g) ?? []).length, 1);
+});
+
+test("stock header is compact and favorite action lives in the chart heading", () => {
+  const header = detail.slice(detail.indexOf('<header className="sticky top-0'), detail.indexOf('id="stock-panel-overview"'));
+  assert.doesNotMatch(header, /Scanへ戻る|toggleFavorite|お気に入り/);
+  assert.match(header, /\{signal.name\}（\{signal.code\}）/);
+  const chart = detail.slice(detail.indexOf('id="stock-panel-chart"'), detail.indexOf('id="stock-panel-analysis"'));
+  assert.match(chart, /favoriteLoading=\{favoriteLoading\}/);
+  assert.match(chart, /favoriteSaving=\{favoriteSaving\}/);
+  assert.doesNotMatch(chart, /チャートで確認/);
 });
 
 test("owner-only research widgets stay after main stock content", () => {
