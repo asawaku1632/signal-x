@@ -41,7 +41,7 @@ test("caution priority wins, but no automatic trading recommendation",()=>{
 test("same-day two patterns remain visible; no hits and stale input are safe",()=>{
   const same={...bearish,index:13,time:candles[13].time};
   const studies=[types[0],{...types[1],hits:[same]}];
-  const answer=summarizeShadowNine(studies,candles,result("WATCH"));
+  const answer=summarizeShadowNine(studies,candles,result("OBSERVE"));
   assert.equal(answer.recentBarSignals,0); // latest bar = index14, not 13
   assert.equal(answer.mostRecentHits.length,2);
   assert.equal(answer.status,"WATCH");
