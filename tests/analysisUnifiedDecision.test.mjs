@@ -19,11 +19,14 @@ test("AI category and swing timing appear beside AI POWER, before stats", () => 
   assert.doesNotMatch(detail, /参考データに基づく候補評価です。「独自参考指数」はAI評価と過去集計を合わせた参考点で、実測勝率ではありません。AI POWERが高くても購入を推奨・保証するものではありません。\s*<\/p>\s*<\/section>/);
 });
 
-test("swing decision remains visible once above profit and chart", () => {
+test("swing label stays visible, its blue-box explanation is inside the accordion", () => {
   assert.match(detail, /<h2 className="text-base font-black">📅 スイング判定<\/h2>/);
-  assert.match(detail, /<p className="mt-3 text-sm font-black leading-6">\{decision\.summary\}<\/p>/);
   assert.match(detail, /▶ 判定理由・詳しい説明を見る/);
-  assert.ok(detail.indexOf("<SwingEntryCard")<detail.indexOf("仮の利確価格"));
+  const swing = detail.slice(detail.indexOf("function SwingEntryCard"), detail.indexOf("function getRankLabel"));
+  assert.ok(swing.indexOf("<summary") > 0 && swing.indexOf("<summary") < swing.indexOf("{decision.summary}"));
+  assert.ok(swing.indexOf("数日〜2週間の新規購入") > swing.indexOf("<summary"));
+  assert.match(swing, /<p className="mt-3 text-sm font-black leading-6">\{decision\.summary\}<\/p>/);
+  assert.ok(detail.indexOf("<SwingEntryCard")<detail.indexOf("AI学習データ"));
   assert.doesNotMatch(detail, /📌 まず結論/);
 });
 
@@ -35,6 +38,8 @@ test("profit and stop loss are always visible and explanation is the only disclo
   const close=detail.indexOf("        </section>\n        ) : (", first);
   assert.ok(first>0 && first<warning && warning<gain && gain<loss && loss<close);
   assert.match(detail, /<details className="mt-2 rounded-lg border border-slate-200 bg-slate-50/);
+  assert.match(detail, /<div className="mt-2 grid grid-cols-1 gap-2">/);
+  assert.ok(detail.indexOf("仮の利確価格") < detail.indexOf("仮の損切価格"));
   assert.match(detail, /もし.*実際の買値|実際の買値や利確・損切り注文の指示ではありません/);
   assert.doesNotMatch(detail, /<details open=\{swingEntryDecision\.status === "CANDIDATE"\}/);
   assert.match(detail, /仮の利益/);
