@@ -846,10 +846,26 @@ export default function AnalysisPage() {
             <>
         {/* Main summary: preserve the scores and calculations, remove duplicated tall cards. */}
         <section className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-            <span className="text-sm font-black text-slate-500 dark:text-slate-300">{signal.code}</span>
-            <h1 className="min-w-0 break-words text-xl font-black text-slate-950 dark:text-slate-100">{signal.name}</h1>
-
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 text-sm font-black text-slate-500 dark:text-slate-300">{signal.code}</span>
+              <h1 className="min-w-0 truncate text-xl font-black text-slate-950 dark:text-slate-100">{signal.name}</h1>
+            </div>
+            <button
+              type="button"
+              onClick={() => void toggleFavorite()}
+              disabled={favoriteLoading || favoriteSaving}
+              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+              aria-pressed={isFavorite}
+              className={`inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border px-2 text-xs font-bold shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+                isFavorite
+                  ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              }`}
+            >
+              <span className="text-lg" aria-hidden="true">{favoriteLoading || favoriteSaving ? "…" : isFavorite ? "★" : "☆"}</span>
+              お気に入り
+            </button>
           </div>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5 text-sm">
             <span className="font-bold">参考株価 <strong className="text-lg">{hasReferencePrice ? yen(price) : "未取得"}</strong></span>
@@ -957,17 +973,10 @@ export default function AnalysisPage() {
           favoriteSaving={favoriteSaving}
           onToggleFavorite={() => void toggleFavorite()}
         />
-        <details className="mt-3 rounded-xl border border-blue-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-black text-blue-800 dark:text-blue-300">
-            🔎 参考日足の目印と読み方を見る
-          </summary>
-          <div className="mt-2">
         <AnalysisVisualGuide
           code={signal.code}
           analysisPrice={hasReferencePrice ? price : null}
         />
-          </div>
-        </details>
             </>
           )}
         </section>
