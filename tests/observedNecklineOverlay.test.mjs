@@ -73,7 +73,7 @@ test("actual OHLC charts receive same day-only research overlay, not a simulated
   const fullChart = read("app/chart/[code]/page.tsx");
   assert.match(trading, /necklineOverlay\?: ResearchNecklineOverlay \| null/);
   assert.match(trading, /visibleBottomMarkers/);
-  assert.match(trading, /marker\.time === bar\.time/);
+  assert.match(trading, /bar\.time === marker\.time/);
   assert.match(trading, /ネックライン候補/);
   assert.match(trading, /底①/);
   assert.match(trading, /底②/);
