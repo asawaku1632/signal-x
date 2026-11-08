@@ -849,17 +849,17 @@ export default function AnalysisPage() {
               スキャン変化率 {hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+          <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
             <div className="shrink-0">
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-300">AI POWER</p>
               <p className={`text-4xl font-black leading-tight ${hasReferencePrice ? getPowerColor(power) : "text-slate-400"}`}>{hasReferencePrice ? power : "—"}</p>
             </div>
-            <div className="min-w-0 flex flex-wrap items-center gap-2 text-xs font-bold">
-              <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <div className="ml-auto flex min-w-0 flex-col items-end gap-1 text-[10px] font-bold leading-4 min-[380px]:text-xs">
+              <span className="inline-flex min-w-0 flex-wrap items-center justify-end gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 AI評価帯：
                 <AiScoreTierBadge score={hasReferencePrice ? (signal.score ?? signal.aiPower ?? null) : null} />
               </span>
-              <span className={`rounded-lg border px-2 py-1 ${hasReferencePrice ? getSwingEntryToneClasses(swingEntryDecision.tone) : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+              <span className={`inline-flex min-w-0 flex-wrap justify-end rounded-lg border px-2 py-1 text-right ${hasReferencePrice ? getSwingEntryToneClasses(swingEntryDecision.tone) : "border-slate-200 bg-slate-50 text-slate-600"}`}>
                 新規のタイミング：{hasReferencePrice ? swingEntryDecision.label : "判定保留"}
               </span>
             </div>
@@ -878,21 +878,58 @@ export default function AnalysisPage() {
               <p className="text-xs font-black">{hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"}</p>
             </div>
           </div>
-          <p className="mt-2 text-[11px] font-medium leading-4 text-slate-500 dark:text-slate-300">
-            参考データに基づく候補評価です。「独自参考指数」はAI評価と過去集計を合わせた参考点で、実測勝率ではありません。AI POWERが高くても購入を推奨・保証するものではありません。
-          </p>
         </section>
 
-        <AnalysisVisualGuide
-          code={signal.code}
-          analysisPrice={hasReferencePrice ? price : null}
-        />
         {hasReferencePrice ? <SwingEntryCard decision={swingEntryDecision} /> : (
           <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
             <p className="font-black">📅 スイング判定：材料不足</p>
             <p className="mt-1 text-xs leading-5">有効な株価が取得できないため、様子見・見送りなどの判定を確定しません。</p>
           </section>
         )}
+        {hasReferencePrice ? (
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-sm font-black">💰 利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の仮試算）</span></h2>
+          <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <summary className="cursor-pointer font-black">▶ 試算の前提・注意点を見る</summary>
+            <p className="mt-2">
+              現在の参考株価{yen(price)}を仮の購入価格にした計算です。
+              {swingEntryDecision.status !== "CANDIDATE" ? " 今は新規購入を待つ・見送る判定です。" : ""}
+              実際の買値や利確・損切り注文の指示ではありません。
+            </p>
+            <p className="mt-2">
+              参考データに基づく候補評価です。「独自参考指数」はAI評価と過去集計を合わせた参考点で実測勝率ではありません。
+              AI POWERが高くても購入を推奨・保証するものではありません。
+            </p>
+          </details>
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-slate-800">
+              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">仮の利確価格</p>
+              <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
+              <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">仮の利益 +{yen(profitYen)}（+{profitRate.toFixed(2)}%）</p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-red-200 bg-red-50 p-2.5 dark:border-red-800 dark:bg-slate-800">
+              <p className="text-xs font-bold text-red-700 dark:text-red-300">仮の損切価格</p>
+              <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(stopLoss)}</p>
+              <p className="mt-1 text-sm font-bold text-red-700 dark:text-red-300">想定損失 -{yen(lossYen)}（-{lossRate.toFixed(2)}%）</p>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Info label="必要資金" value={yen(requiredMoney)} />
+            <Info label="損益比" value={riskReward} valueClass="text-blue-600 dark:text-blue-400" />
+          </div>
+        </section>
+        ) : (
+          <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
+            <h2 className="font-black">利益とリスク（100株の参考試算）</h2>
+            <p className="mt-1 text-xs leading-5">参考株価を取得できないため、利確・損切り・必要資金の金額は計算しません。</p>
+          </section>
+        )}
+
+        <AnalysisVisualGuide
+          code={signal.code}
+          analysisPrice={hasReferencePrice ? price : null}
+        />
         <SwingHistoricalEvidence code={signal.code} />
 
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
@@ -939,49 +976,16 @@ export default function AnalysisPage() {
             今回の銘柄を今から買ったときの勝率ではなく、AI評価やスイング判定と直接比較できません。
           </p>
           {historyStats && unclassifiedCount !== 0 && (
-            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-              集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
-              この画面では差の内訳は未確認です。
-            </p>
+            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+              <summary className="cursor-pointer">⚠ 集計内訳に{Math.abs(unclassifiedCount)}件の差があります（詳しく見る）</summary>
+              <p className="mt-2 font-medium">
+                集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
+                この画面では差の内訳は未確認です。
+              </p>
+            </details>
           )}
           <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
         </section>
-
-        {hasReferencePrice ? (
-        <details open={swingEntryDecision.status === "CANDIDATE"}
-          className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <summary className="cursor-pointer text-sm font-black">
-            💰 もし参考株価で100株買った場合の試算（{swingEntryDecision.status === "CANDIDATE" ? "参考表示" : "待機中・必要なら開く"}）
-          </summary>
-          <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
-            現在の参考株価{yen(price)}を仮の購入価格にした計算です。
-            {swingEntryDecision.status !== "CANDIDATE" ? " 今は新規購入を待つ・見送る判定なので、初めから折りたたんでいます。" : ""}
-            実際の買値や利益確定・損切り注文の指示ではありません。
-          </p>
-
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-slate-800">
-              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">仮の利確価格</p>
-              <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(takeProfit)}</p>
-              <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">仮の利益 +{yen(profitYen)}（+{profitRate.toFixed(2)}%）</p>
-            </div>
-            <div className="min-w-0 rounded-xl border border-red-200 bg-red-50 p-2.5 dark:border-red-800 dark:bg-slate-800">
-              <p className="text-xs font-bold text-red-700 dark:text-red-300">仮の損切価格</p>
-              <p className="mt-1 text-xl font-black text-slate-950 dark:text-slate-100">{yen(stopLoss)}</p>
-              <p className="mt-1 text-sm font-bold text-red-700 dark:text-red-300">想定損失 -{yen(lossYen)}（-{lossRate.toFixed(2)}%）</p>
-            </div>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Info label="必要資金" value={yen(requiredMoney)} />
-            <Info label="損益比" value={riskReward} valueClass="text-blue-600 dark:text-blue-400" />
-          </div>
-        </details>
-        ) : (
-          <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
-            <h2 className="font-black">利益とリスク（100株の参考試算）</h2>
-            <p className="mt-1 text-xs leading-5">参考株価を取得できないため、利確・損切り・必要資金の金額は計算しません。</p>
-          </section>
-        )}
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">重要指標</h2>
