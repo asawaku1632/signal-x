@@ -116,6 +116,43 @@ function predefinedRiskStrata(rows) {
   });
 }
 
+function summarizeByIndependentCode(rows) {
+  const codes=[...new Set(rows.map(row=>row.code))].sort();
+  const byScenario=SCENARIOS.map(id=>{
+    const perCode=codes.map(code=>{
+      const subset=rows.filter(row=>row.code===code);
+      const report=reportForScenario(subset,id);
+      return {
+        code,candidates:subset.length,entered:report.eligible,
+        matured:report.matured,pending:report.pending,
+        mean5:report.returns.mean,positive5:report.returns.positiveRate,
+        losses3:report.losses3,losses5:report.losses5,
+      };
+    });
+    const usable=perCode.filter(row=>row.matured>0 && row.mean5!==null);
+    const meanPerStock=usable.length
+      ? round(usable.reduce((sum,row)=>sum+row.mean5,0)/usable.length):null;
+    const all=reportForScenario(rows,id);
+    const codesWithLoss5=usable.filter(row=>row.losses5>0).length;
+    const loss5Total=usable.reduce((sum,row)=>sum+row.losses5,0);
+    const biggestLossCluster=loss5Total
+      ? [...usable].sort((a,b)=>b.losses5-a.losses5 || a.code.localeCompare(b.code))[0]:null;
+    return {
+      scenario:id,distinctCandidateSymbols:codes.length,
+      maturedSymbols:usable.length,missingSymbols:codes.length-usable.length,
+      pooled5Mean:all.returns.mean,equalSymbol5Mean:meanPerStock,
+      totalMatured:all.matured,totalLoss5:loss5Total,
+      codesWithLoss5,biggestLossCluster:biggestLossCluster
+        ? {code:biggestLossCluster.code,loss5:biggestLossCluster.losses5,
+          shareOfAllLossesPercent:round(biggestLossCluster.losses5/loss5Total*100)}
+        : null,
+      perCode,
+    };
+  });
+  return {version:"NECKLINE_SYMBOL_BALANCE_V1",byScenario,
+    note:"同一銘柄の複数候補は独立試行ではありません。均等銘柄平均は各銘柄の確定済み5日後平均を同じ重みで合算する参考値です。"};
+}
+
 export function diagnoseNecklineLossRisk(rows) {
   if(!Array.isArray(rows))throw new Error("invalid risk diagnostic records");
   for (const row of rows) {
@@ -140,5 +177,6 @@ export function diagnoseNecklineLossRisk(rows) {
     ],
     detectionNearSameTrade:true,
     riskStrata:predefinedRiskStrata(rows),
+    symbolBalance:summarizeByIndependentCode(rows),
   };
 }
