@@ -48,7 +48,7 @@ test("later prices cannot alter an earlier initial detection or candidate neckli
 
 test("candidates that fail do not disappear from early cohort or become fake breakouts", () => {
   const bars = sample();
-  bars[33] = { ...bars[33], open: 93, high: 98, low: 88, close: 89, volume: 1000 };
+  bars[33] = { ...bars[33], open: 93, high: 98, low: 80, close: 85, volume: 1000 };
   const result = analyzeNecklineTimeline(bars);
   assert.equal(result.totalCandidates, 1);
   assert.equal(result.latest.status, "INVALIDATED");
