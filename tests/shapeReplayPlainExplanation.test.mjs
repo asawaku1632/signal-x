@@ -7,26 +7,34 @@ import test from "node:test";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const replay = readFileSync(join(root, "app/admin/shape-precision-audit/replay/page.tsx"), "utf8");
 
-test("chart is shown first, with plain-language explanation before technical detail", () => {
-  const summary = replay.indexOf("まず結論：何が分かった？");
+test("mobile shows enlarged recent chart first, then concise verdict and detailed classification", () => {
   const chart = replay.indexOf("保存時点までの参考日足と目印");
+  const summary = replay.indexOf("まず結論：何が分かった？");
   const guide = replay.indexOf("図鑑のように見分ける・この形の分類");
   assert.ok(chart >= 0 && chart < summary && summary < guide);
+  assert.match(replay, /<CandleChart candles=\{candles\} replay=\{replay\} marks=\{conditionMarks\} recentOnly/);
+  assert.match(replay, /直近22本を拡大/);
+  assert.match(replay, /全期間のチャート・紫①②の日付を見る/);
   assert.match(replay, /今、買う？ 売る？ → この画面だけでは未判定/);
 });
 
-test("do not misrepresent saved intraday verdict as daily breakout or buy signal", () => {
-  assert.match(replay, /doubleBottomStageLabel\(originalStage\)/);
-  assert.match(replay, /安値2つの基本条件に一致（上抜けの確認とは別）/);
-  assert.match(replay, /足の種類や判定条件が異なるため、同じ結果とは限りません/);
-  assert.match(replay, /売買のタイミングを示す印ではありません/);
+test("visual annotations label only actual observed pivots and condition matches", () => {
+  for (const phrase of [
+    "底①", "底②", "①一致開始", "②最終一致",
+    "参考の壁", "オレンジ破線：", "青の底①②：", "紫の①②：",
+  ]) assert.ok(replay.includes(phrase), phrase);
+  assert.match(replay, /replay\?\.low1\.index === absoluteIndex/);
+  assert.match(replay, /replay\?\.low2\.index === absoluteIndex/);
+  assert.match(replay, /marks\.find\(item => item\.index === absoluteIndex\)/);
+  assert.match(replay, /firstIndex = recentOnly \? Math\.max\(0, candles\.length - 22\) : 0/);
 });
 
-test("chart symbols are explained in plain Japanese without altering detection", () => {
-  for (const phrase of [
-    "紫の①②：", "青丸：", "オレンジ点線：", "緑・赤の棒：",
-    "直近の一致が続き始めた日", "最後に一致した日",
-  ]) assert.ok(replay.includes(phrase), phrase);
+test("research result is not misrepresented as a daily breakout or buy recommendation", () => {
+  assert.match(replay, /doubleBottomStageLabel\(originalStage\)/);
+  assert.match(replay, /安値2つの基本条件に一致（上抜けの確認とは別）/);
+  assert.match(replay, /厳密な上抜けの確認ではない/);
+  assert.match(replay, /今、買う？ 売る？ → この画面だけでは未判定/);
+  assert.match(replay, /元の5分足判定の買い・売り時刻を再現したものではありません/);
   assert.match(replay, /shapeConditionMarks\(candles/);
   assert.match(replay, /isDoubleBottom\?Boolean\(inspectEarlierDailyCandles\(prefix\)\)/);
   assert.doesNotMatch(replay, /\b(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|saveDisplaySnapshot\s*\()/i);
