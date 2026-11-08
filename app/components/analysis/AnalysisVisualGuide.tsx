@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import NecklineEarlyStudyPanel from "@/app/components/analysis/NecklineEarlyStudyPanel";
 import { useEffect, useState } from "react";
 
 type DailyCandle = {
@@ -264,6 +265,9 @@ export default function AnalysisVisualGuide({
           </Link>
         </div>
       </div>}
+      {chart.kind === "ready" && (
+        <NecklineEarlyStudyPanel candles={candles} usable={!insufficient} />
+      )}
       {!compact && <Link href={`/chart/${encodeURIComponent(code)}`}
         className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-3 text-sm font-black text-white">
         ローソク足チャートを詳しく見る →
