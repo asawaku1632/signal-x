@@ -27,8 +27,9 @@ function describeStats(values) {
  * Each symbol must have actual, complete, ordered daily OHLC bars.
  * Any invalid stock is excluded entirely; no synthetic prices or imputation.
  */
-export function auditNecklineQuality(stocks, now = new Date()) {
-  if (!Array.isArray(stocks) || stocks.length < 1 || stocks.length > 5
+export function auditNecklineQuality(stocks, now = new Date(), { maxSymbols = 5 } = {}) {
+  if (![5, 15].includes(maxSymbols)) throw new Error("invalid research cohort limit");
+  if (!Array.isArray(stocks) || stocks.length < 1 || stocks.length > maxSymbols
     || !Number.isFinite(now.getTime())) throw new Error("invalid cohort");
   const codes = stocks.map(s => s?.code);
   if (new Set(codes).size !== codes.length || codes.some(x => typeof x !== "string" || !/^[0-9]{4}$/.test(x))) {
@@ -70,6 +71,7 @@ export function auditNecklineQuality(stocks, now = new Date()) {
         code: stock.code,
         low1Date: e.low1Date, low2Date: e.low2Date,
         firstSeenDate: e.firstSeenDate, breakoutDate: e.breakoutDate,
+        firstSeenIndex: e.firstSeenIndex, breakoutIndex: e.breakoutIndex,
         low1: rounded(e.low1), low2: rounded(e.low2), neckline: rounded(e.neckline),
         status: e.status, leadSessions: e.leadSessions,
         earlyReturn3: e.earlyReturn3 == null ? null : rounded(e.earlyReturn3),
