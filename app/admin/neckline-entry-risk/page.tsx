@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import NecklineLossDiagnostics, {type LossDiagnostics} from "@/app/components/analysis/NecklineLossDiagnostics";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchNecklineExtendedCohort } from "@/app/lib/research/shadowCandleYahoo";
 import {
@@ -30,6 +31,7 @@ type Expanded={
   periods:{id:string;title:string;candidates:number;symbols:number;scenarios:Scenario[]}[];
   worstCases:{code:string;firstSeenDate:string;status:string;early5:number;worstAdverse:number;
     distancePercent:number|null;volumeRatio:number|null}[];
+  diagnostics:LossDiagnostics;
 };
 
 const INITIAL_CODES="7164,3774,5929,7752,4331,9024,1835,4612,3661,7038,9682,3762,3753,3996,3540";
@@ -197,8 +199,9 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
                   </div>
                 ) : <p className="mt-2 text-sm text-slate-600">5日後の成績が確定した候補はありません。</p>}
               </section>
+              <NecklineLossDiagnostics analysis={report.diagnostics}/>
               <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-black">④ データ取得の確認</h2>
+                <h2 className="text-base font-black">⑦ データ取得の確認</h2>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {report.sample.details.map(item=>(
                     <p key={item.code} className="rounded-lg bg-slate-50 p-2 text-xs leading-5">
