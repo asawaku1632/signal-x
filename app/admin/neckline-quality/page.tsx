@@ -19,6 +19,10 @@ type Event = {
   low1: number; low2: number; neckline: number; status: string;
   breakoutDate: string | null; earlyReturn3: number | null; earlyReturn5: number | null;
   breakoutReturn3: number | null; breakoutReturn5: number | null;
+  frozenFeatures: null | { measurements: {
+    bottomGap: number; lowDifferencePercent: number; heightPercent: number;
+    necklineDistancePercent: number; volumeRatio: number | null;
+  } };
 };
 const defaultCodes = "7164,3774,5929,7752,4331";
 const pct = (n: number | null) => n == null ? "未確定" : (n > 0 ? "+" : "") + n.toFixed(2) + "%";
@@ -205,6 +209,17 @@ export default async function NecklineQualityPage({ searchParams }: Props) {
                           全候補翌日始値から：3日 {pct(event.earlyReturn3)} / 5日 {pct(event.earlyReturn5)}<br />
                           上抜け翌日始値から：3日 {pct(event.breakoutReturn3)} / 5日 {pct(event.breakoutReturn5)}
                         </p>
+                        {event.frozenFeatures && (
+                          <div className="mt-2 rounded-lg bg-blue-50 p-2 text-xs leading-6 text-blue-950">
+                            <p className="font-black">初検出日に固定した形の特徴</p>
+                            底の間隔：{event.frozenFeatures.measurements.bottomGap}営業日 /
+                            底の価格差：{event.frozenFeatures.measurements.lowDifferencePercent.toFixed(2)}%<br />
+                            ネックラインの高さ：{event.frozenFeatures.measurements.heightPercent.toFixed(2)}% /
+                            初検出時の距離：{event.frozenFeatures.measurements.necklineDistancePercent.toFixed(2)}%<br />
+                            初検出日の出来高：{event.frozenFeatures.measurements.volumeRatio == null
+                              ? "確認不能" : event.frozenFeatures.measurements.volumeRatio.toFixed(2) + "倍（直前20日比）"}
+                          </div>
+                        )}
                         <Link href={`/analysis/${event.code}`} className="mt-2 inline-flex min-h-10 items-center text-xs font-black text-blue-700">
                           この銘柄のチャートを確認 →
                         </Link>
