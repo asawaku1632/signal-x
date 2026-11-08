@@ -45,8 +45,9 @@ $keyFile = (Resolve-Path -LiteralPath $KeystorePath).Path
 if (-not (Get-Command "npx.cmd" -ErrorAction SilentlyContinue)) {
     throw "Node.js/npm was not found. Install Node.js on this PC first."
 }
-if (-not (Get-Command "keytool.exe" -ErrorAction SilentlyContinue)) {
-    throw "Java JDK keytool is missing. Install JDK 17 first."
+if (-not (Get-Command "keytool.exe" -ErrorAction SilentlyContinue) -or
+    -not (Get-Command "jarsigner.exe" -ErrorAction SilentlyContinue)) {
+    throw "Java JDK keytool/jarsigner is missing. Install JDK 17 first."
 }
 
 # Bubblewrap build would otherwise prompt to regenerate this custom Android app:
@@ -60,34 +61,58 @@ $manifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA1).Hash.T
 Write-Host ""
 Write-Host "SIGNALX 1.0.2 / versionCode 5 - Google Play INTERNAL TEST bundle" -ForegroundColor Cyan
 Write-Host "Original upload keystore: $keyFile"
-Write-Host "Passwords are requested locally by Bubblewrap. Do not share them."
+Write-Host "The signing passwords will only be entered locally at the Java jarsigner prompt."
+Write-Host "Passwords are NEVER passed in process command-line arguments."
 Write-Host ""
 Push-Location $project
 try {
-    & npx.cmd --yes "@bubblewrap/cli@1.27.0" build "--signingKeyPath=$keyFile" "--signingKeyAlias=$($manifest.signingKey.alias)"
+    # Bubblewrap may include passwords in child-process error messages.
+    # Build the AAB WITHOUT signing, then sign directly with jarsigner,
+    # which prompts interactively and never receives secrets as arguments.
+    & npx.cmd --yes "@bubblewrap/cli@1.27.0" build "--skipSigning"
     if ($LASTEXITCODE -ne 0) {
-        throw "Signed bundle build failed. Check Bubblewrap output above. No Google Play upload was performed."
+        throw "Android AAB build failed before signing. No Google Play upload was performed."
     }
+
+    $unsignedBundle = Join-Path $project "app/build/outputs/bundle/release/app-release.aab"
+    if (-not (Test-Path -LiteralPath $unsignedBundle -PathType Leaf)) {
+        throw "Unsigned Android AAB was not created."
+    }
+
     $bundle = Join-Path $project "app-release-bundle.aab"
-    if (-not (Test-Path -LiteralPath $bundle -PathType Leaf)) {
-        throw "Bubblewrap did not create app-release-bundle.aab. No Google Play upload was performed."
+    if (Test-Path -LiteralPath $bundle) {
+        throw "Signed bundle already exists. Use a fresh clean release clone so it cannot be overwritten."
     }
+
+    Write-Host ""
+    Write-Host "Signing AAB with Java jarsigner (interactive password entry only)." -ForegroundColor Cyan
+    Write-Host "Use the ORIGINAL Play upload key passwords. They are not your Google account password."
+    & jarsigner.exe -keystore $keyFile -signedjar $bundle $unsignedBundle "$($manifest.signingKey.alias)"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Android AAB signing failed. Verify the ORIGINAL upload keystore password. No upload was performed."
+    }
+
+    # Confirm the final AAB is signed by the Google Play UPLOAD certificate.
+    $expectedUploadFingerprint = "17:66:A9:A1:58:B0:FF:9A:1E:A0:AA:FE:22:12:0A:E9:60:DD:BF:4F:81:B4:0B:A4:A2:D9:26:93:E3:53:9D:79"
+    $certOutput = (& keytool.exe -printcert -jarfile $bundle 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0 -or $certOutput -notmatch [regex]::Escape($expectedUploadFingerprint)) {
+        throw "The signed AAB certificate differs from the Google Play upload key. DO NOT upload this bundle."
+    }
+
+    & jarsigner.exe -verify $bundle
+    if ($LASTEXITCODE -ne 0) {
+        throw "Signed AAB verification failed. DO NOT upload this bundle."
+    }
+
     $file = Get-Item -LiteralPath $bundle
     if ($file.Length -le 0) {
         throw "Generated app bundle is empty."
     }
-    # Check the final AAB's actual signing certificate, not just its filename.
-    $expectedUploadFingerprint = "17:66:A9:A1:58:B0:FF:9A:1E:A0:AA:FE:22:12:0A:E9:60:DD:BF:4F:81:B4:0B:A4:A2:D9:26:93:E3:53:9D:79"
-    $certOutput = (& keytool.exe -printcert -jarfile $bundle 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0 -or $certOutput -notmatch [regex]::Escape($expectedUploadFingerprint)) {
-        throw "The AAB signer does not match the Google Play UPLOAD key. Do NOT upload this bundle."
-    }
-
     Write-Host ""
     Write-Host "SIGNED CERTIFICATE VERIFIED - Google Play upload SHA-256 matches." -ForegroundColor Green
     Write-Host "SUCCESS - Signed AAB ready for manual Play Console INTERNAL TEST upload:" -ForegroundColor Green
     Write-Host $file.FullName
-    Write-Host ("SHA-256: " + (Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash)
+    Write-Host ("AAB FILE SHA-256: " + (Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash)
     Write-Host "Verify that Play Console's highest existing versionCode is lower than 5."
     Write-Host "The bundle has NOT been uploaded or released automatically."
 } finally {
