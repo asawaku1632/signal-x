@@ -5,6 +5,8 @@ import pool from "@/app/lib/postgres";
 import { combineArchivedShadowRuns, type ArchivedShadowRun } from "@/app/lib/research/shadowCandleArchiveStats";
 import { evaluateShadowBuyCaution } from "@/app/lib/research/shadowCandleBuyCaution";
 import ShadowBuyCautionPanel from "./ShadowBuyCautionPanel";
+import { summarizeShadowNine } from "@/app/lib/research/shadowCandleNineOverview";
+import ShadowNineOverview from "./ShadowNineOverview";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import {
   SHADOW_CANDLE_PATTERNS,
@@ -104,6 +106,8 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
   const firstDay = candles.length ? dateJst(candles[0].time) : null;
   const lastDay = candles.length ? dateJst(candles[candles.length - 1].time) : null;
   const totalHits = studies.reduce((n, study) => n + study.hits.length, 0);
+  const detectedStudies = studies.filter(study => study.hits.length > 0);
+  const undetectedStudies = studies.filter(study => study.hits.length === 0);
 
   // Owner-only and explicit one-stock request. No Yahoo request or DB
   // research query on initial page load. Stats are retrospective and NEVER
@@ -130,6 +134,7 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
     todayJst: todayJst(),
     archiveRows,
   });
+  const overview = summarizeShadowNine(studies, candles, buyCaution);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 text-slate-900">
@@ -175,6 +180,8 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
         {error && <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">{error}</p>}
         {validCode && !error && (
           <>
+            <ShadowNineOverview summary={overview} code={requested}
+              latestDate={lastDay} candleCount={candles.length} />
             <section className="mt-4 rounded-2xl border border-blue-200 bg-white p-4">
               <h2 className="text-lg font-black">{requested} の研究結果</h2>
               <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -202,8 +209,11 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
                 <strong> 確定していない未来の足は成績から除外</strong>します。方向一致率は実際の取引勝率ではなく、
                 手数料・税金・約定価格・スプレッドを含みません。
               </p>
+              <p className="mt-2 text-xs font-bold text-amber-800">
+                検証5件未満の割合は参考値のみ。1/1件の100%は予測成功率100%ではありません。
+              </p>
               <div className="mt-4 space-y-4">
-                {studies.map(({ definition, hits, horizons }) => (
+                {detectedStudies.map(({ definition, hits, horizons }) => (
                   <article key={definition.id} className="rounded-xl border border-slate-200 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-black">{definition.name}</h3>
@@ -218,8 +228,17 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
                       {horizons.map(h => (
                         <div key={h.horizon} className="rounded-lg bg-slate-50 px-1.5 py-3 text-center">
                           <p className="text-[11px] font-bold text-slate-600">{h.horizon}営業日後</p>
-                          <p className="mt-1 text-sm font-black">{h.winRatePercent === null ? "—" : h.winRatePercent.toFixed(1) + "%"}</p>
-                          <p className="text-[10px] text-slate-600">方向一致 {h.success}/{h.completed}件</p>
+                          <p className="mt-1 text-sm font-black">
+                            {h.completed === 0 ? "未確定" : h.completed < 5
+                              ? `${h.success}/${h.completed}件`
+                              : h.winRatePercent?.toFixed(1) + "%"}
+                          </p>
+                          {h.completed > 0 && h.completed < 5 && (
+                            <p className="text-[10px] font-bold text-amber-800">参考・件数不足</p>
+                          )}
+                          <p className="text-[10px] text-slate-600">
+                            {h.completed < 5 ? "方向一致（少数）" : `方向一致 ${h.success}/${h.completed}件`}
+                          </p>
                           <p className="mt-1 text-[11px] font-bold text-blue-700">
                             {signed(h.averageDirectionalReturnPercent)}
                           </p>
@@ -244,13 +263,28 @@ export default async function ShadowCandlestickNinePage({ searchParams }: PagePr
                   </article>
                 ))}
               </div>
+              {undetectedStudies.length > 0 && (
+                <details className="mt-4 rounded-xl border border-slate-200 p-3 text-xs">
+                  <summary className="cursor-pointer font-black text-slate-700">
+                    検出されなかった形状（{undetectedStudies.length}種類）
+                  </summary>
+                  <p className="mt-2 leading-5 text-slate-600">対象期間に0件。勝率は算出できません。</p>
+                  <div className="mt-2 space-y-2">
+                    {undetectedStudies.map(study => (
+                      <p key={study.definition.id} className="border-t border-slate-100 pt-2">
+                        {study.definition.name} — 検出0件
+                      </p>
+                    ))}
+                  </div>
+                </details>
+              )}
             </section>
           </>
         )}
         <p className="mt-5 text-xs leading-6 text-slate-500">
           研究用の暫定条件：先行12本の値幅が2.5%以上、10本超の変化が上下2%以上などで高値圏・安値圏を推定し、
           2本の実体・価格差を照合します。銘柄ごとの呼値・株式分割・取引停止や当時の出来高相場などは十分に考慮できていません。
-          データの取得や検出はその場限りで、将来の自動追跡・勝率の永続保存はまだ行いません。
+          この1銘柄の照会では自動保存・通知をしません。別機能の保存済み研究と自動収集は、この画面の過去統計の参考にのみ使用します。
         </p>
       </div>
       <BottomNav />
