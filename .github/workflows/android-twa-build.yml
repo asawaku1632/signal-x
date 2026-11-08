@@ -1,0 +1,39 @@
+name: Android TWA build verification
+
+on:
+  pull_request:
+    paths:
+      - "android-twa/**"
+      - ".github/workflows/android-twa-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-twa-debug-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      # Ubuntu GitHub-hosted runners already have Android cmdline-tools installed.
+      # setup-android@v3 currently tries to install the removed "tools" package.
+      - name: Install Android API 36
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+      - name: Compile unsigned Android TWA debug APK
+        working-directory: android-twa
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug
+
+# Debug builds do not use the Play App Signing certificate and MUST NOT be distributed
+# as a drop-in replacement for the installed SIGNALX application.
