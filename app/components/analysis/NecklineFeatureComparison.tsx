@@ -18,7 +18,8 @@ export type FeatureCohortGroup = {
   resolvedBreakoutPercent: number | null;
   early3: ReturnStats;
   early5: ReturnStats;
-  insufficientForSelection: boolean;
+  descriptiveSampleReady: boolean;
+  selectionValidated: boolean;
 };
 export type NecklineFeatureAnalysis = {
   version: string;
@@ -89,7 +90,7 @@ export default function NecklineFeatureComparison({ analysis }: { analysis: Neck
                       / 最悪：{percent(group.early5.worstPercent)}
                     </p>
                     <p className="mt-2 text-[11px] font-bold text-amber-800">
-                      {group.candidates ? "参考集計のみ・優劣未確定" : "この区分の候補は0件"}
+                      {group.candidates === 0 ? "この区分の候補は0件" : group.descriptiveSampleReady ? "探索集計のみ・将来成績未検証" : "検証不足・優劣未確定"}
                     </p>
                   </div>
                 ))}
