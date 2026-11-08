@@ -25,9 +25,9 @@ function positive(value: unknown): number | null {
 
 // Per-click, owner-only, bounded and explicitly selected codes.
 // No periodic work, writing, caching, background collection or bulk universe access.
-async function fetchCompletedDailyBars(code: string, host = "query1.finance.yahoo.com"): Promise<LoadedStock> {
+async function fetchCompletedDailyBars(code: string, host = "query1.finance.yahoo.com", timeoutMs = 5_500): Promise<LoadedStock> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_500);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const url = `https://${host}/v8/finance/chart/${encodeURIComponent(code + ".T")}?range=6mo&interval=1d`;
     const response = await fetch(url, {
@@ -147,7 +147,7 @@ export async function fetchNecklineStableCohort(codes: string[]): Promise<Neckli
         if (i > 0 && /^(HTTP_400|HTTP_404)$/.test(last.error ?? "")) break;
         attempts++;
         source = host.startsWith("query1") ? "YAHOO_QUERY1_1D" : "YAHOO_QUERY2_1D";
-        last = await fetchCompletedDailyBars(code,host);
+        last = await fetchCompletedDailyBars(code,host,3_500);
         if (!last.error && last.candles.length >= 25) break;
       }
       const candles = last.error ? [] : last.candles;
