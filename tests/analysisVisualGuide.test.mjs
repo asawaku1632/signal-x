@@ -35,7 +35,6 @@ test("four top tabs are independent and render previous content without duplicat
     "💰 利益とリスク", "<AnalysisVisualGuide code={signal.code}",
     'id="stock-panel-chart"', "📈 チャートで確認",
     "<InlineTradingChart", "🔎 参考日足の目印と読み方を見る",
-    "<AnalysisVisualGuide\\n",
     'id="stock-panel-analysis"', "AI学習データ", ">重要指標</h2>",
     "<SwingHistoricalEvidence", 'id="stock-panel-catalog"',
     "<PatternList detectedPatterns=", "<DoubleBottomVisualLesson"
@@ -43,6 +42,10 @@ test("four top tabs are independent and render previous content without duplicat
   const offsets = order.map(text => detail.indexOf(text));
   assert.ok(offsets.every(value => value >= 0), JSON.stringify(offsets));
   assert.ok(offsets.slice(1).every((v,i) => v > offsets[i]), JSON.stringify(offsets));
+  const chartTab = detail.indexOf('id="stock-panel-chart"');
+  const fullDailyGuide = detail.indexOf("        <AnalysisVisualGuide", chartTab);
+  assert.ok(fullDailyGuide > detail.indexOf("🔎 参考日足の目印と読み方を見る"));
+
   assert.equal((detail.match(/<PatternList detectedPatterns=/g) ?? []).length, 1);
   assert.equal((detail.match(/<BottomNav/g) ?? []).length, 1);
 });
