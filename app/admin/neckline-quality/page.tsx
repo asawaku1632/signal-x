@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import NecklineFeatureComparison, { type NecklineFeatureAnalysis } from "@/app/components/analysis/NecklineFeatureComparison";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchCohort } from "@/app/lib/research/shadowCandleYahoo";
 import { auditNecklineQuality, NECKLINE_QUALITY_VERSION } from "@/app/lib/research/necklineQualityAudit.mjs";
@@ -64,6 +65,7 @@ export default async function NecklineQualityPage({ searchParams }: Props) {
       byStatus: { watch: number; breakout: number; invalidated: number; expired: number };
       decidedCandidates: number; resolvedBreakoutPercent: number|null;
       early3: Metric; early5: Metric; breakout3: Metric; breakout5: Metric;
+      featureAnalysis: NecklineFeatureAnalysis;
       details: {code:string;status:string;reason:string|null;barCount:number;candidateCount:number}[];
       events: Event[];
     } : null;
@@ -166,6 +168,7 @@ export default async function NecklineQualityPage({ searchParams }: Props) {
                   同銘柄内の複数候補は独立したサンプルではないため、プラス率を勝率予測として使用しないでください。
                 </p>
               </section>
+              <NecklineFeatureComparison analysis={result.featureAnalysis} />
               <section className="rounded-2xl border border-slate-200 bg-white p-4">
                 <h2 className="text-base font-black">🔎 銘柄別の品質・除外理由</h2>
                 <div className="mt-2 space-y-2">
