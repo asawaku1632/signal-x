@@ -476,7 +476,16 @@ export default function TradingChart({
       candle.close,
     ]);
 
-    const allPrices = [...candlePrices, ...levels.map((level) => level.price)];
+    const patternInViewport = necklineOverlay && data.some(bar =>
+      bar.time === necklineOverlay.firstTime ||
+      bar.time === necklineOverlay.secondTime ||
+      bar.time === necklineOverlay.breakoutTime
+    );
+    const allPrices = [
+      ...candlePrices,
+      ...levels.map((level) => level.price),
+      ...(patternInViewport && necklineOverlay ? [necklineOverlay.neckline] : []),
+    ];
     const globalMin = Math.min(...allPrices);
     const globalMax = Math.max(...allPrices);
 
