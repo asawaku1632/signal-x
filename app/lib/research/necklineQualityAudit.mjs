@@ -1,7 +1,8 @@
 import { analyzeNecklineTimeline } from "./necklineEarlyStudy.mjs";
 import { completedDailyBars } from "./observedNecklineOverlay.mjs";
+import { frozenNecklineFeatures, summarizeFrozenNecklineFeatures } from "./necklineFrozenFeatures.mjs";
 
-export const NECKLINE_QUALITY_VERSION = "NECKLINE_QUALITY_READONLY_V1";
+export const NECKLINE_QUALITY_VERSION = "NECKLINE_QUALITY_READONLY_V2_FIXED_FEATURES";
 export const NECKLINE_ROUND_TRIP_COST_PERCENT = 0.2;
 
 function rounded(n) { return Math.round(n * 100) / 100; }
@@ -76,6 +77,8 @@ export function auditNecklineQuality(stocks, now = new Date()) {
         breakoutReturn3: e.breakoutReturn3 == null ? null : rounded(e.breakoutReturn3),
         breakoutReturn5: e.breakoutReturn5 == null ? null : rounded(e.breakoutReturn5),
         volumeRatio: e.breakoutVolumeRatio == null ? null : rounded(e.breakoutVolumeRatio),
+        // These are frozen at firstSeenIndex, never calculated using breakout-day prices.
+        frozenFeatures: frozenNecklineFeatures(e, closed),
       });
     }
   }
@@ -100,6 +103,7 @@ export function auditNecklineQuality(stocks, now = new Date()) {
     candidates: events.length,
     byStatus, decidedCandidates: decided, pendingCandidates: byStatus.watch,
     resolvedBreakoutPercent: decided ? rounded(100 * byStatus.breakout / decided) : null,
+    featureAnalysis: summarizeFrozenNecklineFeatures(events),
     early3: describeStats(events.map(e => e.earlyReturn3)),
     early5: describeStats(events.map(e => e.earlyReturn5)),
     breakout3: describeStats(events.map(e => e.breakoutReturn3)),
