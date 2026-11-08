@@ -285,6 +285,18 @@ export default function LearningPage() {
         </section>
 
         <Link
+          href="/learning/chart-quiz"
+          className="mb-4 flex min-h-16 items-center gap-3 rounded-[24px] border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-4 shadow-sm"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-600 text-xl text-white">🧠</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-black">チャート見方クイズ</span>
+            <span className="mt-1 block text-xs font-bold text-slate-600">3択で目印と9:05の考え方を学ぶ</span>
+          </span>
+          <span className="text-lg font-black text-blue-700">→</span>
+        </Link>
+
+        <Link
           href="/learning/patterns"
           className="mb-4 flex min-w-0 items-center gap-3 rounded-[24px] border border-violet-200 bg-gradient-to-br from-white to-violet-50 p-4 shadow-sm transition active:scale-[0.99]"
         >
