@@ -28,8 +28,9 @@ test("chart tab opens the full interactive chart without a duplicate blue link",
   assert.ok(start >= 0 && end > start);
   const panel = detail.slice(start, end);
   const mainChart = panel.indexOf("<InlineTradingChart");
-  const guide = panel.indexOf("🔎 参考日足の目印と読み方を見る");
+  const guide = panel.indexOf("<AnalysisVisualGuide");
   assert.ok(mainChart >= 0 && mainChart < guide);
+  assert.doesNotMatch(panel, /<details|<summary/);
   assert.doesNotMatch(panel, /チャートで確認|href=\{`\/chart\/\$\{signal\.code\}\`\}/);
   assert.match(panel, /takeProfit=\{hasReferencePrice \? takeProfit : null\}/);
   assert.match(panel, /stopLoss=\{hasReferencePrice \? stopLoss : null\}/);
