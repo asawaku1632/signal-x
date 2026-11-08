@@ -8,35 +8,44 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const detail = readFileSync(join(root, "app/analysis/[code]/page.tsx"), "utf8");
 const morning = readFileSync(join(root, "app/components/analysis/MorningEntryRecheckCard.tsx"), "utf8");
 
-test("top card preserves separate AI rating and new-entry timing labels", () => {
-  assert.match(detail, /AI評価帯：/);
-  assert.match(detail, /新規のタイミング：/);
-  assert.ok(detail.indexOf("新規のタイミング：") < detail.indexOf("<AnalysisVisualGuide"));
+test("AI category and swing timing appear beside AI POWER, before stats", () => {
+  const power = detail.indexOf(">AI POWER</p>");
+  const category = detail.indexOf("AI評価帯：");
+  const timing = detail.indexOf("新規のタイミング：");
+  const ranking = detail.indexOf(">AI順位</p>");
+  assert.ok(power>=0 && power<category && category<timing && timing<ranking);
+  assert.match(detail, /ml-auto flex min-w-0 flex-col items-end/);
   assert.match(detail, /<AiScoreTierBadge score=/);
+  assert.doesNotMatch(detail, /参考データに基づく候補評価です。「独自参考指数」はAI評価と過去集計を合わせた参考点で、実測勝率ではありません。AI POWERが高くても購入を推奨・保証するものではありません。\s*<\/p>\s*<\/section>/);
 });
 
-test("swing judgment remains visible below chart, with reasons in an accordion", () => {
+test("swing decision remains visible once above profit and chart", () => {
   assert.match(detail, /<h2 className="text-base font-black">📅 スイング判定<\/h2>/);
   assert.match(detail, /<p className="mt-3 text-sm font-black leading-6">\{decision\.summary\}<\/p>/);
   assert.match(detail, /▶ 判定理由・詳しい説明を見る/);
-  assert.match(detail, /AI評価帯の「買い候補」とは別です/);
-  assert.ok(detail.indexOf("<AnalysisVisualGuide") < detail.indexOf("<SwingEntryCard"));
-  assert.doesNotMatch(detail, /📌 まず結論|上の結論と同じ新規購入の評価です|新規購入の判断（保存時点）/);
+  assert.ok(detail.indexOf("<SwingEntryCard")<detail.indexOf("仮の利確価格"));
+  assert.doesNotMatch(detail, /📌 まず結論/);
 });
 
-test("hypothetical P/L is folded for wait/watch/avoid", () => {
-  assert.match(detail, /<details open=\{swingEntryDecision\.status === "CANDIDATE"\}/);
-  assert.match(detail, /もし参考株価で100株買った場合の試算/);
+test("profit and stop loss are always visible and explanation is the only disclosure", () => {
+  const first=detail.indexOf("💰 利益とリスク");
+  const warning=detail.indexOf("▶ 試算の前提・注意点を見る",first);
+  const gain=detail.indexOf("仮の利確価格",first);
+  const loss=detail.indexOf("仮の損切価格",first);
+  const close=detail.indexOf("        </section>\n        ) : (", first);
+  assert.ok(first>0 && first<warning && warning<gain && gain<loss && loss<close);
+  assert.match(detail, /<details className="mt-2 rounded-lg border border-slate-200 bg-slate-50/);
+  assert.match(detail, /もし.*実際の買値|実際の買値や利確・損切り注文の指示ではありません/);
+  assert.doesNotMatch(detail, /<details open=\{swingEntryDecision\.status === "CANDIDATE"\}/);
   assert.match(detail, /仮の利益/);
-  assert.match(detail, /仮の利確価格/);
   assert.match(detail, /仮の損切価格/);
-  assert.doesNotMatch(detail, /期待利益 \+\{yen\(profitYen\)\}/);
 });
 
-test("past results remain distinct from current purchase success probability", () => {
+test("past outcome ratio remains visible while 80 vs 79 warning is collapsible", () => {
   assert.match(detail, /過去の判定済み勝率/);
   assert.match(detail, /今回の銘柄を今から買ったときの勝率ではなく/);
   assert.match(detail, /const unclassifiedCount = total - \(win \+ lose \+ hold\)/);
+  assert.match(detail, /<summary className="cursor-pointer">⚠ 集計内訳に\{Math\.abs\(unclassifiedCount\)\}件の差があります（詳しく見る）<\/summary>/);
   assert.match(detail, /集計確認：検証\{total\}件とWIN・LOSE・HOLDの合計/);
   assert.match(detail, /独自参考指数/);
 });
