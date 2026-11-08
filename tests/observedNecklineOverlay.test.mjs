@@ -62,7 +62,7 @@ test("bad, duplicated, reversed, or too-few bars fail closed instead of plotting
   assert.equal(observedNecklineOverlay([{...bars[0], low: 111}, ...bars.slice(1)], fixtureNow).overlay, null);
   assert.equal(observedNecklineOverlay([{...bars[0], volume: -1}, ...bars.slice(1)], fixtureNow).overlay, null);
   assert.equal(observedNecklineOverlay([], fixtureNow).overlay, null);
-  const notEvenDaily = sample().map((c, i) => ({...c, low: 97}));
+  const notEvenDaily = sample().map(c => ({...c, open: 98, high: 110, low: 85, close: 98}));
   assert.equal(observedNecklineOverlay(notEvenDaily, fixtureNow).status, "NONE");
 });
 
