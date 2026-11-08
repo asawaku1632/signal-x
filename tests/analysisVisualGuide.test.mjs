@@ -7,15 +7,29 @@ import test from "node:test";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const detail = readFileSync(join(root, "app/analysis/[code]/page.tsx"), "utf8");
 const guide = readFileSync(join(root, "app/components/analysis/AnalysisVisualGuide.tsx"), "utf8");
+const layout = readFileSync(join(root, "app/analysis/[code]/layout.tsx"), "utf8");
 
-test("individual analysis shows a practical verdict and real daily chart before deep sections", () => {
-  const verdict = detail.indexOf("📌 まず結論");
-  const visual = detail.indexOf("<AnalysisVisualGuide");
-  const swingDetail = detail.indexOf("<SwingEntryCard");
-  const learningDetail = detail.indexOf("AI学習データ");
-  assert.ok(verdict >= 0 && verdict < visual && visual < swingDetail && swingDetail < learningDetail);
+test("stock summary followed by annotated chart, then swing and historical details", () => {
+  const stockSummary = detail.indexOf("/* Main summary:");
+  const chart = detail.indexOf("<AnalysisVisualGuide");
+  const swing = detail.indexOf("<SwingEntryCard");
+  const historical = detail.indexOf("<SwingHistoricalEvidence");
+  const learning = detail.indexOf("AI学習データ");
+  const profit = detail.indexOf("もし参考株価で100株買った場合の試算");
+  const metrics = detail.indexOf('>重要指標</h2>');
+  assert.ok(stockSummary >= 0 && stockSummary < chart && chart < swing);
+  assert.ok(swing < historical && historical < learning && learning < profit && profit < metrics);
   assert.match(detail, /hasReferencePrice \? yen\(price\) : "未取得"/);
-  assert.match(detail, /判定保留：株価データが不足しています/);
+  assert.doesNotMatch(detail, /📌 まず結論/);
+});
+
+test("owner-only research widgets come after main stock content, not before", () => {
+  const content = layout.indexOf("  {children}\n  <div");
+  const owner = layout.indexOf("<OwnerCandleNineSummary");
+  const buyEvents = layout.indexOf("この銘柄の新規買い条件・成立記録");
+  assert.ok(content > 0 && content < owner && owner < buyEvents);
+  assert.match(layout, /if\(!isOwner\)return <>\{children\}<\/>;/);
+  assert.match(layout, /getLearningOwnerSession/);
 });
 
 test("visual guide uses actual completed daily candles only and does not invent signals", () => {
@@ -30,12 +44,13 @@ test("visual guide uses actual completed daily candles only and does not invent 
   assert.doesNotMatch(guide, /Math\.random|mockCandles|fakeCandles/);
 });
 
-test("marks distinguish observed prices from trade recommendations", () => {
+test("chart shows observations without duplicate swing verdict", () => {
+  assert.match(guide, /チャートから分かること/);
+  assert.doesNotMatch(guide, /swingLabel|swingSummary|スイング判定\)/);
   assert.match(guide, /底確定ではない/);
   assert.match(guide, /売買サインではない/);
   assert.match(guide, /前20本の高値/);
   assert.match(guide, /前20本の安値/);
-  assert.match(guide, /参考価格・確定日足の新しさ/);
   assert.match(guide, /9:05以降の5分足/);
   assert.doesNotMatch(guide, /\b(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|saveDisplaySnapshot\s*\()/i);
 });
