@@ -7,11 +7,11 @@ import test from "node:test";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const replay = readFileSync(join(root, "app/admin/shape-precision-audit/replay/page.tsx"), "utf8");
 
-test("plain-language verdict appears before chart, technical explanation follows", () => {
+test("chart is shown first, with plain-language explanation before technical detail", () => {
   const summary = replay.indexOf("まず結論：何が分かった？");
   const chart = replay.indexOf("保存時点までの参考日足と目印");
   const guide = replay.indexOf("図鑑のように見分ける・この形の分類");
-  assert.ok(summary >= 0 && summary < chart && chart < guide);
+  assert.ok(chart >= 0 && chart < summary && summary < guide);
   assert.match(replay, /今、買う？ 売る？ → この画面だけでは未判定/);
 });
 
