@@ -15,19 +15,23 @@ test("owner-only stock layout shows collapsed summary above regular detail; nono
   assert.match(layout,/\^\[0-9A-Za-z\]\{4,5\}\$/);
 });
 
-test("accordion loads ONLY on opening, never as background page request, and offers owner detail link", () => {
+test("owner-only accordion automatically resolves header verdict once on detail mount", () => {
   const component = read("app/components/analysis/OwnerCandleNineSummary.tsx");
   assert.match(component,/^"use client"/);
   assert.match(component,/<details/);
-  assert.match(component,/onToggle=\{event =>/);
-  assert.match(component,/event\.currentTarget\.open && state === "idle"/);
+  assert.match(component,/useEffect\(\(\) => \{/);
+  assert.match(component,/void load\(\)/);
+  assert.match(component,/getShadowNineQuickVerdict\(report\?\.summary/);
+  assert.match(component,/role="status" aria-live="polite"/);
+  assert.match(component,/quick\.icon\} \{quick\.label\}/);
+  assert.doesNotMatch(component,/onToggle=\{event =>/);
   assert.match(component,/onClick=\{\(\) => void load\(\)\}/);
   assert.match(component,/inFlight\.current \|\| report/);
   assert.match(component,/method: "POST"/);
   assert.match(component,/cache: "no-store"/);
   assert.match(component,/<ShadowNineOverview/);
   assert.match(component,/prefetch=\{false\}/);
-  assert.doesNotMatch(component,/\buseEffect\s*\(/);
+  assert.match(component,/\buseEffect\s*\(/);
   assert.doesNotMatch(component,/\b(?:sendLine|saveDisplaySnapshot|runScan|placeOrder)\s*\(/);
 });
 
@@ -59,5 +63,6 @@ test("reuses research-only overview, not a new trading accuracy score", () => {
   assert.match(src,/archiveAvailable: archiveRows !== null/);
   const component=read("app/components/analysis/OwnerCandleNineSummary.tsx");
   assert.match(component,/研究結果は買い推奨や購入禁止を意味しません/);
-  assert.match(component,/本人専用・タップして開く/);
+  assert.match(component,/本人限定・研究用/);
+  assert.match(component,/折りたたみ前に研究判定を表示します/);
 });
