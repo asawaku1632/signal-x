@@ -8,39 +8,40 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const detail = readFileSync(join(root, "app/analysis/[code]/page.tsx"), "utf8");
 const morning = readFileSync(join(root, "app/components/analysis/MorningEntryRecheckCard.tsx"), "utf8");
 
-test("the top decision distinguishes AI score tier from swing entry timing", () => {
+test("top card preserves separate AI rating and new-entry timing labels", () => {
   assert.match(detail, /AI評価帯：/);
   assert.match(detail, /新規のタイミング：/);
-  assert.match(detail, /スイングの「.*」は新規購入のタイミング評価/);
-  assert.match(detail, /AI POWERの「.*」は注目度の評価/);
-  assert.ok(detail.indexOf("📌 まず結論") < detail.indexOf("<AnalysisVisualGuide"));
-  assert.match(detail, /case "WAIT":\s*return \{ title: "監視候補・押し目待ち"/);
-  assert.match(detail, /case "CANDIDATE":\s*return \{ title: "監視候補（購入条件は再確認）"/);
-  assert.match(detail, /case "AVOID":\s*return \{ title: "見送り（新規購入は慎重に）"/);
+  assert.ok(detail.indexOf("新規のタイミング：") < detail.indexOf("<AnalysisVisualGuide"));
+  assert.match(detail, /<AiScoreTierBadge score=/);
 });
 
-test("hypothetical P/L is folded for wait/watch/avoid and never called expected profit", () => {
+test("swing judgment remains visible below chart, with reasons in an accordion", () => {
+  assert.match(detail, /<h2 className="text-base font-black">📅 スイング判定<\/h2>/);
+  assert.match(detail, /<p className="mt-3 text-sm font-black leading-6">\{decision\.summary\}<\/p>/);
+  assert.match(detail, /▶ 判定理由・詳しい説明を見る/);
+  assert.match(detail, /AI評価帯の「買い候補」とは別です/);
+  assert.ok(detail.indexOf("<AnalysisVisualGuide") < detail.indexOf("<SwingEntryCard"));
+  assert.doesNotMatch(detail, /📌 まず結論|上の結論と同じ新規購入の評価です|新規購入の判断（保存時点）/);
+});
+
+test("hypothetical P/L is folded for wait/watch/avoid", () => {
   assert.match(detail, /<details open=\{swingEntryDecision\.status === "CANDIDATE"\}/);
   assert.match(detail, /もし参考株価で100株買った場合の試算/);
   assert.match(detail, /仮の利益/);
   assert.match(detail, /仮の利確価格/);
   assert.match(detail, /仮の損切価格/);
-  assert.match(detail, /今は新規購入を待つ・見送る判定なので、初めから折りたたんでいます/);
   assert.doesNotMatch(detail, /期待利益 \+\{yen\(profitYen\)\}/);
 });
 
-test("past outcome ratio is not portrayed as predicted probability and count mismatch is visible", () => {
+test("past results remain distinct from current purchase success probability", () => {
   assert.match(detail, /過去の判定済み勝率/);
   assert.match(detail, /今回の銘柄を今から買ったときの勝率ではなく/);
   assert.match(detail, /const unclassifiedCount = total - \(win \+ lose \+ hold\)/);
   assert.match(detail, /集計確認：検証\{total\}件とWIN・LOSE・HOLDの合計/);
   assert.match(detail, /独自参考指数/);
-  assert.match(detail, /\$\{aiTrust\}点/);
 });
 
-test("neither top-level conclusion nor morning recheck implies a brokerage order was placed", () => {
-  assert.match(detail, /このページで実際の株式注文は行いません/);
-  assert.match(detail, /保存時点の分析です/);
+test("morning recheck does not imply a broker order", () => {
   assert.match(morning, /アプリから発注しません/);
   assert.doesNotMatch(morning, />発注なし<\/span>/);
 });

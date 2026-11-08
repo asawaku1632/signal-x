@@ -211,36 +211,30 @@ function getSwingEntryToneClasses(tone: SwingEntryDecision["tone"]) {
 }
 
 /** A single user-facing action line; AI rank and swing entry timing stay distinct. */
-function describeNewEntry(status: SwingEntryDecision["status"]) {
-  switch (status) {
-    case "CANDIDATE":
-      return { title: "監視候補（購入条件は再確認）", action: "次の確認：9:05以降の価格・出来高と最新材料を見る" };
-    case "WAIT":
-      return { title: "監視候補・押し目待ち", action: "新規購入：今は追いかけず、値動きが落ち着くのを待つ" };
-    case "WATCH":
-      return { title: "様子見（追加シグナル待ち）", action: "新規購入：まだ決めず、方向が見えるまで待つ" };
-    case "AVOID":
-      return { title: "見送り（新規購入は慎重に）", action: "新規購入：現時点の保存判定では見送り" };
-  }
-}
-
 function SwingEntryCard({ decision }: { decision: SwingEntryDecision }) {
   return (
-    <details className={`mt-2 rounded-xl border p-3 shadow-sm ${getSwingEntryToneClasses(decision.tone)}`}>
-      <summary className="cursor-pointer text-sm font-black">
-        📅 スイング判定の理由（{decision.label}）を詳しく見る
-      </summary>
-      <p className="mt-3 text-sm font-bold leading-6">{decision.summary}</p>
-      <ul className="mt-2 space-y-1 text-xs leading-5">
-        {decision.reasons.slice(0, 3).map((reason, index) => (
-          <li key={`${reason}-${index}`}>・{reason}</li>
-        ))}
-      </ul>
-      <p className="mt-3 border-t border-current/10 pt-2 text-[11px] font-medium leading-5 opacity-75">
-        これは新規に見る場合のタイミング評価です。過去のAI評価や保有後の判定とは別です。
-        値動きが変われば判定も変わります。発注は行いません。
-      </p>
-    </details>
+    <section className={`mt-2 rounded-xl border p-3 shadow-sm ${getSwingEntryToneClasses(decision.tone)}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-black">📅 スイング判定</h2>
+        <span className="rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-black dark:bg-slate-900/30">
+          {decision.icon} {decision.label}
+        </span>
+      </div>
+      <p className="mt-1 text-xs font-medium">数日〜2週間の新規購入を検討する場合の保存時点の評価</p>
+      <p className="mt-3 text-sm font-black leading-6">{decision.summary}</p>
+      <details className="mt-3 border-t border-current/20 pt-2">
+        <summary className="cursor-pointer text-xs font-black">▶ 判定理由・詳しい説明を見る</summary>
+        <ul className="mt-2 space-y-1 text-xs leading-5">
+          {decision.reasons.slice(0, 3).map((reason, index) => (
+            <li key={`${reason}-${index}`}>・{reason}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-[11px] font-medium leading-5 opacity-75">
+          これは新規に見る場合のタイミング評価です。AI評価帯の「買い候補」とは別です。
+          値動きが変われば判定も変わります。実際の注文や購入推奨ではありません。
+        </p>
+      </details>
+    </section>
   );
 }
 
@@ -761,7 +755,6 @@ export default function AnalysisPage() {
     volumeRatio: signal.volumeRatio,
     changePercent: signal.changePercent,
   });
-  const unifiedEntry = describeNewEntry(swingEntryDecision.status);
 
   const total = historyStats?.total ?? 0;
   const win = historyStats?.win ?? 0;
@@ -885,24 +878,6 @@ export default function AnalysisPage() {
               <p className="text-xs font-black">{hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"}</p>
             </div>
           </div>
-          <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20" role="status">
-            <p className="text-xs font-black text-blue-900 dark:text-blue-200">📌 まず結論｜新規購入のタイミング（保存データ基準）</p>
-            <p className="mt-1 text-base font-black leading-6 text-slate-950 dark:text-white">
-              {hasReferencePrice ? unifiedEntry.title : "判定保留：株価データが不足しています"}
-            </p>
-            <p className="mt-1 text-sm font-bold leading-6 text-slate-900 dark:text-slate-200">
-              {hasReferencePrice ? unifiedEntry.action : "新規購入：価格が確認できるまで判断しない"}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-slate-700 dark:text-slate-300">
-              AI POWERの「{hasReferencePrice ? judge : "未判定"}」は注目度の評価、
-              スイングの「{hasReferencePrice ? swingEntryDecision.label : "判定保留"}」は新規購入のタイミング評価です。
-              同じ意味の買いサインではありません。
-            </p>
-            <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-400">
-              最新の取引価格を保証しない保存時点の分析です。9:05以降の5分足・出来高とニュースを再確認。
-              このページで実際の株式注文は行いません。
-            </p>
-          </div>
           <p className="mt-2 text-[11px] font-medium leading-4 text-slate-500 dark:text-slate-300">
             参考データに基づく候補評価です。「独自参考指数」はAI評価と過去集計を合わせた参考点で、実測勝率ではありません。AI POWERが高くても購入を推奨・保証するものではありません。
           </p>
@@ -911,8 +886,6 @@ export default function AnalysisPage() {
         <AnalysisVisualGuide
           code={signal.code}
           analysisPrice={hasReferencePrice ? price : null}
-          swingLabel={swingEntryDecision.label}
-          swingSummary={swingEntryDecision.summary}
         />
         {hasReferencePrice ? <SwingEntryCard decision={swingEntryDecision} /> : (
           <section className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
@@ -1033,13 +1006,6 @@ export default function AnalysisPage() {
           <summary className="cursor-pointer text-sm font-black">📊 ボリンジャーバンド・補助評価を表示</summary>
           <BollingerSignalCard signal={signal.bollinger} className="mt-3" />
         </details>
-
-        <section className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-sm dark:border-orange-800 dark:bg-slate-900">
-          <p className="text-xs font-black text-orange-700 dark:text-orange-300">新規購入の判断（保存時点）</p>
-
-          <p className="mt-1 text-sm font-black leading-5 text-slate-950 dark:text-slate-100">{hasReferencePrice ? unifiedEntry.action : "株価が未取得のため、売買に使える判定はありません。"}</p>
-          <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">上の結論と同じ新規購入の評価です。実際の注文時は最新の価格・チャートと証券会社の表示を確認してください。</p>
-        </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-base font-black">主な判断理由</h2>
