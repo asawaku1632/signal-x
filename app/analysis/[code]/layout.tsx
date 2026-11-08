@@ -1,4 +1,5 @@
 import Link from "next/link";
+import OwnerCandleNineSummary from "@/app/components/analysis/OwnerCandleNineSummary";
 import type {ReactNode} from "react";
 import pool from "@/app/lib/postgres";
 import {getLearningOwnerSession} from "@/app/lib/learningOwner";
@@ -29,6 +30,7 @@ export default async function AnalysisLayout({children,params}:{children:ReactNo
  }catch{unavailable=true;}
  return <>
   <div className="mx-auto max-w-3xl px-3 pt-3 sm:px-6">
+   <OwnerCandleNineSummary key={code} code={code.toUpperCase()} />
    <Link prefetch={false} href={"/admin/new-buy-events?code="+encodeURIComponent(code)} className="mb-2 block rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900">🟢 この銘柄の新規買い条件・成立記録 →</Link>
    {at&&patternIds.length?<details className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
     <summary className="min-h-8 cursor-pointer font-black">🔬 参考日足で形を照合（{patternIds.length}種類）<span className="ml-2 text-[10px] font-medium">本人専用・開く</span></summary>
