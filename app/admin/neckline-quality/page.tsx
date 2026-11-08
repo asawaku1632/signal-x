@@ -93,6 +93,10 @@ export default async function NecklineQualityPage({ searchParams }: Props) {
               上抜けしなかった割合を参考指標として確認する研究です。
             </p>
           </header>
+          <Link href="/admin/neckline-entry-risk"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-indigo-300 bg-indigo-50 px-3 text-center text-sm font-black text-indigo-900">
+            🔬 次の研究：15銘柄・買う時刻・損失を比較 →
+          </Link>
           <section className="rounded-2xl border border-slate-200 bg-white p-4">
             <form method="get" action="/admin/neckline-quality">
               <input type="hidden" name="run" value="1"/>
