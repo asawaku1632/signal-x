@@ -133,9 +133,11 @@ function PlainCandleChart({
 export default function AnalysisVisualGuide({
   code,
   analysisPrice,
+  compact = false,
 }: {
   code: string;
   analysisPrice: number | null;
+  compact?: boolean;
 }) {
   const [chart, setChart] = useState<ChartState>({ kind: "loading" });
 
@@ -191,7 +193,7 @@ export default function AnalysisVisualGuide({
     <section className="mt-2 rounded-2xl border border-blue-200 bg-white p-3 shadow-sm dark:border-blue-900 dark:bg-slate-900"
       aria-label="この銘柄のチャートの見方">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="text-base font-black text-slate-950 dark:text-white">📊 チャートと目印で確認</h2>
+        <h2 className="text-base font-black text-slate-950 dark:text-white">{compact ? "📈 値動きと目印" : "📊 チャートと目印で確認"}</h2>
         <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
           確定日足・参考
         </span>
@@ -211,7 +213,7 @@ export default function AnalysisVisualGuide({
           <div className="mt-3 rounded-xl border border-slate-100 bg-white p-1">
             <PlainCandleChart candles={candles} highLine={highLine} lowLine={lowLine} />
           </div>
-          <div className="mt-2 grid grid-cols-1 gap-1 text-xs leading-5 text-slate-700 dark:text-slate-200 min-[440px]:grid-cols-2">
+          <div className={`mt-2 grid grid-cols-1 gap-1 text-xs leading-5 text-slate-700 dark:text-slate-200 ${compact ? "" : "min-[440px]:grid-cols-2"}`}>
             <p><strong className="text-blue-700 dark:text-blue-300">◯ 青丸：</strong>表示期間で最も安かった足（底確定ではない）</p>
             <p><strong className="text-violet-700 dark:text-violet-300">◯ 紫丸：</strong>最後の確定足（売買サインではない）</p>
             <p><strong className="text-amber-700 dark:text-amber-300">┄ オレンジ：</strong>直前20本の高値 {highLine != null ? yen(highLine) : "未取得"}</p>
@@ -229,12 +231,12 @@ export default function AnalysisVisualGuide({
             株価・確定日足の新しさなどを確認できないため、ここから新しい買い判断はしません。
           </p>
         )}
-        <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-400">
+        {!compact && <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-400">
           この図は過去の価格の観察用です。上の高値・安値は簡単な比較線であり、支持線・抵抗線の確定や売買推奨ではありません。
-          新規購入のタイミングについては、この下の「スイング判定」で確認してください。
-        </p>
+          新規購入のタイミングについては「概要」のスイング判定で確認してください。
+        </p>}
       </div>
-      <div className="mt-2 rounded-xl bg-blue-50 p-3 dark:bg-blue-950/20">
+      {!compact && <div className="mt-2 rounded-xl bg-blue-50 p-3 dark:bg-blue-950/20">
         <h3 className="text-sm font-black text-blue-900 dark:text-blue-200">🚩 次に見るポイント</h3>
         <ol className="mt-2 space-y-1.5 text-xs font-medium leading-5 text-slate-800 dark:text-slate-200">
           <li>① 直前20本の高値 {highLine != null ? yen(highLine) : "（未取得）"} を終値で超えられるか</li>
@@ -244,8 +246,8 @@ export default function AnalysisVisualGuide({
         <p className="mt-2 text-[11px] leading-5 text-slate-600 dark:text-slate-300">
           9:05以降の5分足や最新の株価・ニュースは別途確認してください。この日足図だけで売買を決めません。
         </p>
-      </div>
-      <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+      </div>}
+      {!compact && <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
         <p className="text-sm font-black text-violet-900">📚 チャートの形を図鑑で確認</p>
         <p className="mt-1 text-xs leading-5 text-slate-700">
           このチャートの青丸は表示期間の最安値で、ダブルボトムの「底①・底②」を自動認定したものではありません。
@@ -261,11 +263,11 @@ export default function AnalysisVisualGuide({
             🧠 3択クイズで練習
           </Link>
         </div>
-      </div>
-      <Link href={`/chart/${encodeURIComponent(code)}`}
+      </div>}
+      {!compact && <Link href={`/chart/${encodeURIComponent(code)}`}
         className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-3 text-sm font-black text-white">
         ローソク足チャートを詳しく見る →
-      </Link>
+      </Link>}
     </section>
   );
 }

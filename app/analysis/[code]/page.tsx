@@ -14,6 +14,15 @@ import type { BollingerSignal } from "@/app/lib/bollingerBands";
 import { getSwingEntryDecision, type SwingEntryDecision } from "@/app/lib/swingDecision";
 import SwingHistoricalEvidence from "@/app/components/analysis/SwingHistoricalEvidence";
 import AnalysisVisualGuide from "@/app/components/analysis/AnalysisVisualGuide";
+import DoubleBottomVisualLesson from "@/app/components/patterns/DoubleBottomVisualLesson";
+
+type AnalysisTab = "overview" | "chart" | "analysis" | "catalog";
+const ANALYSIS_TABS: ReadonlyArray<{key: AnalysisTab; label: string}> = [
+  {key: "overview", label: "概要"},
+  {key: "chart", label: "チャート"},
+  {key: "analysis", label: "分析"},
+  {key: "catalog", label: "図鑑連携"},
+];
 
 type Signal = {
   code: string;
@@ -504,6 +513,8 @@ export default function AnalysisPage() {
   const [scanError, setScanError] = useState(false);
   const [learningError, setLearningError] = useState(false);
   const [showAllReasons, setShowAllReasons] = useState(false);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
+  useEffect(() => { setActiveTab("overview"); }, [code]);
 
   useEffect(() => {
     const fetchSignal = async () => {
@@ -834,8 +845,32 @@ export default function AnalysisPage() {
               <span className="hidden min-[360px]:inline">お気に入り</span>
             </button>
           </div>
+          <p className="mt-2 truncate text-center text-sm font-black text-slate-950 dark:text-white">{signal.name}（{signal.code}）</p>
+          <div role="tablist" aria-label="銘柄ページの表示切り替え"
+            className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            {ANALYSIS_TABS.map((tab, index) => (
+              <button key={tab.key} type="button" role="tab"
+                id={`stock-tab-${tab.key}`} aria-controls={`stock-panel-${tab.key}`}
+                aria-selected={activeTab === tab.key} tabIndex={activeTab === tab.key ? 0 : -1}
+                onClick={() => { setActiveTab(tab.key); window.scrollTo({top:0, behavior:"smooth"}); }}
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                  event.preventDefault();
+                  const direction = event.key === "ArrowRight" ? 1 : -1;
+                  const next = ANALYSIS_TABS[(index + direction + ANALYSIS_TABS.length) % ANALYSIS_TABS.length];
+                  setActiveTab(next.key);
+                  document.getElementById(`stock-tab-${next.key}`)?.focus();
+                }}
+                className={`min-h-11 min-w-0 rounded-lg px-1 py-2 text-xs font-black min-[390px]:text-sm ${activeTab===tab.key
+                  ? "bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-200"
+                  : "text-slate-600 dark:text-slate-300"}`}>{tab.label}</button>
+            ))}
+          </div>
         </header>
 
+        <section role="tabpanel" id="stock-panel-overview" aria-labelledby="stock-tab-overview" hidden={activeTab !== "overview"}>
+          {activeTab === "overview" && (
+            <>
         {/* Main summary: preserve the scores and calculations, remove duplicated tall cards. */}
         <section className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
@@ -886,52 +921,13 @@ export default function AnalysisPage() {
             <p className="mt-1 text-xs leading-5">有効な株価が取得できないため、様子見・見送りなどの判定を確定しません。</p>
           </section>
         )}
-        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
-            <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
-          </div>
-        </Link>
-
-
-
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-base font-black">AI学習データ <span className="text-xs font-medium text-slate-500">（過去実績・新規購入の勝率ではない）</span></h2>
-          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
-          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">過去の判定済み勝率</p>
-            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
-            {winRate !== null && (
-              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
-                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
-              </p>
-            )}
-          </div>
-          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
-            過去に判定が確定した{resolvedCount}件のWIN÷（WIN＋LOSE）です。HOLDは除外。
-            今回の銘柄を今から買ったときの勝率ではなく、AI評価やスイング判定と直接比較できません。
-          </p>
-          {historyStats && unclassifiedCount !== 0 && (
-            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-              <summary className="cursor-pointer">⚠ 集計内訳に{Math.abs(unclassifiedCount)}件の差があります（詳しく見る）</summary>
-              <p className="mt-2 font-medium">
-                集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
-                この画面では差の内訳は未確認です。
-              </p>
-            </details>
-          )}
-          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-sm font-black">重要指標</h2>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <Info label="必要資金" value={hasReferencePrice ? yen(requiredMoney) : "—"} />
-            <Info label="変化率" value={hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
-            <Info label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} />
-          </div>
-        </section>
-
+        <AnalysisVisualGuide code={signal.code} analysisPrice={hasReferencePrice ? price : null} compact />
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => { setActiveTab("chart"); window.scrollTo({top:0}); }}
+            className="min-h-11 rounded-xl border border-blue-200 bg-blue-50 p-2 text-xs font-black text-blue-800">📈 チャートを詳しく</button>
+          <button type="button" onClick={() => { setActiveTab("analysis"); window.scrollTo({top:0}); }}
+            className="min-h-11 rounded-xl border border-blue-200 bg-white p-2 text-xs font-black text-blue-800">🔎 指標・学習実績へ</button>
+        </div>
         {hasReferencePrice ? (
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-black">💰 利益とリスク <span className="text-[11px] font-medium text-slate-500">（100株の仮試算）</span></h2>
@@ -972,10 +968,68 @@ export default function AnalysisPage() {
           </section>
         )}
 
+            </>
+          )}
+        </section>
+        <section role="tabpanel" id="stock-panel-chart" aria-labelledby="stock-tab-chart" hidden={activeTab !== "chart"}>
+          {activeTab === "chart" && (
+            <>
         <AnalysisVisualGuide
           code={signal.code}
           analysisPrice={hasReferencePrice ? price : null}
         />
+        <Link href={`/chart/${signal.code}`} className="mt-2 block rounded-xl border border-blue-600 bg-blue-600 px-3 py-2.5 text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]" aria-label={`${signal.code} ${signal.name}のチャートを見る`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0"><p className="text-sm font-black">📈 チャートで確認</p><p className="text-[11px] font-medium text-blue-100">ローソク足・支持線・抵抗線・出来高</p></div>
+            <span className="shrink-0 text-2xl" aria-hidden="true">→</span>
+          </div>
+        </Link>
+
+
+
+            </>
+          )}
+        </section>
+        <section role="tabpanel" id="stock-panel-analysis" aria-labelledby="stock-tab-analysis" hidden={activeTab !== "analysis"}>
+          {activeTab === "analysis" && (
+            <>
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-base font-black">AI学習データ <span className="text-xs font-medium text-slate-500">（過去実績・新規購入の勝率ではない）</span></h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4"><Mini label="検証" value={`${total}回`} compact /><Mini label="WIN" value={`${win}`} compact /><Mini label="LOSE" value={`${lose}`} compact /><Mini label="HOLD" value={`${hold}`} compact /></div>
+          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-center dark:bg-slate-800">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-300">過去の判定済み勝率</p>
+            <p className="mt-1 text-3xl font-black text-blue-600 dark:text-blue-400">{winRate === null ? "データ蓄積中" : `${winRate}%`}</p>
+            {winRate !== null && (
+              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
+                判定済み {resolvedCount}回（{win}勝{lose}敗）{winRateIsReference ? "・参考値" : ""}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-300">
+            過去に判定が確定した{resolvedCount}件のWIN÷（WIN＋LOSE）です。HOLDは除外。
+            今回の銘柄を今から買ったときの勝率ではなく、AI評価やスイング判定と直接比較できません。
+          </p>
+          {historyStats && unclassifiedCount !== 0 && (
+            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+              <summary className="cursor-pointer">⚠ 集計内訳に{Math.abs(unclassifiedCount)}件の差があります（詳しく見る）</summary>
+              <p className="mt-2 font-medium">
+                集計確認：検証{total}件とWIN・LOSE・HOLDの合計に{Math.abs(unclassifiedCount)}件の差があります。
+                この画面では差の内訳は未確認です。
+              </p>
+            </details>
+          )}
+          <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{getLearningMessage(total, winRate)}</p>
+        </section>
+
+        <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-sm font-black">重要指標</h2>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <Info label="必要資金" value={hasReferencePrice ? yen(requiredMoney) : "—"} />
+            <Info label="変化率" value={hasReferencePrice ? `${changePercent > 0 ? "+" : ""}${changePercent}%` : "—"} valueClass={changePercent > 0 ? "text-emerald-600 dark:text-emerald-400" : changePercent < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-300"} />
+            <Info label="出来高" value={hasReferencePrice && signal.volumeRatio != null ? `${signal.volumeRatio}倍` : "—"} />
+          </div>
+        </section>
+
         <SwingHistoricalEvidence code={signal.code} />
 
         <details className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-950 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-200">
@@ -1066,7 +1120,7 @@ export default function AnalysisPage() {
             <Mini label="上値突破の期待度" value={hasReferencePrice && supportResistanceStatus !== "NO_DATA" ? `${breakoutExpectation}%` : "—"} compact valueClass="text-blue-600 dark:text-blue-400" />
           </div>
           <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-medium leading-5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{getSupportResistanceComment({ status: supportResistanceStatus, supportPrice, resistancePrice, supportDistancePercent, resistanceDistancePercent, breakoutExpectation })}</p>
-          <PatternList detectedPatterns={signal.detectedPatterns} code={signal.code} />
+
         </section>
 
         <section className="mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -1090,6 +1144,26 @@ export default function AnalysisPage() {
           <p className="mt-2 text-xs font-medium leading-6 text-amber-900 dark:text-amber-200">SIGNALXは投資判断をサポートする情報提供サービスです。AI判定・スコア・利益確定／損失を抑える目安は将来の利益を保証するものではありません。最終判断はご自身の責任で行ってください。</p>
         </section>
 
+            </>
+          )}
+        </section>
+        <section role="tabpanel" id="stock-panel-catalog" aria-labelledby="stock-tab-catalog" hidden={activeTab !== "catalog"}>
+          {activeTab === "catalog" && (
+            <>
+        <section className="mt-2 rounded-xl border border-violet-200 bg-violet-50 p-4 text-slate-900">
+          <h2 className="text-lg font-black">📚 この銘柄と図鑑を照合</h2>
+          <p className="mt-2 text-xs leading-5">最初にこの銘柄の保存された検出記録を表示します。検出がなければ、下の教材はこの銘柄の買いサインではありません。</p>
+        </section>
+        <PatternList detectedPatterns={signal.detectedPatterns} code={signal.code} />
+        <div className="mt-3"><DoubleBottomVisualLesson /></div>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Link href="/learning/patterns" className="flex min-h-11 items-center justify-center rounded-xl bg-violet-700 px-3 text-center text-sm font-black text-white">📚 すべてのパターンを学ぶ</Link>
+          <Link href="/learning/chart-quiz" className="flex min-h-11 items-center justify-center rounded-xl border border-violet-200 bg-white px-3 text-center text-sm font-black text-violet-700">🧠 3択クイズで練習</Link>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">教材の図は模式図です。保存スキャンで検出された形・確定日足・未来の値動きを混同しないでください。</p>
+            </>
+          )}
+        </section>
         <BottomNav />
       </div>
     </main>
