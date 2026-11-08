@@ -29,11 +29,12 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
-      - name: Compile unsigned Android TWA debug APK
+      - name: Compile Android TWA debug APK and unsigned release bundle
         working-directory: android-twa
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug
+          ./gradlew --no-daemon :app:assembleDebug :app:bundleRelease
+          test -s app/build/outputs/bundle/release/app-release.aab
 
 # Debug builds do not use the Play App Signing certificate and MUST NOT be distributed
 # as a drop-in replacement for the installed SIGNALX application.
