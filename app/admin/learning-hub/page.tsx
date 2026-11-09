@@ -138,6 +138,11 @@ const sections: { id: string; title: string; subtitle: string; items: HubItem[] 
         detail: "パターン別の的中率と未来追跡",
       },
       {
+        href: "/admin/neckline-forward", icon: "📅",
+        title: "底①②・ネックライン事前固定FORWARD", tag: "本人専用・未来記録",
+        detail: "寄付き前に保存した実測候補、取得欠損、3・5営業日後の追跡。後付け登録なし",
+      },
+      {
         href: "/admin/neckline-entry-risk", icon: "📉",
         title: "ネックライン購入時刻・損失の拡張研究", tag: "本人専用・15銘柄",
         detail: "3通りの仮購入時刻、最大下落、前後期間を確定日足で比較。自動保存・通知なし",
