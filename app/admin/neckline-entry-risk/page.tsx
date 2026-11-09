@@ -108,6 +108,10 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
           <Link href="/admin/neckline-quality" className="inline-flex min-h-11 items-center text-sm font-bold text-blue-700">
             ← 底①・底②・ネックライン検証へ戻る
           </Link>
+          <Link href="/admin/neckline-forward"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-blue-300 bg-blue-50 px-3 text-center text-sm font-black text-blue-900">
+            📅 事前固定FORWARDの収集状況・3/5日後を確認 →
+          </Link>
           <header className="rounded-2xl border border-indigo-200 bg-white p-4">
             <p className="text-xs font-black text-indigo-800">本人専用・研究限定・実測した確定日足</p>
             <h1 className="mt-1 text-xl font-black sm:text-2xl">🔬 上抜け後の損失と買う時刻を比較</h1>
@@ -242,7 +246,7 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
               </section>
               <NecklineLossDiagnostics analysis={report.diagnostics}/>
               <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-black">⑦ データ取得の確認</h2>
+                <h2 className="text-base font-black">⑧ データ取得の確認</h2>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {report.sample.details.map(item=>(
                     <p key={item.code} className="rounded-lg bg-slate-50 p-2 text-xs leading-5">
