@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
 import PatternDiagram from "@/app/components/patterns/PatternDiagram";
+import ChartPatternVisualLesson from "@/app/components/patterns/ChartPatternVisualLesson";
 import DoubleBottomVisualLesson from "@/app/components/patterns/DoubleBottomVisualLesson";
 import {
   chartPatternCatalog,
@@ -123,6 +124,7 @@ export default async function ChartPatternDetailPage({
         </section>
 
         {pattern.id === "pattern002" && <div className="mt-5"><DoubleBottomVisualLesson /></div>}
+        {pattern.id !== "pattern002" && <div className="mt-5"><ChartPatternVisualLesson pattern={pattern} /></div>}
 
         <section className="mt-5 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="text-lg font-black">説明</h2>
