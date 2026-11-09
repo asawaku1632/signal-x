@@ -66,7 +66,7 @@ test("bad, duplicated, reversed, or too-few bars fail closed instead of plotting
   assert.equal(observedNecklineOverlay(notEvenDaily, fixtureNow).status, "NONE");
 });
 
-test("actual OHLC charts receive same day-only research overlay, not a simulated entry signal", () => {
+test("neckline research stays available outside the shared inline timeframe chart", () => {
   const trading = read("app/chart/[code]/components/TradingChart.tsx");
   const inline = read("app/components/analysis/InlineTradingChart.tsx");
   const visual = read("app/components/analysis/AnalysisVisualGuide.tsx");
@@ -77,10 +77,9 @@ test("actual OHLC charts receive same day-only research overlay, not a simulated
   assert.match(trading, /ネックライン候補/);
   assert.match(trading, /底①/);
   assert.match(trading, /底②/);
-  assert.match(inline, /timeframe === "1D" && chart\.kind === "ready"/);
-  assert.match(inline, /observedNecklineOverlay\(candles\)/);
-  assert.match(inline, /necklineOverlay=\{timeframe === "1D" \? necklineOverlay : null\}/);
-  assert.match(inline, /当日のリアルタイム保存記録ではありません/);
+  assert.doesNotMatch(inline, /observedNecklineOverlay|necklineOverlay|ダブルボトム候補|ネックライン候補/);
+  assert.doesNotMatch(inline, /底①・底②・ネックライン候補を日足で確認/);
+  assert.match(inline, /setTimeframe\(option\.value\)/);
   assert.match(visual, /<PlainCandleChart candles=\{candles\}/);
   assert.match(visual, /observedNecklineOverlay\(candles\)/);
   assert.match(visual, /過去の日足を使った事後的な研究表示/);
