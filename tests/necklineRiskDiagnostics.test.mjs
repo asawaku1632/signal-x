@@ -131,6 +131,6 @@ test("owner-only route presents sensitivity and conditional matched comparisons 
   assert.match(ui,/上抜けした.*事後条件/);
   assert.match(core,/NECKLINE_FEATURE_AXES/);
   assert.match(core,/row\.scenarios\?\.\[first\]\?\.qualified === true/);
-  assert.doesNotMatch(page,/update.*public\.|pool\.|INSERT INTO|pushNotification|sendNotification|tradeOrder/);
+  assert.doesNotMatch(page,/update.*public\.|INSERT INTO|pushNotification|sendNotification|tradeOrder/);
   assert.doesNotMatch(core,/Math\.random\(|fetch\(|futureFeatures|selectedWinStocks/);
 });

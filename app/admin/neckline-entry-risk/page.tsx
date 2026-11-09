@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BottomNav from "@/app/components/BottomNav";
+import pool from "@/app/lib/postgres";
 import NecklineLossDiagnostics, {type LossDiagnostics} from "@/app/components/analysis/NecklineLossDiagnostics";
 import { getLearningOwnerSession } from "@/app/lib/learningOwner";
 import { fetchNecklineExtendedCohort } from "@/app/lib/research/shadowCandleYahoo";
@@ -12,7 +13,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
-type Props={searchParams:Promise<{run?:string;codes?:string}>};
+type Props={searchParams:Promise<{run?:string;codes?:string;snapshot?:string}>};
+type FrozenReplayStock={code:string;candles:NonNullable<Parameters<typeof replayNecklineEntryRisk>[0]>[number]["candles"];error:string|null};
+type ReplaySnapshotRow={id:string;created_at:string;policy_version:string;requested_codes:string[];cohort:FrozenReplayStock[];cohort_sha256:string};
 type Stat={completed:number;meanPercent:number|null;medianPercent:number|null;positivePercent:number|null;worstPercent:number|null};
 type Scenario={
   id:string;title:string;description:string;candidates:number;qualified:number;noEntry:number;
@@ -84,9 +87,18 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
     || new Set(codes).size!==codes.length || codes.some(x=>!/^[0-9]{4}$/.test(x)))
     ? "重複のない4桁の銘柄コードを1〜15個入力してください。" : null;
   const now=new Date();
-  // Explicit form submission only. Owner verified BEFORE bounded upstream calls.
-  // No DB read/write, no background scan, no notification or trading action.
-  const loaded=run && !error ? await fetchNecklineExtendedCohort(codes) : [];
+  // Owner permission is checked above before ANY archived research DB read.
+  // A snapshot always uses the saved immutable Yahoo bars, never today's quote.
+  const snapshotId=typeof params.snapshot==="string"&&/^[0-9a-f-]{36}$/.test(params.snapshot)
+    ? params.snapshot : null;
+  const snapshotRows=snapshotId?await pool.query<ReplaySnapshotRow>(`
+    SELECT id::text,created_at::text,policy_version,requested_codes,cohort,cohort_sha256
+    FROM public.neckline_replay_snapshots WHERE id=$1::uuid LIMIT 1
+  `,[snapshotId]).catch(()=>({rows:[] as ReplaySnapshotRow[]})):{rows:[] as ReplaySnapshotRow[]};
+  const snapshot=snapshotRows.rows[0]??null;
+  // Legacy ad-hoc GET remains for historical comparisons; exact repeatability
+  // is provided by the explicit POST "保存して検証" workflow below.
+  const loaded=snapshot?.cohort ?? (run&&!error?await fetchNecklineExtendedCohort(codes):[]);
   const report:Expanded|null=loaded.length ? replayNecklineEntryRisk(loaded,now) as Expanded : null;
 
   return (
@@ -95,6 +107,10 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
         <div className="mx-auto max-w-4xl space-y-3 px-3 pt-4 sm:px-6">
           <Link href="/admin/neckline-quality" className="inline-flex min-h-11 items-center text-sm font-bold text-blue-700">
             ← 底①・底②・ネックライン検証へ戻る
+          </Link>
+          <Link href="/admin/neckline-forward"
+            className="flex min-h-12 items-center justify-center rounded-xl border border-blue-300 bg-blue-50 px-3 text-center text-sm font-black text-blue-900">
+            📅 事前固定FORWARDの収集状況・3/5日後を確認 →
           </Link>
           <header className="rounded-2xl border border-indigo-200 bg-white p-4">
             <p className="text-xs font-black text-indigo-800">本人専用・研究限定・実測した確定日足</p>
@@ -113,25 +129,54 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
               <input type="hidden" name="run" value="1"/>
               <label htmlFor="codes" className="text-sm font-black">検証銘柄（1〜15銘柄・4桁コード）</label>
               <textarea id="codes" name="codes" rows={3} maxLength={120}
-                defaultValue={raw || INITIAL_CODES} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3 text-base"
+                defaultValue={raw || snapshot?.requested_codes?.join(",") || INITIAL_CODES} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3 text-base"
                 aria-describedby="code-info"/>
-              <button type="submit" className="mt-3 min-h-12 w-full rounded-xl bg-indigo-700 px-3 text-sm font-black text-white">
-                🔬 15銘柄までの損失・タイミングを検証する
+              <button type="submit" className="mt-3 min-h-12 w-full rounded-xl border border-indigo-300 bg-indigo-50 px-3 text-sm font-black text-indigo-900">
+                🔬 最新の参考日足で試算（保存しない）
+              </button>
+              <button type="submit" formMethod="post"
+                formAction="/api/admin/neckline-replay-snapshot"
+                className="mt-2 min-h-12 w-full rounded-xl bg-indigo-700 px-3 text-sm font-black text-white">
+                📌 日足を固定保存して検証する（再表示しても同じデータ）
               </button>
             </form>
             <p id="code-info" className="mt-2 text-xs leading-5 text-slate-600">
               ボタンを押したときだけ、指定した最大15銘柄のYahoo参考日足を取得（最大3件を同時取得、6か月・各最大135本）。
-              取得できない銘柄は除外して理由を表示します。自動収集・DB保存・通知・発注なし。
-              初期15銘柄は固定サンプルであり、全市場の無作為抽出ではありません。
+              取得できない銘柄は除外して理由を表示します。
+              青い「固定保存」は本人が押したときだけ過去日足を研究専用DBに不変保存し、
+              <strong>同じ保存IDを再表示すると必ず同じ元データ</strong>で比較できます。
+              過去データの保存は事前予測実績にはなりません。初期15銘柄は固定サンプルであり、全市場の無作為抽出ではありません。
+              通知・発注・買い判断への接続なし。
             </p>
             {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
           </section>
+          {snapshotId && !snapshot && (
+            <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">
+              保存IDが見つからないか、研究DBを確認できませんでした。新しい取得を試す場合は上のボタンを押してください。
+            </p>
+          )}
+          {snapshot && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <h2 className="text-sm font-black text-emerald-950">📌 保存済み日足で再現中</h2>
+              <p className="mt-2 text-xs leading-6 text-emerald-950">
+                データ保存日時：{new Date(snapshot.created_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})} 日本時間<br />
+                保存ID：{snapshot.id}<br />
+                入力SHA256：<span className="break-all">{snapshot.cohort_sha256}</span><br />
+                対象：{snapshot.requested_codes.join("、")}（失敗した銘柄も欠損として保持）
+              </p>
+              <p className="mt-2 text-xs font-bold text-emerald-950">
+                同じURLを開けば、取得失敗・候補・価格が後日変わっても、この過去検証の母集団は変わりません。
+                これは過去データの再現用で、寄付き前の予測保存ではありません。
+              </p>
+            </section>
+          )}
           {report && (
             <>
               <section className="rounded-2xl border border-blue-200 bg-white p-4">
                 <h2 className="text-base font-black">📋 今回の検証の範囲</h2>
                 <p className="mt-2 text-xs leading-6 text-slate-700">
                   バージョン：{NECKLINE_ENTRY_RISK_VERSION}<br />
+                  データ種別：{snapshot?"固定保存した履歴":"実行時に取得した履歴"}<br />
                   実行：{now.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})} 日本時間<br />
                   取得成功 {report.sample.usableSymbols}/{report.sample.requestedSymbols}銘柄
                   ／ 候補 {report.sample.candidates}件 ／ 日足 {report.sample.completedDailyBars}本<br />
@@ -201,7 +246,7 @@ export default async function NecklineEntryRiskPage({searchParams}:Props) {
               </section>
               <NecklineLossDiagnostics analysis={report.diagnostics}/>
               <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-black">⑦ データ取得の確認</h2>
+                <h2 className="text-base font-black">⑧ データ取得の確認</h2>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {report.sample.details.map(item=>(
                     <p key={item.code} className="rounded-lg bg-slate-50 p-2 text-xs leading-5">
