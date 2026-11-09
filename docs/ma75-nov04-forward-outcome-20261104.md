@@ -113,3 +113,48 @@ provider publication for that date.
 **Do not enable production ranking or alerts**. Await multiple
 independent later signal dates, audit external licensing/timestamp
 provenance, corporate action effects and realistic executions.
+
+
+## 2026-11-06 close / three-session subgroup result (owner-local log received 2026-11-09)
+
+This is **user-provided derived local PowerShell output**, not a
+remote read of licensed J-Quants V2 pages. All three previously frozen
+wick-volume codes reported `HYPOTHETICAL_HORIZON_ONLY` for horizon=3.
+The assumed entry was the **2026-11-04 OPEN** and hypothetical exit
+was the **2026-11-06 CLOSE**, with modeled adverse friction of
+0.1% per side. Stock IDs and frozen 27/22/3 denominators were NOT
+changed.
+
+| Original frozen code | horizon 3 net % | modeled P/L on 100 shares | minimum observed LOW vs modeled Nov4 entry |
+|---|---:|---:|---:|
+| 1878 | -4.0587% | -¥13,764.50 | -4.0806% |
+| 7172 | -2.8423% | -¥6,017.40 | -3.8786% |
+| 9832 | -2.9228% | -¥4,610.90 | -2.8256% |
+| **Three-code mean** | **-3.2746%** | **-¥8,130.93** | not aggregated here |
+
+All three observed net outcomes were negative (positive ratio 0/3).
+The mean of the prior Nov4 first-session results for the SAME three
+codes was -1.1875%; three-session mean is 2.0871 percentage points
+lower. The total modeled profit across 100 shares of each code would
+be -¥24,392.80 (fictional simultaneous ownership of 300 shares across
+three securities, not an executed portfolio or position size
+recommendation). The recorded minimum LOW values are relative to
+entry, not stop-loss fills; modeled same-close losses can exceed the
+daily minimum-price move after accounting for exit friction.
+
+**No new entire-27 or rising-22 three-day aggregate is claimed**:
+the user's pasted log contains only the three-code subgroup rows.
+The remaining 24 codes may have been locally evaluated, but their
+aggregate statistics were not supplied. Do not label them
+complete or estimate their means from these three rows.
+
+The 5-session 2026-11-10 outcome remains **PENDING**, not a zero
+return. After genuine provider publication, the owner may manually
+capture 2026-11-09 and 2026-11-10 ORIGINAL daily pages using the
+existing one-date script, without overwriting any existing file,
+then rerun the same read-only 1/3/5 ledger. No automatically scheduled
+data retrieval, no re-freeze, no retroactive selection or reclassification.
+Provider rights and the next-open fill remain unverified, and study
+state remains **SHADOW_NOT_APPROVED**. These three cases from one
+single signal date do not establish reproducible expected gains or
+losses.
