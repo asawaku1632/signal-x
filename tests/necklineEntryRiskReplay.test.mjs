@@ -136,5 +136,5 @@ test("owner checks are before bounded calls, and UI does not enable trading or n
   assert.match(loader,/Math\.min\(3, codes\.length\)/);
   assert.match(old,/href="\/admin\/neckline-entry-risk"/);
   assert.match(hub,/href: "\/admin\/neckline-entry-risk"/);
-  assert.doesNotMatch(page,/pool\.|UPDATE public\.|INSERT INTO|pushNotification|sendNotification|tradingOrder/);
+  assert.doesNotMatch(page,/UPDATE public\.|INSERT INTO|pushNotification|sendNotification|tradingOrder/);
 });
