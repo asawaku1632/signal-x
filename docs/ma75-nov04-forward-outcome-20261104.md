@@ -158,3 +158,61 @@ Provider rights and the next-open fill remain unverified, and study
 state remains **SHADOW_NOT_APPROVED**. These three cases from one
 single signal date do not establish reproducible expected gains or
 losses.
+
+
+## 2026-11-06 close / full 27-versus-22-versus-3 comparison (owner-local log received 2026-11-09)
+
+The owner has now separately provided the **full `$h.horizons.session3.groups`
+PowerShell aggregate output** from the same read-only original-source
+1/3/5 ledger. This supersedes the earlier statement in this document
+that the 27- and 22-code aggregates were not yet supplied. Group
+definitions remain the ORIGINAL Nov 2 immutable cohorts; signals
+were NOT reselected after observing results. One signal date, one
+Nov 4 entry-open to Nov 6 exit-close observational window; modeled
+0.1% adverse friction per side, not actual broker execution.
+
+| Original overlapping group | measured / frozen | pending | quarantined | mean modeled net return | median modeled net return | percent positive | mean modeled 100-share P/L |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| All MA75 closing breakouts | 27 / 27 | 0 | 0 | **-3.8980%** | -2.9228% | 11.11% (3/27) | -¥41,977.48 |
+| Rising MA75 subset | 22 / 22 | 0 | 0 | **-3.4807%** | -2.9047% | 9.09% (2/22) | -¥11,419.92 |
+| Upper wick >=35% and volume >=1.5x | 3 / 3 | 0 | 0 | **-3.2746%** | -2.9228% | 0.00% (0/3) | -¥8,130.93 |
+| Rising AND wick+volume intersection | 3 / 3 | 0 | 0 | **-3.2746%** | -2.9228% | 0.00% (0/3) | -¥8,130.93 |
+
+The relative GROUP MEAN loss differences are **+0.6234 percentage
+points vs the 27-stock baseline** and **+0.2061 percentage points
+vs rising-22** (less negative, not profitable); the rising subset
+itself is +0.4173 points less negative than all 27. These groups
+OVERLAP, hence are not independent randomized controls. The compound
+filter's 0/3 positive results and small sample do not prove an
+advantage even though its average was marginally less negative.
+
+Other owner-reported aggregate checks:
+- Median worst LOW vs modeled first-session entry cost: all 27
+  **-3.9668%**, rising 22 **-3.9227%**, compound 3 **-3.8786%**.
+- Modeled budget eligibility (100-share lots, ¥100k–¥500k
+  investigation range): **22/27**, **20/22**, and **3/3**, respectively.
+- The P/L mean in yen per 100 shares is not a fair stand-alone
+  strategy comparator, because different nominal stock prices and
+  **budget-ineligible codes** are included in the per-stock yen
+  averages. The percent-return comparison above is the more relevant
+  *unweighted descriptive* comparison; it is still highly vulnerable
+  to three-stock noise and a single-market-day shock.
+- Additional round-trip cost sensitivity exists in the structured
+  source output but its numeric array was not included in the pasted
+  log, so no user-specific numerical values are inferred.
+- Prior Nov 4 first-session mean (already recorded) was
+  -1.0329% all-27, -1.0468% rising-22 and -1.1875%
+  compound-3. Nov 6 modeled mean loss was more negative for all.
+- This confirms a descriptive **3-session calculation for 27/27**,
+  not market-price as-of certification, independently validated
+  forward returns, actual next-open purchases, or stable strategy
+  win probabilities.
+
+**5-session result as of this record: still not reported / pending.**
+The required Nov 9 and Nov 10 daily originals must be checked,
+obtained by the owner with the already existing explicit single-day
+capture only when available, and never fabricated or uploaded.
+Original Nov 2 SHA256 stays
+`1ba1aee5ac05b2c0fd114d3cabe5463bde4409b203544722cf03c04fc0a6612b`.
+No re-freezing; retain **SHADOW_NOT_APPROVED**, Draft PR, no production
+AI POWER, notifications or trades.
