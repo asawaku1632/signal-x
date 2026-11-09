@@ -3,6 +3,7 @@ import { updatePostSaleOutcomes } from "@/app/lib/research/ownerPostSaleAudit";
 import { shouldRunReboundOnHost } from "@/app/lib/research/supportReboundAutoCore";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { captureSwingExitSignals, updateSwingExitOutcomes } from "@/app/lib/learning/swingExitAudit";
+import { captureSwingDecisionForward, updateSwingDecisionForwardOutcomes } from "@/app/lib/learning/swingDecisionForward";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,14 +20,23 @@ export async function GET(request: Request) {
     // Append isolated owner-only real-exit research after existing audit.
     // A missing migration must never break the existing EXIT workflow.
     let postSale: Record<string, unknown> = { skipped: true, reason: "NOT_PRIMARY_PRODUCTION_HOST" };
+    let forwardComparison: Record<string, unknown> = { skipped: true, reason: "NOT_PRIMARY_PRODUCTION_HOST" };
     if (shouldRunReboundOnHost(new URL(request.url).hostname, process.env.VERCEL_ENV)) {
+      try {
+        const captureForward = await captureSwingDecisionForward("CRON");
+        const outcomeForward = await updateSwingDecisionForwardOutcomes();
+        forwardComparison = { capture: captureForward, outcomes: outcomeForward };
+      } catch (forwardError) {
+        console.error("[swing-decision-forward] optional research failed", forwardError);
+        forwardComparison = { skipped: true, reason: "FORWARD_RESEARCH_UNAVAILABLE" };
+      }
       try { postSale = await updatePostSaleOutcomes(); }
       catch (postSaleError) {
         console.error("[owner-post-sale] optional audit failed", postSaleError);
         postSale = { skipped: true, reason: "POST_SALE_AUDIT_UNAVAILABLE" };
       }
     }
-    return NextResponse.json({ success: true, checkedAt: new Date().toISOString(), capture, outcomes, postSale });
+    return NextResponse.json({ success: true, checkedAt: new Date().toISOString(), capture, outcomes, postSale, forwardComparison });
   } catch (error) {
     console.error("[swing-exit-audit] daily audit failed", error);
     return NextResponse.json({ success: false, error: "Swing exit audit failed" }, { status: 500 });
