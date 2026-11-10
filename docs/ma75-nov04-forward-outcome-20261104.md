@@ -303,3 +303,63 @@ realistic position/budget validation are required. Research remains
 production/AI POWER/notifications/trading, re-freeze, original-source
 upload or extra J-Quants network request was performed by this
 documentation update.
+
+
+## 2026-11-10 close / affordable-lots 22-of-27 follow-up (owner-local PowerShell)
+
+The owner subsequently executed a **read-only post-hoc affordability
+subset calculation** from the already completed `$h`
+`ma75-135-horizons-local.mjs` result. Only rows with
+`horizonSessions==5`,
+`status=='HYPOTHETICAL_HORIZON_ONLY'`, and
+`budgetEligible==true` were included. No API was called and the
+27 Nov 2 signal members were NOT amended. This subgroup is
+nested within the 27, and its price-based eligibility was computed
+using the hypothetical **Nov 4 entry OPEN**.
+
+| Five-session group | measured / original | positive count and rate | unweighted mean hypothetical return | arithmetic mean hypothetical P/L for 100 shares |
+|---|---:|---:|---:|---:|
+| All original SMA75 breakouts | 27/27 | 15/27 = 55.56% | +0.4501% | -¥17,936.73 |
+| **Budget-eligible from original 27** | **22/22** | **13/22 = 59.09%** | **+1.2998%** | **+¥1,896.62** |
+
+The budget-eligible subset is **+0.8497 percentage points** above
+the all-27 equal-security return mean. The nominal 100-share
+average gain is **¥19,833.35 higher** than the all-27 average,
+but the groups do NOT contain the same securities and the yen
+means are not price-neutral comparisons. This output provides the
+first owner-local sample-specific affordability subset aggregates,
+superseding the earlier note in this document that these were
+not yet supplied.
+
+**Precisely what `budgetEligible` means in this version:**
+`app/lib/research/ma75FirstSessionForwardOutcome.mjs`
+estimates the **100-share lot cost** as
+`100 * Nov4Open * (1 + 0.001)`, then finds a whole number
+of 100-share lots between an inclusive **¥100,000 minimum and
+¥500,000 maximum**. The eligibility filter can include a
+security whose *single* 100-share lot costs less than ¥100,000
+because buying **two or more lots** would meet the minimum.
+Thus the reported **+¥1,896.62 is explicitly per 100 shares**,
+NOT a realized ¥100,000–¥500,000 budget-sized portfolio P/L
+or the average actual outlay under an optimal lot allocation.
+
+A critical prospective boundary: **Nov 4 opening prices are not
+known at the Nov 2 closing signal**. A budget eligibility rule
+using those Nov 4 opens can be applied as a contingent entry-day
+execution filter, but must NOT be represented as fully determined
+before that open. The actual entry execution and affordability
+at that auction are unverified. The user supplied no external
+source timing certification, broker fills, independently verified
+corporate actions, realistic fees/taxes or budget-allocation model.
+The 22 names may overlap with the 22 *rising-MA75* names but
+these are **different subset definitions**; do not conflate them.
+
+The result is promising enough to **predeclare a NEW independent
+forward affordability-vs-all cohort comparison** at subsequent
+signal dates with its entry-day price rule written before
+observing outcomes, but it does NOT validate this strategy or
+establish a 59.09% true future win probability from a single
+Nov 2 market-date cohort. The original 27/22-rising/3-composite
+memberships and historical SHA are unchanged. No `--freeze`,
+production/AI POWER/notifications/trading, or original data
+rewrites; `SHADOW_NOT_APPROVED` remains in force.
