@@ -58,7 +58,21 @@ async function recordScanAudit(
   coverage: number,
 ) {
   if (key !== SCAN_SNAPSHOT_KEY) return;
-  const rows = stocks.filter((stock) => /^\\d{4}$/.test(String(stock.code ?? "")));
+  // Research windows in JST. Preserve the actual generation timestamp.
+  const scanTime = new Date(generatedAt);
+  const jst = new Date(scanTime.getTime() + 9 * 60 * 60 * 1000);
+  const hhmm = jst.getUTCHours() * 60 + jst.getUTCMinutes();
+  const slots = [
+    { name: "preopen_0850", start: 525, end: 540 },
+    { name: "open_0905", start: 545, end: 555 },
+    { name: "morning_0915", start: 555, end: 565 },
+    { name: "midday_1130", start: 685, end: 695 },
+    { name: "close_1530", start: 925, end: 940 },
+  ];
+  const slot = slots.find((entry) => hhmm >= entry.start && hhmm < entry.end);
+  if (!slot) return;
+  const captureSlot = jst.toISOString().slice(0, 10) + ":" + slot.name;
+  const rows = stocks.filter((stock) => /^\d{4}$/.test(String(stock.code ?? "")));
   if (!rows.length) return;
   const observations = rows.map((stock, index) => ({
     code: String(stock.code),
@@ -70,15 +84,15 @@ async function recordScanAudit(
   }));
   await pool.query(
     `INSERT INTO public.ai_power_scan_audit
-      (snapshot_key,scan_generated_at,code,ai_power,rank,reference_price,
+      (snapshot_key,scan_generated_at,capture_slot,code,ai_power,rank,reference_price,
        latest_bar_timestamp,model_version,snapshot_coverage)
-     SELECT $1,$2::timestamptz,x.code,x.score,x.rank,x.price,x.bar_time,$4,$5
+     SELECT $1,$2::timestamptz,$6,x.code,x.score,x.rank,x.price,x.bar_time,$4,$5
      FROM jsonb_to_recordset($3::jsonb)
        AS x(code text,score numeric,rank integer,price numeric,bar_time text)
-     ON CONFLICT (snapshot_key,scan_generated_at,code) DO NOTHING`,
+     ON CONFLICT (snapshot_key,capture_slot,code) DO NOTHING`,
     [key, generatedAt, JSON.stringify(observations.map(x => ({
       code: x.code, score: x.score, rank: x.rank, price: x.price, bar_time: x.barTime,
-    }))), AI_POWER_VERSION, coverage],
+    }))), AI_POWER_VERSION, coverage, captureSlot],
   );
 }
 
