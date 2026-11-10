@@ -29,15 +29,17 @@ export async function GET(request: Request) {
         WHERE provider = 'JQUANTS_ADJUSTED_DAILY'
           AND provider_published_at <= now()
           AND trade_date < $1::date
+          AND adjustment_version = 'ENTRY_COMPATIBLE_V1'
         GROUP BY trade_date
         HAVING count(DISTINCT code) >= 800
       ), eligible AS (
         SELECT c.id AS capture_id, c.trade_date_jst, c.slot_jst,
           item->>'code' AS code, (item->>'price')::numeric AS entry_price,
-          row_number() OVER (PARTITION BY c.id, item->>'code' ORDER BY item->>'rank') AS duplicate_rank
+          row_number() OVER (PARTITION BY c.id, item->>'code' ORDER BY (item->>'rank')::integer) AS duplicate_rank
         FROM owner_ranking_forward_captures c
         CROSS JOIN LATERAL jsonb_array_elements(c.records) item
-        WHERE item->>'eligibleForForward' = 'true'
+        WHERE c.slot_jst <> '08:50'
+          AND item->>'eligibleForForward' = 'true'
           AND item->>'quoteTimeVerified' = 'true'
           AND item->>'price' ~ '^[0-9]+(\\.[0-9]+)?$'
           AND (item->>'price')::numeric > 0
