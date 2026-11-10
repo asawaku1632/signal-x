@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.ai_power_scan_audit (
   captured_at timestamptz NOT NULL DEFAULT now(),
   snapshot_key text NOT NULL,
   scan_generated_at timestamptz,
+  capture_slot text NOT NULL,
   code text NOT NULL,
   ai_power numeric,
   rank integer,
@@ -13,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.ai_power_scan_audit (
   source_label text NOT NULL DEFAULT 'scan_snapshot',
   model_version text,
   snapshot_coverage integer,
-  UNIQUE (snapshot_key, scan_generated_at, code)
+  UNIQUE (snapshot_key, capture_slot, code)
 );
 CREATE INDEX IF NOT EXISTS ai_power_scan_audit_code_time_idx
   ON public.ai_power_scan_audit (code, captured_at DESC);
