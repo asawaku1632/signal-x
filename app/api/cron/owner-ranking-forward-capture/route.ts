@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool from "@/app/lib/postgres";
+import { marketScanGuard } from "@/app/lib/marketScanGuard";
 import { requireCronAuth } from "@/app/lib/cronAuth";
 import { getLatestScanSnapshotSlice } from "@/app/lib/scanSnapshot";
 
@@ -23,15 +24,20 @@ function jstParts(date: Date) {
 }
 function parseTime(value: unknown): number | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
-  const ms = Date.parse(String(value));
+  const raw = typeof value === "number" ? value : Number(value);
+  const ms = Number.isFinite(raw) && raw > 0 ? (raw < 1e11 ? raw * 1000 : raw) : Date.parse(String(value));
   return Number.isFinite(ms) ? ms : null;
 }
 export async function GET(request: Request) {
   const unauthorized = requireCronAuth(request);
   if (unauthorized) return unauthorized;
   const now = new Date();
+  const market = marketScanGuard(now);
+  if (!market.calendarKnown || market.closed || market.dateJst === null) {
+    return NextResponse.json({ success: true, status: "market_calendar_skip" });
+  }
   const jst = jstParts(now);
-  if (jst.weekday === "Sat" || jst.weekday === "Sun") {
+  if (market.dateJst !== jst.day || jst.weekday === "Sat" || jst.weekday === "Sun") {
     return NextResponse.json({ success: true, status: "weekend_skip" });
   }
   const slot = SLOTS.find((s) => {
@@ -51,9 +57,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, status: "stale_or_future_snapshot" }, { status: 503 });
   }
   const stocks = snapshot.payload.stocks.slice(0, 100).map((raw: Record<string, unknown>, index: number) => {
-    const quoteAt = typeof raw.latestBarTimestamp === "string" ? raw.latestBarTimestamp : null;
+    const quoteAt = typeof raw.latestBarTimestamp === "string" || typeof raw.latestBarTimestamp === "number" ? String(raw.latestBarTimestamp) : null;
     const quoteMs = parseTime(quoteAt);
-    const validQuote = quoteMs !== null && quoteMs <= snapshotMs;
+    const validQuote = quoteMs !== null && quoteMs <= snapshotMs && quoteMs <= now.getTime();
     return {
       rank: index + 1,
       code: String(raw.code ?? raw.stockCode ?? ""),
@@ -81,7 +87,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true, status: result.rowCount ? "frozen" : "already_frozen",
       slot, date: jst.day, count: stocks.length, eligibleCount,
-      note: "Research only; not a trading signal. Exchange holidays require independent calendar verification.",
+      note: "Research only; not a trading signal. Exchange calendar checked. Quote source provenance is not independently verified.",
     });
   } catch (error) {
     console.error("ranking capture write failed", error);
