@@ -216,3 +216,90 @@ Original Nov 2 SHA256 stays
 `1ba1aee5ac05b2c0fd114d3cabe5463bde4409b203544722cf03c04fc0a6612b`.
 No re-freezing; retain **SHADOW_NOT_APPROVED**, Draft PR, no production
 AI POWER, notifications or trades.
+
+
+## 2026-11-10 CLOSE: completed five-session 27/22/3 owner-local outcome
+
+**Status of this section:** the user pasted derived final audit values
+from their private local `ma75-135-horizons-local.mjs` output after
+an explicit 2026-11-10 original-source capture. This is a
+**retrospective hypothetical** study, NOT verified next-open execution,
+prospective actionable alerts, independently certified vendor
+publication/timing or investment advice.
+
+The November 10 one-day J-Quants V2 owner-local source was stored
+without replacing any original: capture status
+`ORIGINAL_FORWARD_DAY_CAPTURED_PRIVATE`, original provider rows
+**4,449**, original pages **1**, frozen projected rows **953**.
+Previously archived Nov 4/5/6/9 pages were held privately; the
+five-session offline ledger completed successfully with **all original
+27 candidates measured, zero pending, zero quarantined**, and the
+original Nov 2 frozen group membership unchanged. The pinned
+source/cohort SHA remains the earlier
+`1ba1aee5ac05b2c0fd114d3cabe5463bde4409b203544722cf03c04fc0a6612b`;
+this last hash value was verified in prior user logs, not independently
+recomputed by the GitHub connector from private licensed files.
+
+**Entry model:** 2026-11-04 original OPEN, +0.1% adverse cost.
+**5-session exit model:** 2026-11-10 original CLOSE, -0.1% adverse cost.
+Both are counterfactual prices rather than actual fills. The original
+cohorts overlap and all derive from just ONE 2026-11-02 signal date.
+
+| Unchanged Nov2 frozen group | 5-session evaluated | pending / quarantined | mean hypothetical net % | median % | positive / total | mean simulated yen P/L per 100 shares | ¥100k-¥500k budget-eligible |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| MA75 closing breakouts (all) | 27/27 | 0/0 | **+0.4501%** | +0.5699% | 15/27 = 55.56% | **-¥17,936.73** | 22/27 |
+| Rising MA75 subset | 22/22 | 0/0 | **+0.2978%** | +0.5519% | 12/22 = 54.55% | **-¥1,003.08** | 20/22 |
+| Upper wick>=35% AND volume ratio>=1.5x | 3/3 | 0/0 | **-1.3560%** | -1.7316% | 1/3 = 33.33% | **-¥3,069.33** | 3/3 |
+| Rising AND upper-wick + volume (same three IDs) | 3/3 | 0/0 | **-1.3560%** | -1.7316% | 1/3 = 33.33% | **-¥3,069.33** | 3/3 |
+
+Other user-reported medians of minimum intrahorizon observed LOW
+versus modelled entry cost: all 27 **-3.9668%**, rising 22
+**-3.9227%**, compound 3 **-3.8786%**.
+These values do not prove stop-order fill or actual maximum drawdown.
+
+### Across 1, 3 and 5 sessions
+
+| Original frozen subgroup | Nov 4 close (1) mean | Nov 6 close (3) mean | Nov 10 close (5) mean |
+|---|---:|---:|---:|
+| All 27 | -1.0329% | -3.8980% | **+0.4501%** |
+| Rising 22 | -1.0468% | -3.4807% | **+0.2978%** |
+| Wick + volume 3 | -1.1875% | -3.2746% | **-1.3560%** |
+
+This observed multi-date pattern shows a strong recovery in the
+**cross-sectional equal-stock average of original 27** after Nov 6.
+It does NOT establish a robust temporal signal on a single signal day,
+because the five-day increase could reflect a common market rebound.
+Most crucially, the three-code composite filter underperformed the
+all-27 simple breakout group by **-1.8061 percentage points**, and
+the rising-22 subgroup by **-1.6538 percentage points** on the
+five-session unweighted average despite the compound group's
+relative advantage at the earlier three-session horizon.
+Do not cherry-pick the best exit date after seeing outcomes.
+
+### Why average percentage is positive yet 100-share yen P/L is negative
+
+The return percentage group average weights each stock equally.
+The arithmetic mean 100-share yen P/L implicitly weights higher
+nominal-price stocks much more strongly. If a high-price security loses,
+the yen loss may dominate several smaller-price winners. In this
+sample, the ALL group reported **+0.4501% mean net percentage** but
+**-¥17,936.73 mean modeled 100-share yen P/L**. This is NOT a
+calculation contradiction, nor evidence an affordable, constrained
+portfolio was profitable. Five codes in the original 27 failed
+the prescribed budget eligibility. The 22/27 budget subset's
+own mean net return, execution constraints, common-date exposure,
+liquidity, lot size, slippage, taxes and corporate actions have not
+been separately supplied or externally audited. No positive
+budget-restricted claim should be made.
+
+**Decision:** completed first original signal-date 1/3/5 descriptive
+observations but **strategy not approved**. Neither original 27,
+rising 22, nor wick-volume 3 can be promoted on just one signal date.
+No new rules should be optimized on these outcomes and sold as a
+prospective success. Further independent newly frozen signal dates,
+external source rights/timing, exchange-calendar verification and
+realistic position/budget validation are required. Research remains
+`SHADOW_NOT_APPROVED`, and PR #297 remains Draft. No
+production/AI POWER/notifications/trading, re-freeze, original-source
+upload or extra J-Quants network request was performed by this
+documentation update.
