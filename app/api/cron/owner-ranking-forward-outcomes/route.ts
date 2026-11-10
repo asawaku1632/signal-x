@@ -46,7 +46,49 @@ export async function GET(request: Request) {
         WHERE c.slot_jst <> '08:50'
           AND item->>'eligibleForForward' = 'true'
           AND item->>'quoteTimeVerified' = 'true'
-          AND item->>'price' ~ '^[0-9]+(\\.[0-9]+)?$'
+          AND item->>'price' ~ '^[0-9]+([.][0-9]+)?
+          AND (item->>'price')::numeric > 0
+      ), target_days AS (
+        SELECT e.*, v.trade_date AS outcome_date,
+          row_number() OVER (PARTITION BY e.capture_id, e.code ORDER BY v.trade_date) AS horizon
+        FROM eligible e
+        JOIN verified_sessions v ON v.trade_date > e.trade_date_jst
+        WHERE e.duplicate_rank = 1
+      )
+      INSERT INTO owner_ranking_forward_outcomes
+        (capture_id, code, horizon, outcome_date, entry_price,
+         exit_adjusted_close, return_pct, price_provider, adjustment_version)
+      SELECT t.capture_id, t.code, t.horizon, t.outcome_date, b.adjusted_entry_price,
+        p.adjusted_close,
+        round((p.adjusted_close / b.adjusted_entry_price - 1) * 100, 6),
+        p.provider, p.adjustment_version
+      FROM target_days t
+      JOIN owner_ranking_verified_entry_basis b
+        ON b.capture_id = t.capture_id AND b.code = t.code
+        AND b.raw_entry_price = t.entry_price
+        AND b.adjusted_entry_price > 0
+        AND b.corporate_actions_verified = true
+        AND b.quote_provenance_verified = true
+        AND b.adjustment_version = 'ENTRY_COMPATIBLE_V1'
+      JOIN owner_ranking_verified_closes p
+        ON p.trade_date = t.outcome_date AND p.code = t.code
+        AND p.provider = 'JQUANTS_ADJUSTED_DAILY'
+        AND p.provider_published_at <= now()
+      WHERE t.horizon IN (1,3,5)
+        AND t.outcome_date < $1::date
+        AND p.adjustment_version = b.adjustment_version
+      ON CONFLICT (capture_id, code, horizon) DO NOTHING
+      RETURNING capture_id, code, horizon
+    `, [market.dateJst]);
+    return NextResponse.json({ success: true, inserted: result.rowCount,
+      status: "verified_outcomes_only",
+      note: "No result without verified daily close and complete trading-session coverage." });
+  } catch (error) {
+    console.error("ranking forward outcome calculation failed", error);
+    return NextResponse.json({ success: false, status: "storage_or_validation_error" }, { status: 500 });
+  }
+}
+
           AND (item->>'price')::numeric > 0
       ), target_days AS (
         SELECT e.*, v.trade_date AS outcome_date,
