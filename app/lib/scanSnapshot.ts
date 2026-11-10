@@ -60,6 +60,7 @@ async function recordScanAudit(
   if (key !== SCAN_SNAPSHOT_KEY) return;
   // Research windows in JST. Preserve the actual generation timestamp.
   const scanTime = new Date(generatedAt);
+  if (!Number.isFinite(scanTime.getTime())) return;
   const jst = new Date(scanTime.getTime() + 9 * 60 * 60 * 1000);
   const hhmm = jst.getUTCHours() * 60 + jst.getUTCMinutes();
   const slots = [
@@ -76,10 +77,11 @@ async function recordScanAudit(
   if (!rows.length) return;
   const observations = rows.map((stock, index) => ({
     code: String(stock.code),
-    score: Number.isFinite(Number(stock.rawAiPower ?? stock.aiPower ?? stock.score))
+    score: stock.rawAiPower == null && stock.aiPower == null && stock.score == null ? null
+      : Number.isFinite(Number(stock.rawAiPower ?? stock.aiPower ?? stock.score))
       ? Number(stock.rawAiPower ?? stock.aiPower ?? stock.score) : null,
     rank: index + 1,
-    price: Number.isFinite(Number(stock.price)) ? Number(stock.price) : null,
+    price: stock.price == null ? null : Number.isFinite(Number(stock.price)) ? Number(stock.price) : null,
     barTime: stock.latestBarTimestamp == null ? null : String(stock.latestBarTimestamp),
   }));
   await pool.query(
