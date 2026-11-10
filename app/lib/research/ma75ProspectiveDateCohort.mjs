@@ -24,9 +24,21 @@ export function requireMa75ProspectivePolicy(policy){
     policy.warmupHistoricalSessions!==69||
     policy.warmupPreviousPostfreezeSessions!==6||
     policy.frozenUniverseSize!==953||
+    policy.historicalArchiveFrom!=='2026-05-01'||
+    policy.historicalArchiveThrough!=='2026-10-30'||
+    policy.historicalFileSessions!==122||
+    policy.frozenUniverseSource!=='docs/ma75-forward-cohort-freeze-20261031.json'||
+    policy.originalNov02PinnedFreezeSha256!==
+     '1ba1aee5ac05b2c0fd114d3cabe5463bde4409b203544722cf03c04fc0a6612b'||
+    policy.signalRule!==
+     'previousClose <= previousSMA75 AND signalClose > signalSMA75'||
+    policy.risingRule!=='signalSMA75 > previousSMA75'||
     policy.singleHundredShareBuyFriction!==.001||
     policy.singleHundredShareSellFriction!==.001||
     policy.budgetMinYen!==100000||policy.budgetMaxYen!==500000||
+    policy.budgetRule!==
+     'Some integer number >=1 of 100-share lots has modeled open-entry capital within inclusive budget range. This is a conditional next-open rule, not a signal-close known property.'||
+    policy.ownerMustManuallyLockBeforeNextOpen!==true||
     policy.sameDaySourceEarliestUtc!=='2026-11-11T07:30:00Z'||
     policy.followingOpenDeadlineUtc!=='2026-11-12T00:00:00Z'||
     !same(policy.horizonOffsets,[1,3,5])||
@@ -41,6 +53,13 @@ export function requireMa75ProspectivePolicy(policy){
      'allBreakouts','risingBreakouts','nonRisingBreakouts',
      'budgetEligibleBreakouts','budgetEligibleRising','budgetEligibleNonRising'
     ])||
+    policy.robustness!==
+     'Per-group leave-largest-positive-out, leave-largest-negative-out, median, counts, positive rates; report per signal date and do not treat stocks on one date as independent market days.'||
+    policy.licensedDataRemainsOwnerLocal!==true||
+    policy.independentAsOfTimeCertified!==false||
+    policy.providerRightsCertified!==false||
+    policy.officialCalendarExternallyVerified!==false||
+    policy.corporateActionsCertified!==false||
     policy.noRawProviderDataInGitHub!==true||
     policy.noNetworkByResearchRunner!==true||
     policy.noTrading!==true||policy.noAIPower!==true||
