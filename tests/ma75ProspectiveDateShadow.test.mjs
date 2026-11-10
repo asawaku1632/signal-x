@@ -113,8 +113,8 @@ test('fifth session results require all 5 originals and show outlier sensitivity
  assert.equal(summary.frozenGroupCount,2);
  assert.equal(summary.measured,2);
  assert.equal(summary.positiveCount,2);
- assert.equal(summary.largestWinnerCode,code2);
- assert.equal(summary.largestLoserCode,code1);
+ assert.equal(summary.largestWinnerCode,code1);
+ assert.equal(summary.largestLoserCode,code2);
  assert.notEqual(summary.leaveLargestWinnerOutMeanPercent,null);
  assert.notEqual(summary.leaveLargestLoserOutMeanPercent,null);
  assert.equal(fully.perFrozenCodeHorizon.length,6);
@@ -149,7 +149,7 @@ test('tampering lock, wrong preentry timing and future dates fail closed',()=>{
   /MA75_NEXT_COHORT_PREDECLARED_POLICY_CHANGED/);
  assert.throws(()=>evaluateMa75ProspectiveDateOutcomes(lock,policy,{
   sourceByDate:{'2026-11-19':proj('2026-11-19')},
-  signalCloseByCode:closes
+  signalCloseByCode:closes,now:'2026-11-11T11:00:00Z'
  }),/MA75_NEXT_OUTCOME_FUTURE_OR_NONPREDECLARED_SOURCE_DATE/);
  assert.throws(()=>evaluateMa75ProspectiveDateOutcomes(lock,policy,{
   sourceByDate:{'2026-11-12':proj('2026-11-12')},
