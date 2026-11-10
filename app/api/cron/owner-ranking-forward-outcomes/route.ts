@@ -14,7 +14,7 @@ export const maxDuration = 60;
 export async function GET(request: Request) {
   const unauthorized = requireCronAuth(request);
   if (unauthorized) return unauthorized;
-  // Fail closed until entry-price adjustment and source provenance are certified.
+  // Global switch is necessary but never sufficient: each entry must have a verified basis.
   if (process.env.OWNER_RANKING_FORWARD_CERTIFIED !== "true") {
     return NextResponse.json({ success: false, status: "adjustment_audit_required",
       note: "Do not compare raw intraday entry prices against adjusted closes." }, { status: 503 });
@@ -58,18 +58,25 @@ export async function GET(request: Request) {
       INSERT INTO owner_ranking_forward_outcomes
         (capture_id, code, horizon, outcome_date, entry_price,
          exit_adjusted_close, return_pct, price_provider, adjustment_version)
-      SELECT t.capture_id, t.code, t.horizon, t.outcome_date, t.entry_price,
+      SELECT t.capture_id, t.code, t.horizon, t.outcome_date, b.adjusted_entry_price,
         p.adjusted_close,
-        round((p.adjusted_close / t.entry_price - 1) * 100, 6),
+        round((p.adjusted_close / b.adjusted_entry_price - 1) * 100, 6),
         p.provider, p.adjustment_version
       FROM target_days t
+      JOIN owner_ranking_verified_entry_basis b
+        ON b.capture_id = t.capture_id AND b.code = t.code
+        AND b.raw_entry_price = t.entry_price
+        AND b.adjusted_entry_price > 0
+        AND b.corporate_actions_verified = true
+        AND b.quote_provenance_verified = true
+        AND b.adjustment_version = 'ENTRY_COMPATIBLE_V1'
       JOIN owner_ranking_verified_closes p
         ON p.trade_date = t.outcome_date AND p.code = t.code
         AND p.provider = 'JQUANTS_ADJUSTED_DAILY'
         AND p.provider_published_at <= now()
       WHERE t.horizon IN (1,3,5)
         AND t.outcome_date < $1::date
-        AND p.adjustment_version = 'ENTRY_COMPATIBLE_V1'
+        AND p.adjustment_version = b.adjustment_version
       ON CONFLICT (capture_id, code, horizon) DO NOTHING
       RETURNING capture_id, code, horizon
     `, [market.dateJst]);
