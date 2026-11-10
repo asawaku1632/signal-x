@@ -1,3 +1,4 @@
+import pool from "@/app/lib/postgres";
 import { buildScanResponsePayload } from "@/app/lib/learning/notificationEngine";
 import { runScan, runSingleStockScan } from "@/app/lib/learning/scanEngine";
 import {
@@ -41,6 +42,44 @@ function sortStocksForPublicScan(stocks: any[]) {
       numeric: true,
     });
   });
+}
+
+
+/**
+ * Research-only append-only observations. These are scan-time observations,
+ * NOT proof that the score was available before a market move.
+ * The captured_at DB timestamp, scan_generated_at, and candle timestamp are
+ * intentionally kept separate. Failure must not affect public scan traffic.
+ */
+async function recordScanAudit(
+  key: string,
+  stocks: Array<Record<string, unknown>>,
+  generatedAt: string,
+  coverage: number,
+) {
+  if (key !== SCAN_SNAPSHOT_KEY) return;
+  const rows = stocks.filter((stock) => /^\\d{4}$/.test(String(stock.code ?? "")));
+  if (!rows.length) return;
+  const observations = rows.map((stock, index) => ({
+    code: String(stock.code),
+    score: Number.isFinite(Number(stock.rawAiPower ?? stock.aiPower ?? stock.score))
+      ? Number(stock.rawAiPower ?? stock.aiPower ?? stock.score) : null,
+    rank: index + 1,
+    price: Number.isFinite(Number(stock.price)) ? Number(stock.price) : null,
+    barTime: stock.latestBarTimestamp == null ? null : String(stock.latestBarTimestamp),
+  }));
+  await pool.query(
+    `INSERT INTO public.ai_power_scan_audit
+      (snapshot_key,scan_generated_at,code,ai_power,rank,reference_price,
+       latest_bar_timestamp,model_version,snapshot_coverage)
+     SELECT $1,$2::timestamptz,x.code,x.score,x.rank,x.price,x.bar_time,$4,$5
+     FROM jsonb_to_recordset($3::jsonb)
+       AS x(code text,score numeric,rank integer,price numeric,bar_time text)
+     ON CONFLICT (snapshot_key,scan_generated_at,code) DO NOTHING`,
+    [key, generatedAt, JSON.stringify(observations.map(x => ({
+      code: x.code, score: x.score, rank: x.rank, price: x.price, bar_time: x.barTime,
+    }))), AI_POWER_VERSION, coverage],
+  );
 }
 
 export async function getLatestScanSnapshot() {
@@ -94,7 +133,10 @@ async function refreshSnapshot(
         ? existingSnapshot
         : await getDisplaySnapshot<StoredScanPayload>(key);
       if (shouldReplaceSnapshot(existing?.itemCount ?? null, result.limit)) {
-        return saveDisplaySnapshot(key, payload, result.limit);
+        const saved = await saveDisplaySnapshot(key, payload, result.limit);
+        await recordScanAudit(key, stocks, payload.updatedAt!, result.limit)
+          .catch((error) => console.error("scan audit capture failed:", error));
+        return saved;
       }
       return existing;
     },
