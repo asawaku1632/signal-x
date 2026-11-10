@@ -121,7 +121,7 @@ test('cannot retroactively lock after Nov12 opens or re-select after source chan
  runMa75NextSignalLocal(['--lock-new-cohort'],locked.v);
  const altered={...locked.v,
   read:path=>{
-   if(String(path).endsWith('ma75-2026-11-10-jquants-daily.json'))
+   if(String(path).endsWith('ma75-forward-2026-11-10-jquants-daily.json'))
     return Buffer.from('Adversarial data replaced later');
    return locked.v.read(path);
   }
