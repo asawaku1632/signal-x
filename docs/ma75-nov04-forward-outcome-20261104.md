@@ -419,3 +419,58 @@ strategy. Retain the original SHA, 27 original IDs, 22 original
 rising IDs, 3 original wick-volume IDs, and
 `SHADOW_NOT_APPROVED`/Draft; no `--freeze`, provider
 fetch, production notification, scoring or trade.
+
+
+## 2026-11-10: owner-local identity and leave-one-out check for two non-rising budget candidates
+
+The owner has now supplied the **actual code-level read-only local
+PowerShell** results from the already stored Nov10 five-session
+`$eligible` cohort. The two original MA75 **non-rising** but
+Nov4 entry-open **budget-eligible** candidates were:
+
+| Original frozen code | `risingMA75` | Budget eligible | Modeled 5-session net return, Nov4 open to Nov10 close | Modeled 100-share yen P/L |
+|---|---|---|---:|---:|
+| **2222** | false | true | **+17.6368%** | **+¥45,636.80** |
+| **3361** | false | true | **+1.1368%** | **+¥1,019.60** |
+| **Two-code arithmetic mean** | — | 2/2 | **+9.3868%** | **+¥23,328.20** |
+
+These precise user-provided code-level records replace the prior
+**inferred** two-code yen mean of ~¥23,328.22, whose tiny deviation
+was caused by subtracting previously rounded group averages.
+
+### Extreme-outlier sensitivity: remove original code 2222
+
+Starting from the owner-provided 22 budget-eligible observations
+(mean net +1.2998%, 13/22 positive, mean modeled 100-share
++¥1,896.62), and subtracting the precise 2222 individual result,
+the remaining **21** have:
+
+- Mean modeled net five-session return approximately **+0.5218%**,
+  with positive count **12/21 = 57.14%**.
+- Mean simulated P/L per 100 shares approximately **-¥186.25**.
+- This is a simple sensitivity calculation **using displayed
+  rounded group means and the precise owner-reported single row**,
+  not a separately re-run 21-code source audit.
+
+For an additional robustness perspective, the full 27 had mean
++0.4501% (15/27 positives); removing 2222 alone implies a
+**26-stock mean approximately -0.2109%** (14/26 positives),
+again from rounded owner-provided aggregates. This reveals a
+critical **outlier dependence**: the apparent positive
+equal-security mean for the larger cohort depends strongly on
+one original breakout with +17.6368%, and the affordable
+cohort's positive modeled 100-share yen mean changes sign
+when that one candidate is omitted.
+
+Do NOT draw a general conclusion that `risingMA75=false` is
+predictively better or turn code 2222 into a post-hoc selection
+rule. The two codes were nested in the single November 2 signal
+date, and all source, as-of, auction-fill and budget execution
+caveats previously recorded still apply. Future independent
+signal-date replication with **predeclared** non-rising and
+leave-one-out sensitivity tracking is required before any
+strategy promotion. The original 953 / 924 / 27 / 22 / 3
+group membership and SHA remain unchanged, with
+`SHADOW_NOT_APPROVED` and Draft PR; this annotation does
+NOT fetch provider data, rewrite private originals, re-freeze,
+or activate AI scoring/notifications/trading.
