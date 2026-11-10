@@ -14,6 +14,11 @@ export const maxDuration = 60;
 export async function GET(request: Request) {
   const unauthorized = requireCronAuth(request);
   if (unauthorized) return unauthorized;
+  // Fail closed until entry-price adjustment and source provenance are certified.
+  if (process.env.OWNER_RANKING_FORWARD_CERTIFIED !== "true") {
+    return NextResponse.json({ success: false, status: "adjustment_audit_required",
+      note: "Do not compare raw intraday entry prices against adjusted closes." }, { status: 503 });
+  }
   const market = marketScanGuard();
   if (!market.calendarKnown || !market.dateJst) {
     return NextResponse.json({ success: false, status: "calendar_unknown" }, { status: 503 });
