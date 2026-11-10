@@ -363,3 +363,59 @@ Nov 2 market-date cohort. The original 27/22-rising/3-composite
 memberships and historical SHA are unchanged. No `--freeze`,
 production/AI POWER/notifications/trading, or original data
 rewrites; `SHADOW_NOT_APPROVED` remains in force.
+
+
+## 2026-11-10 close / rising-MA75 x budget intersection (20-of-22)
+
+The owner then locally filtered their **already measured**
+22-of-27 budget-eligible completed 5-session observations to the
+intersection with `risingMA75==true`. This is a post-hoc nested
+comparison of ONE November 2 signal-day cohort, not a new
+independent experiment or automatic AI trading recommendation.
+
+| Frozen Nov2 group filtered using Nov4 entry prices | Complete observations | Positive / total | Arithmetic mean net 5-session return | Arithmetic mean modeled P/L per 100 shares |
+|---|---:|---:|---:|---:|
+| Any MA75 breakout and budget eligible | 22/22 | 13/22 = 59.09% | **+1.2998%** | **+¥1,896.62** |
+| **MA75 rising AND budget eligible** | **20/20** | **11/20 = 55.00%** | **+0.4911%** | **-¥246.54** |
+
+Within this one frozen signal-day sample, imposing the additional
+`risingMA75` condition reduces the arithmetic mean return by
+**0.8087 percentage points**, the positive rate by **4.09 points**
+and the average hypothetical 100-share yen P/L by **¥2,143.16**.
+This does **not** imply that a rising MA75 is generally harmful.
+
+Because the 20 are a strict subset of the prior 22, the **two**
+budget-eligible but **non-rising** original breakouts must have
+been positive in the reported completed results: 13 minus 11
+positive stocks. Subtracting the displayed group sums suggests
+these excluded two averaged approximately **+9.3868%** 5-session
+modeled net return and **+¥23,328.22 per 100 shares**. These
+two-code averages are **algebraic estimates from rounded group
+statistics**, not direct per-security local readouts. Their code
+identities were NOT supplied, so do not invent them. Their strong
+returns likely explain the full-budget subset's apparent lift,
+but two winners amid a single market rebound are particularly
+vulnerable to outliers, common-market effects and lookback bias.
+
+Safely inspect the two actual securities from the owner's already
+available `$eligible` array, **no network or data rewrite**:
+
+~~~powershell
+$nonRisingEligible = @($eligible | Where-Object { $_.risingMA75 -eq $false })
+$nonRisingEligible |
+  Select-Object code,netReturnPercent,profitYen100,budgetEligible |
+  Format-Table -AutoSize
+~~~
+
+**Guardrails unchanged:** Nov4 OPEN-based budget eligibility is
+not a feature known at Nov2 close; the 100-share modeled P/L is
+not a ¥100k–¥500k fully invested portfolio P/L; actual orders,
+provider publication timestamps and corporate-action licensing
+are unverified. Any new non-rising-breakout hypothesis developed
+from these two large past winners requires a **separately
+predeclared future signal-date test** with losers retained;
+do not retrospectively relabel the old cohort as a winning
+strategy. Retain the original SHA, 27 original IDs, 22 original
+rising IDs, 3 original wick-volume IDs, and
+`SHADOW_NOT_APPROVED`/Draft; no `--freeze`, provider
+fetch, production notification, scoring or trade.
