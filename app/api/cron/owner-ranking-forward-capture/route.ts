@@ -56,7 +56,14 @@ export async function GET(request: Request) {
       now.getTime() - snapshotMs > 15 * 60_000) {
     return NextResponse.json({ success: false, status: "stale_or_future_snapshot" }, { status: 503 });
   }
-  const stocks = snapshot.payload.stocks.slice(0, 100).map((raw: Record<string, unknown>, index: number) => {
+  const sorted = [...snapshot.payload.stocks].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+    const number = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : 0;
+    return number(b.rawAiPower ?? b.score) - number(a.rawAiPower ?? a.score) ||
+      number(b.changePercent) - number(a.changePercent) ||
+      number(b.volumeRatio) - number(a.volumeRatio) ||
+      String(a.code ?? "").localeCompare(String(b.code ?? ""), "ja", { numeric: true });
+  });
+  const stocks = sorted.slice(0, 100).map((raw: Record<string, unknown>, index: number) => {
     const quoteAt = typeof raw.latestBarTimestamp === "string" || typeof raw.latestBarTimestamp === "number" ? String(raw.latestBarTimestamp) : null;
     const quoteMs = parseTime(quoteAt);
     const validQuote = quoteMs !== null && quoteMs <= snapshotMs && quoteMs <= now.getTime();
@@ -64,11 +71,13 @@ export async function GET(request: Request) {
       rank: index + 1,
       code: String(raw.code ?? raw.stockCode ?? ""),
       score: typeof raw.score === "number" ? raw.score : null,
+      rawAiPower: typeof raw.rawAiPower === "number" ? raw.rawAiPower : null,
       price: typeof raw.price === "number" ? raw.price : null,
       quoteAt,
       quoteTimeVerified: validQuote,
       // No unverified intraday quote is admitted to forward-return calculations.
-      eligibleForForward: slot !== "08:50" && validQuote &&
+      eligibleForForward: false, // Pending independent quote provenance and entry-adjustment audit.
+      provisionalQuoteFresh: slot !== "08:50" && validQuote &&
         quoteMs !== null && quoteMs >= now.getTime() - 15 * 60_000,
     };
   });
@@ -82,7 +91,7 @@ export async function GET(request: Request) {
        ON CONFLICT (trade_date_jst, slot_jst) DO NOTHING RETURNING id`,
       [jst.day, slot, now.toISOString(), snapshot.updatedAt,
         JSON.stringify(stocks), eligibleCount,
-        eligibleCount === 100 ? "quote_time_verified" : "research_only_unverified"],
+        "research_only_unverified"],
     );
     return NextResponse.json({
       success: true, status: result.rowCount ? "frozen" : "already_frozen",
