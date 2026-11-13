@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {firstPostReleaseSession,evaluateDailyEvent} from './earnings-postreaction-core.mjs';
+const sessions=['2026-11-12','2026-11-13','2026-11-16','2026-11-17'];
+test('after close maps to next session',()=>assert.deepEqual(firstPostReleaseSession('2026-11-12T15:30:00+09:00',sessions),{status:'OK',eventDate:'2026-11-13'}));
+test('preopen maps to same session',()=>assert.equal(firstPostReleaseSession('2026-11-13T08:59:00+09:00',sessions).eventDate,'2026-11-13'));
+test('intraday excluded',()=>assert.equal(firstPostReleaseSession('2026-11-13T12:00:00+09:00',sessions).status,'INTRADAY_EXCLUDED'));
+test('weekend maps to Monday',()=>assert.equal(firstPostReleaseSession('2026-11-14T10:00:00+09:00',sessions).eventDate,'2026-11-16'));
+test('only matured horizons',()=>{const r=evaluateDailyEvent({eventDate:'2026-11-13',bars:[{date:'2026-11-13',adjClose:100},{date:'2026-11-16',adjClose:105}]});assert.equal(r.outcomes[0].returnPct,5);assert.equal(r.outcomes[1].status,'PENDING')});
+test('duplicate prices rejected',()=>assert.throws(()=>evaluateDailyEvent({eventDate:'2026-11-13',bars:[{date:'2026-11-13',adjClose:100},{date:'2026-11-13',adjClose:101}]})));
