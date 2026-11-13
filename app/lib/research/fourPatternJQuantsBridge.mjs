@@ -161,11 +161,12 @@ const periodYearEarlier = date => {
   const prev=String(y-1)+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   return dayOK(prev) ? prev : null;
 };
+const normalizeDiscTime = t => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(t) ? (t.length===5?t+':00':t) : null;
 function discTimestamp(row) {
   if (!dayOK(row?.DiscDate) ||
       typeof row.DiscTime !== 'string' ||
-      !/^([01]\d|2[0-3]):[0-5]\d:00$/.test(row.DiscTime)) return NaN;
-  return utcJst(row.DiscDate,row.DiscTime);
+      !normalizeDiscTime(row.DiscTime)) return NaN;
+  return utcJst(row.DiscDate,normalizeDiscTime(row.DiscTime));
 }
 /**
  * Conservatively gate financial features to the moment the entire response
@@ -205,7 +206,7 @@ export function convertCapturedFinancialSummary({code, pages}) {
       continue;
     }
     if (typeof r.DiscTime !== 'string' ||
-        !/^([01]\d|2[0-3]):[0-5]\d:00$/.test(r.DiscTime)) {
+        !normalizeDiscTime(r.DiscTime)) {
       metadata.quarantinedMissingOrInvalidTime++;
       continue;
     }
