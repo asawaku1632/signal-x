@@ -9,3 +9,6 @@ test('missing OP is unknown',()=>assert.equal(classifyEarnings({...current,OP:''
 test('prior loss is not treated as ordinary growth',()=>assert.equal(classifyEarnings(current,{...prior,OP:'-10'}).fundamentalClass,'UNKNOWN'));
 test('period mismatch is unknown',()=>assert.equal(classifyEarnings(current,{...prior,CurPerType:'1Q'}).fundamentalClass,'UNKNOWN'));
 test('year mismatch is unknown',()=>assert.equal(classifyEarnings(current,{...prior,CurPerEn:'2024-09-30'}).fundamentalClass,'UNKNOWN'));
+
+test('minute precision disclosure time accepted',()=>assert.equal(classifyEarnings({...current,DiscTime:'15:30'},prior).fundamentalClass,'NEGATIVE'));
+test('invalid disclosure time rejected',()=>assert.equal(classifyEarnings({...current,DiscTime:'25:30'},prior).fundamentalClass,'UNKNOWN'));
