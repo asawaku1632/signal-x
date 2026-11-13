@@ -4,7 +4,7 @@ const dateOK=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'');
 const numeric=v=>v===null||v===undefined||v===''?null:Number.isFinite(Number(v))?Number(v):null;
 export function classifyEarnings(current,prior){
   if(!current||!prior) return {fundamentalClass:'UNKNOWN',reason:'MISSING_PERIOD'};
-  if(!dateOK(current.DiscDate)||!dateOK(prior.DiscDate)||!/^\d{2}:\d{2}:\d{2}$/.test(current.DiscTime||'')) return {fundamentalClass:'UNKNOWN',reason:'MISSING_DISCLOSURE_TIMESTAMP'};
+  if(!dateOK(current.DiscDate)||!dateOK(prior.DiscDate)||!/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(current.DiscTime||'')) return {fundamentalClass:'UNKNOWN',reason:'MISSING_DISCLOSURE_TIMESTAMP'};
   if(current.Code!==prior.Code || current.CurPerType!==prior.CurPerType || !['1Q','2Q','3Q','FY'].includes(current.CurPerType)) return {fundamentalClass:'UNKNOWN',reason:'PERIOD_MISMATCH'};
   if(!dateOK(current.CurPerEn)||!dateOK(prior.CurPerEn)) return {fundamentalClass:'UNKNOWN',reason:'INVALID_PERIOD_END'};
   const expected=(Number(current.CurPerEn.slice(0,4))-1)+current.CurPerEn.slice(4);
