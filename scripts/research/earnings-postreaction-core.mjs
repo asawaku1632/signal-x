@@ -15,6 +15,7 @@ export function evaluateDailyEvent({eventDate, bars, horizons=[1,2,3,5,10,20]}) 
   if (!Array.isArray(bars)||!bars.length) throw Error('Missing bars');
   const sorted=[...bars].sort((a,b)=>a.date.localeCompare(b.date));
   if (new Set(sorted.map(x=>x.date)).size!==sorted.length) throw Error('Duplicate dates');
+  if(sorted.some(b=>!/^\\d{4}-\\d{2}-\\d{2}$/.test(b.date||''))) throw Error('Invalid bar date');
   const i=sorted.findIndex(x=>x.date===eventDate);
   if(i<0) return {status:'MISSING_EVENT_BAR',outcomes:[]};
   const base=Number(sorted[i].adjClose);
@@ -22,7 +23,7 @@ export function evaluateDailyEvent({eventDate, bars, horizons=[1,2,3,5,10,20]}) 
   const outcomes=horizons.map(h=>{
     if(!Number.isInteger(h)||h<1) throw Error('Invalid horizon');
     const bar=sorted[i+h];
-    const end=bar&&Number(bar.adjClose);
+    const end=bar?.adjClose===null||bar?.adjClose===undefined||bar?.adjClose===''?NaN:Number(bar.adjClose);
     return {horizon:h,status:bar&&Number.isFinite(end)&&end>0?'MATURED':'PENDING',returnPct:bar&&Number.isFinite(end)&&end>0?100*(end/base-1):null,endDate:bar?.date??null};
   });
   return {status:'OK',eventDate,base,outcomes};
