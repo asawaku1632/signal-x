@@ -1,0 +1,27 @@
+name: Scan provenance research checks
+
+on:
+  pull_request:
+    paths:
+      - "app/lib/learning/scanProvenance.mjs"
+      - "app/lib/learning/scanProvenanceCapture.mjs"
+      - "app/lib/scanSnapshot.ts"
+      - "tests/scanProvenance*.test.mjs"
+      - "docs/research/scan-provenance-shadow-proposed-schema.sql"
+      - ".github/workflows/scan-provenance-research.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run research-only unit and static integration tests
+        run: node --test tests/scanProvenance.test.mjs tests/scanProvenanceCapture.test.mjs tests/scanProvenanceIntegration.test.mjs
