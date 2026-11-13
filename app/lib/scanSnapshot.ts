@@ -1,4 +1,5 @@
 import pool from "@/app/lib/postgres";
+import { buildScanProvenanceCapture } from "@/app/lib/learning/scanProvenanceCapture.mjs";
 import { buildScanResponsePayload } from "@/app/lib/learning/notificationEngine";
 import { runScan, runSingleStockScan } from "@/app/lib/learning/scanEngine";
 import {
@@ -98,6 +99,41 @@ async function recordScanAudit(
   );
 }
 
+/**
+ * Optional forward-only shadow capture. Disabled unless explicitly enabled.
+ * Table must be provisioned separately; any failure is isolated from scan traffic.
+ */
+async function recordScanProvenanceShadow(
+  key: string,
+  stocks: Array<Record<string, unknown>>,
+  generatedAt: string,
+) {
+  if (key !== SCAN_SNAPSHOT_KEY || process.env.SCAN_PROVENANCE_SHADOW_ENABLED !== "true") return;
+  const captures = stocks
+    .filter((stock) => /^\\d{4}$/.test(String(stock.code ?? "")))
+    .map((stock) => buildScanProvenanceCapture({
+      stock,
+      generatedAt,
+      modelVersion: AI_POWER_VERSION,
+      // No reliable point-in-time learning watermark currently available.
+      learningAsOf: null,
+    }));
+  if (!captures.length) return;
+  await pool.query(
+    `INSERT INTO public.ai_power_scan_provenance_shadow
+       (snapshot_key, scan_generated_at, code, input_fingerprint_sha256, capture)
+     SELECT $1, $2::timestamptz, x.code, x.fingerprint, x.capture
+     FROM jsonb_to_recordset($3::jsonb)
+       AS x(code text, fingerprint text, capture jsonb)
+     ON CONFLICT (snapshot_key, scan_generated_at, code) DO NOTHING`,
+    [key, generatedAt, JSON.stringify(captures.map((capture) => ({
+      code: capture.code,
+      fingerprint: capture.inputFingerprintSha256,
+      capture,
+    })))],
+  );
+}
+
 export async function getLatestScanSnapshot() {
   return getDisplaySnapshot<StoredScanPayload>(SCAN_SNAPSHOT_KEY);
 }
@@ -152,6 +188,8 @@ async function refreshSnapshot(
         const saved = await saveDisplaySnapshot(key, payload, result.limit);
         await recordScanAudit(key, stocks, payload.updatedAt!, result.limit)
           .catch((error) => console.error("scan audit capture failed:", error));
+        await recordScanProvenanceShadow(key, stocks, payload.updatedAt!)
+          .catch((error) => console.error("scan provenance shadow capture failed:", error));
         return saved;
       }
       return existing;
