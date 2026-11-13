@@ -15,7 +15,7 @@ export function evaluateDailyEvent({eventDate, bars, horizons=[1,2,3,5,10,20]}) 
   if (!Array.isArray(bars)||!bars.length) throw Error('Missing bars');
   const sorted=[...bars].sort((a,b)=>a.date.localeCompare(b.date));
   if (new Set(sorted.map(x=>x.date)).size!==sorted.length) throw Error('Duplicate dates');
-  if(sorted.some(b=>!/^\\d{4}-\\d{2}-\\d{2}$/.test(b.date||''))) throw Error('Invalid bar date');
+  if(sorted.some(b=>!/^\d{4}-\d{2}-\d{2}$/.test(b.date||''))) throw Error('Invalid bar date');
   const i=sorted.findIndex(x=>x.date===eventDate);
   if(i<0) return {status:'MISSING_EVENT_BAR',outcomes:[]};
   const base=Number(sorted[i].adjClose);
