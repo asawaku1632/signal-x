@@ -110,7 +110,7 @@ async function recordScanProvenanceShadow(
 ) {
   if (key !== SCAN_SNAPSHOT_KEY || process.env.SCAN_PROVENANCE_SHADOW_ENABLED !== "true") return;
   const captures = stocks
-    .filter((stock) => /^\\d{4}$/.test(String(stock.code ?? "")))
+    .filter((stock) => /^[0-9]{4}$/.test(String(stock.code ?? "")))
     .map((stock) => buildScanProvenanceCapture({
       stock,
       generatedAt,
