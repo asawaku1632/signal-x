@@ -34,3 +34,12 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 - No `SCAN_PROVENANCE_SHADOW_ENABLED` entry was present in the project environment-variable listing.
 - This metadata does **not** establish the deployed PostgreSQL username, the effective grants of that user, or the absence of a flag configured elsewhere at runtime.
 - Next verification requires a reviewed, safe method of obtaining only the effective database role from the running app or secure hosting configuration, without exposing the connection string. Do not run privileged production DDL or enable the capture flag before that review.
+
+## PostgreSQL role inspection (read-only, 2026-11-14)
+- `postgres`: LOGIN=true, BYPASSRLS=true, SUPERUSER=false.
+- `authenticator`: LOGIN=true, BYPASSRLS=false.
+- `service_role`: LOGIN=false, BYPASSRLS=true.
+- `anon` and `authenticated`: LOGIN=false, BYPASSRLS=false.
+- Therefore `service_role` cannot itself be the direct login username for the application's `pg.Pool` connection. It can still be an assumed role or used by API services; this does **not** identify the deployed `DATABASE_URL` username.
+- If the app logs in as `postgres`, ordinary RLS is not an effective protection against that connection because `postgres` bypasses RLS. Do not claim the shadow archive is immutable or isolated until the runtime login and its effective role privileges are independently verified.
+- Avoid a production endpoint that returns credentials, role information or connection-string fragments to users. Use a reviewed internal-only diagnostic or secure hosting configuration inspection when approved.
