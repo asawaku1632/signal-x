@@ -50,3 +50,10 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 - The current `await recordScanProvenanceShadow(...).catch(...)` prevents the exception from propagating but still adds latency while the query runs. Before activation, verify timeouts and use an appropriately bounded asynchronous capture strategy without changing the normal scan result.
 - An application-supplied `generatedAt` is the snapshot completion timestamp, not necessarily the precise score computation time. Do not use it as proof that the inputs were available before a market movement.
 - Until the code uses a dedicated writer and permissions are exercised in a nonproduction database, the status remains NO-GO.
+
+## Research branch implementation update (2026-11-14)
+- The shadow writer now uses `getScanProvenancePool()` in `app/lib/learning/scanProvenanceDb.ts`, backed only by `SCAN_PROVENANCE_DATABASE_URL` and guarded by `SCAN_PROVENANCE_SHADOW_ENABLED=true`.
+- Missing dedicated connection configuration fails closed without falling back to the shared `DATABASE_URL`.
+- The pool limits max clients to 2, connection wait to 1000 ms, statement execution to 1500 ms, and query wait to 2000 ms. The snapshot still **awaits** the write, so bounded additional latency is possible. Do not describe it as fully asynchronous or zero-latency.
+- Static integration test was added. GitHub Actions result for the new commit had not appeared at the time of this update; full build and nonproduction role-permission tests remain unverified.
+- These changes are only in the research PR, not production. The mandatory writer-role, database schema and real insert/permission gates still apply.
