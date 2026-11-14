@@ -12,10 +12,13 @@ if (process.env.SCAN_PROVENANCE_PERMISSION_PROBE !== "true") {
 if (!url) throw new Error("PROBE_DEDICATED_DATABASE_URL_MISSING");
 const parsed = new URL(url);
 const user = decodeURIComponent(parsed.username);
+if (!parsed.hostname.endsWith(".supabase.co") && !parsed.hostname.endsWith(".supabase.com")) {
+  throw new Error("PROBE_REFUSES_UNKNOWN_HOST");
+}
 if (!parsed.hostname.includes(DEV_PROJECT_REF) && !user.endsWith("." + DEV_PROJECT_REF)) {
   throw new Error("PROBE_REFUSES_NON_DEVELOPMENT_DATABASE");
 }
-if (!user.startsWith("scan_provenance_writer")) {
+if (user !== "scan_provenance_writer" && user !== "scan_provenance_writer." + DEV_PROJECT_REF) {
   throw new Error("PROBE_REFUSES_NON_RESTRICTED_USERNAME");
 }
 
