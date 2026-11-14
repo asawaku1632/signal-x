@@ -66,3 +66,25 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 - The NOLOGIN role is **not** a deployable `SCAN_PROVENANCE_DATABASE_URL` user. Provisioning an authenticated, dedicated login and testing actual permissions requires a separate reviewed step and secure credential handling.
 - The test table is in a **private schema** with a **different name** from the current PR's `public.ai_power_scan_provenance_shadow`; therefore this test does not validate the current SQL capture path. Resolve the schema/connection mismatch before activation.
 - Production database and Vercel configuration were not changed.
+
+## Development effective-role permission test (2026-11-14, subsequent session)
+
+Supabase project: **signal-x-dev** (`jdtqwryiyxeuoraecorw`), never production.
+
+A transaction temporarily granted `postgres` permission to SET the restricted `scan_provenance_writer` role. All tests ran with `current_user = scan_provenance_writer` and were followed by **ROLLBACK**, including the temporary role membership and synthetic test rows.
+
+Verified outcomes:
+- Bare `INSERT` with the restricted role: **PASS**.
+- `INSERT ... ON CONFLICT (snapshot_key,scan_generated_at,code) DO NOTHING`: **FAILS** with permission denied because conflict arbiter columns require SELECT permissions.
+- `INSERT ... ON CONFLICT DO NOTHING` (no target): **PASS**, including a repeated identical insert. Two attempts produced exactly **one** row before rollback.
+- `UPDATE`: denied with SQLSTATE 42501.
+- `DELETE`: denied with SQLSTATE 42501.
+- `SELECT`: denied with SQLSTATE 42501.
+- Using the production application SQL shape (`INSERT ... SELECT ... FROM jsonb_to_recordset(...) ON CONFLICT DO NOTHING`): **PASS** and duplicate ignored.
+- Post-test SELECT: `login_enabled=false`, `postgres_can_set_writer=false`, `persisted_test_rows=0`, INSERT privilege true and SELECT/UPDATE/DELETE false.
+
+**Fix in the research branch:** shadow capture SQL changed to `ON CONFLICT DO NOTHING`, preserving uniqueness via `UNIQUE(snapshot_key,scan_generated_at,code)` without granting SELECT privilege. A static integration test enforces this.
+
+**Important limitation:** `SET ROLE` is an actual permission-execution test, **not** proof of a separate network-authenticated dedicated LOGIN. The current writer is NOLOGIN, and the dedicated database URL has not been provisioned. A manual end-to-end direct-login test runner is provided at `scripts/research/scan-provenance-dev-permission-probe.mjs`. It refuses non-development project references, requires `SCAN_PROVENANCE_PERMISSION_PROBE=true`, verifies both `current_user` and `session_user`, and checks INSERT, duplicate suppression, SELECT, UPDATE, DELETE, and TRUNCATE denial; it has **not been executed** with credentials. Do not mark production ready until this and integration/build checks succeed.
+
+No production deployment, app notification, trading or production DB modifications were made.
