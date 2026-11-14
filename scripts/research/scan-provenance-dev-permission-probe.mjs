@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+// Manual development-only end-to-end probe. Not executed by CI or the public app.
+// Requires credentials for an independent restricted LOGIN role. Never print the URL.
+import { randomUUID } from "node:crypto";
+import pg from "pg";
+
+const DEV_PROJECT_REF = "jdtqwryiyxeuoraecorw";
+const url = process.env.SCAN_PROVENANCE_DATABASE_URL;
+if (process.env.SCAN_PROVENANCE_PERMISSION_PROBE !== "true") {
+  throw new Error("PROBE_NOT_EXPLICITLY_ENABLED");
+}
+if (!url) throw new Error("PROBE_DEDICATED_DATABASE_URL_MISSING");
+const parsed = new URL(url);
+const user = decodeURIComponent(parsed.username);
+if (!parsed.hostname.endsWith(".supabase.co") && !parsed.hostname.endsWith(".supabase.com")) {
+  throw new Error("PROBE_REFUSES_UNKNOWN_HOST");
+}
+if (!parsed.hostname.includes(DEV_PROJECT_REF) && !user.endsWith("." + DEV_PROJECT_REF)) {
+  throw new Error("PROBE_REFUSES_NON_DEVELOPMENT_DATABASE");
+}
+if (user !== "scan_provenance_writer" && user !== "scan_provenance_writer." + DEV_PROJECT_REF) {
+  throw new Error("PROBE_REFUSES_NON_RESTRICTED_USERNAME");
+}
+
+const pool = new pg.Pool({
+  connectionString: url,
+  ssl: { rejectUnauthorized: false },
+  max: 1,
+  connectionTimeoutMillis: 2000,
+  statement_timeout: 2500,
+  query_timeout: 3000,
+});
+const table = "scan_provenance_research.shadow_capture_test";
+const key = "research:dev-permission-probe:" + randomUUID();
+const generatedAt = new Date().toISOString();
+const payload = JSON.stringify({ schema: "scan-provenance-capture-v1", synthetic: true });
+const fingerprint = "a".repeat(64);
+const sql = `INSERT INTO ${table}
+  (snapshot_key,scan_generated_at,code,input_fingerprint_sha256,capture)
+ VALUES ($1,$2::timestamptz,$3,$4,$5::jsonb)
+ ON CONFLICT DO NOTHING`;
+
+async function expectPrivilegeDenied(client, operation, sqlText, params = []) {
+  await client.query("SAVEPOINT permission_check");
+  let errorCode = null;
+  try {
+    await client.query(sqlText, params);
+  } catch (error) {
+    errorCode = error?.code ?? "UNKNOWN";
+  }
+  if (errorCode !== null) await client.query("ROLLBACK TO SAVEPOINT permission_check");
+  await client.query("RELEASE SAVEPOINT permission_check");
+  if (errorCode !== "42501") {
+    throw new Error(operation + (errorCode === null ? "_UNEXPECTEDLY_ALLOWED" : "_WRONG_ERROR_CODE:" + errorCode));
+  }
+}
+
+let client;
+let transactionStarted = false;
+try {
+  client = await pool.connect();
+  const role = (await client.query("SELECT current_user AS current_user, session_user AS session_user")).rows[0];
+  if (role.current_user !== "scan_provenance_writer" || role.session_user !== "scan_provenance_writer") {
+    throw new Error("PROBE_NOT_DIRECT_WRITER_LOGIN");
+  }
+  await client.query("BEGIN");
+  transactionStarted = true;
+  const first = await client.query(sql, [key, generatedAt, "2501", fingerprint, payload]);
+  if (first.rowCount !== 1) throw new Error("FIRST_INSERT_FAILED");
+  const duplicate = await client.query(sql, [key, generatedAt, "2501", fingerprint, payload]);
+  if (duplicate.rowCount !== 0) throw new Error("DUPLICATE_WAS_NOT_IGNORED");
+  // A privilege error aborts a PostgreSQL transaction. Use SAVEPOINTs for each denial.
+  await expectPrivilegeDenied(client, "SELECT", `SELECT * FROM ${table} LIMIT 1`);
+  await expectPrivilegeDenied(client, "UPDATE", `UPDATE ${table} SET code='9999' WHERE snapshot_key=$1`, [key]);
+  await expectPrivilegeDenied(client, "DELETE", `DELETE FROM ${table} WHERE snapshot_key=$1`, [key]);
+  await expectPrivilegeDenied(client, "TRUNCATE", `TRUNCATE ${table}`);
+  await client.query("ROLLBACK");
+  transactionStarted = false;
+  console.log(JSON.stringify({
+    project: "signal-x-dev",
+    login: "scan_provenance_writer",
+    insert: "PASS",
+    duplicateIgnored: "PASS",
+    selectDenied: "PASS",
+    updateDenied: "PASS",
+    deleteDenied: "PASS",
+    truncateDenied: "PASS",
+    syntheticTestRowRolledBack: true,
+  }, null, 2));
+} finally {
+  if (client && transactionStarted) {
+    try { await client.query("ROLLBACK"); } catch { /* connection may already be broken */ }
+  }
+  if (client) client.release();
+  await pool.end();
+}
