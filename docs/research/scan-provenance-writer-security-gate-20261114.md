@@ -27,3 +27,10 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 
 ## Release decision
 **NO-GO** for enabling `SCAN_PROVENANCE_SHADOW_ENABLED` until all mandatory gates pass. PR remains research-only and unmerged.
+
+## Vercel configuration inspection (2026-11-14; metadata only)
+- GitHub-linked Vercel project: `signal-x`, project ID `prj_aVyZPjouc0Mp8KU6f7bLHRDC2tJE`.
+- `DATABASE_URL` is configured as a sensitive variable for production and preview. Its value was **not decrypted or inspected**.
+- No `SCAN_PROVENANCE_SHADOW_ENABLED` entry was present in the project environment-variable listing.
+- This metadata does **not** establish the deployed PostgreSQL username, the effective grants of that user, or the absence of a flag configured elsewhere at runtime.
+- Next verification requires a reviewed, safe method of obtaining only the effective database role from the running app or secure hosting configuration, without exposing the connection string. Do not run privileged production DDL or enable the capture flag before that review.
