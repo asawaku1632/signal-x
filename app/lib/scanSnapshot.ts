@@ -1,4 +1,5 @@
 import pool from "@/app/lib/postgres";
+import { getScanProvenancePool } from "@/app/lib/learning/scanProvenanceDb";
 import { buildScanProvenanceCapture } from "@/app/lib/learning/scanProvenanceCapture.mjs";
 import { buildScanResponsePayload } from "@/app/lib/learning/notificationEngine";
 import { runScan, runSingleStockScan } from "@/app/lib/learning/scanEngine";
@@ -109,6 +110,8 @@ async function recordScanProvenanceShadow(
   generatedAt: string,
 ) {
   if (key !== SCAN_SNAPSHOT_KEY || process.env.SCAN_PROVENANCE_SHADOW_ENABLED !== "true") return;
+  const shadowPool = getScanProvenancePool();
+  if (!shadowPool) return; // No fallback to the production DATABASE_URL.
   const captures = stocks
     .filter((stock) => /^[0-9]{4}$/.test(String(stock.code ?? "")))
     .map((stock) => buildScanProvenanceCapture({
@@ -119,7 +122,7 @@ async function recordScanProvenanceShadow(
       learningAsOf: null,
     }));
   if (!captures.length) return;
-  await pool.query(
+  await shadowPool.query(
     `INSERT INTO public.ai_power_scan_provenance_shadow
        (snapshot_key, scan_generated_at, code, input_fingerprint_sha256, capture)
      SELECT $1, $2::timestamptz, x.code, x.fingerprint, x.capture
