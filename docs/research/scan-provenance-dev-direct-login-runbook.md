@@ -13,9 +13,9 @@ Using a secure local `psql` session connected as an administrator **to signal-x-
 ALTER ROLE scan_provenance_writer LOGIN NOBYPASSRLS;
 ```
 
-Then use psql's interactive `\\password scan_provenance_writer` command to set a long random password **without writing it to SQL scripts, chat, shell history, GitHub or CI logs**. The existing role has only schema USAGE, table INSERT and sequence USAGE; it must not be made an owner, superuser or BYPASSRLS.
+Then use psql's interactive `\password scan_provenance_writer` command to set a long random password **without writing it to SQL scripts, chat, shell history, GitHub or CI logs**. The existing role has only schema USAGE, table INSERT and sequence USAGE; it must not be made an owner, superuser or BYPASSRLS.
 
-Set `SCAN_PROVENANCE_DATABASE_URL` **only in the local process environment**, pointing to the development project and the restricted login. Do not use `NEXT_PUBLIC_`, `DATABASE_URL`, Vercel production settings or a privileged postgres connection. Verify your connection host and role before running the test.
+Use the direct database connection or a Supabase pooler URL whose username is exactly `scan_provenance_writer.jdtqwryiyxeuoraecorw`. The probe also accepts the exact direct username `scan_provenance_writer` when the hostname itself contains the development project reference. Do not use the generic `postgres` user or any URL from the production project.\n\nSet `SCAN_PROVENANCE_DATABASE_URL` **only in the local process environment**, pointing to the development project and the restricted login. Do not use `NEXT_PUBLIC_`, `DATABASE_URL`, Vercel production settings or a privileged postgres connection. Verify your connection host and role before running the test.
 
 The manual probe refuses non-development project references and non-writer usernames. Run from a trusted local checkout of the PR branch:
 
