@@ -57,3 +57,12 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 - The pool limits max clients to 2, connection wait to 1000 ms, statement execution to 1500 ms, and query wait to 2000 ms. The snapshot still **awaits** the write, so bounded additional latency is possible. Do not describe it as fully asynchronous or zero-latency.
 - Static integration test was added. GitHub Actions result for the new commit had not appeared at the time of this update; full build and nonproduction role-permission tests remain unverified.
 - These changes are only in the research PR, not production. The mandatory writer-role, database schema and real insert/permission gates still apply.
+
+## Separate development Supabase test (2026-11-14)
+- Found existing **signal-x-dev** Supabase project `jdtqwryiyxeuoraecorw` (distinct from production `paygtakajhvatwejygda`).
+- Applied a **development-only** migration `research_scan_provenance_isolated_writer_test_20261114`: private `scan_provenance_research` schema, `shadow_capture_test` table with unique key and RLS, and `scan_provenance_writer` NOLOGIN/NOBYPASSRLS role with schema USAGE, table INSERT and sequence USAGE; insert RLS policy only.
+- Verified with `has_table_privilege`: INSERT=true, SELECT=false, UPDATE=false, DELETE=false, TRUNCATE=false; role LOGIN=false and BYPASSRLS=false.
+- A transaction attempting `SET LOCAL ROLE scan_provenance_writer` failed with `permission denied to set role`; no successful INSERT, conflict or write-denial execution test has been established. The failed transaction did not insert rows.
+- The NOLOGIN role is **not** a deployable `SCAN_PROVENANCE_DATABASE_URL` user. Provisioning an authenticated, dedicated login and testing actual permissions requires a separate reviewed step and secure credential handling.
+- The test table is in a **private schema** with a **different name** from the current PR's `public.ai_power_scan_provenance_shadow`; therefore this test does not validate the current SQL capture path. Resolve the schema/connection mismatch before activation.
+- Production database and Vercel configuration were not changed.
