@@ -128,7 +128,7 @@ async function recordScanProvenanceShadow(
      SELECT $1, $2::timestamptz, x.code, x.fingerprint, x.capture
      FROM jsonb_to_recordset($3::jsonb)
        AS x(code text, fingerprint text, capture jsonb)
-     ON CONFLICT (snapshot_key, scan_generated_at, code) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [key, generatedAt, JSON.stringify(captures.map((capture) => ({
       code: capture.code,
       fingerprint: capture.inputFingerprintSha256,
