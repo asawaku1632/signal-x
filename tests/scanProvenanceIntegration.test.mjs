@@ -13,7 +13,8 @@ test("shadow write failure is isolated from scan response", () => {
   assert.match(source, /\.catch\(\(error\) => console\.error\("scan provenance shadow capture failed:", error\)\)/);
 });
 test("shadow data is append-only, deduplicated and not publicly granted", () => {
-  assert.match(source, /ON CONFLICT \(snapshot_key, scan_generated_at, code\) DO NOTHING/);
+  assert.match(source, /ON CONFLICT DO NOTHING/);
+  assert.doesNotMatch(source, /ON CONFLICT \(snapshot_key, scan_generated_at, code\) DO NOTHING/);
   assert.match(sql, /REVOKE ALL ON scan_provenance_research\.shadow_capture_test FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
   assert.match(sql, /CREATE POLICY shadow_writer_insert/);
