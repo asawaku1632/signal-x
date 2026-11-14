@@ -123,7 +123,7 @@ async function recordScanProvenanceShadow(
     }));
   if (!captures.length) return;
   await shadowPool.query(
-    `INSERT INTO public.ai_power_scan_provenance_shadow
+    `INSERT INTO scan_provenance_research.shadow_capture_test
        (snapshot_key, scan_generated_at, code, input_fingerprint_sha256, capture)
      SELECT $1, $2::timestamptz, x.code, x.fingerprint, x.capture
      FROM jsonb_to_recordset($3::jsonb)
