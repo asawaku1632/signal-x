@@ -21,3 +21,14 @@ test("shadow data is append-only, deduplicated and not publicly granted", () => 
 test("no unverified learning timestamp is represented as verified", () => {
   assert.match(source, /learningAsOf: null/);
 });
+
+test("shadow uses a dedicated bounded pool and never falls back to DATABASE_URL", () => {
+  const db = readFileSync(new URL("../app/lib/learning/scanProvenanceDb.ts", import.meta.url), "utf8");
+  assert.match(source, /getScanProvenancePool\(\)/);
+  assert.match(source, /await shadowPool\.query\(/);
+  assert.match(db, /process\.env\.SCAN_PROVENANCE_DATABASE_URL/);
+  assert.doesNotMatch(db, /process\.env\.DATABASE_URL/);
+  assert.match(db, /if \(!connectionString\) return null/);
+  assert.match(db, /connectionTimeoutMillis: 1000/);
+  assert.match(db, /statement_timeout: 1500/);
+});
