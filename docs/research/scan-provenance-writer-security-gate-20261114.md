@@ -43,3 +43,10 @@ WHERE n.nspname='public' AND c.relname IN ('ai_power_scan_audit','ai_power_scan_
 - Therefore `service_role` cannot itself be the direct login username for the application's `pg.Pool` connection. It can still be an assumed role or used by API services; this does **not** identify the deployed `DATABASE_URL` username.
 - If the app logs in as `postgres`, ordinary RLS is not an effective protection against that connection because `postgres` bypasses RLS. Do not claim the shadow archive is immutable or isolated until the runtime login and its effective role privileges are independently verified.
 - Avoid a production endpoint that returns credentials, role information or connection-string fragments to users. Use a reviewed internal-only diagnostic or secure hosting configuration inspection when approved.
+
+## Code-path review: shared pool is an activation blocker
+- `recordScanProvenanceShadow` in `app/lib/scanSnapshot.ts` currently calls the same imported `pool` as `recordScanAudit`, sourced from `app/lib/postgres.ts` and `DATABASE_URL`. This is not an isolated writer, regardless of the SQL grants in the proposed schema.
+- To meet the least-privilege design, implement a separately configured server-only `SCAN_PROVENANCE_DATABASE_URL` with an independent pool and a restricted LOGIN role. Do not fall back to `DATABASE_URL` if it is absent; fail closed while keeping the public scan available.
+- The current `await recordScanProvenanceShadow(...).catch(...)` prevents the exception from propagating but still adds latency while the query runs. Before activation, verify timeouts and use an appropriately bounded asynchronous capture strategy without changing the normal scan result.
+- An application-supplied `generatedAt` is the snapshot completion timestamp, not necessarily the precise score computation time. Do not use it as proof that the inputs were available before a market movement.
+- Until the code uses a dedicated writer and permissions are exercised in a nonproduction database, the status remains NO-GO.
