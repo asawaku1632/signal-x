@@ -14,9 +14,13 @@ test("shadow write failure is isolated from scan response", () => {
 });
 test("shadow data is append-only, deduplicated and not publicly granted", () => {
   assert.match(source, /ON CONFLICT \(snapshot_key, scan_generated_at, code\) DO NOTHING/);
-  assert.match(sql, /REVOKE ALL ON public\.ai_power_scan_provenance_shadow FROM anon, authenticated/);
+  assert.match(sql, /REVOKE ALL ON scan_provenance_research\.shadow_capture_test FROM PUBLIC, anon, authenticated, service_role/);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
-  assert.doesNotMatch(sql, /CREATE POLICY/i);
+  assert.match(sql, /CREATE POLICY shadow_writer_insert/);
+  assert.match(sql, /GRANT INSERT ON scan_provenance_research\.shadow_capture_test TO scan_provenance_writer/);
+  assert.doesNotMatch(sql, /GRANT (?:UPDATE|DELETE|TRUNCATE|SELECT) ON scan_provenance_research\.shadow_capture_test TO scan_provenance_writer/i);
+  assert.match(source, /INSERT INTO scan_provenance_research\.shadow_capture_test/);
+  assert.doesNotMatch(source, /INSERT INTO public\.ai_power_scan_provenance_shadow/);
 });
 test("no unverified learning timestamp is represented as verified", () => {
   assert.match(source, /learningAsOf: null/);
