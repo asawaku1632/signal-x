@@ -22,9 +22,8 @@ Entries are theoretical, not independently verified fills.
 
 From day 3 to day 5, the mean of the 25 modeled cumulative net
 returns fell **2.5802 percentage points** (same entry, separate
-hypothetical exits). This does not identify how many of the original
-day-1 positive individual securities reversed; the per-code local
-join below is required. Do not retrospectively choose the best exit day.
+hypothetical exits). The aggregate numbers alone do not identify how many original
+day-one winners reversed; see the owner-local per-code evidence below. Do not retrospectively choose the best exit day.
 
 ## External TOPIX market context (not a strategy return comparison)
 
@@ -96,3 +95,65 @@ sessions, duplicate code-horizons, subgroup drift and lock tampering.
 **Do not put licensed OHLCV or API keys into GitHub or chat.**
 Derived per-code results may be reviewed separately. Nothing here
 authorizes trading or notifications.
+
+## 2026-11-18 — owner-local per-code path audit received
+
+The owner ran the pinned-lock read-only path CLI and supplied derived
+PowerShell tables. This is owner-provided summary evidence, not a remote
+read of licensed private J-Quants originals and not independent vendor
+or broker certification. The 25-code population and 16/9 rising split
+were not reselected.
+
+| Fixed group | n | Positive after 1 session | After 3 | After 5 | 1-session positive to nonpositive at 5 | 3-session positive to nonpositive at 5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| All | 25 | 18 | 15 | 8 | 10 | 7 |
+| Rising | 16 | 11 | 9 | 5 | 6 | 4 |
+| Non-rising | 9 | 7 | 6 | 3 | 4 | 3 |
+
+Of the 18 positive 1-session securities, **10/18 (55.56%)**
+were nonpositive at 5 sessions and 8/18 (44.44%) remained positive.
+Of the 15 positive 3-session securities, **7/15 (46.67%)**
+were nonpositive at 5 sessions. Since there were only 8 positive
+5-session codes, and all are accounted for by the earlier positive
+codes, none of the earlier nonpositive securities were positive
+at the day-5 horizon. This describes net results only at the
+three evaluated exits; it does not establish sign at every
+intervening daily close.
+
+The PowerShell table truncated the visual display of the column
+\`meanChange3to5Points\`. From the previously received rounded
+group means, the 3-to-5 change is **-2.5802 pp** for all,
+**-2.6239 pp** for rising, and **-2.5024 pp** for non-rising.
+They are differences of modeled same-entry cumulative returns,
+not hypothetical fresh entry-to-exit results for those two days.
+
+### Ten day-one winners with nonpositive day-five modeled returns
+
+| Code | Rising MA75 | Day 1 net % | Day 3 net % | Day 5 net % | 3-to-5 delta pp |
+| --- | :---: | ---: | ---: | ---: | ---: |
+| 1934 | yes | +0.7903 | +0.6715 | -0.5958 | -1.2673 |
+| 3569 | yes | +1.2039 | +0.9231 | -1.3227 | -2.2458 |
+| 6395 | yes | +0.3165 | -1.4538 | -4.4042 | -2.9504 |
+| 7202 | no | +2.3863 | +1.5093 | -2.2687 | -3.7780 |
+| 7525 | no | +2.5879 | -1.0361 | -3.1269 | -2.0908 |
+| 8795 | no | +0.2203 | +0.9004 | -3.6005 | -4.5009 |
+| 8830 | no | +1.3439 | +3.0878 | -1.5148 | -4.6026 |
+| 9506 | yes | +0.5667 | -0.1231 | -2.1927 | -2.0696 |
+| 9507 | yes | +0.4215 | +0.6451 | -1.6908 | -2.3359 |
+| 9513 | yes | +0.0207 | +0.8536 | -0.9102 | -1.7638 |
+
+### Largest additional deterioration from the modeled day-three exit to day-five exit
+
+| Code | Day 3 % | Day 5 % | Delta pp |
+| --- | ---: | ---: | ---: |
+| 8053 | -3.2249 | -8.9924 | -5.7675 |
+| 8830 | +3.0878 | -1.5148 | -4.6026 |
+| 8795 | +0.9004 | -3.6005 | -4.5009 |
+| 7189 | -2.6964 | -6.7934 | -4.0970 |
+| 7202 | +1.5093 | -2.2687 | -3.7780 |
+
+These overlapping rows identify deterioration, not actionable
+sell signals. An exit-day rule tuned now using this Nov11 cohort
+would be **posthoc** and must be frozen for an independent later
+signal date before efficacy claims. No production approval,
+notifications, or trading authorization follows.
