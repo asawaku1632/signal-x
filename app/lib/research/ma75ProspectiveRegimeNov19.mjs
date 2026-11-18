@@ -290,8 +290,11 @@ export function evaluateMa75Nov19RegimeOutcomes(freeze,policy,lock,{
   result['session'+h]={exitSession:dates[h-1],
    allRequiredOriginalDaysPresent:allComplete,
    groups,peer:peers,budgetPeer:budgetPeers,
+   peerMinimumMeasuredForComparison:Math.min(800,953-lock.allBreakouts),
+   peerExcludedOrUnsettled:peers.pending+peers.quarantined,
    signalMinusPeerPoints:allComplete&&groups.all.measured===lock.allBreakouts&&
-    peers.measured===953-lock.allBreakouts&&groups.all.mean!==null&&peers.mean!==null?
+    peers.measured>=Math.min(800,953-lock.allBreakouts)&&
+    groups.all.mean!==null&&peers.mean!==null?
     round(groups.all.mean-peers.mean):null};
  }
  return {version:'ma75_nov19_regime_forward_outcomes_v1',
