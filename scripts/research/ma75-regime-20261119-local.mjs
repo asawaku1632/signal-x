@@ -39,10 +39,11 @@ const getReceipt=(s)=>{
   fail('INVALID_JQUANTS_PAGE_RECEIPTS');
  return s.pages.at(-1).receivedAt;
 };
-const getProjection=(freeze,date,source,project)=>{
+const getProjection=(freeze,date,source,project,asOfTime)=>{
  const sourceReceipt=Date.parse(getReceipt(source));
- if(sourceReceipt<Date.parse(date+'T07:30:00Z'))
-  fail('ORIGINAL_CAPTURE_BEFORE_CONSERVATIVE_RELEASE_FLOOR');
+ if(sourceReceipt<Date.parse(date+'T07:30:00Z')||
+    !Number.isFinite(asOfTime)||sourceReceipt>asOfTime)
+  fail('ORIGINAL_CAPTURE_OUTSIDE_POSTCLOSE_ASOF');
  return project(freeze,date,source);
 };
 const shaOriginals=(files,read)=>{
@@ -110,7 +111,7 @@ export function runMa75Nov19Local(argv=[],{
  const saved=files.map(x=>{
   const source=readSaved(x.path);
   if(!source)fail('ORIGINAL_PRIOR_OR_SIGNAL_DAY_MISSING_'+x.date);
-  return {date:x.date,source,projection:getProjection(freeze,x.date,source,project)};
+  return {date:x.date,source,projection:getProjection(freeze,x.date,source,project,now.getTime())};
  });
  const originalSha=shaOriginals(files,read);
  const current=saved.at(-1),receipt=getReceipt(current.source);
@@ -157,7 +158,7 @@ export function runMa75Nov19Local(argv=[],{
   if(!s)continue;
   const receivedAt=getReceipt(s);
   if(Date.parse(receivedAt)>now.getTime())fail('FUTURE_CAPTURE_RECEIPT');
-  sourceByDate[date]={projection:getProjection(freeze,date,s,project),receivedAt};
+  sourceByDate[date]={projection:getProjection(freeze,date,s,project,now.getTime()),receivedAt};
  }
  return evaluateMa75Nov19RegimeOutcomes(freeze,policy,lock,{
   signalProjection:current.projection,sourceByDate,now:now.toISOString()
