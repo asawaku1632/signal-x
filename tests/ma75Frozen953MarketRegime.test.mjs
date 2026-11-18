@@ -76,7 +76,7 @@ test('strict time, source, frozen original and cohort seals fail closed',()=>{
  assert.throws(()=>evaluateFrozen953RegimeComparison(c),/FROZEN_IDENTITY_CHANGED/);
  const d=fixture();d.projectedByDate['2026-11-19']=d.projectedByDate['2026-11-18'];
  assert.throws(()=>evaluateFrozen953RegimeComparison(d),/EXTRA_OR_WRONG_SOURCE_DATE/);
- const e=fixture();e.cohort.perFrozenCodeHorizon[0].risingMA75=false;
+ const e=fixture();e.cohort.perFrozenCodeHorizon[25].risingMA75=false;
  assert.throws(()=>evaluateFrozen953RegimeComparison(e),/COHORT_MEMBERSHIP_DRIFT/);
 });
 test('regime summary equal-weights signal DATES and refuses duplicate date',()=>{
