@@ -114,3 +114,21 @@ test('source modules are offline only; never run capture or production actions',
   assert.doesNotMatch(code,/\bfetch\s*\(|notificationSend|tradeOrder|createClient\s*\(/);
  }
 });
+
+test('incomplete non-signal peers stay disclosed; coverage-qualified comparison uses measured only',()=>{
+ const {lock,signal}=fix();
+ const make=(missing)=>Object.fromEntries(policy.futureSessions.map(date=>
+  [date,{projection:projection(date,{missing}),receivedAt:date+'T08:00:00Z'}]));
+ const base={signalProjection:signal,now:'2026-11-27T10:00:00Z'};
+ const partial=evaluateMa75Nov19RegimeOutcomes(freeze,policy,lock,{
+  ...base,sourceByDate:make(freeze.codes.slice(10,40))});
+ assert.equal(partial.horizons.session5.groups.all.measured,2);
+ assert.equal(partial.horizons.session5.peer.measured,921);
+ assert.equal(partial.horizons.session5.peer.pending,30);
+ assert.equal(partial.horizons.session5.peerExcludedOrUnsettled,30);
+ assert.equal(typeof partial.horizons.session5.signalMinusPeerPoints,'number');
+ const sparse=evaluateMa75Nov19RegimeOutcomes(freeze,policy,lock,{
+  ...base,sourceByDate:make(freeze.codes.slice(10,310))});
+ assert.equal(sparse.horizons.session5.peer.measured,651);
+ assert.equal(sparse.horizons.session5.signalMinusPeerPoints,null);
+});
