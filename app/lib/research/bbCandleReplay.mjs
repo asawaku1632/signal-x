@@ -89,13 +89,16 @@ export function replayBbCandleArchives(archives){
     const byDate=new Map(item.days.map((d,i)=>[d.date,i]));
     const seen=new Set();
     for(const h of item.hits){
-      const b=item.bars[h.index], next=item.bars[h.index+1];
-      const closeSlot=hhmm(Number(b.slot.slice(0,2))*60+Number(b.slot.slice(3))+5);
+      const b=item.bars[h.index], intermediate=item.bars[h.index+1], next=item.bars[h.index+2];
+      const closeSlot=hhmm(Number(b.slot.slice(0,2))*60+Number(b.slot.slice(3))+10);
       if(!ENTRY_SLOTS.includes(closeSlot))continue;
       const dayBars=item.perDay.get(b.date);
       if(!isCompleteDay(dayBars))continue;
-      // The next bar must be SAME DAY and immediately subsequent to close.
-      if(!next||next.date!==b.date||next.time!==b.time+300)continue;
+      // 5-minute buffer: signal is frozen at 09:15 before the 09:20 entry OPEN.
+      // The intermediate bar may not influence selection; both bars must exist.
+      if(!intermediate||!next||next.date!==b.date||
+         intermediate.date!==b.date||intermediate.time!==b.time+300||
+         next.time!==b.time+600)continue;
       // One event per code/date/slot; multiple pattern labels remain attached.
       const key=b.date+"|"+closeSlot;
       if(seen.has(key))continue;
@@ -119,9 +122,15 @@ export function replayBbCandleArchives(archives){
     }
   }
   const groups=Object.fromEntries(ENTRY_SLOTS.map(slot=>[slot,summary(rows.filter(r=>r.slot===slot&&r.direction==="BUY"))]));
+  const dayHorizonSummaries=Object.fromEntries(ENTRY_SLOTS.map(slot=>[slot,Object.fromEntries([1,3,5].map(h=>{
+    const subset=rows.filter(r=>r.slot===slot&&r.direction==="BUY"&&r["return"+h+"dPct"]!==null);
+    const values=subset.map(r=>r["return"+h+"dPct"]);
+    return [h,{n:values.length,meanNetPct:values.length>=30?mean(values):null,
+      winRatePct:values.length>=30?100*values.filter(v=>v>0).length/values.length:null}];
+  }))]));
   const byPattern=Object.fromEntries(["MARUBOZU","PIN_BAR","ENGULFING","DOJI_BREAK"].map(type=>[type,summary(rows.filter(r=>r.direction==="BUY"&&r.patterns.includes(type)))]));
   return {version:BB_CANDLE_REPLAY_VERSION,status:"HISTORICAL_LOCAL_SHADOW_ONLY",stockCount:items.length,
-    tradingDates:items[0].days.length,uniqueEvents:rows.length,groups,byPattern,
+    tradingDates:items[0].days.length,uniqueEvents:rows.length,groups,byPattern,dayHorizonSummaries,
     measuredDayHorizonCounts:Object.fromEntries([1,3,5].map(h=>[h,rows.filter(x=>x["return"+h+"dPct"]!==null).length])),
     historicalDataNotLive:true,eligibleForProduction:false,eligibleForNotifications:false,
     note:"Day-horizon prices are retrospective scenario references, not real-time trade outcomes; no rates published without 30 independent mature events."};
