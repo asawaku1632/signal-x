@@ -5,6 +5,7 @@
  */
 import { reconcileCapturedTradeDay } from "./fourPatternJQuantsBridge.mjs";
 import { detectBbCandleV1 } from "./bbCandleV1.mjs";
+import { assertContinuousTseSessions } from "./fourPatternTradingDayForward.mjs";
 
 export const BB_CANDLE_REPLAY_VERSION="BB_CANDLE_REPLAY_V1";
 export const ENTRY_SLOTS=Object.freeze(["09:20","11:20","14:15"]);
@@ -55,12 +56,12 @@ const summary=rows=>{
   if(rows.length<30)return {n:rows.length,meanNetPct:null,winRatePct:null,avgPnlYen100:null,avgAdversePct:null,
     evidence:"INSUFFICIENT_UNIQUE_EVENTS"};
   return {n:rows.length,meanNetPct:mean(rows.map(x=>x.netPct)),winRatePct:100*rows.filter(x=>x.pnl100>0).length/rows.length,
-    avgPnlYen100:mean(rows.map(x=>x.pnl100)),avgAdversePct:mean(rows.map(x=>x.adversePct)),
+    avgPnlYen100:mean(rows.map(x=>x.pnl100)),avgAdversePct:mean(rows.filter(x=>x.adversePct!==null).map(x=>x.adversePct)),
     evidence:"RETROSPECTIVE_ONLY"};
 };
 export function replayBbCandleArchives(archives){
   if(!Array.isArray(archives)||archives.length===0||archives.length>30)throw Error("INVALID_ARCHIVE_COUNT");
-  const items=[], dateSignature=null;
+  const items=[];
   const seenCodes=new Set();
   for(const archive of archives){
     const code=archive?.code;
@@ -75,6 +76,7 @@ export function replayBbCandleArchives(archives){
         throw Error("INVALID_DATE_COHORT");
       return reconcileCapturedTradeDay({code,date:m.date,minutePages:m.pages,dailyPages:d.pages});
     });
+    assertContinuousTseSessions(days);
     const signature=days.map(d=>d.date).join(",");
     if(items.length && signature!==items[0].signature)throw Error("MISMATCHED_COHORT_DATES");
     const bars=fiveMinuteFromReconciled(days);
@@ -88,8 +90,8 @@ export function replayBbCandleArchives(archives){
     const seen=new Set();
     for(const h of item.hits){
       const b=item.bars[h.index], next=item.bars[h.index+1];
-      if(!ENTRY_SLOTS.includes(b.slot===undefined?"":hhmm(Number(b.slot.slice(0,2))*60+Number(b.slot.slice(3))+5)))continue;
       const closeSlot=hhmm(Number(b.slot.slice(0,2))*60+Number(b.slot.slice(3))+5);
+      if(!ENTRY_SLOTS.includes(closeSlot))continue;
       const dayBars=item.perDay.get(b.date);
       if(!isCompleteDay(dayBars))continue;
       // The next bar must be SAME DAY and immediately subsequent to close.
@@ -98,7 +100,7 @@ export function replayBbCandleArchives(archives){
       const key=b.date+"|"+closeSlot;
       if(seen.has(key))continue;
       seen.add(key);
-      const related=item.hits.filter(x=>x.index===h.index).map(x=>x.type);
+      const related=[...new Set(item.hits.filter(x=>x.index===h.index).map(x=>x.type))];
       const buy=next.open*1.001;
       const close=dayBars.at(-1).close*.999;
       const riskBars=dayBars.filter(x=>x.time>=next.time);
