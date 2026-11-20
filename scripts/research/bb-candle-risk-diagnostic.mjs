@@ -115,7 +115,7 @@ export function buildRiskDiagnostics({benchmark,threeArchives,overlapFirst,overl
 const running=process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url);
 if(running){
  try{
-  if(process.argv.length!==7)throw Error("USAGE_TOPIX_THREE_STOCKS_TWO_8053_FILES");
+  if(process.argv.length!==8)throw Error("USAGE_TOPIX_THREE_STOCKS_TWO_8053_FILES");
   const [benchmark,...paths]=process.argv.slice(2);
   const [a,b,c,first,second]=paths.map(f=>load(f,8_000_000));
   console.log(JSON.stringify(buildRiskDiagnostics({
