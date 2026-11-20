@@ -92,7 +92,7 @@ if(running){
     console.log(JSON.stringify({...out,cohorts:out.cohorts.map(x=>({
       first:x.first,last:x.last,tradingDates:x.tradingDates,stocks:x.stocks,
       benchmarkReadySessions:x.benchmarkReadySessions,eligibleAsOneSharedCohort:x.eligibleAsOneSharedCohort,
-      codes:x.codes,filenames:x.files.map(basename)
+      codes:x.codes,filenames:x.files.map(f=>basename(f))
     }))},null,2));
   }catch(e){
     console.error("BB_ARCHIVE_INVENTORY_BLOCKED",
