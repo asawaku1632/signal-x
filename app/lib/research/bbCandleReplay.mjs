@@ -59,7 +59,8 @@ const summary=rows=>{
     avgPnlYen100:mean(rows.map(x=>x.pnl100)),avgAdversePct:mean(rows.filter(x=>x.adversePct!==null).map(x=>x.adversePct)),
     evidence:"RETROSPECTIVE_ONLY"};
 };
-export function replayBbCandleArchives(archives){
+export function replayBbCandleArchives(archives,{exploratoryDetails=false}={}){
+  if(typeof exploratoryDetails!=="boolean")throw Error("INVALID_EXPLORATORY_OPTION");
   if(!Array.isArray(archives)||archives.length===0||archives.length>30)throw Error("INVALID_ARCHIVE_COUNT");
   const items=[];
   const seenCodes=new Set();
@@ -110,15 +111,22 @@ export function replayBbCandleArchives(archives){
       const worstLow=Math.min(...riskBars.map(x=>x.low));
       const sessionIndex=byDate.get(b.date);
       const dayReturns={};
+      const dayAdverse={};
       for(const horizon of [1,3,5]){
         const exitDay=item.days[sessionIndex+horizon];
         dayReturns[horizon]=exitDay ? pct(exitDay.minutes.at(-1).close*.999,buy) : null;
+        const through=exitDay?item.days.slice(sessionIndex,sessionIndex+horizon+1):[];
+        const lows=through.flatMap((d,j)=>d.minutes.filter(x=>j>0||x.minute>=Number(next.slot.slice(0,2))*60+Number(next.slot.slice(3))).map(x=>x.low));
+        dayAdverse[horizon]=exitDay&&lows.length?pct(Math.min(...lows),buy):null;
       }
       rows.push({code:item.code,date:b.date,slot:closeSlot,patterns:related,
         direction:h.direction,netPct:h.direction==="BUY"?pct(close,buy):pct(buy,close),
         pnl100:h.direction==="BUY"?(close-buy)*100:(buy-close)*100,
         adversePct:h.direction==="BUY"?pct(worstLow,buy):null,
-        return1dPct:dayReturns[1],return3dPct:dayReturns[3],return5dPct:dayReturns[5]});
+        return1dPct:dayReturns[1],return3dPct:dayReturns[3],return5dPct:dayReturns[5],
+        adverse1dPct:h.direction==="BUY"?dayAdverse[1]:null,
+        adverse3dPct:h.direction==="BUY"?dayAdverse[3]:null,
+        adverse5dPct:h.direction==="BUY"?dayAdverse[5]:null});
     }
   }
   const groups=Object.fromEntries(ENTRY_SLOTS.map(slot=>[slot,summary(rows.filter(r=>r.slot===slot&&r.direction==="BUY"))]));
@@ -129,8 +137,21 @@ export function replayBbCandleArchives(archives){
       winRatePct:values.length>=30?100*values.filter(v=>v>0).length/values.length:null}];
   }))]));
   const byPattern=Object.fromEntries(["MARUBOZU","PIN_BAR","ENGULFING","DOJI_BREAK"].map(type=>[type,summary(rows.filter(r=>r.direction==="BUY"&&r.patterns.includes(type)))]));
+  const details=exploratoryDetails?rows.filter(r=>r.direction==="BUY").map(r=>({
+    code:r.code,date:r.date,slot:r.slot,patterns:r.patterns,
+    intradayProfitYen100:Number(r.pnl100.toFixed(2)),
+    intradayNetPct:Number(r.netPct.toFixed(4)),
+    intradayWorstDipPct:r.adversePct===null?null:Number(r.adversePct.toFixed(4)),
+    after1dPct:r.return1dPct===null?null:Number(r.return1dPct.toFixed(4)),
+    after3dPct:r.return3dPct===null?null:Number(r.return3dPct.toFixed(4)),
+    after5dPct:r.return5dPct===null?null:Number(r.return5dPct.toFixed(4)),
+    worstDip1dPct:r.adverse1dPct===null?null:Number(r.adverse1dPct.toFixed(4)),
+    worstDip3dPct:r.adverse3dPct===null?null:Number(r.adverse3dPct.toFixed(4)),
+    worstDip5dPct:r.adverse5dPct===null?null:Number(r.adverse5dPct.toFixed(4))
+  })):undefined;
   return {version:BB_CANDLE_REPLAY_VERSION,status:"HISTORICAL_LOCAL_SHADOW_ONLY",stockCount:items.length,
     tradingDates:items[0].days.length,uniqueEvents:rows.length,groups,byPattern,dayHorizonSummaries,
+    ...(exploratoryDetails?{exploratoryBuyEvents:details,exploratoryNotStatisticallyValidated:true}:{}),
     measuredDayHorizonCounts:Object.fromEntries([1,3,5].map(h=>[h,rows.filter(x=>x["return"+h+"dPct"]!==null).length])),
     historicalDataNotLive:true,eligibleForProduction:false,eligibleForNotifications:false,
     note:"Day-horizon prices are retrospective scenario references, not real-time trade outcomes; no rates published without 30 independent mature events."};
