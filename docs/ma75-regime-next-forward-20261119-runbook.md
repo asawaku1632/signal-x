@@ -133,11 +133,27 @@ eight non-rising. Positive **mean** is driven partly by code 6315, and
 the overall **median** is negative. Rising-group mean remains positive
 when dropping its biggest winner but sample is only three codes.
 
-This update records only owner-pasted signal-group summaries. The
-\`session1.peer\` non-signal benchmark was **not included** in the
-pasted output, so a same-day market-relative advantage **cannot yet
-be determined**. Do not substitute previous-date benchmark or raw
-TOPIX values. Day 3 and day 5 remain pending: Nov25 and Nov27;
+### Subsequent owner-provided non-signal benchmark — Nov20 session 1
+
+The owner also supplied the separate \`session1.peer\` read-only
+summary: **940 measured non-signal codes out of the frozen 941 non-signal
+codes, 1 pending**, mean hypothetical net **-1.5858%**.
+The pre-fixed 12 MA75 breakout candidates averaged **+0.0810%**.
+The difference is **+1.6668 percentage points** (0.0810 - (-1.5858)).
+This qualifies for the locally predeclared peer coverage comparison
+(940 observed codes >= 800 required); it is **not TOPIX** and is not
+industry-, size-, or liquidity-matched.
+
+The 12-code signal cohort has **25% positive returns (3/12)** and
+a **-0.3456% median**. Excluding its single biggest winner
+(6315) changes the signal mean to **-0.2880%**, which is still
+**+1.2978 percentage points** versus the UNCHANGED 940-code
+non-signal reference. This is a posthoc descriptive stress
+check, not a matched causal estimate or a trading rule.
+
+No claim of repeatability from one new DOWN-market date.
+Do not substitute previous-date benchmark or raw TOPIX values.
+Day 3 and day 5 remain pending: Nov25 and Nov27;
 Nov23 is a JPX holiday.
 
 No trading rule change, production promotion, notification activation,
