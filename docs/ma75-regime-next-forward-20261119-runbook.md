@@ -110,3 +110,36 @@ $r | Select-Object status,signalDate,priorMarketRegime,originalBreakouts,sources
 - 11月19日用の研究ルール・日付は変更しない。将来の別判定日はその日より前に別の宣言を追加する。
 - 固定953銘柄の母集団には業種・流動性等の選択バイアスがある。非候補比較も因果的な優位性の証明ではない。
 - SHADOW_NOT_APPROVED、eligibleForTrading: false、eligibleForNotifications: false、eligibleForProduction: false を維持する。DB、売買、通知、本番デプロイ、PRマージは実施しない。
+
+
+## ④ 2026-11-20 — 1-session owner-local observations (not independently authenticated)
+
+User-provided derived PowerShell output after local \`--review\` (not the
+licensed source files). **12/12 fixed signals measured; 0 pending, 0
+quarantined**. Lock and signal-date DOWN regime were fixed on Nov19;
+same-day source availability and real fills are not independently verified.
+
+| Nov19 cohort, hypothetical Nov20 close | Fixed | Measured | Mean net % | Median net % | Positive rate % | Largest winner | Mean excluding biggest winner % | Biggest loser | Mean excluding biggest loser % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | ---: |
+| All | 12 | 12 | +0.0810 | -0.3456 | 25.0000 | 6315 | -0.2880 | 9404 | +0.2554 |
+| MA75 rising | 4 | 4 | +1.4937 | +1.0175 | 50.0000 | 6315 | +0.6118 | 4725 | +2.0581 |
+| MA75 non-rising | 8 | 8 | -0.6254 | -0.6883 | 12.5000 | 2908 | -0.8106 | 9404 | -0.4521 |
+| Budget eligible | 11 | 11 | +0.0885 | -0.4913 | 27.2727 | 6315 | -0.3165 | 9404 | +0.2812 |
+| Budget rising | 3 | 3 | +1.9924 | +2.0377 | 66.6667 | 6315 | +0.9190 | 4725 | +3.0885 |
+| Budget non-rising | 8 | 8 | -0.6254 | -0.6883 | 12.5000 | 2908 | -0.8106 | 9404 | -0.4521 |
+
+Positive count is three of twelve overall, two of four rising, one of
+eight non-rising. Positive **mean** is driven partly by code 6315, and
+the overall **median** is negative. Rising-group mean remains positive
+when dropping its biggest winner but sample is only three codes.
+
+This update records only owner-pasted signal-group summaries. The
+\`session1.peer\` non-signal benchmark was **not included** in the
+pasted output, so a same-day market-relative advantage **cannot yet
+be determined**. Do not substitute previous-date benchmark or raw
+TOPIX values. Day 3 and day 5 remain pending: Nov25 and Nov27;
+Nov23 is a JPX holiday.
+
+No trading rule change, production promotion, notification activation,
+or manipulation of the fixed original 12 codes. The same subgroup
+definitions and transaction-friction assumptions remain in force.
