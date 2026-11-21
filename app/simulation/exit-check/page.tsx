@@ -96,6 +96,7 @@ export default function SwingExitCheckPage() {
     <div className="mx-auto min-h-screen max-w-md bg-white px-4 py-5 shadow-sm">
       <a className="text-sm font-bold text-blue-600" href="/simulation">← 疑似投資に戻る</a>
       <h1 className="mt-5 text-2xl font-black">🔍 撤退後の反発・続落を検証</h1>
+      <a href="/simulation/decision-check" className="mt-3 block rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm font-bold text-indigo-700">🔬 継続保有との比較研究 →</a>
       <p className="mt-2 text-sm leading-6 text-slate-600">
         SIGNALXが「撤退候補」と判定した時点の価格を記録し、その後1・3・5・10取引日目の保存価格と比較します。
       </p>

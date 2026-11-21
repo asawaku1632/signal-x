@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - "app/lib/learning/swingExitAudit.ts"
+      - "app/lib/learning/swingDecisionForward.ts"
+      - "app/lib/learning/swingDecisionForwardMath.ts"
+      - "app/api/swing-decision-forward/**"
+      - "supabase/migrations/20261109_create_swing_decision_forward_observations.sql"
+      - "tests/swingDecisionForward.test.mjs"
       - "app/lib/research/ownerPostSaleAudit.ts"
       - "app/admin/post-sale-audit/**"
       - "app/api/admin/post-sale-audit/**"
@@ -86,6 +91,6 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: node --test tests/ownerPostSaleAudit.test.mjs tests/swingExitAudit.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs tests/shadowCandleBuyCaution.test.mjs tests/shadowCandleNineOverview.test.mjs tests/ownerCandleNineStockOverview.test.mjs tests/shadowCandleQuickVerdict.test.mjs
+      - run: node --test tests/ownerPostSaleAudit.test.mjs tests/swingExitAudit.test.mjs tests/swingDecisionForward.test.mjs tests/swingConflictAudit.test.mjs tests/learningOwnerHub.test.mjs tests/shadowCandlestickNine.test.mjs tests/shadowCandlestickBatch.test.mjs tests/shadowCandleStudyArchive.test.mjs tests/shadowCandleAutoDaily.test.mjs tests/supportReboundResearch.test.mjs tests/supportReboundExpansion.test.mjs tests/supportReboundRiskStudy.test.mjs tests/supportReboundRiskScore.test.mjs tests/supportReboundMidForward.test.mjs tests/supportReboundAutoDaily.test.mjs tests/shadowCandleBuyCaution.test.mjs tests/shadowCandleNineOverview.test.mjs tests/ownerCandleNineStockOverview.test.mjs tests/shadowCandleQuickVerdict.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
