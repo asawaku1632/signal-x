@@ -139,40 +139,32 @@ export async function updatePatternForwardOutcomes(
         p.id,
         p.direction,
         p.entry_price,
-        one.price AS price_1d,
-        one.outcome_date AS date_1d,
-        three.price AS price_3d,
-        three.outcome_date AS date_3d,
-        five.price AS price_5d,
-        five.outcome_date AS date_5d
+        prices.price_1d,
+        prices.date_1d,
+        prices.price_3d,
+        prices.date_3d,
+        prices.price_5d,
+        prices.date_5d
       FROM pattern_forward_observations p
       LEFT JOIN LATERAL (
-        SELECT d.price, d.date::date AS outcome_date
-        FROM daily_stock_results d
-        WHERE d.code = p.code
-          AND d.date::date > p.trade_date
-          AND d.date::date <= $1::date
-        ORDER BY d.date::date ASC
-        OFFSET 0 LIMIT 1
-      ) one ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT d.price, d.date::date AS outcome_date
-        FROM daily_stock_results d
-        WHERE d.code = p.code
-          AND d.date::date > p.trade_date
-          AND d.date::date <= $1::date
-        ORDER BY d.date::date ASC
-        OFFSET 2 LIMIT 1
-      ) three ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT d.price, d.date::date AS outcome_date
-        FROM daily_stock_results d
-        WHERE d.code = p.code
-          AND d.date::date > p.trade_date
-          AND d.date::date <= $1::date
-        ORDER BY d.date::date ASC
-        OFFSET 4 LIMIT 1
-      ) five ON TRUE
+        SELECT
+          MAX(price) FILTER (WHERE rn = 1) AS price_1d,
+          MAX(outcome_date) FILTER (WHERE rn = 1) AS date_1d,
+          MAX(price) FILTER (WHERE rn = 3) AS price_3d,
+          MAX(outcome_date) FILTER (WHERE rn = 3) AS date_3d,
+          MAX(price) FILTER (WHERE rn = 5) AS price_5d,
+          MAX(outcome_date) FILTER (WHERE rn = 5) AS date_5d
+        FROM (
+          SELECT d.price, d.date::date AS outcome_date,
+                 ROW_NUMBER() OVER (ORDER BY d.date::date ASC) AS rn
+          FROM daily_stock_results d
+          WHERE d.code = p.code
+            AND d.date::date > p.trade_date
+            AND d.date::date <= $1::date
+          ORDER BY d.date::date ASC
+          LIMIT 5
+        ) first_five
+      ) prices ON TRUE
       WHERE p.trade_date < $1::date
         AND (p.return_1d IS NULL OR p.return_3d IS NULL OR p.return_5d IS NULL)
     ),

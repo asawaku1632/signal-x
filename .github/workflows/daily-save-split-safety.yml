@@ -7,6 +7,16 @@ on:
       - "app/lib/learning/learningSaveMonitor.ts"
       - "app/lib/learning/learningSaveStatus.ts"
       - "tests/saveDailySplit.test.mjs"
+      - "tests/tprObservationSqlContract.test.mjs"
+      - "tests/tprObservationImmutable.test.mjs"
+      - "tests/tprOutcomePriority.test.mjs"
+      - "tests/tprOutcomeSqlContract.test.mjs"
+      - "tests/marketQuoteNullPreservation.test.mjs"
+      - "tests/dailyMarketQuoteValidationContract.test.mjs"
+      - "app/lib/marketLearning.ts"
+      - "app/lib/learning/dailyMarketQuoteValidation.ts"
+      - "app/lib/relatedLearning.ts"
+      - "app/lib/learning/trendPullbackReversal.ts"
       - "tests/learningSaveMonitor.test.mjs"
       - "vercel.json"
       - ".github/workflows/daily-save-split-safety.yml"
@@ -26,7 +36,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Check post-save split contracts
-        run: node --test tests/saveDailySplit.test.mjs
+        run: node --test tests/saveDailySplit.test.mjs tests/tprObservationSqlContract.test.mjs tests/tprObservationImmutable.test.mjs tests/tprOutcomePriority.test.mjs tests/tprOutcomeSqlContract.test.mjs tests/marketQuoteNullPreservation.test.mjs tests/dailyMarketQuoteValidationContract.test.mjs
       - name: Type-check app
         run: |
           npx next typegen

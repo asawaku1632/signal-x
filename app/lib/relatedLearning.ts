@@ -165,10 +165,10 @@ export async function saveRelatedLearning(
         ai_bonus, confidence
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       ON CONFLICT (trade_date) DO UPDATE SET
-        nikkei = EXCLUDED.nikkei,
-        topix = EXCLUDED.topix,
-        usd_jpy = EXCLUDED.usd_jpy,
-        vix = EXCLUDED.vix,
+        nikkei = COALESCE(EXCLUDED.nikkei, market_learning_logs.nikkei),
+        topix = COALESCE(EXCLUDED.topix, market_learning_logs.topix),
+        usd_jpy = COALESCE(EXCLUDED.usd_jpy, market_learning_logs.usd_jpy),
+        vix = COALESCE(EXCLUDED.vix, market_learning_logs.vix),
         market_trend = EXCLUDED.market_trend,
         market_score = EXCLUDED.market_score,
         market_comment = EXCLUDED.market_comment,
