@@ -159,3 +159,49 @@ Nov23 is a JPX holiday.
 No trading rule change, production promotion, notification activation,
 or manipulation of the fixed original 12 codes. The same subgroup
 definitions and transaction-friction assumptions remain in force.
+
+
+## ⑤ 2026-11-25 — owner-local 3-session comparison (observational)
+
+On Nov 25 the owner executed the Nov19 locked study in a **separate
+MA75 git worktree** rooted at \`C:\Users\neomo\signal-x-ma75-validation\`
+(so the separately used BB-candle worktree and its many untracked
+research files did not need to be altered). The output confirmed
+\`LOCK_VERIFIED=TRUE\`, \`allRequiredOriginalDaysPresent=True\`,
+and \`MA75_3DAY_CHECK_COMPLETE\`. Exactly 12/12 pre-frozen MA75
+candidates and 940/941 non-signals were measured. The locked signal-date
+regime was **DOWN**. Results are derived PowerShell printouts supplied
+by the owner, not raw provider pages or independently authenticated
+entry/exit fills.
+
+| Metric | Nov20: 1 session | Nov25: 3 sessions |
+| --- | ---: | ---: |
+| All 12 breakout mean net % | +0.0810 | +1.1690 |
+| All 12 median net % | -0.3456 | +1.5793 |
+| All 12 positive rate % | 25.0 (3/12) | 75.0 (9/12) |
+| Rising MA75 (4) mean net % | +1.4937 | +1.8357 |
+| Non-rising MA75 (8) mean net % | -0.6254 | +0.8356 |
+| Non-signal peers (940 measured) mean net % | -1.5858 | -0.2346 |
+| All-signal minus peer mean, percentage points | +1.6668 | +1.4036 |
+| All-signal mean excluding largest single winner % | -0.2880 | +0.7891 |
+
+The Nov25 outlier-excluded 11-code signal mean (+0.7891%) is
++1.0237 pp above the unchanged 940-code peer mean (-0.2346%).
+This is an **exploratory** leave-one-signal-winner-out check:
+unmatched universes and unequal group sizes remain. The individual
+Nov25 largest-winner code was **not** supplied; do not assume it
+remained 6315. For Nov25, the 3-session averages are measured
+from Nov20 hypothetical opening entry to Nov25 hypothetical close
+with the original 0.1% buy and 0.1% sell frictions.
+
+Caution: this is a positive **single signal-day example**, not proof
+of a robust future strategy or a causal effect of MA75. The +1.4036
+pp relative advantage is *smaller* than the session-1 +1.6668 pp
+advantage, even while the MA75 absolute mean and positive rate improved.
+The 1-session and 3-session samples are the **same 12 codes**, not
+two statistically independent signal dates. The 5-session Nov27
+evaluation remains pending; raw 2026-11-26 and 2026-11-27 sources
+must be available and verified before claiming it.
+
+Status remains **SHADOW_NOT_APPROVED**, no production writes,
+trades, rankings, or notification activation.
