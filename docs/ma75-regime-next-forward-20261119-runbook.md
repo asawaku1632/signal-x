@@ -205,3 +205,74 @@ must be available and verified before claiming it.
 
 Status remains **SHADOW_NOT_APPROVED**, no production writes,
 trades, rankings, or notification activation.
+
+
+## ⑥ 2026-11-27 — completed 5-session owner-local comparison
+
+The owner completed the 2026-11-19 sealed DOWN-regime 12-stock
+study in their isolated local MA75 worktree. Re-verification output:
+\`LOCK_VERIFIED=PASS\`; the predeclared Nov26 and Nov27 full-market
+daily capture files were explicitly obtained locally (4448 and 4447
+original provider rows respectively, each projected onto the fixed
+953-code universe); \`MA75_5DAY_FINAL_CHECK_COMPLETE\` and
+\`allRequiredOriginalDaysPresent=true\` were printed.
+
+The 5-session horizon uses the same Nov20 theoretical opening entry
+and the Nov27 closing exit, including modeled 0.1% buy and 0.1%
+sell frictions as predeclared. The original lock hash remains
+\`adf5a9e7357dd1fac34da80e77263f641b68d19252915c98e3d56f872a20e41d\`.
+No additional codes were selected using future outcomes.
+
+### Complete results by signal date Nov19
+
+| Group | Frozen | Measured | Mean net % | Median net % | Positive rate % | Mean leaving largest winner out % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| All breakouts | 12 | 12 | +0.8771 | +0.3564 | 58.3333 | +0.3012 |
+| MA75 rising | 4 | 4 | +3.9348 | +3.4108 | 100.0000 | +2.8424 |
+| MA75 non-rising | 8 | 8 | -0.6518 | -0.2874 | 37.5000 | -0.9512 |
+| Budget eligible | 11 | 11 | +0.6164 | +0.2980 | 54.5455 | -0.0432 |
+| Budget rising | 3 | 3 | +3.9980 | +3.0767 | 100.0000 | +2.3911 |
+| Budget non-rising | 8 | 8 | -0.6518 | -0.2874 | 37.5000 | -0.9512 |
+
+The biggest 5-session all-group winner was code **3708**; the
+biggest loser was code **9404**. Excluding the biggest loser raises
+the 11-code all-signal mean to **+1.2790%**, which is still below
+the same-date non-signal mean.
+
+### Horizon-by-horizon same-day non-signal comparison
+
+| Horizon | All 12 MA75 mean net % | Same-date non-signals 940 measured mean net % | MA75 minus non-signal, pp | All 12 positive rate % | Rising 4 mean net % | Non-rising 8 mean net % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 session — Nov20 | +0.0810 | -1.5858 | +1.6668 | 25.0000 | +1.4937 | -0.6254 |
+| 3 sessions — Nov25 | +1.1690 | -0.2346 | +1.4036 | 75.0000 | +1.8357 | +0.8356 |
+| 5 sessions — Nov27 | +0.8771 | +1.4783 | **-0.6012** | 58.3333 | **+3.9348** | **-0.6518** |
+
+The Nov27 non-signal comparator measures **940 of 941 fixed
+non-signal codes**, not TOPIX, and is not sector/size/liquidity
+matched. The 5-session all-signal mean is **below** the comparator
+by 0.6012 percentage points, so do not claim the overall 12-code
+screen beat the market on the 5-session horizon. Rising 4 outperformed
+the same comparator by **+2.4565 pp**, while non-rising 8 lagged
+it by **-2.1301 pp**. Rising minus non-rising was **+4.5866 pp**.
+These are exploratory subgroup contrasts, not independently
+validated investment effects.
+
+The original signal-date label **DOWN** was measured by the
+frozen 953-code median *before* Nov19 close. The comparison
+universe subsequently rose in aggregate over the 5-session holding
+window; it would be incorrect to call the whole forward window DOWN.
+
+For context, the two other fixed signal dates had 5-session
+differences: Nov02 DOWN +1.1419pp (27 signals);
+Nov11 SIDEWAYS +0.0473pp (25 signals).
+Nov19 DOWN -0.6012pp (12 signals) makes the down-regime
+result mixed across the **two** independent dates. No UP-regime
+independent date exists in this study. Overlapping daily cohorts
+and the small 4-code rising subgroup must not be turned into a
+statistical proof of predictive skill.
+
+The copied provider pages, receipt timestamps, corporate actions,
+source rights and actual broker fills were not independently
+verified by this note; only derived owner-provided output was
+recorded. Status **SHADOW_NOT_APPROVED**, no trading, notification,
+production promotion, or live signal activation.
